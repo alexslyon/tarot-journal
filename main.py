@@ -1474,65 +1474,62 @@ class MainFrame(wx.Frame):
         return categorized
 
     def _sort_playing_cards(self, cards, suit_names):
-        """Sort playing cards: by suit (Hearts, Diamonds, Clubs, Spades), then rank (2-K, A, Jokers)"""
-
-        # Rank order: 2-10, J, Q, K, then Ace, then Jokers
-        rank_order = {
-            'two': 2, '2': 2,
-            'three': 3, '3': 3,
-            'four': 4, '4': 4,
-            'five': 5, '5': 5,
-            'six': 6, '6': 6,
-            'seven': 7, '7': 7,
-            'eight': 8, '8': 8,
-            'nine': 9, '9': 9,
-            'ten': 10, '10': 10,
-            'jack': 11, 'j': 11,
-            'queen': 12, 'q': 12,
-            'king': 13, 'k': 13,
-            'ace': 14, 'a': 14,  # Ace comes after King
-        }
-
-        # Suit order
-        suit_order = {
-            suit_names.get('hearts', 'Hearts').lower(): 100,
-            suit_names.get('diamonds', 'Diamonds').lower(): 200,
-            suit_names.get('clubs', 'Clubs').lower(): 300,
-            suit_names.get('spades', 'Spades').lower(): 400,
-            'hearts': 100, 'heart': 100,
-            'diamonds': 200, 'diamond': 200,
-            'clubs': 300, 'club': 300,
-            'spades': 400, 'spade': 400,
-        }
+        """Sort playing cards by card_order field (set by import/auto-assign).
+        Order: Jokers first, then Spades, Hearts, Clubs, Diamonds (2-A within each suit)"""
 
         def get_sort_key(card):
+            # Primary: use card_order if set
+            card_order = card.get('card_order', 999) or 999
+            if card_order != 999:
+                return card_order
+
+            # Fallback: parse card name
             name_lower = card['name'].lower()
 
-            # Check for Jokers - they come last
+            # Jokers come first
             if 'joker' in name_lower:
-                # Red joker before black joker
                 if 'red' in name_lower:
-                    return (1000, 1)
+                    return 1
                 elif 'black' in name_lower:
-                    return (1000, 2)
+                    return 2
                 else:
-                    return (1000, 0)
+                    return 1
 
-            # Try to find suit and rank
-            for suit_name, suit_val in suit_order.items():
+            # Suit base values: Spades=100, Hearts=200, Clubs=300, Diamonds=400
+            suit_bases = {
+                'spades': 100, 'spade': 100,
+                'hearts': 200, 'heart': 200,
+                'clubs': 300, 'club': 300,
+                'diamonds': 400, 'diamond': 400,
+            }
+
+            # Rank values: 2=1, 3=2, ..., K=12, A=13
+            rank_values = {
+                'two': 1, '2': 1,
+                'three': 2, '3': 2,
+                'four': 3, '4': 3,
+                'five': 4, '5': 4,
+                'six': 5, '6': 5,
+                'seven': 6, '7': 6,
+                'eight': 7, '8': 7,
+                'nine': 8, '9': 8,
+                'ten': 9, '10': 9,
+                'jack': 10, 'j': 10,
+                'queen': 11, 'q': 11,
+                'king': 12, 'k': 12,
+                'ace': 13, 'a': 13,
+            }
+
+            # Find suit
+            for suit_name, suit_val in suit_bases.items():
                 if suit_name in name_lower:
-                    # Found suit, now find rank
-                    for rank_name, rank_val in rank_order.items():
-                        if rank_name in name_lower.split() or name_lower.startswith(rank_name + ' '):
-                            return (suit_val, rank_val)
-                        # Also check for patterns like "2 of hearts" or "two of hearts"
-                        if f'{rank_name} of' in name_lower:
-                            return (suit_val, rank_val)
-                    # Suit found but no rank - put at end of suit
-                    return (suit_val, 99)
+                    # Find rank
+                    for rank_name, rank_val in rank_values.items():
+                        if f'{rank_name} of' in name_lower or name_lower.startswith(rank_name + ' '):
+                            return suit_val + rank_val
+                    return suit_val + 50  # Unknown rank
 
-            # No suit found - put at very end
-            return (999, 0)
+            return 999  # Unknown cards at end
 
         return sorted(cards, key=get_sort_key)
 

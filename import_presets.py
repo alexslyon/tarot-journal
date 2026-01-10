@@ -938,10 +938,21 @@ class ImportPresets:
             else:
                 return {'archetype': 'Joker', 'rank': 'Joker', 'suit': None, 'sort_order': sort_order}
 
+        # Rank names - both word and numeric forms
         rank_names = {
-            'ace': 'Ace', 'two': 'Two', 'three': 'Three', 'four': 'Four', 'five': 'Five',
-            'six': 'Six', 'seven': 'Seven', 'eight': 'Eight', 'nine': 'Nine', 'ten': 'Ten',
-            'jack': 'Jack', 'queen': 'Queen', 'king': 'King',
+            'ace': 'Ace', 'a': 'Ace',
+            'two': 'Two', '2': 'Two',
+            'three': 'Three', '3': 'Three',
+            'four': 'Four', '4': 'Four',
+            'five': 'Five', '5': 'Five',
+            'six': 'Six', '6': 'Six',
+            'seven': 'Seven', '7': 'Seven',
+            'eight': 'Eight', '8': 'Eight',
+            'nine': 'Nine', '9': 'Nine',
+            'ten': 'Ten', '10': 'Ten',
+            'jack': 'Jack', 'j': 'Jack',
+            'queen': 'Queen', 'q': 'Queen',
+            'king': 'King', 'k': 'King',
         }
 
         suit_names = ['hearts', 'diamonds', 'clubs', 'spades']
@@ -1086,10 +1097,21 @@ class ImportPresets:
         }
 
         # Rank values (2-A order: 2=1, 3=2, ..., K=12, A=13)
+        # Include both word and numeric forms
         rank_values = {
-            'two': 1, 'three': 2, 'four': 3, 'five': 4, 'six': 5,
-            'seven': 6, 'eight': 7, 'nine': 8, 'ten': 9,
-            'jack': 10, 'queen': 11, 'king': 12, 'ace': 13,
+            'two': 1, '2': 1,
+            'three': 2, '3': 2,
+            'four': 3, '4': 3,
+            'five': 4, '5': 4,
+            'six': 5, '6': 5,
+            'seven': 6, '7': 6,
+            'eight': 7, '8': 7,
+            'nine': 8, '9': 8,
+            'ten': 9, '10': 9,
+            'jack': 10, 'j': 10,
+            'queen': 11, 'q': 11,
+            'king': 12, 'k': 12,
+            'ace': 13, 'a': 13,
         }
 
         # Find suit and rank
