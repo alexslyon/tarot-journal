@@ -5,6 +5,7 @@ wxPython GUI version
 """
 
 import wx
+import wx.adv
 import wx.lib.scrolledpanel as scrolled
 import wx.lib.agw.flatnotebook as fnb
 from PIL import Image
@@ -19,7 +20,7 @@ from import_presets import get_presets, BUILTIN_PRESETS
 from theme_config import get_theme, PRESET_THEMES
 
 # Version
-VERSION = "0.3.32"
+VERSION = "0.4.0"
 
 # Load theme
 _theme = get_theme()
@@ -36,6 +37,167 @@ def hex_to_rgb(hex_color):
 def get_wx_color(key):
     """Get a wx.Colour from theme"""
     return wx.Colour(*hex_to_rgb(COLORS.get(key, '#000000')))
+
+
+class ArchetypeAutocomplete(wx.Panel):
+    """
+    Autocomplete widget for card archetypes.
+    Shows suggestions filtered by cartomancy type.
+    For Oracle decks, functions as a simple text field.
+    """
+    def __init__(self, parent, db, cartomancy_type='Tarot', value=''):
+        super().__init__(parent)
+        self.SetBackgroundColour(get_wx_color('bg_primary'))
+        self.db = db
+        self.cartomancy_type = cartomancy_type
+        self._popup = None
+        self._suppress_popup = False
+
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.text_ctrl = wx.TextCtrl(self, value=value)
+        self.text_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        self.text_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        sizer.Add(self.text_ctrl, 1, wx.EXPAND)
+
+        # Only show dropdown button for non-Oracle types
+        if cartomancy_type != 'Oracle':
+            self.dropdown_btn = wx.Button(self, label="▼", size=(30, -1))
+            self.dropdown_btn.Bind(wx.EVT_BUTTON, self._on_dropdown_click)
+            sizer.Add(self.dropdown_btn, 0, wx.LEFT, 2)
+
+            # Bind text events for autocomplete
+            self.text_ctrl.Bind(wx.EVT_TEXT, self._on_text_change)
+            self.text_ctrl.Bind(wx.EVT_KEY_DOWN, self._on_key_down)
+            self.text_ctrl.Bind(wx.EVT_KILL_FOCUS, self._on_focus_lost)
+
+        self.SetSizer(sizer)
+
+    def GetValue(self):
+        return self.text_ctrl.GetValue()
+
+    def SetValue(self, value):
+        self._suppress_popup = True
+        self.text_ctrl.SetValue(value)
+        self._suppress_popup = False
+
+    def _on_text_change(self, event):
+        if self._suppress_popup:
+            event.Skip()
+            return
+
+        query = self.text_ctrl.GetValue().strip()
+        if len(query) >= 1:
+            self._show_suggestions(query)
+        else:
+            self._hide_popup()
+        event.Skip()
+
+    def _on_dropdown_click(self, event):
+        # Show all archetypes for this type
+        self._show_suggestions('')
+
+    def _on_key_down(self, event):
+        if event.GetKeyCode() == wx.WXK_ESCAPE:
+            self._hide_popup()
+        elif event.GetKeyCode() == wx.WXK_DOWN and self._popup and self._popup.IsShown():
+            # Move focus to listbox
+            if self._listbox.GetCount() > 0:
+                self._listbox.SetSelection(0)
+                self._listbox.SetFocus()
+        else:
+            event.Skip()
+
+    def _on_focus_lost(self, event):
+        # Delay hiding to allow click on popup
+        wx.CallLater(150, self._check_and_hide_popup)
+        event.Skip()
+
+    def _check_and_hide_popup(self):
+        if self._popup and not self._listbox.HasFocus():
+            self._hide_popup()
+
+    def _show_suggestions(self, query):
+        if self.cartomancy_type == 'Oracle':
+            return  # No autocomplete for Oracle
+
+        # Get matching archetypes
+        if query:
+            results = self.db.search_archetypes(query, self.cartomancy_type)
+        else:
+            results = self.db.get_archetypes(self.cartomancy_type)
+
+        if not results:
+            self._hide_popup()
+            return
+
+        # Create or update popup
+        if not self._popup:
+            self._popup = wx.PopupWindow(self.GetTopLevelParent())
+            self._popup.SetBackgroundColour(get_wx_color('bg_secondary'))
+
+            popup_sizer = wx.BoxSizer(wx.VERTICAL)
+            self._listbox = wx.ListBox(self._popup, style=wx.LB_SINGLE)
+            self._listbox.SetBackgroundColour(get_wx_color('bg_secondary'))
+            self._listbox.SetForegroundColour(get_wx_color('text_primary'))
+            self._listbox.Bind(wx.EVT_LISTBOX_DCLICK, self._on_select)
+            self._listbox.Bind(wx.EVT_KEY_DOWN, self._on_listbox_key)
+            popup_sizer.Add(self._listbox, 1, wx.EXPAND | wx.ALL, 2)
+            self._popup.SetSizer(popup_sizer)
+
+        # Populate listbox
+        self._listbox.Clear()
+        self._archetype_data = []
+        for arch in results:
+            # Format display: "Name (Rank - Suit)" or just "Name"
+            display = arch['name']
+            if arch['rank'] and arch['suit']:
+                display = f"{arch['name']} ({arch['rank']} - {arch['suit']})"
+            elif arch['rank']:
+                display = f"{arch['name']} ({arch['rank']})"
+            self._listbox.Append(display)
+            self._archetype_data.append(arch)
+
+        # Position popup below text control
+        pos = self.text_ctrl.ClientToScreen(wx.Point(0, self.text_ctrl.GetSize().height))
+        width = self.text_ctrl.GetSize().width + 32
+        height = min(200, 20 * len(results) + 10)
+
+        self._popup.SetPosition(pos)
+        self._popup.SetSize(width, height)
+        self._listbox.SetSize(width - 4, height - 4)
+        self._popup.Show()
+
+    def _hide_popup(self):
+        if self._popup:
+            self._popup.Hide()
+
+    def _on_select(self, event):
+        idx = self._listbox.GetSelection()
+        if idx >= 0 and idx < len(self._archetype_data):
+            arch = self._archetype_data[idx]
+            self._suppress_popup = True
+            self.text_ctrl.SetValue(arch['name'])
+            self._suppress_popup = False
+            self.text_ctrl.SetInsertionPointEnd()
+        self._hide_popup()
+        self.text_ctrl.SetFocus()
+
+    def _on_listbox_key(self, event):
+        if event.GetKeyCode() == wx.WXK_RETURN:
+            self._on_select(None)
+        elif event.GetKeyCode() == wx.WXK_ESCAPE:
+            self._hide_popup()
+            self.text_ctrl.SetFocus()
+        else:
+            event.Skip()
+
+    def GetArchetypeInfo(self):
+        """Get the full archetype info if the value matches a known archetype"""
+        name = self.text_ctrl.GetValue().strip()
+        if name and self.cartomancy_type != 'Oracle':
+            return self.db.get_archetype_by_name(name, self.cartomancy_type)
+        return None
 
 
 class TarotJournalApp(wx.App):
@@ -146,11 +308,13 @@ class MainFrame(wx.Frame):
         self.journal_panel = self._create_journal_panel()
         self.library_panel = self._create_library_panel()
         self.spreads_panel = self._create_spreads_panel()
+        self.profiles_panel = self._create_profiles_panel()
         self.settings_panel = self._create_settings_panel()
-        
+
         self.notebook.AddPage(self.journal_panel, "Journal")
         self.notebook.AddPage(self.library_panel, "Card Library")
         self.notebook.AddPage(self.spreads_panel, "Spreads")
+        self.notebook.AddPage(self.profiles_panel, "Profiles")
         self.notebook.AddPage(self.settings_panel, "Settings")
         
         main_sizer.Add(self.notebook, 1, wx.EXPAND | wx.ALL, 10)
@@ -184,30 +348,42 @@ class MainFrame(wx.Frame):
         self.tag_filter.Bind(wx.EVT_CHOICE, self._on_tag_filter)
         left_sizer.Add(self.tag_filter, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
         
-        # Entry list
-        self.entry_list = wx.ListCtrl(left, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
+        # Entry list (multi-select enabled)
+        self.entry_list = wx.ListCtrl(left, style=wx.LC_REPORT)
         self.entry_list.SetBackgroundColour(get_wx_color('bg_secondary'))
         self.entry_list.SetForegroundColour(get_wx_color('text_primary'))
-        self.entry_list.InsertColumn(0, "Date", width=90)
+        self.entry_list.InsertColumn(0, "Date/Time", width=120)
         self.entry_list.InsertColumn(1, "Title", width=180)
         self.entry_list.Bind(wx.EVT_LIST_ITEM_SELECTED, self._on_entry_select)
         left_sizer.Add(self.entry_list, 1, wx.EXPAND | wx.ALL, 5)
         
-        # Buttons
+        # Buttons - row 1
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         new_btn = wx.Button(left, label="+ New Entry")
         new_btn.Bind(wx.EVT_BUTTON, self._on_new_entry_dialog)
-        btn_sizer.Add(new_btn, 0, wx.RIGHT, 5)
-        
+        btn_sizer.Add(new_btn, 1, wx.RIGHT, 3)
+
         edit_btn = wx.Button(left, label="Edit")
         edit_btn.Bind(wx.EVT_BUTTON, self._on_edit_entry_dialog)
-        btn_sizer.Add(edit_btn, 0, wx.RIGHT, 5)
-        
+        btn_sizer.Add(edit_btn, 1, wx.RIGHT, 3)
+
         del_btn = wx.Button(left, label="Delete")
         del_btn.Bind(wx.EVT_BUTTON, self._on_delete_entry)
-        btn_sizer.Add(del_btn, 0)
-        
-        left_sizer.Add(btn_sizer, 0, wx.ALL, 5)
+        btn_sizer.Add(del_btn, 1)
+
+        left_sizer.Add(btn_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
+        # Buttons - row 2 (import/export)
+        btn_sizer2 = wx.BoxSizer(wx.HORIZONTAL)
+        export_btn = wx.Button(left, label="Export...")
+        export_btn.Bind(wx.EVT_BUTTON, self._on_export_entries)
+        btn_sizer2.Add(export_btn, 1, wx.RIGHT, 3)
+
+        import_btn = wx.Button(left, label="Import...")
+        import_btn.Bind(wx.EVT_BUTTON, self._on_import_entries)
+        btn_sizer2.Add(import_btn, 1)
+
+        left_sizer.Add(btn_sizer2, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
         left.SetSizer(left_sizer)
         
         # Right: Entry Viewer (read-only)
@@ -288,12 +464,23 @@ class MainFrame(wx.Frame):
         edit_deck_btn = wx.Button(left, label="Edit Deck")
         edit_deck_btn.Bind(wx.EVT_BUTTON, self._on_edit_deck)
         row2.Add(edit_deck_btn, 1, wx.RIGHT, 5)
-        
+
         del_btn = wx.Button(left, label="Delete")
         del_btn.Bind(wx.EVT_BUTTON, self._on_delete_deck)
         row2.Add(del_btn, 1)
-        btn_sizer.Add(row2, 0, wx.EXPAND)
-        
+        btn_sizer.Add(row2, 0, wx.EXPAND | wx.BOTTOM, 5)
+
+        # Export and Import deck on third row
+        row3 = wx.BoxSizer(wx.HORIZONTAL)
+        export_deck_btn = wx.Button(left, label="Export Deck")
+        export_deck_btn.Bind(wx.EVT_BUTTON, self._on_export_deck)
+        row3.Add(export_deck_btn, 1, wx.RIGHT, 5)
+
+        import_deck_btn = wx.Button(left, label="Import Deck")
+        import_deck_btn.Bind(wx.EVT_BUTTON, self._on_import_deck)
+        row3.Add(import_deck_btn, 1)
+        btn_sizer.Add(row3, 0, wx.EXPAND)
+
         left_sizer.Add(btn_sizer, 0, wx.EXPAND | wx.ALL, 8)
         left.SetSizer(left_sizer)
         
@@ -443,7 +630,22 @@ class MainFrame(wx.Frame):
         instr = wx.StaticText(right, label="Drag positions to arrange • Right-click to delete")
         instr.SetForegroundColour(get_wx_color('text_dim'))
         right_sizer.Add(instr, 0, wx.LEFT, 10)
-        
+
+        # Legend toggle
+        toggle_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.designer_legend_toggle = wx.CheckBox(right, label="")
+        self.designer_legend_toggle.Bind(wx.EVT_CHECKBOX, self._on_designer_legend_toggle)
+        toggle_sizer.Add(self.designer_legend_toggle, 0, wx.RIGHT, 5)
+
+        designer_legend_label = wx.StaticText(right, label="Show Position Legend")
+        designer_legend_label.SetForegroundColour(get_wx_color('text_primary'))
+        toggle_sizer.Add(designer_legend_label, 0, wx.ALIGN_CENTER_VERTICAL)
+
+        right_sizer.Add(toggle_sizer, 0, wx.LEFT | wx.TOP, 10)
+
+        # Container for canvas and legend
+        canvas_legend_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
         # Designer canvas
         self.designer_canvas = wx.Panel(right, size=(-1, 450))
         self.designer_canvas.SetBackgroundColour(get_wx_color('card_slot'))
@@ -452,7 +654,31 @@ class MainFrame(wx.Frame):
         self.designer_canvas.Bind(wx.EVT_LEFT_UP, self._on_designer_left_up)
         self.designer_canvas.Bind(wx.EVT_MOTION, self._on_designer_motion)
         self.designer_canvas.Bind(wx.EVT_RIGHT_DOWN, self._on_designer_right_down)
-        right_sizer.Add(self.designer_canvas, 1, wx.EXPAND | wx.ALL, 10)
+        canvas_legend_sizer.Add(self.designer_canvas, 1, wx.EXPAND | wx.ALL, 10)
+
+        # Legend panel (initially hidden)
+        self.designer_legend_panel = wx.Panel(right)
+        self.designer_legend_panel.SetBackgroundColour(get_wx_color('bg_secondary'))
+        designer_legend_sizer_inner = wx.BoxSizer(wx.VERTICAL)
+
+        legend_title = wx.StaticText(self.designer_legend_panel, label="Position Legend:")
+        legend_title.SetForegroundColour(get_wx_color('text_primary'))
+        legend_title.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        designer_legend_sizer_inner.Add(legend_title, 0, wx.ALL, 10)
+
+        # Create scrolled window for legend items
+        self.designer_legend_scroll = scrolled.ScrolledPanel(self.designer_legend_panel, size=(200, 400))
+        self.designer_legend_scroll.SetBackgroundColour(get_wx_color('bg_secondary'))
+        self.designer_legend_items_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.designer_legend_scroll.SetSizer(self.designer_legend_items_sizer)
+        self.designer_legend_scroll.SetupScrolling()
+        designer_legend_sizer_inner.Add(self.designer_legend_scroll, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        self.designer_legend_panel.SetSizer(designer_legend_sizer_inner)
+        self.designer_legend_panel.Hide()
+        canvas_legend_sizer.Add(self.designer_legend_panel, 0, wx.EXPAND | wx.ALL, 10)
+
+        right_sizer.Add(canvas_legend_sizer, 1, wx.EXPAND)
         
         # Buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -480,7 +706,302 @@ class MainFrame(wx.Frame):
         panel.SetSizer(panel_sizer)
         
         return panel
-    
+
+    # ═══════════════════════════════════════════
+    # PROFILES PANEL
+    # ═══════════════════════════════════════════
+    def _create_profiles_panel(self):
+        panel = wx.Panel(self.notebook)
+        panel.SetBackgroundColour(get_wx_color('bg_primary'))
+
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # Left side: profiles list
+        left_panel = wx.Panel(panel)
+        left_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        left_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        list_label = wx.StaticText(left_panel, label="Profiles")
+        list_label.SetForegroundColour(get_wx_color('accent'))
+        list_label.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        left_sizer.Add(list_label, 0, wx.ALL, 10)
+
+        self.profiles_list = wx.ListCtrl(left_panel, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
+        self.profiles_list.SetBackgroundColour(get_wx_color('bg_secondary'))
+        self.profiles_list.SetForegroundColour(get_wx_color('text_primary'))
+        self.profiles_list.InsertColumn(0, "Name", width=150)
+        self.profiles_list.InsertColumn(1, "Gender", width=80)
+        self.profiles_list.InsertColumn(2, "Birth Date", width=100)
+        self.profiles_list.Bind(wx.EVT_LIST_ITEM_SELECTED, self._on_profile_selected)
+        left_sizer.Add(self.profiles_list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # Buttons
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        add_btn = wx.Button(left_panel, label="Add Profile")
+        add_btn.Bind(wx.EVT_BUTTON, self._on_add_profile)
+        edit_btn = wx.Button(left_panel, label="Edit")
+        edit_btn.Bind(wx.EVT_BUTTON, self._on_edit_profile)
+        delete_btn = wx.Button(left_panel, label="Delete")
+        delete_btn.Bind(wx.EVT_BUTTON, self._on_delete_profile)
+
+        btn_sizer.Add(add_btn, 1, wx.RIGHT, 5)
+        btn_sizer.Add(edit_btn, 1, wx.RIGHT, 5)
+        btn_sizer.Add(delete_btn, 1)
+        left_sizer.Add(btn_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        left_panel.SetSizer(left_sizer)
+
+        # Right side: profile details view
+        right_panel = wx.Panel(panel)
+        right_panel.SetBackgroundColour(get_wx_color('bg_secondary'))
+        right_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        details_label = wx.StaticText(right_panel, label="Profile Details")
+        details_label.SetForegroundColour(get_wx_color('accent'))
+        details_label.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        right_sizer.Add(details_label, 0, wx.ALL, 10)
+
+        self.profile_details_text = wx.StaticText(right_panel, label="Select a profile to view details")
+        self.profile_details_text.SetForegroundColour(get_wx_color('text_secondary'))
+        right_sizer.Add(self.profile_details_text, 1, wx.EXPAND | wx.ALL, 10)
+
+        right_panel.SetSizer(right_sizer)
+
+        sizer.Add(left_panel, 1, wx.EXPAND)
+        sizer.Add(right_panel, 1, wx.EXPAND)
+
+        panel.SetSizer(sizer)
+
+        # Load profiles
+        self._refresh_profiles_list()
+
+        return panel
+
+    def _refresh_profiles_list(self):
+        """Refresh the profiles list"""
+        self.profiles_list.DeleteAllItems()
+        profiles = self.db.get_profiles()
+        for profile in profiles:
+            idx = self.profiles_list.InsertItem(self.profiles_list.GetItemCount(), profile['name'])
+            self.profiles_list.SetItem(idx, 1, profile['gender'] or '')
+            self.profiles_list.SetItem(idx, 2, profile['birth_date'] or '')
+            self.profiles_list.SetItemData(idx, profile['id'])
+
+    def _on_profile_selected(self, event):
+        """Handle profile selection"""
+        idx = self.profiles_list.GetFirstSelected()
+        if idx == -1:
+            self.profile_details_text.SetLabel("Select a profile to view details")
+            return
+
+        profile_id = self.profiles_list.GetItemData(idx)
+        profile = self.db.get_profile(profile_id)
+        if not profile:
+            return
+
+        details = f"Name: {profile['name']}\n\n"
+        details += f"Gender: {profile['gender'] or 'Not specified'}\n\n"
+        details += f"Birth Date: {profile['birth_date'] or 'Not specified'}\n"
+        details += f"Birth Time: {profile['birth_time'] or 'Not specified'}\n\n"
+        details += f"Birth Place: {profile['birth_place_name'] or 'Not specified'}\n"
+        if profile['birth_place_lat'] and profile['birth_place_lon']:
+            details += f"Coordinates: {profile['birth_place_lat']:.4f}, {profile['birth_place_lon']:.4f}"
+
+        self.profile_details_text.SetLabel(details)
+
+    def _on_add_profile(self, event):
+        """Add a new profile"""
+        self._show_profile_dialog()
+
+    def _on_edit_profile(self, event):
+        """Edit selected profile"""
+        idx = self.profiles_list.GetFirstSelected()
+        if idx == -1:
+            wx.MessageBox("Select a profile to edit.", "No Selection", wx.OK | wx.ICON_INFORMATION)
+            return
+        profile_id = self.profiles_list.GetItemData(idx)
+        self._show_profile_dialog(profile_id)
+
+    def _on_delete_profile(self, event):
+        """Delete selected profile"""
+        idx = self.profiles_list.GetFirstSelected()
+        if idx == -1:
+            wx.MessageBox("Select a profile to delete.", "No Selection", wx.OK | wx.ICON_INFORMATION)
+            return
+
+        profile_id = self.profiles_list.GetItemData(idx)
+        profile = self.db.get_profile(profile_id)
+
+        result = wx.MessageBox(
+            f"Delete profile '{profile['name']}'?\n\nThis will remove the profile from any journal entries that reference it.",
+            "Confirm Delete",
+            wx.YES_NO | wx.ICON_WARNING
+        )
+        if result == wx.YES:
+            self.db.delete_profile(profile_id)
+            self._refresh_profiles_list()
+            self.profile_details_text.SetLabel("Select a profile to view details")
+
+    def _show_profile_dialog(self, profile_id=None):
+        """Show dialog to add or edit a profile"""
+        is_edit = profile_id is not None
+        profile = self.db.get_profile(profile_id) if is_edit else None
+
+        dlg = wx.Dialog(self, title="Edit Profile" if is_edit else "Add Profile", size=(450, 400))
+        dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Name
+        name_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        name_label = wx.StaticText(dlg, label="Name:")
+        name_label.SetForegroundColour(get_wx_color('text_primary'))
+        name_sizer.Add(name_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        name_ctrl = wx.TextCtrl(dlg, value=profile['name'] if profile else "")
+        name_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        name_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        name_sizer.Add(name_ctrl, 1)
+        sizer.Add(name_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        # Gender
+        gender_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        gender_label = wx.StaticText(dlg, label="Gender:")
+        gender_label.SetForegroundColour(get_wx_color('text_primary'))
+        gender_sizer.Add(gender_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        gender_choices = ["", "Male", "Female", "Nonbinary"]
+        gender_ctrl = wx.Choice(dlg, choices=gender_choices)
+        gender_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        current_gender = profile['gender'] if profile else ""
+        if current_gender in gender_choices:
+            gender_ctrl.SetSelection(gender_choices.index(current_gender))
+        else:
+            gender_ctrl.SetSelection(0)
+        gender_sizer.Add(gender_ctrl, 1)
+        sizer.Add(gender_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # Birth Date
+        birth_date_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        birth_date_label = wx.StaticText(dlg, label="Birth Date:")
+        birth_date_label.SetForegroundColour(get_wx_color('text_primary'))
+        birth_date_sizer.Add(birth_date_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        birth_date_ctrl = wx.adv.DatePickerCtrl(dlg, style=wx.adv.DP_DROPDOWN | wx.adv.DP_SHOWCENTURY | wx.adv.DP_ALLOWNONE)
+        if profile and profile['birth_date']:
+            try:
+                dt = datetime.strptime(profile['birth_date'], '%Y-%m-%d')
+                wx_date = wx.DateTime()
+                wx_date.Set(dt.day, dt.month - 1, dt.year)
+                birth_date_ctrl.SetValue(wx_date)
+            except:
+                pass
+        birth_date_sizer.Add(birth_date_ctrl, 1)
+        sizer.Add(birth_date_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # Birth Time
+        birth_time_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        birth_time_label = wx.StaticText(dlg, label="Birth Time:")
+        birth_time_label.SetForegroundColour(get_wx_color('text_primary'))
+        birth_time_sizer.Add(birth_time_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        birth_time_ctrl = wx.TextCtrl(dlg, value=profile['birth_time'] if profile and profile['birth_time'] else "")
+        birth_time_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        birth_time_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        birth_time_ctrl.SetHint("HH:MM (24-hour format)")
+        birth_time_sizer.Add(birth_time_ctrl, 1)
+        sizer.Add(birth_time_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # Birth Place
+        birth_place_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        birth_place_label = wx.StaticText(dlg, label="Birth Place:")
+        birth_place_label.SetForegroundColour(get_wx_color('text_primary'))
+        birth_place_sizer.Add(birth_place_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        birth_place_ctrl = wx.TextCtrl(dlg, value=profile['birth_place_name'] if profile and profile['birth_place_name'] else "")
+        birth_place_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        birth_place_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        birth_place_ctrl.SetHint("City, Country")
+        birth_place_sizer.Add(birth_place_ctrl, 1)
+        sizer.Add(birth_place_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # Birth coordinates (optional, for future astro use)
+        coords_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        lat_label = wx.StaticText(dlg, label="Latitude:")
+        lat_label.SetForegroundColour(get_wx_color('text_secondary'))
+        coords_sizer.Add(lat_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        lat_ctrl = wx.TextCtrl(dlg, size=(80, -1), value=str(profile['birth_place_lat']) if profile and profile['birth_place_lat'] else "")
+        lat_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        lat_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        coords_sizer.Add(lat_ctrl, 0, wx.RIGHT, 15)
+
+        lon_label = wx.StaticText(dlg, label="Longitude:")
+        lon_label.SetForegroundColour(get_wx_color('text_secondary'))
+        coords_sizer.Add(lon_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        lon_ctrl = wx.TextCtrl(dlg, size=(80, -1), value=str(profile['birth_place_lon']) if profile and profile['birth_place_lon'] else "")
+        lon_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        lon_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        coords_sizer.Add(lon_ctrl, 0)
+        sizer.Add(coords_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        coords_note = wx.StaticText(dlg, label="(Coordinates are optional - for future astrological features)")
+        coords_note.SetForegroundColour(get_wx_color('text_dim'))
+        sizer.Add(coords_note, 0, wx.LEFT | wx.BOTTOM, 10)
+
+        # Buttons
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        cancel_btn = wx.Button(dlg, wx.ID_CANCEL, "Cancel")
+        save_btn = wx.Button(dlg, wx.ID_OK, "Save")
+        btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
+        btn_sizer.Add(save_btn, 0)
+        sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
+
+        dlg.SetSizer(sizer)
+
+        if dlg.ShowModal() == wx.ID_OK:
+            name = name_ctrl.GetValue().strip()
+            if not name:
+                wx.MessageBox("Name is required.", "Validation Error", wx.OK | wx.ICON_ERROR)
+                dlg.Destroy()
+                return
+
+            gender = gender_ctrl.GetStringSelection()
+            if gender == "":
+                gender = None
+
+            # Get birth date
+            birth_date = None
+            if birth_date_ctrl.GetValue().IsValid():
+                wx_date = birth_date_ctrl.GetValue()
+                birth_date = f"{wx_date.GetYear()}-{wx_date.GetMonth()+1:02d}-{wx_date.GetDay():02d}"
+
+            birth_time = birth_time_ctrl.GetValue().strip() or None
+            birth_place = birth_place_ctrl.GetValue().strip() or None
+
+            # Parse coordinates
+            lat = None
+            lon = None
+            try:
+                lat_str = lat_ctrl.GetValue().strip()
+                lon_str = lon_ctrl.GetValue().strip()
+                if lat_str:
+                    lat = float(lat_str)
+                if lon_str:
+                    lon = float(lon_str)
+            except ValueError:
+                pass
+
+            if is_edit:
+                self.db.update_profile(profile_id, name=name, gender=gender,
+                                       birth_date=birth_date, birth_time=birth_time,
+                                       birth_place_name=birth_place,
+                                       birth_place_lat=lat, birth_place_lon=lon)
+            else:
+                self.db.add_profile(name=name, gender=gender,
+                                    birth_date=birth_date, birth_time=birth_time,
+                                    birth_place_name=birth_place,
+                                    birth_place_lat=lat, birth_place_lon=lon)
+
+            self._refresh_profiles_list()
+            self.profile_details_text.SetLabel("Select a profile to view details")
+
+        dlg.Destroy()
+
     # ═══════════════════════════════════════════
     # SETTINGS PANEL
     # ═══════════════════════════════════════════
@@ -561,7 +1082,66 @@ class MainFrame(wx.Frame):
         presets_sizer.Add(preset_btn_sizer, 0, wx.ALL, 10)
         
         sizer.Add(presets_sizer, 0, wx.EXPAND | wx.ALL, 10)
-        
+
+        # Default Decks section
+        defaults_box = wx.StaticBox(panel, label="Default Decks")
+        defaults_box.SetForegroundColour(get_wx_color('accent'))
+        defaults_sizer = wx.StaticBoxSizer(defaults_box, wx.VERTICAL)
+
+        defaults_desc = wx.StaticText(panel, label="Select default decks to use automatically for each type.")
+        defaults_desc.SetForegroundColour(get_wx_color('text_primary'))
+        defaults_sizer.Add(defaults_desc, 0, wx.ALL, 10)
+
+        # Store default deck choices
+        self.default_deck_choices = {}
+
+        # Create dropdown for each cartomancy type
+        for cart_type in self.db.get_cartomancy_types():
+            type_name = cart_type['name']
+            type_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+            label = wx.StaticText(panel, label=f"{type_name}:")
+            label.SetForegroundColour(get_wx_color('text_primary'))
+            label.SetMinSize((120, -1))
+            type_sizer.Add(label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+            # Get decks for this type
+            decks = self.db.get_decks(cart_type['id'])
+            deck_names = ["(None)"] + [f"{d['name']} ({d['id']})" for d in decks]
+
+            choice = wx.Choice(panel, choices=deck_names)
+            choice.SetSelection(0)
+
+            # Load saved default
+            default_deck_id = self.db.get_default_deck(type_name)
+            if default_deck_id:
+                for i, deck in enumerate(decks):
+                    if deck['id'] == default_deck_id:
+                        choice.SetSelection(i + 1)  # +1 because of "(None)" option
+                        break
+
+            # Save on change
+            def make_handler(cart_type_name):
+                def on_change(event):
+                    sel = event.GetEventObject().GetSelection()
+                    if sel == 0:  # "(None)" selected
+                        self.db.set_setting(f'default_deck_{cart_type_name.lower()}', '')
+                    else:
+                        # Extract deck ID from "Name (ID)" format
+                        choice_text = event.GetEventObject().GetStringSelection()
+                        deck_id = choice_text.split('(')[-1].rstrip(')')
+                        self.db.set_default_deck(cart_type_name, int(deck_id))
+                    wx.MessageBox(f"Default {cart_type_name} deck updated!", "Success", wx.OK | wx.ICON_INFORMATION)
+                return on_change
+
+            choice.Bind(wx.EVT_CHOICE, make_handler(type_name))
+            self.default_deck_choices[type_name] = choice
+
+            type_sizer.Add(choice, 1, wx.EXPAND | wx.RIGHT, 10)
+            defaults_sizer.Add(type_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        sizer.Add(defaults_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
         # Cache section
         cache_box = wx.StaticBox(panel, label="Thumbnail Cache")
         cache_box.SetForegroundColour(get_wx_color('accent'))
@@ -629,7 +1209,18 @@ class MainFrame(wx.Frame):
             entries = self.db.get_entries()
         
         for entry in entries:
-            date_str = entry['created_at'][:10] if entry['created_at'] else ''
+            # Use reading_datetime if available, otherwise created_at
+            reading_dt = entry['reading_datetime'] if 'reading_datetime' in entry.keys() and entry['reading_datetime'] else None
+            if reading_dt:
+                try:
+                    dt = datetime.fromisoformat(reading_dt)
+                    date_str = dt.strftime('%Y-%m-%d %H:%M')
+                except:
+                    date_str = reading_dt[:16] if reading_dt else ''
+            elif entry['created_at']:
+                date_str = entry['created_at'][:10]
+            else:
+                date_str = ''
             title = entry['title'] or '(Untitled)'
             idx = self.entry_list.InsertItem(self.entry_list.GetItemCount(), date_str)
             self.entry_list.SetItem(idx, 1, title)
@@ -700,12 +1291,13 @@ class MainFrame(wx.Frame):
         self._current_cards_sorted = []
         self._current_cards_categorized = {}
         self._current_suit_names = {}
-        
+
         if not deck_id:
             self.cards_scroll.Layout()
             return
-        
+
         cards = self.db.get_cards(deck_id)
+        print(f"DEBUG: Loading {len(cards)} cards for deck_id={deck_id}")
         deck = self.db.get_deck(deck_id)
         suit_names = self.db.get_deck_suit_names(deck_id)
         self._current_suit_names = suit_names
@@ -715,12 +1307,16 @@ class MainFrame(wx.Frame):
             self.deck_title.SetLabel(f"{deck['name']} ({deck['cartomancy_type_name']})")
         
         # Update filter dropdown based on deck type
-        if self._current_deck_type == 'Lenormand':
-            # Lenormand uses playing card suits
-            new_choices = ['All', 'Hearts', 'Diamonds', 'Clubs', 'Spades']
+        if self._current_deck_type in ('Lenormand', 'Playing Cards'):
+            # Lenormand and Playing Cards use playing card suits
+            new_choices = ['All',
+                          suit_names.get('hearts', 'Hearts'),
+                          suit_names.get('diamonds', 'Diamonds'),
+                          suit_names.get('clubs', 'Clubs'),
+                          suit_names.get('spades', 'Spades')]
         else:
             # Tarot uses Major Arcana + tarot suits
-            new_choices = ['All', 'Major Arcana', 
+            new_choices = ['All', 'Major Arcana',
                           suit_names.get('wands', 'Wands'),
                           suit_names.get('cups', 'Cups'),
                           suit_names.get('swords', 'Swords'),
@@ -737,7 +1333,10 @@ class MainFrame(wx.Frame):
         self.card_filter_names = new_choices
         
         # Sort and categorize cards
-        if self._current_deck_type == 'Lenormand':
+        if self._current_deck_type == 'Playing Cards':
+            self._current_cards_sorted = self._sort_playing_cards(list(cards), suit_names)
+            self._current_cards_categorized = self._categorize_playing_cards(self._current_cards_sorted, suit_names)
+        elif self._current_deck_type == 'Lenormand':
             self._current_cards_sorted = self._sort_lenormand_cards(list(cards))
             self._current_cards_categorized = self._categorize_lenormand_cards(self._current_cards_sorted)
         else:
@@ -754,15 +1353,27 @@ class MainFrame(wx.Frame):
         self.cards_sizer = wx.WrapSizer(wx.HORIZONTAL)
         self.cards_scroll.SetSizer(self.cards_sizer)
         self._card_widgets = {}
-        
+
         filter_idx = self.card_filter_choice.GetSelection()
         filter_name = self.card_filter_names[filter_idx] if filter_idx >= 0 and filter_idx < len(self.card_filter_names) else 'All'
-        
+
+        print(f"DEBUG: _display_filtered_cards - filter={filter_name}, total_cards={len(self._current_cards_sorted)}")
+
         if filter_name == 'All':
             cards_to_show = self._current_cards_sorted
-        elif self._current_deck_type == 'Lenormand':
-            # Lenormand filtering by playing card suit
-            cards_to_show = self._current_cards_categorized.get(filter_name, [])
+        elif self._current_deck_type in ('Lenormand', 'Playing Cards'):
+            # Lenormand and Playing Cards filtering by playing card suit
+            # Map custom suit names back to standard suit keys
+            suit_map = {
+                self._current_suit_names.get('hearts', 'Hearts'): 'Hearts',
+                self._current_suit_names.get('diamonds', 'Diamonds'): 'Diamonds',
+                self._current_suit_names.get('clubs', 'Clubs'): 'Clubs',
+                self._current_suit_names.get('spades', 'Spades'): 'Spades',
+                'Hearts': 'Hearts', 'Diamonds': 'Diamonds',
+                'Clubs': 'Clubs', 'Spades': 'Spades',
+            }
+            standard_suit = suit_map.get(filter_name, filter_name)
+            cards_to_show = self._current_cards_categorized.get(standard_suit, [])
         else:
             # Tarot filtering
             if filter_name == 'Major Arcana':
@@ -778,12 +1389,16 @@ class MainFrame(wx.Frame):
             else:
                 cards_to_show = self._current_cards_sorted
         
+        print(f"DEBUG: Creating widgets for {len(cards_to_show)} cards")
         for card in cards_to_show:
             self._create_card_widget(self.cards_scroll, self.cards_sizer, card)
-        
+
+        self.cards_sizer.Layout()
+        self.cards_scroll.FitInside()
         self.cards_scroll.Layout()
         self.cards_scroll.SetupScrolling()
         self.cards_scroll.Refresh()
+        self.cards_scroll.Update()
     
     def _sort_lenormand_cards(self, cards):
         """Sort Lenormand cards by traditional order (1-36)"""
@@ -833,20 +1448,115 @@ class MainFrame(wx.Frame):
             'key': 'Diamonds', 'fish': 'Diamonds', 'anchor': 'Spades',
             'cross': 'Clubs',
         }
-        
+
         categorized = {
             'Hearts': [],
             'Diamonds': [],
             'Clubs': [],
             'Spades': [],
         }
-        
+
         for card in cards:
             name = card['name'].lower().strip()
             suit = lenormand_suits_by_name.get(name)
             if suit:
                 categorized[suit].append(card)
-        
+
+        return categorized
+
+    def _sort_playing_cards(self, cards, suit_names):
+        """Sort playing cards: by suit (Hearts, Diamonds, Clubs, Spades), then rank (2-K, A, Jokers)"""
+
+        # Rank order: 2-10, J, Q, K, then Ace, then Jokers
+        rank_order = {
+            'two': 2, '2': 2,
+            'three': 3, '3': 3,
+            'four': 4, '4': 4,
+            'five': 5, '5': 5,
+            'six': 6, '6': 6,
+            'seven': 7, '7': 7,
+            'eight': 8, '8': 8,
+            'nine': 9, '9': 9,
+            'ten': 10, '10': 10,
+            'jack': 11, 'j': 11,
+            'queen': 12, 'q': 12,
+            'king': 13, 'k': 13,
+            'ace': 14, 'a': 14,  # Ace comes after King
+        }
+
+        # Suit order
+        suit_order = {
+            suit_names.get('hearts', 'Hearts').lower(): 100,
+            suit_names.get('diamonds', 'Diamonds').lower(): 200,
+            suit_names.get('clubs', 'Clubs').lower(): 300,
+            suit_names.get('spades', 'Spades').lower(): 400,
+            'hearts': 100, 'heart': 100,
+            'diamonds': 200, 'diamond': 200,
+            'clubs': 300, 'club': 300,
+            'spades': 400, 'spade': 400,
+        }
+
+        def get_sort_key(card):
+            name_lower = card['name'].lower()
+
+            # Check for Jokers - they come last
+            if 'joker' in name_lower:
+                # Red joker before black joker
+                if 'red' in name_lower:
+                    return (1000, 1)
+                elif 'black' in name_lower:
+                    return (1000, 2)
+                else:
+                    return (1000, 0)
+
+            # Try to find suit and rank
+            for suit_name, suit_val in suit_order.items():
+                if suit_name in name_lower:
+                    # Found suit, now find rank
+                    for rank_name, rank_val in rank_order.items():
+                        if rank_name in name_lower.split() or name_lower.startswith(rank_name + ' '):
+                            return (suit_val, rank_val)
+                        # Also check for patterns like "2 of hearts" or "two of hearts"
+                        if f'{rank_name} of' in name_lower:
+                            return (suit_val, rank_val)
+                    # Suit found but no rank - put at end of suit
+                    return (suit_val, 99)
+
+            # No suit found - put at very end
+            return (999, 0)
+
+        return sorted(cards, key=get_sort_key)
+
+    def _categorize_playing_cards(self, cards, suit_names):
+        """Categorize playing cards by suit"""
+
+        # Build suit name variations for matching
+        suit_variations = {
+            'Hearts': [suit_names.get('hearts', 'Hearts').lower(), 'hearts', 'heart'],
+            'Diamonds': [suit_names.get('diamonds', 'Diamonds').lower(), 'diamonds', 'diamond'],
+            'Clubs': [suit_names.get('clubs', 'Clubs').lower(), 'clubs', 'club'],
+            'Spades': [suit_names.get('spades', 'Spades').lower(), 'spades', 'spade'],
+        }
+
+        categorized = {
+            'Hearts': [],
+            'Diamonds': [],
+            'Clubs': [],
+            'Spades': [],
+        }
+
+        for card in cards:
+            name_lower = card['name'].lower()
+
+            # Skip jokers - they don't belong to any suit
+            if 'joker' in name_lower:
+                continue
+
+            for suit_key, variations in suit_variations.items():
+                if any(var in name_lower for var in variations):
+                    categorized[suit_key].append(card)
+                    break
+
         return categorized
     
     def _sort_cards(self, cards, suit_names):
@@ -855,27 +1565,27 @@ class MainFrame(wx.Frame):
         # Define sort order
         major_arcana_order = {
             'the fool': 0, 'fool': 0,
-            'the magician': 1, 'magician': 1,
-            'the high priestess': 2, 'high priestess': 2,
+            'the magician': 1, 'magician': 1, 'the magus': 1, 'magus': 1,
+            'the high priestess': 2, 'high priestess': 2, 'the priestess': 2, 'priestess': 2,
             'the empress': 3, 'empress': 3,
             'the emperor': 4, 'emperor': 4,
             'the hierophant': 5, 'hierophant': 5,
             'the lovers': 6, 'lovers': 6,
             'the chariot': 7, 'chariot': 7,
-            'strength': 8,
+            'strength': 8, 'lust': 8,  # Thoth: Lust
             'the hermit': 9, 'hermit': 9,
-            'wheel of fortune': 10, 'the wheel': 10, 'wheel': 10,
-            'justice': 11,
+            'wheel of fortune': 10, 'the wheel': 10, 'wheel': 10, 'fortune': 10,
+            'justice': 11, 'adjustment': 11,  # Thoth: Adjustment
             'the hanged man': 12, 'hanged man': 12,
             'death': 13,
-            'temperance': 14,
+            'temperance': 14, 'art': 14,  # Thoth: Art
             'the devil': 15, 'devil': 15,
             'the tower': 16, 'tower': 16,
             'the star': 17, 'star': 17,
             'the moon': 18, 'moon': 18,
             'the sun': 19, 'sun': 19,
-            'judgement': 20, 'judgment': 20,
-            'the world': 21, 'world': 21,
+            'judgement': 20, 'judgment': 20, 'the aeon': 20, 'aeon': 20,  # Thoth: The Aeon
+            'the world': 21, 'world': 21, 'the universe': 21, 'universe': 21,  # Thoth: The Universe
         }
         
         rank_order = {
@@ -914,7 +1624,7 @@ class MainFrame(wx.Frame):
                     return (1, suit_val, 50)  # Unknown rank
             
             # Unknown card - put at end
-            return (2, 999, card.get('card_order', 0))
+            return (2, 999, card['card_order'] if 'card_order' in card.keys() else 0)
         
         return sorted(cards, key=get_sort_key)
     
@@ -939,14 +1649,15 @@ class MainFrame(wx.Frame):
         }
         
         major_arcana_names = {
-            'the fool', 'fool', 'the magician', 'magician', 'the high priestess',
-            'high priestess', 'the empress', 'empress', 'the emperor', 'emperor',
+            'the fool', 'fool', 'the magician', 'magician', 'the magus', 'magus',
+            'the high priestess', 'high priestess', 'the priestess', 'priestess',
+            'the empress', 'empress', 'the emperor', 'emperor',
             'the hierophant', 'hierophant', 'the lovers', 'lovers', 'the chariot',
-            'chariot', 'strength', 'the hermit', 'hermit', 'wheel of fortune',
-            'the wheel', 'wheel', 'justice', 'the hanged man', 'hanged man',
-            'death', 'temperance', 'the devil', 'devil', 'the tower', 'tower',
+            'chariot', 'strength', 'lust', 'the hermit', 'hermit', 'wheel of fortune',
+            'the wheel', 'wheel', 'fortune', 'justice', 'adjustment', 'the hanged man', 'hanged man',
+            'death', 'temperance', 'art', 'the devil', 'devil', 'the tower', 'tower',
             'the star', 'star', 'the moon', 'moon', 'the sun', 'sun',
-            'judgement', 'judgment', 'the world', 'world'
+            'judgement', 'judgment', 'the aeon', 'aeon', 'the world', 'world', 'the universe', 'universe'
         }
         
         for card in cards:
@@ -977,7 +1688,8 @@ class MainFrame(wx.Frame):
         # Panel height: thumbnail (120x180 cached) + padding, plus text if showing
         # Thumbnail display is about 120+8 padding = 128 height after scaling
         panel_height = 175 if self.show_card_names else 140
-        card_panel = wx.Panel(parent, size=(130, panel_height))
+        card_panel = wx.Panel(parent)
+        card_panel.SetMinSize((130, panel_height))
         card_panel.SetBackgroundColour(get_wx_color('bg_tertiary'))
         card_panel.card_id = card['id']
         
@@ -989,6 +1701,10 @@ class MainFrame(wx.Frame):
         # Thumbnail
         if card['image_path']:
             thumb_path = self.thumb_cache.get_thumbnail_path(card['image_path'])
+            if not thumb_path:
+                print(f"Failed to generate thumbnail for: {card['name'] if 'name' in card.keys() else 'unknown'}")
+                print(f"  Image path: {card['image_path']}")
+                print(f"  Path exists: {os.path.exists(card['image_path'])}")
             if thumb_path:
                 try:
                     img = wx.Image(thumb_path, wx.BITMAP_TYPE_ANY)
@@ -1002,27 +1718,25 @@ class MainFrame(wx.Frame):
                     bmp = wx.StaticBitmap(card_panel, bitmap=wx.Bitmap(img))
                     card_sizer.Add(bmp, 0, wx.ALL | wx.ALIGN_CENTER, 4)
                     bmp.Bind(wx.EVT_LEFT_DOWN, lambda e, cid=card['id']: self._on_card_click(e, cid))
-                    bmp.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card['id']: self._on_edit_card(None, cid))
-                except:
+                    bmp.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card['id']: self._on_view_card(None, cid))
+                except Exception as e:
+                    print(f"Error loading thumbnail for card {card['name'] if 'name' in card.keys() else 'unknown'}: {e}")
+                    print(f"  Image path: {card['image_path']}")
+                    print(f"  Thumbnail path: {thumb_path}")
                     self._add_placeholder(card_panel, card_sizer, card['id'])
             else:
                 self._add_placeholder(card_panel, card_sizer, card['id'])
         else:
             self._add_placeholder(card_panel, card_sizer, card['id'])
         
-        # Name (only if setting is enabled)
-        if self.show_card_names:
-            name = wx.StaticText(card_panel, label=card['name'])
-            name.SetForegroundColour(get_wx_color('text_primary'))
-            name.Wrap(210)
-            card_sizer.Add(name, 0, wx.ALL | wx.ALIGN_CENTER, 4)
-            name.Bind(wx.EVT_LEFT_DOWN, lambda e, cid=card['id']: self._on_card_click(e, cid))
-            name.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card['id']: self._on_edit_card(None, cid))
-        
+        # Name display is not currently working - disabled for now
+        # TODO: Fix card name display feature
+
         card_panel.SetSizer(card_sizer)
+
         card_panel.Bind(wx.EVT_LEFT_DOWN, lambda e, cid=card['id']: self._on_card_click(e, cid))
-        card_panel.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card['id']: self._on_edit_card(None, cid))
-        
+        card_panel.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card['id']: self._on_view_card(None, cid))
+
         sizer.Add(card_panel, 0, wx.ALL, 6)
     
     def _on_card_filter_change(self, event):
@@ -1037,7 +1751,7 @@ class MainFrame(wx.Frame):
         placeholder.SetForegroundColour(get_wx_color('text_dim'))
         sizer.Add(placeholder, 0, wx.ALL | wx.ALIGN_CENTER, 4)
         placeholder.Bind(wx.EVT_LEFT_DOWN, lambda e, cid=card_id: self._on_card_click(e, cid))
-        placeholder.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_edit_card(None, cid))
+        placeholder.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
     
     def _on_card_click(self, event, card_id):
         """Handle card click with multi-select support (Shift+click)"""
@@ -1109,17 +1823,63 @@ class MainFrame(wx.Frame):
         title.SetFont(wx.Font(18, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
         self.viewer_sizer.Add(title, 0, wx.ALL, 15)
         
-        # Date
-        if entry['created_at']:
+        # Date/Time and Location
+        reading_dt = entry['reading_datetime'] if 'reading_datetime' in entry.keys() else None
+        if reading_dt:
+            try:
+                dt = datetime.fromisoformat(reading_dt)
+                date_str = dt.strftime('%B %d, %Y at %I:%M %p')
+            except:
+                date_str = reading_dt[:16] if reading_dt else ''
+        elif entry['created_at']:
             try:
                 dt = datetime.fromisoformat(entry['created_at'])
-                date_str = dt.strftime('%B %d, %Y')
+                date_str = dt.strftime('%B %d, %Y at %I:%M %p')
             except:
-                date_str = entry['created_at'][:10]
+                date_str = entry['created_at'][:16]
+        else:
+            date_str = None
+
+        if date_str:
             date_label = wx.StaticText(self.viewer_panel, label=date_str)
             date_label.SetForegroundColour(get_wx_color('text_secondary'))
-            self.viewer_sizer.Add(date_label, 0, wx.LEFT | wx.BOTTOM, 15)
-        
+            self.viewer_sizer.Add(date_label, 0, wx.LEFT | wx.BOTTOM, 5)
+
+        # Location
+        location_name = entry['location_name'] if 'location_name' in entry.keys() else None
+        if location_name:
+            location_label = wx.StaticText(self.viewer_panel, label=f"Location: {location_name}")
+            location_label.SetForegroundColour(get_wx_color('text_secondary'))
+            self.viewer_sizer.Add(location_label, 0, wx.LEFT | wx.BOTTOM, 5)
+
+        # Querent and Reader
+        querent_id = entry['querent_id'] if 'querent_id' in entry.keys() else None
+        reader_id = entry['reader_id'] if 'reader_id' in entry.keys() else None
+
+        people_parts = []
+        if querent_id:
+            querent = self.db.get_profile(querent_id)
+            if querent:
+                people_parts.append(f"Querent: {querent['name']}")
+        if reader_id:
+            reader = self.db.get_profile(reader_id)
+            if reader:
+                if reader_id == querent_id:
+                    people_parts.append("(also Reader)")
+                else:
+                    people_parts.append(f"Reader: {reader['name']}")
+
+        if people_parts:
+            people_label = wx.StaticText(self.viewer_panel, label=" ".join(people_parts))
+            people_label.SetForegroundColour(get_wx_color('text_secondary'))
+            self.viewer_sizer.Add(people_label, 0, wx.LEFT | wx.BOTTOM, 15)
+        elif location_name:
+            # Add extra spacing after location if no people info
+            self.viewer_sizer.AddSpacer(10)
+        else:
+            # Add spacing if no location and no people
+            self.viewer_sizer.AddSpacer(10)
+
         # Reading info
         readings = self.db.get_entry_readings(entry_id)
         if readings:
@@ -1159,17 +1919,55 @@ class MainFrame(wx.Frame):
                 
                 # Create spread display
                 if spread_positions:
+                    # Calculate bounding box of the spread
+                    min_x = min(p.get('x', 0) for p in spread_positions)
+                    min_y = min(p.get('y', 0) for p in spread_positions)
                     max_x = max(p.get('x', 0) + p.get('width', 80) for p in spread_positions)
                     max_y = max(p.get('y', 0) + p.get('height', 120) for p in spread_positions)
-                    
-                    spread_panel = wx.Panel(self.viewer_panel, size=(max_x + 20, max_y + 20))
+                    spread_width = max_x - min_x
+                    spread_height = max_y - min_y
+
+                    # Panel size with padding, offset to center
+                    panel_padding = 20
+                    panel_width = spread_width + panel_padding * 2
+                    panel_height = spread_height + panel_padding * 2
+                    offset_x = panel_padding - min_x
+                    offset_y = panel_padding - min_y
+
+                    # Create container for spread and legend
+                    spread_container = wx.Panel(self.viewer_panel)
+                    spread_container.SetBackgroundColour(get_wx_color('bg_primary'))
+                    spread_container_sizer = wx.BoxSizer(wx.VERTICAL)
+
+                    # Legend toggle button with label
+                    toggle_sizer = wx.BoxSizer(wx.HORIZONTAL)
+                    legend_toggle = wx.CheckBox(spread_container, label="")
+                    toggle_sizer.Add(legend_toggle, 0, wx.RIGHT, 5)
+
+                    legend_label = wx.StaticText(spread_container, label="Show Position Legend")
+                    legend_label.SetForegroundColour(get_wx_color('text_primary'))
+                    toggle_sizer.Add(legend_label, 0, wx.ALIGN_CENTER_VERTICAL)
+
+                    legend_toggle.SetValue(False)
+                    spread_container_sizer.Add(toggle_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.BOTTOM, 5)
+
+                    # Horizontal layout for spread and legend
+                    spread_legend_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+                    # Spread panel
+                    spread_panel = wx.Panel(spread_container, size=(panel_width, panel_height))
                     spread_panel.SetBackgroundColour(get_wx_color('card_slot'))
-                    
+
+                    # Store references for legend toggle
+                    spread_panel._position_labels = []
+                    spread_panel._position_numbers = []
+
                     for i, pos in enumerate(spread_positions):
-                        x, y = pos.get('x', 0), pos.get('y', 0)
+                        x, y = pos.get('x', 0) + offset_x, pos.get('y', 0) + offset_y
                         w, h = pos.get('width', 80), pos.get('height', 120)
                         label = pos.get('label', f'Position {i+1}')
-                        
+                        is_position_rotated = pos.get('rotated', False)
+
                         if i < len(cards_used):
                             # Handle both old format (string) and new format (dict)
                             card_data = cards_used[i]
@@ -1188,6 +1986,10 @@ class MainFrame(wx.Frame):
                                     from PIL import Image as PILImage
                                     pil_img = PILImage.open(image_path)
                                     pil_img = pil_img.convert('RGB')
+
+                                    # Rotate if position is rotated (for horizontal cards like Celtic Cross challenge)
+                                    if is_position_rotated:
+                                        pil_img = pil_img.rotate(90, expand=True)
 
                                     # Rotate if reversed
                                     if is_reversed:
@@ -1216,7 +2018,7 @@ class MainFrame(wx.Frame):
                                         image_placed = True
                                 except Exception:
                                     pass
-                            
+
                             if not image_placed:
                                 slot = wx.Panel(spread_panel, size=(w, h))
                                 slot.SetPosition((x, y))
@@ -1224,6 +2026,14 @@ class MainFrame(wx.Frame):
                                 slot_label = wx.StaticText(slot, label=card_name[:12])
                                 slot_label.SetForegroundColour(get_wx_color('text_primary'))
                                 slot_label.SetPosition((5, h//2 - 8))
+
+                            # Add position number (hidden by default)
+                            pos_num = wx.StaticText(spread_panel, label=str(i + 1))
+                            pos_num.SetForegroundColour(get_wx_color('text_secondary'))
+                            pos_num.SetFont(wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+                            pos_num.SetPosition((x - 12, y - 12))
+                            pos_num.Hide()
+                            spread_panel._position_numbers.append(pos_num)
                         else:
                             slot = wx.Panel(spread_panel, size=(w, h))
                             slot.SetPosition((x, y))
@@ -1231,8 +2041,46 @@ class MainFrame(wx.Frame):
                             slot_label = wx.StaticText(slot, label=label)
                             slot_label.SetForegroundColour(get_wx_color('text_secondary'))
                             slot_label.SetPosition((5, h//2 - 8))
-                    
-                    self.viewer_sizer.Add(spread_panel, 0, wx.LEFT | wx.BOTTOM, 15)
+
+                    spread_legend_sizer.Add(spread_panel, 0, wx.ALL, 5)
+
+                    # Create legend panel (hidden by default)
+                    legend_panel = wx.Panel(spread_container)
+                    legend_panel.SetBackgroundColour(get_wx_color('bg_secondary'))
+                    legend_sizer = wx.BoxSizer(wx.VERTICAL)
+
+                    legend_title = wx.StaticText(legend_panel, label="Position Legend:")
+                    legend_title.SetForegroundColour(get_wx_color('text_primary'))
+                    legend_title.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+                    legend_sizer.Add(legend_title, 0, wx.ALL, 5)
+
+                    for i, pos in enumerate(spread_positions):
+                        label = pos.get('label', f'Position {i+1}')
+                        legend_item = wx.StaticText(legend_panel, label=f"{i + 1}. {label}")
+                        legend_item.SetForegroundColour(get_wx_color('text_primary'))
+                        legend_item.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+                        legend_sizer.Add(legend_item, 0, wx.LEFT | wx.BOTTOM, 5)
+
+                    legend_panel.SetSizer(legend_sizer)
+                    legend_panel.Hide()
+                    spread_legend_sizer.Add(legend_panel, 0, wx.ALL, 5)
+
+                    spread_container_sizer.Add(spread_legend_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL, 0)
+
+                    # Toggle handler
+                    def on_legend_toggle(event):
+                        show = legend_toggle.GetValue()
+                        legend_panel.Show(show)
+                        for num in spread_panel._position_numbers:
+                            num.Show(show)
+                        spread_container.Layout()
+                        self.viewer_panel.Layout()
+                        self.viewer_panel.SetupScrolling()
+
+                    legend_toggle.Bind(wx.EVT_CHECKBOX, on_legend_toggle)
+
+                    spread_container.SetSizer(spread_container_sizer)
+                    self.viewer_sizer.Add(spread_container, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.BOTTOM, 15)
                 else:
                     # No spread - show cards in a row
                     cards_sizer = wx.WrapSizer(wx.HORIZONTAL)
@@ -1272,12 +2120,70 @@ class MainFrame(wx.Frame):
             notes_label.SetForegroundColour(get_wx_color('accent'))
             notes_label.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
             self.viewer_sizer.Add(notes_label, 0, wx.LEFT, 15)
-            
+
             notes_text = wx.StaticText(self.viewer_panel, label=entry['content'])
             notes_text.SetForegroundColour(get_wx_color('text_primary'))
             notes_text.Wrap(500)
             self.viewer_sizer.Add(notes_text, 0, wx.LEFT | wx.BOTTOM, 15)
-        
+
+        # Follow-up Notes
+        follow_up_notes = self.db.get_follow_up_notes(entry_id)
+
+        follow_up_header_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        follow_up_label = wx.StaticText(self.viewer_panel, label="Follow-up Notes:")
+        follow_up_label.SetForegroundColour(get_wx_color('accent'))
+        follow_up_label.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        follow_up_header_sizer.Add(follow_up_label, 0, wx.ALIGN_CENTER_VERTICAL)
+
+        add_follow_up_btn = wx.Button(self.viewer_panel, label="+ Add Note", size=(80, -1))
+        add_follow_up_btn.Bind(wx.EVT_BUTTON, lambda e: self._on_add_follow_up_note(entry_id))
+        follow_up_header_sizer.Add(add_follow_up_btn, 0, wx.LEFT, 15)
+
+        self.viewer_sizer.Add(follow_up_header_sizer, 0, wx.LEFT | wx.TOP, 15)
+
+        if follow_up_notes:
+            for note in follow_up_notes:
+                note_panel = wx.Panel(self.viewer_panel)
+                note_panel.SetBackgroundColour(get_wx_color('bg_tertiary'))
+                note_sizer = wx.BoxSizer(wx.VERTICAL)
+
+                # Date header
+                try:
+                    dt = datetime.fromisoformat(note['created_at'])
+                    date_str = dt.strftime('%B %d, %Y at %I:%M %p')
+                except:
+                    date_str = note['created_at'][:16] if note['created_at'] else 'Unknown date'
+
+                date_label = wx.StaticText(note_panel, label=date_str)
+                date_label.SetForegroundColour(get_wx_color('text_dim'))
+                date_label.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_NORMAL))
+                note_sizer.Add(date_label, 0, wx.ALL, 8)
+
+                # Note content
+                note_text = wx.StaticText(note_panel, label=note['content'])
+                note_text.SetForegroundColour(get_wx_color('text_primary'))
+                note_text.Wrap(450)
+                note_sizer.Add(note_text, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+
+                # Edit/Delete buttons
+                btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+                edit_btn = wx.Button(note_panel, label="Edit", size=(50, -1))
+                edit_btn.Bind(wx.EVT_BUTTON, lambda e, nid=note['id'], eid=entry_id: self._on_edit_follow_up_note(nid, eid))
+                delete_btn = wx.Button(note_panel, label="Delete", size=(50, -1))
+                delete_btn.Bind(wx.EVT_BUTTON, lambda e, nid=note['id'], eid=entry_id: self._on_delete_follow_up_note(nid, eid))
+                btn_sizer.Add(edit_btn, 0, wx.RIGHT, 5)
+                btn_sizer.Add(delete_btn, 0)
+                note_sizer.Add(btn_sizer, 0, wx.LEFT | wx.BOTTOM, 8)
+
+                note_panel.SetSizer(note_sizer)
+                self.viewer_sizer.Add(note_panel, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 15)
+        else:
+            no_notes_label = wx.StaticText(self.viewer_panel, label="No follow-up notes yet")
+            no_notes_label.SetForegroundColour(get_wx_color('text_dim'))
+            self.viewer_sizer.Add(no_notes_label, 0, wx.LEFT | wx.TOP, 15)
+
+        self.viewer_sizer.AddSpacer(15)
+
         # Tags
         entry_tags = self.db.get_entry_tags(entry_id)
         if entry_tags:
@@ -1294,10 +2200,114 @@ class MainFrame(wx.Frame):
         self.viewer_panel.Layout()
         self.viewer_panel.SetupScrolling()
     
+    def _on_add_follow_up_note(self, entry_id):
+        """Add a follow-up note to an entry"""
+        dlg = wx.Dialog(self, title="Add Follow-up Note", size=(500, 300))
+        dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Instructions
+        instr_label = wx.StaticText(dlg, label="Add a follow-up note to record how this reading played out:")
+        instr_label.SetForegroundColour(get_wx_color('text_secondary'))
+        sizer.Add(instr_label, 0, wx.ALL, 15)
+
+        # Note content
+        note_ctrl = wx.TextCtrl(dlg, style=wx.TE_MULTILINE)
+        note_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        note_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        note_ctrl.SetMinSize((-1, 150))
+        sizer.Add(note_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 15)
+
+        # Date note
+        date_note = wx.StaticText(dlg, label=f"This note will be dated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}")
+        date_note.SetForegroundColour(get_wx_color('text_dim'))
+        sizer.Add(date_note, 0, wx.ALL, 15)
+
+        # Buttons
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        cancel_btn = wx.Button(dlg, wx.ID_CANCEL, "Cancel")
+        save_btn = wx.Button(dlg, wx.ID_OK, "Add Note")
+        btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
+        btn_sizer.Add(save_btn, 0)
+        sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 15)
+
+        dlg.SetSizer(sizer)
+
+        if dlg.ShowModal() == wx.ID_OK:
+            content = note_ctrl.GetValue().strip()
+            if content:
+                self.db.add_follow_up_note(entry_id, content)
+                self._display_entry_in_viewer(entry_id)
+
+        dlg.Destroy()
+
+    def _on_edit_follow_up_note(self, note_id, entry_id):
+        """Edit a follow-up note"""
+        # Get the current note content
+        cursor = self.db.conn.cursor()
+        cursor.execute('SELECT * FROM follow_up_notes WHERE id = ?', (note_id,))
+        note = cursor.fetchone()
+        if not note:
+            return
+
+        dlg = wx.Dialog(self, title="Edit Follow-up Note", size=(500, 300))
+        dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Date label
+        try:
+            dt = datetime.fromisoformat(note['created_at'])
+            date_str = dt.strftime('%B %d, %Y at %I:%M %p')
+        except:
+            date_str = note['created_at'][:16] if note['created_at'] else 'Unknown date'
+
+        date_label = wx.StaticText(dlg, label=f"Note from: {date_str}")
+        date_label.SetForegroundColour(get_wx_color('text_secondary'))
+        sizer.Add(date_label, 0, wx.ALL, 15)
+
+        # Note content
+        note_ctrl = wx.TextCtrl(dlg, style=wx.TE_MULTILINE)
+        note_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        note_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        note_ctrl.SetMinSize((-1, 150))
+        note_ctrl.SetValue(note['content'])
+        sizer.Add(note_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 15)
+
+        # Buttons
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        cancel_btn = wx.Button(dlg, wx.ID_CANCEL, "Cancel")
+        save_btn = wx.Button(dlg, wx.ID_OK, "Save")
+        btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
+        btn_sizer.Add(save_btn, 0)
+        sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 15)
+
+        dlg.SetSizer(sizer)
+
+        if dlg.ShowModal() == wx.ID_OK:
+            content = note_ctrl.GetValue().strip()
+            if content:
+                self.db.update_follow_up_note(note_id, content)
+                self._display_entry_in_viewer(entry_id)
+
+        dlg.Destroy()
+
+    def _on_delete_follow_up_note(self, note_id, entry_id):
+        """Delete a follow-up note"""
+        result = wx.MessageBox(
+            "Delete this follow-up note?",
+            "Confirm Delete",
+            wx.YES_NO | wx.ICON_WARNING
+        )
+        if result == wx.YES:
+            self.db.delete_follow_up_note(note_id)
+            self._display_entry_in_viewer(entry_id)
+
     def _on_new_entry_dialog(self, event):
         """Open dialog to create a new entry"""
         self._open_entry_editor(None)
-    
+
     def _on_edit_entry_dialog(self, event):
         """Open dialog to edit selected entry"""
         if not self.current_entry_id:
@@ -1308,7 +2318,7 @@ class MainFrame(wx.Frame):
     def _open_entry_editor(self, entry_id):
         """Open the entry editor dialog"""
         is_new = entry_id is None
-        
+
         if is_new:
             entry_id = self.db.add_entry(title="New Entry")
             entry = self.db.get_entry(entry_id)
@@ -1334,7 +2344,145 @@ class MainFrame(wx.Frame):
         title_ctrl.SetValue(entry['title'] or '')
         title_sizer.Add(title_ctrl, 1, wx.EXPAND)
         sizer.Add(title_sizer, 0, wx.EXPAND | wx.ALL, 15)
-        
+
+        # Date/Time selection
+        datetime_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        datetime_label = wx.StaticText(dlg, label="Reading Date/Time:")
+        datetime_label.SetForegroundColour(get_wx_color('text_primary'))
+        datetime_sizer.Add(datetime_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+        # Radio buttons for now vs custom (empty labels with separate StaticText for macOS)
+        use_now_radio = wx.RadioButton(dlg, label="", style=wx.RB_GROUP)
+        datetime_sizer.Add(use_now_radio, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
+        now_label = wx.StaticText(dlg, label="Now")
+        now_label.SetForegroundColour(get_wx_color('text_primary'))
+        datetime_sizer.Add(now_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 15)
+
+        use_custom_radio = wx.RadioButton(dlg, label="")
+        datetime_sizer.Add(use_custom_radio, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
+        custom_label = wx.StaticText(dlg, label="Custom:")
+        custom_label.SetForegroundColour(get_wx_color('text_primary'))
+        datetime_sizer.Add(custom_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+
+        # Date picker
+        date_picker = wx.adv.DatePickerCtrl(dlg, style=wx.adv.DP_DROPDOWN)
+        datetime_sizer.Add(date_picker, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+
+        # Time picker (hour:minute)
+        time_ctrl = wx.TextCtrl(dlg, size=(60, -1))
+        time_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        time_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        time_ctrl.SetValue(datetime.now().strftime("%H:%M"))
+        datetime_sizer.Add(time_ctrl, 0, wx.ALIGN_CENTER_VERTICAL)
+
+        # Initialize based on existing entry data
+        existing_reading_dt = entry['reading_datetime'] if 'reading_datetime' in entry.keys() else None
+        if existing_reading_dt and not is_new:
+            use_custom_radio.SetValue(True)
+            try:
+                dt = datetime.fromisoformat(existing_reading_dt)
+                wx_date = wx.DateTime()
+                wx_date.Set(dt.day, dt.month - 1, dt.year)
+                date_picker.SetValue(wx_date)
+                time_ctrl.SetValue(dt.strftime("%H:%M"))
+            except:
+                use_now_radio.SetValue(True)
+        else:
+            use_now_radio.SetValue(True)
+
+        # Enable/disable date/time controls based on radio selection
+        def on_datetime_radio_change(event):
+            custom = use_custom_radio.GetValue()
+            date_picker.Enable(custom)
+            time_ctrl.Enable(custom)
+
+        use_now_radio.Bind(wx.EVT_RADIOBUTTON, on_datetime_radio_change)
+        use_custom_radio.Bind(wx.EVT_RADIOBUTTON, on_datetime_radio_change)
+        on_datetime_radio_change(None)  # Initial state
+
+        sizer.Add(datetime_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
+
+        # Location
+        location_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        location_label = wx.StaticText(dlg, label="Location:")
+        location_label.SetForegroundColour(get_wx_color('text_primary'))
+        location_sizer.Add(location_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+        location_ctrl = wx.TextCtrl(dlg, size=(250, -1))
+        location_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        location_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        location_ctrl.SetHint("City, Country or address")
+        existing_location = entry['location_name'] if 'location_name' in entry.keys() else None
+        if existing_location:
+            location_ctrl.SetValue(existing_location)
+        location_sizer.Add(location_ctrl, 1, wx.EXPAND | wx.RIGHT, 10)
+
+        # Store lat/lon (hidden, for future astrological data)
+        dlg._location_lat = entry['location_lat'] if 'location_lat' in entry.keys() else None
+        dlg._location_lon = entry['location_lon'] if 'location_lon' in entry.keys() else None
+
+        sizer.Add(location_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
+
+        # Querent and Reader selection
+        profiles = self.db.get_profiles()
+        profile_names = ["(None)"] + [p['name'] for p in profiles]
+        profile_ids = [None] + [p['id'] for p in profiles]
+
+        people_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        querent_label = wx.StaticText(dlg, label="Querent:")
+        querent_label.SetForegroundColour(get_wx_color('text_primary'))
+        people_sizer.Add(querent_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        querent_choice = wx.Choice(dlg, choices=profile_names)
+        querent_choice.SetSelection(0)
+        people_sizer.Add(querent_choice, 0, wx.RIGHT, 20)
+
+        reader_label = wx.StaticText(dlg, label="Reader:")
+        reader_label.SetForegroundColour(get_wx_color('text_primary'))
+        people_sizer.Add(reader_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        reader_choice = wx.Choice(dlg, choices=profile_names)
+        reader_choice.SetSelection(0)
+        people_sizer.Add(reader_choice, 0, wx.RIGHT, 15)
+
+        # "Same as Querent" checkbox (empty label with separate StaticText for macOS)
+        same_as_querent_cb = wx.CheckBox(dlg, label="")
+        people_sizer.Add(same_as_querent_cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
+        same_label = wx.StaticText(dlg, label="Reader same as Querent")
+        same_label.SetForegroundColour(get_wx_color('text_primary'))
+        people_sizer.Add(same_label, 0, wx.ALIGN_CENTER_VERTICAL)
+
+        def on_same_as_querent(event):
+            if same_as_querent_cb.GetValue():
+                reader_choice.SetSelection(querent_choice.GetSelection())
+                reader_choice.Enable(False)
+            else:
+                reader_choice.Enable(True)
+
+        def on_querent_change(event):
+            if same_as_querent_cb.GetValue():
+                reader_choice.SetSelection(querent_choice.GetSelection())
+
+        same_as_querent_cb.Bind(wx.EVT_CHECKBOX, on_same_as_querent)
+        querent_choice.Bind(wx.EVT_CHOICE, on_querent_change)
+
+        # Load existing querent/reader from entry
+        existing_querent_id = entry['querent_id'] if 'querent_id' in entry.keys() else None
+        existing_reader_id = entry['reader_id'] if 'reader_id' in entry.keys() else None
+        if existing_querent_id and existing_querent_id in profile_ids:
+            querent_choice.SetSelection(profile_ids.index(existing_querent_id))
+        if existing_reader_id and existing_reader_id in profile_ids:
+            reader_choice.SetSelection(profile_ids.index(existing_reader_id))
+        if existing_querent_id and existing_querent_id == existing_reader_id:
+            same_as_querent_cb.SetValue(True)
+            on_same_as_querent(None)
+
+        sizer.Add(people_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
+
+        # Store profile_ids for later use when saving
+        dlg._profile_ids = profile_ids
+
         # Spread/Deck selection
         select_sizer = wx.BoxSizer(wx.HORIZONTAL)
         
@@ -1414,7 +2562,23 @@ class MainFrame(wx.Frame):
                         'image_path': deck_cards.get(card_name),
                         'reversed': reversed_state
                     }
-        
+        else:
+            # For new entries, auto-select default deck if a spread is selected
+            spread_name = spread_choice.GetStringSelection()
+            if spread_name and spread_name in self._spread_map:
+                spread = self.db.get_spread(self._spread_map[spread_name])
+                if spread and 'cartomancy_type' in spread.keys() and spread['cartomancy_type']:
+                    default_deck_id = self.db.get_default_deck(spread['cartomancy_type'])
+                    if default_deck_id:
+                        # Find and select the default deck in the deck_choice dropdown
+                        for name, did in self._deck_map.items():
+                            if did == default_deck_id:
+                                idx = deck_choice.FindString(name)
+                                if idx != wx.NOT_FOUND:
+                                    deck_choice.SetSelection(idx)
+                                    dlg._selected_deck_id = did
+                                break
+
         def on_deck_change(event):
             name = deck_choice.GetStringSelection()
             if name in self._deck_map:
@@ -1425,39 +2589,76 @@ class MainFrame(wx.Frame):
         def on_spread_change(event):
             dlg._spread_cards = {}
             spread_canvas.Refresh()
-        
+
+            # Auto-select default deck based on spread's cartomancy type
+            spread_name = spread_choice.GetStringSelection()
+            if spread_name and spread_name in self._spread_map:
+                spread = self.db.get_spread(self._spread_map[spread_name])
+                if spread and 'cartomancy_type' in spread.keys() and spread['cartomancy_type']:
+                    default_deck_id = self.db.get_default_deck(spread['cartomancy_type'])
+                    if default_deck_id:
+                        # Find and select the default deck in the deck_choice dropdown
+                        for name, did in self._deck_map.items():
+                            if did == default_deck_id:
+                                idx = deck_choice.FindString(name)
+                                if idx != wx.NOT_FOUND:
+                                    deck_choice.SetSelection(idx)
+                                    dlg._selected_deck_id = did
+                                break
+
         spread_choice.Bind(wx.EVT_CHOICE, on_spread_change)
         
         def on_canvas_paint(event):
             dc = wx.PaintDC(spread_canvas)
             dc.SetBackground(wx.Brush(get_wx_color('card_slot')))
             dc.Clear()
-            
+
             spread_name = spread_choice.GetStringSelection()
             if not spread_name or spread_name not in self._spread_map:
                 return
-            
+
             spread = self.db.get_spread(self._spread_map[spread_name])
             if not spread:
                 return
-            
+
             positions = json.loads(spread['positions'])
-            
+
+            # Calculate spread bounding box for centering
+            if positions:
+                min_x = min(p.get('x', 0) for p in positions)
+                min_y = min(p.get('y', 0) for p in positions)
+                max_x = max(p.get('x', 0) + p.get('width', 80) for p in positions)
+                max_y = max(p.get('y', 0) + p.get('height', 120) for p in positions)
+                spread_width = max_x - min_x
+                spread_height = max_y - min_y
+
+                # Calculate offset to center the spread
+                canvas_w, canvas_h = spread_canvas.GetSize()
+                offset_x = (canvas_w - spread_width) // 2 - min_x
+                offset_y = (canvas_h - spread_height) // 2 - min_y
+            else:
+                offset_x, offset_y = 0, 0
+
             for i, pos in enumerate(positions):
-                x, y = pos.get('x', 0), pos.get('y', 0)
+                x, y = pos.get('x', 0) + offset_x, pos.get('y', 0) + offset_y
                 w, h = pos.get('width', 80), pos.get('height', 120)
                 label = pos.get('label', f'Position {i+1}')
-                
+                is_position_rotated = pos.get('rotated', False)
+
                 if i in dlg._spread_cards:
                     card_data = dlg._spread_cards[i]
                     image_path = card_data.get('image_path')
                     image_drawn = False
-                    
+
                     if image_path and os.path.exists(image_path):
                         try:
                             from PIL import Image as PILImage
                             pil_img = PILImage.open(image_path)
                             pil_img = pil_img.convert('RGB')
+
+                            # Rotate if position is rotated (for horizontal cards like Celtic Cross challenge)
+                            if is_position_rotated:
+                                pil_img = pil_img.rotate(90, expand=True)
 
                             # Rotate if card is reversed
                             if card_data.get('reversed', False):
@@ -1508,22 +2709,37 @@ class MainFrame(wx.Frame):
             spread_name = spread_choice.GetStringSelection()
             if not spread_name or spread_name not in self._spread_map:
                 return
-            
+
             if not dlg._selected_deck_id:
                 wx.MessageBox("Please select a deck first.", "Select Deck", wx.OK | wx.ICON_INFORMATION)
                 return
-            
+
             spread = self.db.get_spread(self._spread_map[spread_name])
             if not spread:
                 return
-            
+
             positions = json.loads(spread['positions'])
+
+            # Calculate offset for centered spread (same as paint function)
+            if positions:
+                min_x = min(p.get('x', 0) for p in positions)
+                min_y = min(p.get('y', 0) for p in positions)
+                max_x = max(p.get('x', 0) + p.get('width', 80) for p in positions)
+                max_y = max(p.get('y', 0) + p.get('height', 120) for p in positions)
+                spread_width = max_x - min_x
+                spread_height = max_y - min_y
+                canvas_w, canvas_h = spread_canvas.GetSize()
+                offset_x = (canvas_w - spread_width) // 2 - min_x
+                offset_y = (canvas_h - spread_height) // 2 - min_y
+            else:
+                offset_x, offset_y = 0, 0
+
             click_x, click_y = event.GetX(), event.GetY()
-            
+
             for i, pos in enumerate(positions):
-                px, py = pos.get('x', 0), pos.get('y', 0)
+                px, py = pos.get('x', 0) + offset_x, pos.get('y', 0) + offset_y
                 pw, ph = pos.get('width', 80), pos.get('height', 120)
-                
+
                 if px <= click_x <= px + pw and py <= click_y <= py + ph:
                     cards = self.db.get_cards(dlg._selected_deck_id)
                     if not cards:
@@ -1601,7 +2817,7 @@ class MainFrame(wx.Frame):
 
         spread_canvas.Bind(wx.EVT_LEFT_DOWN, on_canvas_click)
         spread_canvas.Bind(wx.EVT_RIGHT_DOWN, on_canvas_right_click)
-        
+
         # Buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         cancel_btn = wx.Button(dlg, wx.ID_CANCEL, "Cancel")
@@ -1609,15 +2825,56 @@ class MainFrame(wx.Frame):
         btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
         btn_sizer.Add(save_btn, 0)
         sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 15)
-        
+
         dlg.SetSizer(sizer)
-        
+
         if dlg.ShowModal() == wx.ID_OK:
             # Save the entry
             title = title_ctrl.GetValue()
             content = content_ctrl.GetValue()
-            
-            self.db.update_entry(entry_id, title=title, content=content)
+
+            # Get reading datetime
+            if use_now_radio.GetValue():
+                reading_datetime = datetime.now().isoformat()
+            else:
+                wx_date = date_picker.GetValue()
+                time_str = time_ctrl.GetValue().strip()
+                try:
+                    hour, minute = map(int, time_str.split(':'))
+                except:
+                    hour, minute = 12, 0
+                reading_datetime = datetime(
+                    wx_date.GetYear(),
+                    wx_date.GetMonth() + 1,
+                    wx_date.GetDay(),
+                    hour, minute
+                ).isoformat()
+
+            # Get location
+            location_name = location_ctrl.GetValue().strip() or None
+            location_lat = dlg._location_lat
+            location_lon = dlg._location_lon
+
+            # Get querent and reader
+            querent_idx = querent_choice.GetSelection()
+            reader_idx = reader_choice.GetSelection()
+            querent_id = dlg._profile_ids[querent_idx] if querent_idx > 0 else None
+            reader_id = dlg._profile_ids[reader_idx] if reader_idx > 0 else None
+            # Use 0 as sentinel for "clear" vs None for "don't update"
+            querent_id_param = querent_id if querent_id else 0
+            reader_id_param = reader_id if reader_id else 0
+
+            self.db.update_entry(
+                entry_id,
+                title=title,
+                content=content,
+                reading_datetime=reading_datetime,
+                location_name=location_name,
+                location_lat=location_lat,
+                location_lon=location_lon,
+                querent_id=querent_id_param,
+                reader_id=reader_id_param
+            )
             
             # Save reading
             self.db.delete_entry_readings(entry_id)
@@ -1680,8 +2937,178 @@ class MainFrame(wx.Frame):
             self.viewer_sizer.Add(placeholder, 0, wx.ALL, 20)
             self.viewer_panel.Layout()
             self._refresh_entries_list()
-    
-    
+
+    def _on_export_entries(self, event):
+        """Show export dialog for journal entries"""
+        # Get all selected entry IDs
+        selected_entry_ids = []
+        idx = self.entry_list.GetFirstSelected()
+        while idx != -1:
+            selected_entry_ids.append(self.entry_list.GetItemData(idx))
+            idx = self.entry_list.GetNextSelected(idx)
+
+        # Create dialog to choose export options
+        dlg = wx.Dialog(self, title="Export Entries", size=(400, 250))
+        dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Export scope
+        scope_label = wx.StaticText(dlg, label="What to export:")
+        scope_label.SetForegroundColour(get_wx_color('text_primary'))
+        sizer.Add(scope_label, 0, wx.ALL, 10)
+
+        # Radio buttons with separate labels (for proper text color on macOS)
+        all_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        export_all_radio = wx.RadioButton(dlg, label="", style=wx.RB_GROUP)
+        all_sizer.Add(export_all_radio, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        all_label = wx.StaticText(dlg, label="All entries")
+        all_label.SetForegroundColour(get_wx_color('text_primary'))
+        all_sizer.Add(all_label, 0, wx.ALIGN_CENTER_VERTICAL)
+        sizer.Add(all_sizer, 0, wx.LEFT, 20)
+
+        selected_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        export_selected_radio = wx.RadioButton(dlg, label="")
+        selected_sizer.Add(export_selected_radio, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        # Update label based on selection count
+        selection_count = len(selected_entry_ids)
+        if selection_count == 1:
+            selected_text = "Selected entry (1)"
+        else:
+            selected_text = f"Selected entries ({selection_count})"
+        selected_label = wx.StaticText(dlg, label=selected_text)
+        selected_label.SetForegroundColour(get_wx_color('text_primary'))
+        selected_sizer.Add(selected_label, 0, wx.ALIGN_CENTER_VERTICAL)
+        sizer.Add(selected_sizer, 0, wx.LEFT | wx.TOP, 20)
+
+        # Disable selected option if no entries selected
+        if selection_count == 0:
+            export_selected_radio.Enable(False)
+            selected_label.SetForegroundColour(get_wx_color('text_dim'))
+
+        sizer.AddSpacer(15)
+
+        # Format selection
+        format_label = wx.StaticText(dlg, label="Export format:")
+        format_label.SetForegroundColour(get_wx_color('text_primary'))
+        sizer.Add(format_label, 0, wx.LEFT, 10)
+
+        json_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        json_radio = wx.RadioButton(dlg, label="", style=wx.RB_GROUP)
+        json_sizer.Add(json_radio, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        json_label = wx.StaticText(dlg, label="JSON (data only)")
+        json_label.SetForegroundColour(get_wx_color('text_primary'))
+        json_sizer.Add(json_label, 0, wx.ALIGN_CENTER_VERTICAL)
+        sizer.Add(json_sizer, 0, wx.LEFT | wx.TOP, 20)
+
+        zip_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        zip_radio = wx.RadioButton(dlg, label="")
+        zip_sizer.Add(zip_radio, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        zip_label = wx.StaticText(dlg, label="ZIP (data + card images)")
+        zip_label.SetForegroundColour(get_wx_color('text_primary'))
+        zip_sizer.Add(zip_label, 0, wx.ALIGN_CENTER_VERTICAL)
+        sizer.Add(zip_sizer, 0, wx.LEFT | wx.TOP, 20)
+
+        sizer.AddStretchSpacer()
+
+        # Buttons
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        cancel_btn = wx.Button(dlg, wx.ID_CANCEL, "Cancel")
+        export_btn = wx.Button(dlg, wx.ID_OK, "Export")
+        btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
+        btn_sizer.Add(export_btn, 0)
+        sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
+
+        dlg.SetSizer(sizer)
+
+        if dlg.ShowModal() == wx.ID_OK:
+            # Get selected options
+            export_all = export_all_radio.GetValue()
+            use_zip = zip_radio.GetValue()
+
+            entry_ids = None if export_all else selected_entry_ids
+
+            # Choose file extension
+            if use_zip:
+                wildcard = "ZIP files (*.zip)|*.zip"
+                default_ext = ".zip"
+            else:
+                wildcard = "JSON files (*.json)|*.json"
+                default_ext = ".json"
+
+            # Show file save dialog
+            file_dlg = wx.FileDialog(
+                self, "Save Export",
+                wildcard=wildcard,
+                style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT
+            )
+            file_dlg.SetFilename(f"tarot_journal_export{default_ext}")
+
+            if file_dlg.ShowModal() == wx.ID_OK:
+                filepath = file_dlg.GetPath()
+
+                try:
+                    if use_zip:
+                        self.db.export_entries_to_zip(filepath, entry_ids)
+                    else:
+                        self.db.export_entries_to_file(filepath, entry_ids)
+
+                    wx.MessageBox(
+                        f"Export complete!\n\nSaved to: {filepath}",
+                        "Export Successful",
+                        wx.OK | wx.ICON_INFORMATION
+                    )
+                except Exception as e:
+                    wx.MessageBox(
+                        f"Export failed:\n{str(e)}",
+                        "Export Error",
+                        wx.OK | wx.ICON_ERROR
+                    )
+
+            file_dlg.Destroy()
+
+        dlg.Destroy()
+
+    def _on_import_entries(self, event):
+        """Show import dialog for journal entries"""
+        wildcard = "Journal exports (*.json;*.zip)|*.json;*.zip|JSON files (*.json)|*.json|ZIP files (*.zip)|*.zip"
+
+        file_dlg = wx.FileDialog(
+            self, "Import Entries",
+            wildcard=wildcard,
+            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
+        )
+
+        if file_dlg.ShowModal() == wx.ID_OK:
+            filepath = file_dlg.GetPath()
+
+            try:
+                if filepath.lower().endswith('.zip'):
+                    result = self.db.import_entries_from_zip(filepath)
+                else:
+                    result = self.db.import_entries_from_file(filepath)
+
+                wx.MessageBox(
+                    f"Import complete!\n\n"
+                    f"Entries imported: {result['imported']}\n"
+                    f"New tags created: {result['tags_created']}",
+                    "Import Successful",
+                    wx.OK | wx.ICON_INFORMATION
+                )
+
+                self._refresh_entries_list()
+                self._refresh_tags_list()
+
+            except Exception as e:
+                wx.MessageBox(
+                    f"Import failed:\n{str(e)}",
+                    "Import Error",
+                    wx.OK | wx.ICON_ERROR
+                )
+
+        file_dlg.Destroy()
+
+
     # ═══════════════════════════════════════════
     # EVENT HANDLERS - Library
     # ═══════════════════════════════════════════
@@ -1714,93 +3141,407 @@ class MainFrame(wx.Frame):
         dlg.Destroy()
     
     def _on_edit_deck(self, event):
-        """Edit deck name and suit names"""
+        """Edit deck name, suit names, and custom fields"""
         idx = self.deck_list.GetFirstSelected()
         if idx == -1:
             wx.MessageBox("Select a deck to edit.", "No Selection", wx.OK | wx.ICON_INFORMATION)
             return
-        
+
         deck_id = self.deck_list.GetItemData(idx)
         deck = self.db.get_deck(deck_id)
         if not deck:
             return
-        
+
         suit_names = self.db.get_deck_suit_names(deck_id)
-        
-        dlg = wx.Dialog(self, title="Edit Deck", size=(450, 350))
+        custom_fields = list(self.db.get_deck_custom_fields(deck_id))
+
+        dlg = wx.Dialog(self, title="Edit Deck", size=(550, 480))
         dlg.SetBackgroundColour(get_wx_color('bg_primary'))
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Create notebook for tabs using FlatNotebook for better color control
+        style = (fnb.FNB_NO_X_BUTTON | fnb.FNB_NO_NAV_BUTTONS | fnb.FNB_NODRAG)
+        notebook = fnb.FlatNotebook(dlg, agwStyle=style)
+        notebook.SetBackgroundColour(get_wx_color('bg_primary'))
+        notebook.SetTabAreaColour(get_wx_color('bg_primary'))
+        notebook.SetActiveTabColour(get_wx_color('bg_tertiary'))
+        notebook.SetNonActiveTabTextColour(get_wx_color('text_primary'))
+        notebook.SetActiveTabTextColour(get_wx_color('text_primary'))
+        notebook.SetGradientColourTo(get_wx_color('bg_tertiary'))
+        notebook.SetGradientColourFrom(get_wx_color('bg_secondary'))
+
+        # === General Tab ===
+        general_panel = wx.Panel(notebook)
+        general_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        general_sizer = wx.BoxSizer(wx.VERTICAL)
+
         # Deck name
         name_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        name_label = wx.StaticText(dlg, label="Deck Name:")
+        name_label = wx.StaticText(general_panel, label="Deck Name:")
         name_label.SetForegroundColour(get_wx_color('text_primary'))
         name_sizer.Add(name_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
-        name_ctrl = wx.TextCtrl(dlg, value=deck['name'])
+        name_ctrl = wx.TextCtrl(general_panel, value=deck['name'])
         name_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
         name_ctrl.SetForegroundColour(get_wx_color('text_primary'))
         name_sizer.Add(name_ctrl, 1)
-        sizer.Add(name_sizer, 0, wx.EXPAND | wx.ALL, 15)
-        
-        # Suit names section
-        suit_box = wx.StaticBox(dlg, label="Suit Names (for Tarot decks)")
+        general_sizer.Add(name_sizer, 0, wx.EXPAND | wx.ALL, 15)
+
+        # Suit names section - use appropriate suits based on deck type
+        deck_type = deck['cartomancy_type_name']
+        if deck_type in ('Lenormand', 'Playing Cards'):
+            suits = [('hearts', 'Hearts'), ('diamonds', 'Diamonds'),
+                     ('clubs', 'Clubs'), ('spades', 'Spades')]
+            suit_box_label = "Suit Names (for Playing Card decks)"
+        else:  # Tarot or Oracle
+            suits = [('wands', 'Wands'), ('cups', 'Cups'),
+                     ('swords', 'Swords'), ('pentacles', 'Pentacles')]
+            suit_box_label = "Suit Names (for Tarot decks)"
+
+        suit_box = wx.StaticBox(general_panel, label=suit_box_label)
         suit_box.SetForegroundColour(get_wx_color('accent'))
         suit_sizer = wx.StaticBoxSizer(suit_box, wx.VERTICAL)
-        
-        suit_note = wx.StaticText(dlg, label="Changing suit names will update all card names in this deck.")
+
+        suit_note = wx.StaticText(general_panel, label="Changing suit names will update all card names in this deck.")
         suit_note.SetForegroundColour(get_wx_color('text_dim'))
         suit_sizer.Add(suit_note, 0, wx.ALL, 10)
-        
+
         suit_ctrls = {}
-        for suit_key, default_name in [('wands', 'Wands'), ('cups', 'Cups'), 
-                                        ('swords', 'Swords'), ('pentacles', 'Pentacles')]:
+        for suit_key, default_name in suits:
             row = wx.BoxSizer(wx.HORIZONTAL)
-            label = wx.StaticText(dlg, label=f"{default_name}:", size=(80, -1))
+            label = wx.StaticText(general_panel, label=f"{default_name}:", size=(80, -1))
             label.SetForegroundColour(get_wx_color('text_primary'))
             row.Add(label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
-            
-            ctrl = wx.TextCtrl(dlg, value=suit_names.get(suit_key, default_name))
+
+            ctrl = wx.TextCtrl(general_panel, value=suit_names.get(suit_key, default_name))
             ctrl.SetBackgroundColour(get_wx_color('bg_input'))
             ctrl.SetForegroundColour(get_wx_color('text_primary'))
             suit_ctrls[suit_key] = ctrl
             row.Add(ctrl, 1)
-            
+
             suit_sizer.Add(row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
-        
-        sizer.Add(suit_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 15)
-        
+
+        general_sizer.Add(suit_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 15)
+
+        # Auto-assign metadata button (for Tarot, Lenormand, Playing Cards)
+        if deck_type in ('Tarot', 'Lenormand', 'Playing Cards'):
+            auto_meta_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            auto_meta_btn = wx.Button(general_panel, label="Auto-assign Card Metadata")
+
+            def on_auto_assign(e):
+                # For Tarot decks, show preset selection for ordering
+                preset_name = None
+                if deck_type == 'Tarot':
+                    # Build list of Tarot presets
+                    tarot_presets = []
+                    for name in self.presets.get_preset_names():
+                        preset = self.presets.get_preset(name)
+                        if preset and preset.get('type') == 'Tarot':
+                            tarot_presets.append(name)
+
+                    if tarot_presets:
+                        # Show preset selection dialog
+                        preset_dlg = wx.SingleChoiceDialog(
+                            dlg,
+                            "Select the ordering for this deck.\n"
+                            "This affects the numbering of Strength/Justice:\n\n"
+                            "• RWS Ordering: Strength=VIII, Justice=XI\n"
+                            "• Thoth/Pre-Golden Dawn: Strength=XI, Justice=VIII",
+                            "Select Deck Ordering",
+                            tarot_presets
+                        )
+                        if preset_dlg.ShowModal() == wx.ID_OK:
+                            preset_name = preset_dlg.GetStringSelection()
+                        else:
+                            preset_dlg.Destroy()
+                            return
+                        preset_dlg.Destroy()
+                elif deck_type == 'Lenormand':
+                    # Use Lenormand preset
+                    preset_name = "Lenormand (36 cards)"
+                elif deck_type == 'Playing Cards':
+                    # Use Playing Cards preset
+                    preset_name = "Playing Cards with Jokers (54 cards)"
+
+                result = wx.MessageBox(
+                    "This will automatically assign archetype, rank, and suit\n"
+                    "to cards based on their names.\n\n"
+                    "Cards with existing metadata will be skipped.\n"
+                    "Continue?",
+                    "Auto-assign Metadata",
+                    wx.YES_NO | wx.ICON_QUESTION
+                )
+                if result == wx.YES:
+                    updated = self.db.auto_assign_deck_metadata(deck_id, overwrite=False,
+                                                                 preset_name=preset_name)
+                    # Refresh the cards display to update selection state
+                    self._refresh_cards_display(deck_id)
+                    wx.MessageBox(
+                        f"Updated metadata for {updated} cards.",
+                        "Complete",
+                        wx.OK | wx.ICON_INFORMATION
+                    )
+
+            auto_meta_btn.Bind(wx.EVT_BUTTON, on_auto_assign)
+            auto_meta_sizer.Add(auto_meta_btn, 0)
+
+            auto_meta_note = wx.StaticText(general_panel,
+                label="  (Parses card names to fill in archetype/rank/suit)")
+            auto_meta_note.SetForegroundColour(get_wx_color('text_dim'))
+            auto_meta_sizer.Add(auto_meta_note, 0, wx.ALIGN_CENTER_VERTICAL)
+
+            general_sizer.Add(auto_meta_sizer, 0, wx.ALL, 15)
+
+        general_panel.SetSizer(general_sizer)
+        notebook.AddPage(general_panel, "General")
+
+        # === Custom Fields Tab ===
+        cf_panel = wx.Panel(notebook)
+        cf_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        cf_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        cf_info = wx.StaticText(cf_panel,
+            label="Define custom fields that apply to all cards in this deck.\nThese fields appear in the card edit dialog.")
+        cf_info.SetForegroundColour(get_wx_color('text_secondary'))
+        cf_sizer.Add(cf_info, 0, wx.ALL, 10)
+
+        # List control for custom fields
+        cf_list = wx.ListCtrl(cf_panel, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
+        cf_list.SetBackgroundColour(get_wx_color('bg_secondary'))
+        cf_list.SetForegroundColour(get_wx_color('text_primary'))
+        cf_list.InsertColumn(0, "Field Name", width=150)
+        cf_list.InsertColumn(1, "Type", width=100)
+        cf_list.InsertColumn(2, "Options", width=150)
+
+        # Populate list
+        def refresh_cf_list():
+            cf_list.DeleteAllItems()
+            for i, field in enumerate(custom_fields):
+                idx = cf_list.InsertItem(i, field['field_name'])
+                cf_list.SetItem(idx, 1, field['field_type'])
+                options_str = ''
+                if field['field_options']:
+                    try:
+                        opts = json.loads(field['field_options'])
+                        options_str = ', '.join(opts[:3])
+                        if len(opts) > 3:
+                            options_str += '...'
+                    except:
+                        pass
+                cf_list.SetItem(idx, 2, options_str)
+                cf_list.SetItemData(idx, field['id'])
+
+        refresh_cf_list()
+        cf_sizer.Add(cf_list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
+        # Buttons for custom fields
+        cf_btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        def on_add_field(e):
+            field_data = self._show_custom_field_dialog(dlg)
+            if field_data:
+                new_id = self.db.add_deck_custom_field(
+                    deck_id,
+                    field_data['name'],
+                    field_data['type'],
+                    field_data.get('options'),
+                    len(custom_fields)
+                )
+                custom_fields.append({
+                    'id': new_id,
+                    'deck_id': deck_id,
+                    'field_name': field_data['name'],
+                    'field_type': field_data['type'],
+                    'field_options': json.dumps(field_data.get('options')) if field_data.get('options') else None,
+                    'field_order': len(custom_fields)
+                })
+                refresh_cf_list()
+
+        def on_edit_field(e):
+            sel = cf_list.GetFirstSelected()
+            if sel == -1:
+                return
+            field_id = cf_list.GetItemData(sel)
+            field = None
+            field_idx = None
+            for i, f in enumerate(custom_fields):
+                if f['id'] == field_id:
+                    field = f
+                    field_idx = i
+                    break
+            if not field:
+                return
+
+            # Parse existing options
+            existing_options = None
+            if field['field_options']:
+                try:
+                    existing_options = json.loads(field['field_options'])
+                except:
+                    pass
+
+            field_data = self._show_custom_field_dialog(
+                dlg,
+                name=field['field_name'],
+                field_type=field['field_type'],
+                options=existing_options
+            )
+            if field_data:
+                self.db.update_deck_custom_field(
+                    field_id,
+                    field_name=field_data['name'],
+                    field_type=field_data['type'],
+                    field_options=field_data.get('options')
+                )
+                custom_fields[field_idx] = {
+                    'id': field_id,
+                    'deck_id': deck_id,
+                    'field_name': field_data['name'],
+                    'field_type': field_data['type'],
+                    'field_options': json.dumps(field_data.get('options')) if field_data.get('options') else None,
+                    'field_order': field['field_order']
+                }
+                refresh_cf_list()
+
+        def on_delete_field(e):
+            sel = cf_list.GetFirstSelected()
+            if sel == -1:
+                return
+            field_id = cf_list.GetItemData(sel)
+            field_name = cf_list.GetItemText(sel)
+
+            if wx.MessageBox(
+                f"Delete custom field '{field_name}'?\n\nThis will remove the field from all cards.",
+                "Confirm Delete",
+                wx.YES_NO | wx.ICON_WARNING
+            ) == wx.YES:
+                self.db.delete_deck_custom_field(field_id)
+                for i, f in enumerate(custom_fields):
+                    if f['id'] == field_id:
+                        custom_fields.pop(i)
+                        break
+                refresh_cf_list()
+
+        add_cf_btn = wx.Button(cf_panel, label="+ Add Field")
+        add_cf_btn.Bind(wx.EVT_BUTTON, on_add_field)
+        cf_btn_sizer.Add(add_cf_btn, 0, wx.RIGHT, 5)
+
+        edit_cf_btn = wx.Button(cf_panel, label="Edit")
+        edit_cf_btn.Bind(wx.EVT_BUTTON, on_edit_field)
+        cf_btn_sizer.Add(edit_cf_btn, 0, wx.RIGHT, 5)
+
+        del_cf_btn = wx.Button(cf_panel, label="Delete")
+        del_cf_btn.Bind(wx.EVT_BUTTON, on_delete_field)
+        cf_btn_sizer.Add(del_cf_btn, 0)
+
+        cf_sizer.Add(cf_btn_sizer, 0, wx.ALL, 10)
+
+        cf_panel.SetSizer(cf_sizer)
+        notebook.AddPage(cf_panel, "Custom Fields")
+
+        main_sizer.Add(notebook, 1, wx.EXPAND | wx.ALL, 10)
+
         # Buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         cancel_btn = wx.Button(dlg, wx.ID_CANCEL, "Cancel")
         save_btn = wx.Button(dlg, wx.ID_OK, "Save")
         btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
         btn_sizer.Add(save_btn, 0)
-        sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 15)
-        
-        dlg.SetSizer(sizer)
-        
+        main_sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
+
+        dlg.SetSizer(main_sizer)
+
         if dlg.ShowModal() == wx.ID_OK:
             new_name = name_ctrl.GetValue().strip()
-            new_suit_names = {
-                'wands': suit_ctrls['wands'].GetValue().strip() or 'Wands',
-                'cups': suit_ctrls['cups'].GetValue().strip() or 'Cups',
-                'swords': suit_ctrls['swords'].GetValue().strip() or 'Swords',
-                'pentacles': suit_ctrls['pentacles'].GetValue().strip() or 'Pentacles',
-            }
-            
+            # Build new_suit_names based on deck type
+            new_suit_names = {}
+            for suit_key, default_name in suits:
+                new_suit_names[suit_key] = suit_ctrls[suit_key].GetValue().strip() or default_name
+
             # Update deck name
             if new_name and new_name != deck['name']:
                 self.db.update_deck(deck_id, name=new_name)
-            
+
             # Update suit names (this also updates card names)
             if new_suit_names != suit_names:
                 self.db.update_deck_suit_names(deck_id, new_suit_names, suit_names)
-            
+
             self._refresh_decks_list()
             self._refresh_cards_display(deck_id)
             wx.MessageBox("Deck updated!", "Success", wx.OK | wx.ICON_INFORMATION)
-        
+
         dlg.Destroy()
+
+    def _show_custom_field_dialog(self, parent, name='', field_type='text', options=None):
+        """Show dialog to add/edit a custom field definition"""
+        dlg = wx.Dialog(parent, title="Custom Field", size=(400, 300))
+        dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Field name
+        name_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        name_label = wx.StaticText(dlg, label="Field Name:")
+        name_label.SetForegroundColour(get_wx_color('text_primary'))
+        name_sizer.Add(name_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        name_ctrl = wx.TextCtrl(dlg, value=name)
+        name_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        name_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        name_sizer.Add(name_ctrl, 1)
+        sizer.Add(name_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        # Field type
+        type_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        type_label = wx.StaticText(dlg, label="Field Type:")
+        type_label.SetForegroundColour(get_wx_color('text_primary'))
+        type_sizer.Add(type_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+        field_types = ['text', 'multiline', 'number', 'select', 'checkbox']
+        type_ctrl = wx.Choice(dlg, choices=field_types)
+        if field_type in field_types:
+            type_ctrl.SetSelection(field_types.index(field_type))
+        else:
+            type_ctrl.SetSelection(0)
+        type_sizer.Add(type_ctrl, 1)
+        sizer.Add(type_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
+        # Options (for select type)
+        options_label = wx.StaticText(dlg, label="Options (for 'select' type, one per line):")
+        options_label.SetForegroundColour(get_wx_color('text_primary'))
+        sizer.Add(options_label, 0, wx.LEFT | wx.TOP, 10)
+
+        options_ctrl = wx.TextCtrl(dlg, style=wx.TE_MULTILINE,
+                                   value='\n'.join(options) if options else '')
+        options_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        options_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        sizer.Add(options_ctrl, 1, wx.EXPAND | wx.ALL, 10)
+
+        # Buttons
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        cancel_btn = wx.Button(dlg, wx.ID_CANCEL, "Cancel")
+        save_btn = wx.Button(dlg, wx.ID_OK, "Save")
+        btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
+        btn_sizer.Add(save_btn, 0)
+        sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
+
+        dlg.SetSizer(sizer)
+
+        result = None
+        if dlg.ShowModal() == wx.ID_OK:
+            field_name = name_ctrl.GetValue().strip()
+            if field_name:
+                selected_type = type_ctrl.GetString(type_ctrl.GetSelection())
+                opts = None
+                if selected_type == 'select':
+                    opts_text = options_ctrl.GetValue().strip()
+                    if opts_text:
+                        opts = [o.strip() for o in opts_text.split('\n') if o.strip()]
+                result = {
+                    'name': field_name,
+                    'type': selected_type,
+                    'options': opts
+                }
+
+        dlg.Destroy()
+        return result
     
     def _on_import_folder(self, event):
         dlg = wx.DirDialog(self, "Select folder with card images")
@@ -1858,11 +3599,11 @@ class MainFrame(wx.Frame):
             suit_ctrls.clear()
             suit_labels.clear()
             
-            if deck_type == 'Lenormand':
-                suits = [('hearts', 'Hearts'), ('diamonds', 'Diamonds'), 
+            if deck_type in ('Lenormand', 'Playing Cards'):
+                suits = [('hearts', 'Hearts'), ('diamonds', 'Diamonds'),
                          ('clubs', 'Clubs'), ('spades', 'Spades')]
             else:  # Tarot or Oracle
-                suits = [('wands', 'Wands'), ('cups', 'Cups'), 
+                suits = [('wands', 'Wands'), ('cups', 'Cups'),
                          ('swords', 'Swords'), ('pentacles', 'Pentacles')]
             
             new_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -1991,16 +3732,24 @@ class MainFrame(wx.Frame):
                     suit_names[key] = ctrl.GetValue().strip() or key.title()
                 
                 deck_id = self.db.add_deck(name, type_id, folder, suit_names)
-                
-                preview = self.presets.preview_import(folder, preset_choice.GetStringSelection(), suit_names)
+
+                # Use the metadata-aware import to get archetype, rank, suit
+                preset_name = preset_choice.GetStringSelection()
+                preview = self.presets.preview_import_with_metadata(folder, preset_name, suit_names)
                 cards = []
-                for orig, mapped, order in preview:
-                    image_path = os.path.join(folder, orig)
-                    cards.append((mapped, image_path, order))
-                
+                for card_info in preview:
+                    cards.append({
+                        'name': card_info['name'],
+                        'image_path': os.path.join(folder, card_info['filename']),
+                        'sort_order': card_info['sort_order'],
+                        'archetype': card_info['archetype'],
+                        'rank': card_info['rank'],
+                        'suit': card_info['suit'],
+                    })
+
                 if cards:
                     self.db.bulk_add_cards(deck_id, cards)
-                    self.thumb_cache.pregenerate_thumbnails([c[1] for c in cards])
+                    self.thumb_cache.pregenerate_thumbnails([c['image_path'] for c in cards])
                     wx.MessageBox(f"Imported {len(cards)} cards into '{name}'", "Success", wx.OK | wx.ICON_INFORMATION)
                 
                 self._refresh_decks_list()
@@ -2011,15 +3760,88 @@ class MainFrame(wx.Frame):
         idx = self.deck_list.GetFirstSelected()
         if idx == -1:
             return
-        
+
         deck_id = self.deck_list.GetItemData(idx)
         deck = self.db.get_deck(deck_id)
-        
+
         if wx.MessageBox(f"Delete '{deck['name']}' and all cards?", "Confirm", wx.YES_NO | wx.ICON_QUESTION) == wx.YES:
             self.db.delete_deck(deck_id)
             self._refresh_decks_list()
             self._refresh_cards_display(None)
-    
+
+    def _on_export_deck(self, event):
+        """Export the selected deck with all metadata to a JSON file."""
+        idx = self.deck_list.GetFirstSelected()
+        if idx == -1:
+            wx.MessageBox("Select a deck to export.", "No Selection", wx.OK | wx.ICON_INFORMATION)
+            return
+
+        deck_id = self.deck_list.GetItemData(idx)
+        deck = self.db.get_deck(deck_id)
+        if not deck:
+            return
+
+        # File save dialog
+        wildcard = "JSON files (*.json)|*.json"
+        default_name = f"{deck['name'].replace(' ', '_')}_deck.json"
+
+        file_dlg = wx.FileDialog(
+            self, "Export Deck",
+            wildcard=wildcard,
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT
+        )
+        file_dlg.SetFilename(default_name)
+
+        if file_dlg.ShowModal() == wx.ID_OK:
+            filepath = file_dlg.GetPath()
+            try:
+                self.db.export_deck_to_file(deck_id, filepath)
+                wx.MessageBox(
+                    f"Deck exported successfully!\n\nSaved to: {filepath}",
+                    "Export Complete",
+                    wx.OK | wx.ICON_INFORMATION
+                )
+            except Exception as e:
+                wx.MessageBox(
+                    f"Export failed:\n{str(e)}",
+                    "Export Error",
+                    wx.OK | wx.ICON_ERROR
+                )
+
+        file_dlg.Destroy()
+
+    def _on_import_deck(self, event):
+        """Import a deck from a JSON file."""
+        wildcard = "JSON files (*.json)|*.json"
+
+        file_dlg = wx.FileDialog(
+            self, "Import Deck",
+            wildcard=wildcard,
+            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
+        )
+
+        if file_dlg.ShowModal() == wx.ID_OK:
+            filepath = file_dlg.GetPath()
+            try:
+                result = self.db.import_deck_from_file(filepath)
+                self._refresh_decks_list()
+                wx.MessageBox(
+                    f"Deck imported successfully!\n\n"
+                    f"Deck: {result['deck_name']}\n"
+                    f"Cards: {result['cards_imported']}\n"
+                    f"Custom fields: {result['custom_fields_created']}",
+                    "Import Complete",
+                    wx.OK | wx.ICON_INFORMATION
+                )
+            except Exception as e:
+                wx.MessageBox(
+                    f"Import failed:\n{str(e)}",
+                    "Import Error",
+                    wx.OK | wx.ICON_ERROR
+                )
+
+        file_dlg.Destroy()
+
     def _on_add_card(self, event):
         idx = self.deck_list.GetFirstSelected()
         if idx == -1:
@@ -2070,7 +3892,229 @@ class MainFrame(wx.Frame):
             self._refresh_cards_display(deck_id)
             wx.MessageBox(f"Imported {len(cards)} cards.", "Success", wx.OK | wx.ICON_INFORMATION)
         dlg.Destroy()
-    
+
+    def _on_view_card(self, event, card_id):
+        """Show a card detail view with full-size image and all metadata"""
+        if not card_id:
+            return
+
+        idx = self.deck_list.GetFirstSelected()
+        if idx == -1:
+            return
+        deck_id = self.deck_list.GetItemData(idx)
+
+        # Get card with full metadata
+        card = self.db.get_card_with_metadata(card_id)
+        if not card:
+            return
+
+        # Get deck info
+        deck = self.db.get_deck(deck_id)
+        if not deck:
+            return
+
+        cartomancy_type = deck['cartomancy_type_name']
+
+        # Helper to safely get card fields
+        def get_field(field_name, default=''):
+            try:
+                if field_name in card.keys():
+                    return card[field_name] if card[field_name] is not None else default
+            except:
+                pass
+            return default
+
+        # Create dialog
+        dlg = wx.Dialog(self, title=f"Card: {card['name']}", size=(700, 550))
+        dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Content area - horizontal split
+        content_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # Left side: Full-size image
+        image_panel = wx.Panel(dlg)
+        image_panel.SetBackgroundColour(get_wx_color('bg_secondary'))
+        image_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        image_path = card['image_path']
+        if image_path and os.path.exists(image_path):
+            try:
+                from PIL import ImageOps
+                # Load with PIL to handle EXIF orientation properly
+                pil_img = Image.open(image_path)
+                pil_img = ImageOps.exif_transpose(pil_img)
+
+                # Scale to fit in panel while preserving aspect ratio
+                max_width, max_height = 300, 450
+                orig_width, orig_height = pil_img.size
+                scale = min(max_width / orig_width, max_height / orig_height)
+                new_width = int(orig_width * scale)
+                new_height = int(orig_height * scale)
+                pil_img = pil_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+                # Convert PIL image to wx.Image
+                if pil_img.mode != 'RGB':
+                    pil_img = pil_img.convert('RGB')
+                wx_img = wx.Image(new_width, new_height)
+                wx_img.SetData(pil_img.tobytes())
+                bmp = wx.StaticBitmap(image_panel, bitmap=wx.Bitmap(wx_img))
+                image_sizer.Add(bmp, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+            except Exception as e:
+                no_img = wx.StaticText(image_panel, label="🂠")
+                no_img.SetFont(wx.Font(72, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+                no_img.SetForegroundColour(get_wx_color('text_dim'))
+                image_sizer.Add(no_img, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+        else:
+            no_img = wx.StaticText(image_panel, label="🂠")
+            no_img.SetFont(wx.Font(72, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+            no_img.SetForegroundColour(get_wx_color('text_dim'))
+            image_sizer.Add(no_img, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+
+        image_panel.SetSizer(image_sizer)
+        content_sizer.Add(image_panel, 0, wx.EXPAND | wx.ALL, 10)
+
+        # Right side: Card info
+        info_panel = wx.ScrolledWindow(dlg)
+        info_panel.SetScrollRate(0, 10)
+        info_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        info_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Card name (large)
+        name_label = wx.StaticText(info_panel, label=card['name'])
+        name_label.SetFont(wx.Font(16, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        name_label.SetForegroundColour(get_wx_color('text_primary'))
+        info_sizer.Add(name_label, 0, wx.BOTTOM, 10)
+
+        # Deck name
+        deck_label = wx.StaticText(info_panel, label=f"Deck: {deck['name']}")
+        deck_label.SetForegroundColour(get_wx_color('text_secondary'))
+        info_sizer.Add(deck_label, 0, wx.BOTTOM, 15)
+
+        # Separator
+        sep1 = wx.StaticLine(info_panel)
+        info_sizer.Add(sep1, 0, wx.EXPAND | wx.BOTTOM, 15)
+
+        # Classification section
+        class_title = wx.StaticText(info_panel, label="Classification")
+        class_title.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        class_title.SetForegroundColour(get_wx_color('accent'))
+        info_sizer.Add(class_title, 0, wx.BOTTOM, 8)
+
+        # Archetype
+        archetype = get_field('archetype', '')
+        if archetype:
+            arch_row = wx.BoxSizer(wx.HORIZONTAL)
+            arch_lbl = wx.StaticText(info_panel, label="Archetype: ")
+            arch_lbl.SetForegroundColour(get_wx_color('text_secondary'))
+            arch_row.Add(arch_lbl, 0)
+            arch_val = wx.StaticText(info_panel, label=archetype)
+            arch_val.SetForegroundColour(get_wx_color('text_primary'))
+            arch_row.Add(arch_val, 0)
+            info_sizer.Add(arch_row, 0, wx.BOTTOM, 5)
+
+        # Rank
+        rank = get_field('rank', '')
+        if rank:
+            rank_row = wx.BoxSizer(wx.HORIZONTAL)
+            rank_lbl = wx.StaticText(info_panel, label="Rank: ")
+            rank_lbl.SetForegroundColour(get_wx_color('text_secondary'))
+            rank_row.Add(rank_lbl, 0)
+            rank_val = wx.StaticText(info_panel, label=str(rank))
+            rank_val.SetForegroundColour(get_wx_color('text_primary'))
+            rank_row.Add(rank_val, 0)
+            info_sizer.Add(rank_row, 0, wx.BOTTOM, 5)
+
+        # Suit
+        suit = get_field('suit', '')
+        if suit:
+            suit_row = wx.BoxSizer(wx.HORIZONTAL)
+            suit_lbl = wx.StaticText(info_panel, label="Suit: ")
+            suit_lbl.SetForegroundColour(get_wx_color('text_secondary'))
+            suit_row.Add(suit_lbl, 0)
+            suit_val = wx.StaticText(info_panel, label=suit)
+            suit_val.SetForegroundColour(get_wx_color('text_primary'))
+            suit_row.Add(suit_val, 0)
+            info_sizer.Add(suit_row, 0, wx.BOTTOM, 5)
+
+        # Sort order
+        sort_order = get_field('card_order', 0)
+        order_row = wx.BoxSizer(wx.HORIZONTAL)
+        order_lbl = wx.StaticText(info_panel, label="Sort Order: ")
+        order_lbl.SetForegroundColour(get_wx_color('text_secondary'))
+        order_row.Add(order_lbl, 0)
+        order_val = wx.StaticText(info_panel, label=str(sort_order))
+        order_val.SetForegroundColour(get_wx_color('text_primary'))
+        order_row.Add(order_val, 0)
+        info_sizer.Add(order_row, 0, wx.BOTTOM, 15)
+
+        # Notes section
+        notes = get_field('notes', '')
+        if notes:
+            sep2 = wx.StaticLine(info_panel)
+            info_sizer.Add(sep2, 0, wx.EXPAND | wx.BOTTOM, 15)
+
+            notes_title = wx.StaticText(info_panel, label="Notes")
+            notes_title.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+            notes_title.SetForegroundColour(get_wx_color('accent'))
+            info_sizer.Add(notes_title, 0, wx.BOTTOM, 8)
+
+            notes_text = wx.StaticText(info_panel, label=notes)
+            notes_text.SetForegroundColour(get_wx_color('text_primary'))
+            notes_text.Wrap(280)
+            info_sizer.Add(notes_text, 0, wx.BOTTOM, 15)
+
+        # Custom fields section
+        custom_fields_json = get_field('custom_fields', None)
+        if custom_fields_json:
+            try:
+                custom_fields = json.loads(custom_fields_json)
+                if custom_fields:
+                    sep3 = wx.StaticLine(info_panel)
+                    info_sizer.Add(sep3, 0, wx.EXPAND | wx.BOTTOM, 15)
+
+                    cf_title = wx.StaticText(info_panel, label="Custom Fields")
+                    cf_title.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+                    cf_title.SetForegroundColour(get_wx_color('accent'))
+                    info_sizer.Add(cf_title, 0, wx.BOTTOM, 8)
+
+                    for field_name, field_value in custom_fields.items():
+                        cf_row = wx.BoxSizer(wx.HORIZONTAL)
+                        cf_lbl = wx.StaticText(info_panel, label=f"{field_name}: ")
+                        cf_lbl.SetForegroundColour(get_wx_color('text_secondary'))
+                        cf_row.Add(cf_lbl, 0)
+                        cf_val = wx.StaticText(info_panel, label=str(field_value))
+                        cf_val.SetForegroundColour(get_wx_color('text_primary'))
+                        cf_row.Add(cf_val, 0)
+                        info_sizer.Add(cf_row, 0, wx.BOTTOM, 5)
+            except:
+                pass
+
+        info_panel.SetSizer(info_sizer)
+        content_sizer.Add(info_panel, 1, wx.EXPAND | wx.ALL, 10)
+
+        main_sizer.Add(content_sizer, 1, wx.EXPAND)
+
+        # Button row
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        def on_edit(e):
+            dlg.EndModal(wx.ID_OK)
+            self._on_edit_card(None, card_id)
+
+        edit_btn = wx.Button(dlg, label="Edit Card")
+        edit_btn.Bind(wx.EVT_BUTTON, on_edit)
+        btn_sizer.Add(edit_btn, 0, wx.RIGHT, 10)
+
+        close_btn = wx.Button(dlg, wx.ID_CANCEL, "Close")
+        btn_sizer.Add(close_btn, 0)
+
+        main_sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 15)
+
+        dlg.SetSizer(main_sizer)
+        dlg.ShowModal()
+        dlg.Destroy()
+
     def _on_edit_card(self, event, card_id=None):
         if card_id is None:
             # Get first selected card
@@ -2078,82 +4122,414 @@ class MainFrame(wx.Frame):
                 card_id = next(iter(self.selected_card_ids))
             else:
                 card_id = None
-        
+
         if not card_id:
             wx.MessageBox("Select a card to edit.", "No Card", wx.OK | wx.ICON_INFORMATION)
             return
-        
+
         idx = self.deck_list.GetFirstSelected()
         if idx == -1:
             return
         deck_id = self.deck_list.GetItemData(idx)
-        
-        cards = self.db.get_cards(deck_id)
-        card = None
-        for c in cards:
-            if c['id'] == card_id:
-                card = c
-                break
-        
+
+        # Get card with full metadata
+        card = self.db.get_card_with_metadata(card_id)
         if not card:
             return
-        
-        dlg = wx.Dialog(self, title="Edit Card", size=(450, 180))
+
+        # Get deck info for cartomancy type
+        deck = self.db.get_deck(deck_id)
+        if not deck:
+            return
+
+        cartomancy_type = deck['cartomancy_type_name']
+
+        # Get deck custom fields
+        deck_custom_fields = self.db.get_deck_custom_fields(deck_id)
+
+        # Helper to safely get card fields (handles missing columns in older DBs)
+        def get_card_field(field_name, default=''):
+            try:
+                if field_name in card.keys():
+                    return card[field_name] if card[field_name] is not None else default
+            except:
+                pass
+            return default
+
+        # Parse existing custom field values from card
+        existing_custom_values = {}
+        try:
+            custom_fields_json = get_card_field('custom_fields', None)
+            if custom_fields_json:
+                existing_custom_values = json.loads(custom_fields_json)
+        except:
+            pass
+
+        dlg = wx.Dialog(self, title="Edit Card", size=(500, 480))
         dlg.SetBackgroundColour(get_wx_color('bg_primary'))
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Create notebook for tabs using FlatNotebook for better color control
+        style = (fnb.FNB_NO_X_BUTTON | fnb.FNB_NO_NAV_BUTTONS | fnb.FNB_NODRAG)
+        notebook = fnb.FlatNotebook(dlg, agwStyle=style)
+        notebook.SetBackgroundColour(get_wx_color('bg_primary'))
+        notebook.SetTabAreaColour(get_wx_color('bg_primary'))
+        notebook.SetActiveTabColour(get_wx_color('bg_tertiary'))
+        notebook.SetNonActiveTabTextColour(get_wx_color('text_primary'))
+        notebook.SetActiveTabTextColour(get_wx_color('text_primary'))
+        notebook.SetGradientColourTo(get_wx_color('bg_tertiary'))
+        notebook.SetGradientColourFrom(get_wx_color('bg_secondary'))
+
+        # === Basic Info Tab ===
+        basic_panel = wx.Panel(notebook)
+        basic_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        basic_sizer = wx.BoxSizer(wx.VERTICAL)
+
         # Name
         name_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        name_label = wx.StaticText(dlg, label="Name:")
+        name_label = wx.StaticText(basic_panel, label="Name:")
         name_label.SetForegroundColour(get_wx_color('text_primary'))
         name_sizer.Add(name_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
-        name_ctrl = wx.TextCtrl(dlg, value=card['name'])
+        name_ctrl = wx.TextCtrl(basic_panel, value=card['name'])
         name_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
         name_ctrl.SetForegroundColour(get_wx_color('text_primary'))
         name_sizer.Add(name_ctrl, 1)
-        sizer.Add(name_sizer, 0, wx.EXPAND | wx.ALL, 10)
-        
+        basic_sizer.Add(name_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
         # Image
         image_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        image_label = wx.StaticText(dlg, label="Image:")
+        image_label = wx.StaticText(basic_panel, label="Image:")
         image_label.SetForegroundColour(get_wx_color('text_primary'))
         image_sizer.Add(image_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
-        image_ctrl = wx.TextCtrl(dlg, value=card['image_path'] or '')
+        image_ctrl = wx.TextCtrl(basic_panel, value=card['image_path'] or '')
         image_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
         image_ctrl.SetForegroundColour(get_wx_color('text_primary'))
         image_sizer.Add(image_ctrl, 1, wx.RIGHT, 5)
-        
+
         def browse(e):
             file_dlg = wx.FileDialog(dlg, wildcard="Images|*.jpg;*.jpeg;*.png;*.gif;*.webp")
             if file_dlg.ShowModal() == wx.ID_OK:
                 image_ctrl.SetValue(file_dlg.GetPath())
             file_dlg.Destroy()
-        
-        browse_btn = wx.Button(dlg, label="Browse")
+
+        browse_btn = wx.Button(basic_panel, label="Browse")
         browse_btn.Bind(wx.EVT_BUTTON, browse)
         image_sizer.Add(browse_btn, 0)
-        sizer.Add(image_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
-        
+        basic_sizer.Add(image_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
+        # Sort order
+        order_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        order_label = wx.StaticText(basic_panel, label="Sort Order:")
+        order_label.SetForegroundColour(get_wx_color('text_primary'))
+        order_sizer.Add(order_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        order_ctrl = wx.SpinCtrl(basic_panel, min=0, max=999, initial=get_card_field('card_order', 0) or 0)
+        order_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        order_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        order_sizer.Add(order_ctrl, 0)
+        basic_sizer.Add(order_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        basic_panel.SetSizer(basic_sizer)
+        notebook.AddPage(basic_panel, "Basic Info")
+
+        # === Classification Tab ===
+        class_panel = wx.Panel(notebook)
+        class_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        class_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Archetype (with autocomplete for non-Oracle)
+        arch_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        arch_label = wx.StaticText(class_panel, label="Archetype:")
+        arch_label.SetForegroundColour(get_wx_color('text_primary'))
+        arch_sizer.Add(arch_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        archetype_ctrl = ArchetypeAutocomplete(
+            class_panel, self.db, cartomancy_type,
+            value=get_card_field('archetype', '')
+        )
+        arch_sizer.Add(archetype_ctrl, 1, wx.EXPAND)
+        class_sizer.Add(arch_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        # Rank and Suit (varies by type)
+        rank_ctrl = None
+        suit_ctrl = None
+
+        if cartomancy_type == 'Tarot':
+            # Tarot: Rank dropdown and Suit dropdown
+            rank_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            rank_label = wx.StaticText(class_panel, label="Rank:")
+            rank_label.SetForegroundColour(get_wx_color('text_primary'))
+            rank_sizer.Add(rank_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+            tarot_ranks = ['', 'Ace', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven',
+                          'Eight', 'Nine', 'Ten', 'Page', 'Knight', 'Queen', 'King',
+                          '0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX',
+                          'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII',
+                          'XIX', 'XX', 'XXI']
+            rank_ctrl = wx.Choice(class_panel, choices=tarot_ranks)
+            current_rank = get_card_field('rank', '')
+            if current_rank in tarot_ranks:
+                rank_ctrl.SetSelection(tarot_ranks.index(current_rank))
+            else:
+                rank_ctrl.SetSelection(0)
+            rank_sizer.Add(rank_ctrl, 1)
+            class_sizer.Add(rank_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+            suit_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            suit_label = wx.StaticText(class_panel, label="Suit:")
+            suit_label.SetForegroundColour(get_wx_color('text_primary'))
+            suit_sizer.Add(suit_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+            tarot_suits = ['', 'Major Arcana', 'Wands', 'Cups', 'Swords', 'Pentacles']
+            suit_ctrl = wx.Choice(class_panel, choices=tarot_suits)
+            current_suit = get_card_field('suit', '')
+            if current_suit in tarot_suits:
+                suit_ctrl.SetSelection(tarot_suits.index(current_suit))
+            else:
+                suit_ctrl.SetSelection(0)
+            suit_sizer.Add(suit_ctrl, 1)
+            class_sizer.Add(suit_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        elif cartomancy_type == 'Playing Cards':
+            # Playing Cards: Rank dropdown and Suit dropdown
+            rank_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            rank_label = wx.StaticText(class_panel, label="Rank:")
+            rank_label.SetForegroundColour(get_wx_color('text_primary'))
+            rank_sizer.Add(rank_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+            playing_ranks = ['', 'Ace', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven',
+                           'Eight', 'Nine', 'Ten', 'Jack', 'Queen', 'King', 'Joker']
+            rank_ctrl = wx.Choice(class_panel, choices=playing_ranks)
+            current_rank = get_card_field('rank', '')
+            if current_rank in playing_ranks:
+                rank_ctrl.SetSelection(playing_ranks.index(current_rank))
+            else:
+                rank_ctrl.SetSelection(0)
+            rank_sizer.Add(rank_ctrl, 1)
+            class_sizer.Add(rank_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+            suit_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            suit_label = wx.StaticText(class_panel, label="Suit:")
+            suit_label.SetForegroundColour(get_wx_color('text_primary'))
+            suit_sizer.Add(suit_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+            playing_suits = ['', 'Hearts', 'Diamonds', 'Clubs', 'Spades']
+            suit_ctrl = wx.Choice(class_panel, choices=playing_suits)
+            current_suit = get_card_field('suit', '')
+            if current_suit in playing_suits:
+                suit_ctrl.SetSelection(playing_suits.index(current_suit))
+            else:
+                suit_ctrl.SetSelection(0)
+            suit_sizer.Add(suit_ctrl, 1)
+            class_sizer.Add(suit_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        elif cartomancy_type == 'Lenormand':
+            # Lenormand: Number field (1-36)
+            rank_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            rank_label = wx.StaticText(class_panel, label="Card Number (1-36):")
+            rank_label.SetForegroundColour(get_wx_color('text_primary'))
+            rank_sizer.Add(rank_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+            current_num = 1
+            card_rank = get_card_field('rank', '')
+            if card_rank:
+                try:
+                    current_num = int(card_rank)
+                except:
+                    pass
+            rank_ctrl = wx.SpinCtrl(class_panel, min=1, max=36, initial=current_num)
+            rank_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+            rank_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+            rank_sizer.Add(rank_ctrl, 0)
+            class_sizer.Add(rank_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+            # No suit for Lenormand
+
+        # Oracle: No rank/suit fields shown
+
+        # Helper text
+        if cartomancy_type == 'Oracle':
+            help_text = wx.StaticText(class_panel,
+                label="Oracle decks use free-text archetypes.\nNo predefined ranks or suits.")
+            help_text.SetForegroundColour(get_wx_color('text_secondary'))
+            class_sizer.Add(help_text, 0, wx.ALL, 10)
+
+        class_panel.SetSizer(class_sizer)
+        notebook.AddPage(class_panel, "Classification")
+
+        # === Notes Tab ===
+        notes_panel = wx.Panel(notebook)
+        notes_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        notes_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        notes_label = wx.StaticText(notes_panel, label="Personal Notes / Interpretations:")
+        notes_label.SetForegroundColour(get_wx_color('text_primary'))
+        notes_sizer.Add(notes_label, 0, wx.ALL, 10)
+
+        notes_ctrl = wx.TextCtrl(notes_panel, value=get_card_field('notes', ''),
+                                 style=wx.TE_MULTILINE)
+        notes_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        notes_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        notes_sizer.Add(notes_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        notes_panel.SetSizer(notes_sizer)
+        notebook.AddPage(notes_panel, "Notes")
+
+        # === Custom Fields Tab ===
+        custom_panel = wx.Panel(notebook)
+        custom_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        custom_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        custom_field_ctrls = {}
+
+        if deck_custom_fields:
+            custom_label = wx.StaticText(custom_panel, label="Deck Custom Fields:")
+            custom_label.SetForegroundColour(get_wx_color('text_primary'))
+            custom_label.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+            custom_sizer.Add(custom_label, 0, wx.ALL, 10)
+
+            for field in deck_custom_fields:
+                field_name = field['field_name']
+                field_type = field['field_type']
+                field_options = None
+                if field['field_options']:
+                    try:
+                        field_options = json.loads(field['field_options'])
+                    except:
+                        pass
+
+                current_value = existing_custom_values.get(field_name, '')
+
+                field_sizer = wx.BoxSizer(wx.HORIZONTAL)
+                f_label = wx.StaticText(custom_panel, label=f"{field_name}:")
+                f_label.SetForegroundColour(get_wx_color('text_primary'))
+                field_sizer.Add(f_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+                if field_type == 'text':
+                    ctrl = wx.TextCtrl(custom_panel, value=str(current_value))
+                    ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+                    ctrl.SetForegroundColour(get_wx_color('text_primary'))
+                    field_sizer.Add(ctrl, 1)
+
+                elif field_type == 'multiline':
+                    ctrl = wx.TextCtrl(custom_panel, value=str(current_value),
+                                       style=wx.TE_MULTILINE, size=(-1, 60))
+                    ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+                    ctrl.SetForegroundColour(get_wx_color('text_primary'))
+                    field_sizer.Add(ctrl, 1, wx.EXPAND)
+
+                elif field_type == 'number':
+                    try:
+                        num_val = int(current_value) if current_value else 0
+                    except:
+                        num_val = 0
+                    ctrl = wx.SpinCtrl(custom_panel, min=-9999, max=9999, initial=num_val)
+                    ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+                    ctrl.SetForegroundColour(get_wx_color('text_primary'))
+                    field_sizer.Add(ctrl, 0)
+
+                elif field_type == 'select' and field_options:
+                    ctrl = wx.Choice(custom_panel, choices=[''] + field_options)
+                    if current_value in field_options:
+                        ctrl.SetSelection(field_options.index(current_value) + 1)
+                    else:
+                        ctrl.SetSelection(0)
+                    field_sizer.Add(ctrl, 1)
+
+                elif field_type == 'checkbox':
+                    ctrl = wx.CheckBox(custom_panel, label="")
+                    ctrl.SetValue(bool(current_value))
+                    field_sizer.Add(ctrl, 0)
+
+                else:
+                    ctrl = wx.TextCtrl(custom_panel, value=str(current_value))
+                    ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+                    ctrl.SetForegroundColour(get_wx_color('text_primary'))
+                    field_sizer.Add(ctrl, 1)
+
+                custom_field_ctrls[field_name] = (ctrl, field_type)
+                custom_sizer.Add(field_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        else:
+            no_fields_label = wx.StaticText(custom_panel,
+                label="No custom fields defined for this deck.\nEdit the deck to add custom fields.")
+            no_fields_label.SetForegroundColour(get_wx_color('text_secondary'))
+            custom_sizer.Add(no_fields_label, 0, wx.ALL, 10)
+
+        custom_panel.SetSizer(custom_sizer)
+        notebook.AddPage(custom_panel, "Custom Fields")
+
+        main_sizer.Add(notebook, 1, wx.EXPAND | wx.ALL, 10)
+
         # Buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         cancel_btn = wx.Button(dlg, wx.ID_CANCEL, "Cancel")
         save_btn = wx.Button(dlg, wx.ID_OK, "Save")
         btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
         btn_sizer.Add(save_btn, 0)
-        sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
-        
-        dlg.SetSizer(sizer)
-        
+        main_sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
+
+        dlg.SetSizer(main_sizer)
+
         if dlg.ShowModal() == wx.ID_OK:
             new_name = name_ctrl.GetValue().strip()
             new_image = image_ctrl.GetValue().strip() or None
-            
+            new_order = order_ctrl.GetValue()
+
+            # Get archetype value
+            new_archetype = archetype_ctrl.GetValue().strip() or None
+
+            # Get rank value based on control type
+            new_rank = None
+            if rank_ctrl:
+                if isinstance(rank_ctrl, wx.SpinCtrl):
+                    new_rank = str(rank_ctrl.GetValue())
+                elif isinstance(rank_ctrl, wx.Choice):
+                    sel = rank_ctrl.GetSelection()
+                    if sel > 0:
+                        new_rank = rank_ctrl.GetString(sel)
+
+            # Get suit value
+            new_suit = None
+            if suit_ctrl:
+                sel = suit_ctrl.GetSelection()
+                if sel > 0:
+                    new_suit = suit_ctrl.GetString(sel)
+
+            # Get notes
+            new_notes = notes_ctrl.GetValue().strip() or None
+
+            # Get custom field values
+            new_custom_fields = {}
+            for field_name, (ctrl, field_type) in custom_field_ctrls.items():
+                if field_type == 'checkbox':
+                    new_custom_fields[field_name] = ctrl.GetValue()
+                elif field_type == 'number':
+                    new_custom_fields[field_name] = ctrl.GetValue()
+                elif field_type == 'select':
+                    sel = ctrl.GetSelection()
+                    if sel > 0:
+                        new_custom_fields[field_name] = ctrl.GetString(sel)
+                    else:
+                        new_custom_fields[field_name] = ''
+                else:
+                    new_custom_fields[field_name] = ctrl.GetValue()
+
             if new_name:
-                self.db.update_card(card_id, name=new_name, image_path=new_image)
+                # Update basic card info
+                self.db.update_card(card_id, name=new_name, image_path=new_image,
+                                   card_order=new_order)
+
+                # Update metadata
+                self.db.update_card_metadata(
+                    card_id,
+                    archetype=new_archetype,
+                    rank=new_rank,
+                    suit=new_suit,
+                    notes=new_notes,
+                    custom_fields=new_custom_fields if new_custom_fields else None
+                )
+
                 if new_image and new_image != card['image_path']:
                     self.thumb_cache.get_thumbnail(new_image)
                 self._refresh_cards_display(deck_id)
-        
+
         dlg.Destroy()
     
     def _on_delete_card(self, event):
@@ -2192,14 +4568,16 @@ class MainFrame(wx.Frame):
                 self.spread_name_ctrl.SetValue(spread['name'])
                 self.spread_desc_ctrl.SetValue(spread['description'] or '')
                 self.designer_positions = json.loads(spread['positions'])
+                self._update_designer_legend()
                 self.designer_canvas.Refresh()
                 break
-    
+
     def _on_new_spread(self, event):
         self.editing_spread_id = None
         self.spread_name_ctrl.SetValue('')
         self.spread_desc_ctrl.SetValue('')
         self.designer_positions = []
+        self._update_designer_legend()
         self.designer_canvas.Refresh()
     
     def _on_delete_spread(self, event):
@@ -2252,13 +4630,40 @@ class MainFrame(wx.Frame):
                     'height': 120,
                     'label': label
                 })
+                self._update_designer_legend()
                 self.designer_canvas.Refresh()
         dlg.Destroy()
     
     def _on_clear_positions(self, event):
         self.designer_positions = []
+        self._update_designer_legend()
         self.designer_canvas.Refresh()
-    
+
+    def _on_designer_legend_toggle(self, event):
+        """Toggle legend visibility in spread designer"""
+        show = self.designer_legend_toggle.GetValue()
+        self.designer_legend_panel.Show(show)
+        if show:
+            self._update_designer_legend()
+        self.designer_canvas.GetParent().Layout()
+        self.designer_canvas.Refresh()
+
+    def _update_designer_legend(self):
+        """Update the legend panel with current positions"""
+        # Clear existing legend items
+        self.designer_legend_items_sizer.Clear(True)
+
+        # Add legend items for each position
+        for i, pos in enumerate(self.designer_positions):
+            label = pos.get('label', f'Position {i+1}')
+            legend_item = wx.StaticText(self.designer_legend_scroll, label=f"{i + 1}. {label}")
+            legend_item.SetForegroundColour(get_wx_color('text_primary'))
+            legend_item.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+            self.designer_legend_items_sizer.Add(legend_item, 0, wx.ALL, 5)
+
+        self.designer_legend_scroll.SetupScrolling()
+        self.designer_legend_panel.Layout()
+
     def _on_designer_paint(self, event):
         dc = wx.PaintDC(self.designer_canvas)
         dc.SetBackground(wx.Brush(get_wx_color('card_slot')))
@@ -2268,16 +4673,39 @@ class MainFrame(wx.Frame):
             x, y = pos['x'], pos['y']
             w, h = pos.get('width', 80), pos.get('height', 120)
             label = pos.get('label', f'Position {i+1}')
-            
-            dc.SetBrush(wx.Brush(get_wx_color('bg_tertiary')))
-            dc.SetPen(wx.Pen(get_wx_color('accent'), 2))
+            is_rotated = pos.get('rotated', False)
+
+            # Draw rectangle with different color if rotated
+            if is_rotated:
+                dc.SetBrush(wx.Brush(get_wx_color('accent_dim')))
+                dc.SetPen(wx.Pen(get_wx_color('accent'), 3))
+            else:
+                dc.SetBrush(wx.Brush(get_wx_color('bg_tertiary')))
+                dc.SetPen(wx.Pen(get_wx_color('accent'), 2))
+
             dc.DrawRectangle(int(x), int(y), int(w), int(h))
-            
-            dc.SetTextForeground(get_wx_color('text_primary'))
-            dc.DrawText(label, int(x + 5), int(y + h//2 - 8))
-            
-            dc.SetTextForeground(get_wx_color('text_dim'))
-            dc.DrawText(str(i + 1), int(x + 5), int(y + 5))
+
+            # Show position number and label based on legend toggle
+            show_legend = self.designer_legend_toggle.GetValue()
+
+            if show_legend:
+                # Show only position number when legend is visible
+                dc.SetTextForeground(get_wx_color('text_secondary'))
+                dc.SetFont(wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+                dc.DrawText(str(i + 1), int(x - 12), int(y - 12))
+            else:
+                # Show label inside card when legend is hidden
+                dc.SetTextForeground(get_wx_color('text_primary'))
+                dc.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+                dc.DrawText(label, int(x + 5), int(y + h//2 - 8))
+
+                dc.SetTextForeground(get_wx_color('text_dim'))
+                dc.DrawText(str(i + 1), int(x + 5), int(y + 5))
+
+            # Show rotation indicator
+            if is_rotated:
+                dc.SetTextForeground(get_wx_color('accent'))
+                dc.DrawText("↻", int(x + w - 20), int(y + 5))
     
     def _on_designer_left_down(self, event):
         x, y = event.GetX(), event.GetY()
@@ -2317,16 +4745,50 @@ class MainFrame(wx.Frame):
     
     def _on_designer_right_down(self, event):
         x, y = event.GetX(), event.GetY()
-        
+
         for i, pos in enumerate(self.designer_positions):
             px, py = pos['x'], pos['y']
             pw, ph = pos.get('width', 80), pos.get('height', 120)
-            
+
             if px <= x <= px + pw and py <= y <= py + ph:
-                if wx.MessageBox(f"Delete '{pos['label']}'?", "Confirm", wx.YES_NO | wx.ICON_QUESTION) == wx.YES:
-                    self.designer_positions.pop(i)
-                    self.designer_canvas.Refresh()
+                menu = wx.Menu()
+
+                # Rotate option
+                is_rotated = pos.get('rotated', False)
+                rotate_item = menu.Append(wx.ID_ANY, "Unrotate Card" if is_rotated else "Rotate Card 90°")
+                menu.Bind(wx.EVT_MENU, lambda e: self._toggle_position_rotation(i), rotate_item)
+
+                menu.AppendSeparator()
+
+                # Delete option
+                delete_item = menu.Append(wx.ID_ANY, f"Delete '{pos['label']}'")
+                menu.Bind(wx.EVT_MENU, lambda e: self._delete_position(i), delete_item)
+
+                self.designer_canvas.PopupMenu(menu)
+                menu.Destroy()
                 break
+
+    def _toggle_position_rotation(self, idx):
+        """Toggle the rotation of a position"""
+        current = self.designer_positions[idx].get('rotated', False)
+        self.designer_positions[idx]['rotated'] = not current
+
+        # Swap width and height when rotating
+        w = self.designer_positions[idx].get('width', 80)
+        h = self.designer_positions[idx].get('height', 120)
+        self.designer_positions[idx]['width'] = h
+        self.designer_positions[idx]['height'] = w
+
+        self._update_designer_legend()
+        self.designer_canvas.Refresh()
+
+    def _delete_position(self, idx):
+        """Delete a position from the spread"""
+        pos = self.designer_positions[idx]
+        if wx.MessageBox(f"Delete '{pos['label']}'?", "Confirm", wx.YES_NO | wx.ICON_QUESTION) == wx.YES:
+            self.designer_positions.pop(idx)
+            self._update_designer_legend()
+            self.designer_canvas.Refresh()
     
     # ═══════════════════════════════════════════
     # EVENT HANDLERS - Settings
@@ -2865,6 +5327,7 @@ class MainFrame(wx.Frame):
     def _on_toggle_card_names(self, event):
         """Toggle display of card names under thumbnails"""
         self.show_card_names = event.IsChecked()
+        print(f"DEBUG: Toggled card names to: {self.show_card_names}")
         # Refresh the cards display if a deck is selected
         if self._current_deck_id_for_cards:
             self._display_filtered_cards()

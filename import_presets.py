@@ -479,13 +479,13 @@ BUILTIN_PRESETS = {
         "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"}
     },
     "Playing Cards (52 cards)": {
-        "type": "Oracle",
+        "type": "Playing Cards",
         "mappings": PLAYING_CARDS_52,
         "description": "Standard 52-card playing card deck (Hearts, Diamonds, Clubs, Spades)",
         "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"}
     },
     "Playing Cards with Jokers (54 cards)": {
-        "type": "Oracle",
+        "type": "Playing Cards",
         "mappings": PLAYING_CARDS_54,
         "description": "Playing card deck with 2 jokers (52 cards + Red Joker + Black Joker)",
         "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"}
@@ -675,7 +675,7 @@ class ImportPresets:
         except ValueError:
             return len(values)  # Unknown cards go at the end
     
-    def preview_import(self, folder: str, preset_name: str, 
+    def preview_import(self, folder: str, preset_name: str,
                       custom_suit_names: dict = None) -> List[Tuple[str, str, int]]:
         """
         Preview what cards would be imported from a folder.
@@ -683,55 +683,344 @@ class ImportPresets:
         """
         valid_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
         results = []
-        
+
         folder_path = Path(folder)
         if not folder_path.exists():
             return results
-        
+
         for filepath in sorted(folder_path.iterdir()):
             if filepath.suffix.lower() in valid_extensions:
                 mapped_name = self.map_filename_to_card(filepath.name, preset_name, custom_suit_names)
                 sort_order = self._get_card_sort_order(mapped_name, custom_suit_names)
                 results.append((filepath.name, mapped_name, sort_order))
-        
+
         # Sort by sort order
         results.sort(key=lambda x: x[2])
-        
+
+        return results
+
+    def preview_import_with_metadata(self, folder: str, preset_name: str,
+                                      custom_suit_names: dict = None) -> List[dict]:
+        """
+        Preview what cards would be imported from a folder, including full metadata.
+        Returns list of dicts with: filename, name, sort_order, archetype, rank, suit
+        """
+        valid_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+        results = []
+
+        folder_path = Path(folder)
+        if not folder_path.exists():
+            return results
+
+        for filepath in sorted(folder_path.iterdir()):
+            if filepath.suffix.lower() in valid_extensions:
+                mapped_name = self.map_filename_to_card(filepath.name, preset_name, custom_suit_names)
+                metadata = self.get_card_metadata(mapped_name, preset_name, custom_suit_names)
+                results.append({
+                    'filename': filepath.name,
+                    'name': mapped_name,
+                    'sort_order': metadata['sort_order'],
+                    'archetype': metadata['archetype'],
+                    'rank': metadata['rank'],
+                    'suit': metadata['suit'],
+                })
+
+        # Sort by sort order
+        results.sort(key=lambda x: x['sort_order'])
+
         return results
     
-    def _get_card_sort_order(self, card_name: str, custom_suit_names: dict = None) -> int:
-        """Get sort order: Major Arcana (0-21), then Wands, Cups, Swords, Pentacles"""
+    def get_card_metadata(self, card_name: str, preset_name: str, custom_suit_names: dict = None) -> dict:
+        """
+        Get full metadata for a card based on its name and the preset.
+        Returns dict with: archetype, rank, suit, sort_order
+        """
+        preset = self.get_preset(preset_name)
+        preset_type = preset.get('type', 'Oracle') if preset else 'Oracle'
+
+        sort_order = self._get_card_sort_order(card_name, custom_suit_names, preset_name)
+
+        if preset_type == 'Tarot':
+            return self._get_tarot_metadata(card_name, sort_order, custom_suit_names, preset_name)
+        elif preset_type == 'Lenormand':
+            return self._get_lenormand_metadata(card_name, sort_order)
+        elif preset_type == 'Playing Cards':
+            return self._get_playing_card_metadata(card_name, sort_order)
+        else:
+            # Oracle - no standard metadata
+            return {
+                'archetype': None,
+                'rank': None,
+                'suit': None,
+                'sort_order': sort_order
+            }
+
+    def _get_tarot_metadata(self, card_name: str, sort_order: int, custom_suit_names: dict = None,
+                            preset_name: str = None) -> dict:
+        """Get metadata for a Tarot card, respecting preset ordering"""
         name_lower = card_name.lower()
-        
+
+        # Determine ordering based on preset
+        # RWS ordering: Strength=VIII, Justice=XI
+        # Pre-Golden Dawn / Thoth ordering: Justice/Adjustment=VIII, Strength/Lust=XI
+        is_thoth = preset_name and 'thoth' in preset_name.lower()
+        is_pre_golden_dawn = preset_name and 'pre-golden' in preset_name.lower()
+        use_thoth_ordering = is_thoth or is_pre_golden_dawn
+
+        # Major Arcana - combined RWS/Thoth archetypes where they differ
+        # Format: (archetype, rank, suit)
+        # Ranks for Strength/Lust and Justice/Adjustment depend on ordering
+        if use_thoth_ordering:
+            strength_rank = 'XI'
+            justice_rank = 'VIII'
+        else:
+            strength_rank = 'VIII'
+            justice_rank = 'XI'
+
+        major_arcana_names = {
+            'the fool': ('The Fool', '0', 'Major Arcana'),
+            'fool': ('The Fool', '0', 'Major Arcana'),
+            'the magician': ('The Magician / The Magus', 'I', 'Major Arcana'),
+            'magician': ('The Magician / The Magus', 'I', 'Major Arcana'),
+            'the magus': ('The Magician / The Magus', 'I', 'Major Arcana'),
+            'magus': ('The Magician / The Magus', 'I', 'Major Arcana'),
+            'the high priestess': ('The High Priestess / The Priestess', 'II', 'Major Arcana'),
+            'high priestess': ('The High Priestess / The Priestess', 'II', 'Major Arcana'),
+            'the priestess': ('The High Priestess / The Priestess', 'II', 'Major Arcana'),
+            'priestess': ('The High Priestess / The Priestess', 'II', 'Major Arcana'),
+            'the empress': ('The Empress', 'III', 'Major Arcana'),
+            'empress': ('The Empress', 'III', 'Major Arcana'),
+            'the emperor': ('The Emperor', 'IV', 'Major Arcana'),
+            'emperor': ('The Emperor', 'IV', 'Major Arcana'),
+            'the hierophant': ('The Hierophant', 'V', 'Major Arcana'),
+            'hierophant': ('The Hierophant', 'V', 'Major Arcana'),
+            'the lovers': ('The Lovers', 'VI', 'Major Arcana'),
+            'lovers': ('The Lovers', 'VI', 'Major Arcana'),
+            'the chariot': ('The Chariot', 'VII', 'Major Arcana'),
+            'chariot': ('The Chariot', 'VII', 'Major Arcana'),
+            'strength': ('Strength / Lust', strength_rank, 'Major Arcana'),
+            'lust': ('Strength / Lust', strength_rank, 'Major Arcana'),
+            'the hermit': ('The Hermit', 'IX', 'Major Arcana'),
+            'hermit': ('The Hermit', 'IX', 'Major Arcana'),
+            'wheel of fortune': ('Wheel of Fortune / Fortune', 'X', 'Major Arcana'),
+            'fortune': ('Wheel of Fortune / Fortune', 'X', 'Major Arcana'),
+            'the wheel': ('Wheel of Fortune / Fortune', 'X', 'Major Arcana'),
+            'wheel': ('Wheel of Fortune / Fortune', 'X', 'Major Arcana'),
+            'justice': ('Justice / Adjustment', justice_rank, 'Major Arcana'),
+            'adjustment': ('Justice / Adjustment', justice_rank, 'Major Arcana'),
+            'the hanged man': ('The Hanged Man', 'XII', 'Major Arcana'),
+            'hanged man': ('The Hanged Man', 'XII', 'Major Arcana'),
+            'death': ('Death', 'XIII', 'Major Arcana'),
+            'temperance': ('Temperance / Art', 'XIV', 'Major Arcana'),
+            'art': ('Temperance / Art', 'XIV', 'Major Arcana'),
+            'the devil': ('The Devil', 'XV', 'Major Arcana'),
+            'devil': ('The Devil', 'XV', 'Major Arcana'),
+            'the tower': ('The Tower', 'XVI', 'Major Arcana'),
+            'tower': ('The Tower', 'XVI', 'Major Arcana'),
+            'the star': ('The Star', 'XVII', 'Major Arcana'),
+            'star': ('The Star', 'XVII', 'Major Arcana'),
+            'the moon': ('The Moon', 'XVIII', 'Major Arcana'),
+            'moon': ('The Moon', 'XVIII', 'Major Arcana'),
+            'the sun': ('The Sun', 'XIX', 'Major Arcana'),
+            'sun': ('The Sun', 'XIX', 'Major Arcana'),
+            'judgement': ('Judgement / The Aeon', 'XX', 'Major Arcana'),
+            'judgment': ('Judgement / The Aeon', 'XX', 'Major Arcana'),
+            'the aeon': ('Judgement / The Aeon', 'XX', 'Major Arcana'),
+            'aeon': ('Judgement / The Aeon', 'XX', 'Major Arcana'),
+            'the world': ('The World / The Universe', 'XXI', 'Major Arcana'),
+            'world': ('The World / The Universe', 'XXI', 'Major Arcana'),
+            'the universe': ('The World / The Universe', 'XXI', 'Major Arcana'),
+            'universe': ('The World / The Universe', 'XXI', 'Major Arcana'),
+        }
+
+        if name_lower in major_arcana_names:
+            archetype, rank, suit = major_arcana_names[name_lower]
+            return {
+                'archetype': archetype,
+                'rank': rank,
+                'suit': suit,
+                'sort_order': sort_order
+            }
+
+        # Minor Arcana - parse "Rank of Suit" pattern
+        # Court cards: Keep RWS and Thoth courts separate
+        # RWS: Page, Knight, Queen, King
+        # Thoth: Princess, Prince, Queen, Knight (Thoth)
+        # Note: Thoth "Knight" is equivalent to RWS "King" but we keep them distinct
+        rank_names = {
+            'ace': 'Ace', 'two': 'Two', 'three': 'Three', 'four': 'Four', 'five': 'Five',
+            'six': 'Six', 'seven': 'Seven', 'eight': 'Eight', 'nine': 'Nine', 'ten': 'Ten',
+            'page': 'Page',
+            'princess': 'Princess',  # Thoth equivalent of Page
+            'knight': 'Knight',      # RWS Knight (distinct from Thoth Knight)
+            'prince': 'Prince',      # Thoth equivalent of RWS Knight
+            'queen': 'Queen',
+            'king': 'King',          # RWS King (Thoth uses Knight for this role)
+        }
+
+        suit_names = ['wands', 'cups', 'swords', 'pentacles', 'coins', 'disks']
+        if custom_suit_names:
+            suit_names.extend([v.lower() for v in custom_suit_names.values()])
+
+        for rank_key, rank_val in rank_names.items():
+            for suit_name in suit_names:
+                if f'{rank_key} of {suit_name}' in name_lower:
+                    # Normalize suit name (Coins -> Pentacles, keep Disks as Disks)
+                    normalized_suit = suit_name.title()
+                    if normalized_suit == 'Coins':
+                        normalized_suit = 'Pentacles'
+
+                    # Build archetype - keep court cards distinct between traditions
+                    archetype = f"{rank_val} of {normalized_suit}"
+
+                    return {
+                        'archetype': archetype,
+                        'rank': rank_val,
+                        'suit': normalized_suit,
+                        'sort_order': sort_order
+                    }
+
+        # Unknown card
+        return {
+            'archetype': None,
+            'rank': None,
+            'suit': None,
+            'sort_order': sort_order
+        }
+
+    def _get_lenormand_metadata(self, card_name: str, sort_order: int) -> dict:
+        """Get metadata for a Lenormand card"""
+        lenormand_cards = {
+            'rider': ('Rider', '1'), 'clover': ('Clover', '2'), 'ship': ('Ship', '3'),
+            'house': ('House', '4'), 'tree': ('Tree', '5'), 'clouds': ('Clouds', '6'),
+            'snake': ('Snake', '7'), 'coffin': ('Coffin', '8'), 'bouquet': ('Bouquet', '9'),
+            'flowers': ('Bouquet', '9'), 'scythe': ('Scythe', '10'), 'whip': ('Whip', '11'),
+            'broom': ('Whip', '11'), 'birds': ('Birds', '12'), 'owls': ('Birds', '12'),
+            'child': ('Child', '13'), 'fox': ('Fox', '14'), 'bear': ('Bear', '15'),
+            'stars': ('Stars', '16'), 'stork': ('Stork', '17'), 'dog': ('Dog', '18'),
+            'tower': ('Tower', '19'), 'garden': ('Garden', '20'), 'mountain': ('Mountain', '21'),
+            'crossroads': ('Crossroads', '22'), 'paths': ('Crossroads', '22'),
+            'mice': ('Mice', '23'), 'heart': ('Heart', '24'), 'ring': ('Ring', '25'),
+            'book': ('Book', '26'), 'letter': ('Letter', '27'), 'man': ('Man', '28'),
+            'gentleman': ('Man', '28'), 'woman': ('Woman', '29'), 'lady': ('Woman', '29'),
+            'lily': ('Lily', '30'), 'lilies': ('Lily', '30'), 'sun': ('Sun', '31'),
+            'moon': ('Moon', '32'), 'key': ('Key', '33'), 'fish': ('Fish', '34'),
+            'anchor': ('Anchor', '35'), 'cross': ('Cross', '36'),
+        }
+
+        name_lower = card_name.lower()
+        for key, (archetype, rank) in lenormand_cards.items():
+            if key in name_lower:
+                return {
+                    'archetype': archetype,
+                    'rank': rank,
+                    'suit': None,
+                    'sort_order': sort_order
+                }
+
+        return {
+            'archetype': None,
+            'rank': None,
+            'suit': None,
+            'sort_order': sort_order
+        }
+
+    def _get_playing_card_metadata(self, card_name: str, sort_order: int) -> dict:
+        """Get metadata for a Playing Card"""
+        name_lower = card_name.lower()
+
+        # Jokers
+        if 'joker' in name_lower:
+            if 'red' in name_lower:
+                return {'archetype': 'Red Joker', 'rank': 'Joker', 'suit': None, 'sort_order': sort_order}
+            elif 'black' in name_lower:
+                return {'archetype': 'Black Joker', 'rank': 'Joker', 'suit': None, 'sort_order': sort_order}
+            else:
+                return {'archetype': 'Joker', 'rank': 'Joker', 'suit': None, 'sort_order': sort_order}
+
+        rank_names = {
+            'ace': 'Ace', 'two': 'Two', 'three': 'Three', 'four': 'Four', 'five': 'Five',
+            'six': 'Six', 'seven': 'Seven', 'eight': 'Eight', 'nine': 'Nine', 'ten': 'Ten',
+            'jack': 'Jack', 'queen': 'Queen', 'king': 'King',
+        }
+
+        suit_names = ['hearts', 'diamonds', 'clubs', 'spades']
+
+        for rank_key, rank_val in rank_names.items():
+            for suit_name in suit_names:
+                if f'{rank_key} of {suit_name}' in name_lower:
+                    archetype = f"{rank_val} of {suit_name.title()}"
+                    return {
+                        'archetype': archetype,
+                        'rank': rank_val,
+                        'suit': suit_name.title(),
+                        'sort_order': sort_order
+                    }
+
+        return {
+            'archetype': None,
+            'rank': None,
+            'suit': None,
+            'sort_order': sort_order
+        }
+
+    def _get_card_sort_order(self, card_name: str, custom_suit_names: dict = None,
+                             preset_name: str = None) -> int:
+        """Get sort order: Major Arcana (0-21), then Wands, Cups, Swords, Pentacles for Tarot.
+        For Playing Cards: Jokers (1-2), then Spades=1xx, Hearts=2xx, Clubs=3xx, Diamonds=4xx.
+        Respects preset ordering for Strength/Justice swap."""
+        name_lower = card_name.lower()
+
+        # Check if this is a playing cards preset
+        preset = self.get_preset(preset_name) if preset_name else None
+        is_playing_cards = preset and preset.get('type') == 'Playing Cards'
+
+        if is_playing_cards:
+            return self._get_playing_card_sort_order(name_lower)
+
+        # Determine ordering based on preset
+        # RWS ordering: Strength=8, Justice=11
+        # Pre-Golden Dawn / Thoth ordering: Justice/Adjustment=8, Strength/Lust=11
+        is_thoth = preset_name and 'thoth' in preset_name.lower()
+        is_pre_golden_dawn = preset_name and 'pre-golden' in preset_name.lower()
+        use_thoth_ordering = is_thoth or is_pre_golden_dawn
+
+        if use_thoth_ordering:
+            strength_order = 11
+            justice_order = 8
+        else:
+            strength_order = 8
+            justice_order = 11
+
         # Major arcana order
         major_arcana = {
             'the fool': 0, 'fool': 0,
-            'the magician': 1, 'magician': 1,
-            'the high priestess': 2, 'high priestess': 2,
+            'the magician': 1, 'magician': 1, 'the magus': 1, 'magus': 1,
+            'the high priestess': 2, 'high priestess': 2, 'the priestess': 2, 'priestess': 2,
             'the empress': 3, 'empress': 3,
             'the emperor': 4, 'emperor': 4,
             'the hierophant': 5, 'hierophant': 5,
             'the lovers': 6, 'lovers': 6,
             'the chariot': 7, 'chariot': 7,
-            'strength': 8,
+            'strength': strength_order, 'lust': strength_order,
             'the hermit': 9, 'hermit': 9,
-            'wheel of fortune': 10,
-            'justice': 11,
+            'wheel of fortune': 10, 'fortune': 10, 'the wheel': 10, 'wheel': 10,
+            'justice': justice_order, 'adjustment': justice_order,
             'the hanged man': 12, 'hanged man': 12,
             'death': 13,
-            'temperance': 14,
+            'temperance': 14, 'art': 14,
             'the devil': 15, 'devil': 15,
             'the tower': 16, 'tower': 16,
             'the star': 17, 'star': 17,
             'the moon': 18, 'moon': 18,
             'the sun': 19, 'sun': 19,
-            'judgement': 20, 'judgment': 20,
-            'the world': 21, 'world': 21,
+            'judgement': 20, 'judgment': 20, 'the aeon': 20, 'aeon': 20,
+            'the world': 21, 'world': 21, 'the universe': 21, 'universe': 21,
         }
-        
+
         if name_lower in major_arcana:
             return major_arcana[name_lower]
-        
+
         # Rank order within suits
         rank_order = {
             'ace': 0, 'two': 1, 'three': 2, 'four': 3, 'five': 4,
@@ -741,14 +1030,14 @@ class ImportPresets:
             'queen': 12,
             'king': 13,
         }
-        
+
         # Get suit names (custom or default)
         suit_names = custom_suit_names or {}
         wands_name = suit_names.get('wands', 'Wands').lower()
         cups_name = suit_names.get('cups', 'Cups').lower()
         swords_name = suit_names.get('swords', 'Swords').lower()
         pentacles_name = suit_names.get('pentacles', 'Pentacles').lower()
-        
+
         # Suit base values (after 22 major arcana)
         suit_bases = {
             wands_name: 100,
@@ -759,7 +1048,7 @@ class ImportPresets:
             'wands': 100, 'cups': 200, 'swords': 300, 'pentacles': 400,
             'coins': 400, 'disks': 400,
         }
-        
+
         # Find suit
         for suit_name, base in suit_bases.items():
             if f'of {suit_name}' in name_lower:
@@ -768,7 +1057,48 @@ class ImportPresets:
                     if name_lower.startswith(rank):
                         return base + rank_val
                 return base + 50  # Unknown rank
-        
+
+        return 999  # Unknown cards at end
+
+    def _get_playing_card_sort_order(self, name_lower: str) -> int:
+        """Get sort order for playing cards.
+        Jokers: 1 (Red), 2 (Black)
+        Suits: Spades=1xx, Hearts=2xx, Clubs=3xx, Diamonds=4xx
+        Ranks: Ace=01, Two=02, ... Ten=10, Jack=11, Queen=12, King=13
+        Examples: Ace of Spades=101, Three of Hearts=203, Jack of Clubs=311, King of Diamonds=413
+        """
+        # Jokers first
+        if 'joker' in name_lower:
+            if 'red' in name_lower:
+                return 1
+            elif 'black' in name_lower:
+                return 2
+            else:
+                return 1  # Default joker to 1
+
+        # Suit base values
+        suit_bases = {
+            'spades': 100,
+            'hearts': 200,
+            'clubs': 300,
+            'diamonds': 400,
+        }
+
+        # Rank values (1-13)
+        rank_values = {
+            'ace': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+            'jack': 11, 'queen': 12, 'king': 13,
+        }
+
+        # Find suit and rank
+        for suit_name, base in suit_bases.items():
+            if f'of {suit_name}' in name_lower:
+                for rank, rank_val in rank_values.items():
+                    if name_lower.startswith(rank):
+                        return base + rank_val
+                return base + 50  # Unknown rank
+
         return 999  # Unknown cards at end
 
 
