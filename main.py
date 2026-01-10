@@ -1479,7 +1479,10 @@ class MainFrame(wx.Frame):
 
         def get_sort_key(card):
             # Primary: use card_order if set
-            card_order = card.get('card_order', 999) or 999
+            try:
+                card_order = card['card_order'] if card['card_order'] is not None else 999
+            except (KeyError, TypeError):
+                card_order = 999
             if card_order != 999:
                 return card_order
 
