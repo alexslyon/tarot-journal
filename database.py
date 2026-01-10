@@ -710,12 +710,6 @@ def create_default_decks(db: Database):
             'type': 'Tarot'
         },
         {
-            'name': 'Rider-Waite-Smith',
-            'folder': 'Rider-Waite-Smith',
-            'preset': 'Tarot (RWS Ordering)',
-            'type': 'Tarot'
-        },
-        {
             'name': 'Blue Owl Lenormand',
             'folder': 'Blue Owl Lenormand',
             'preset': 'Lenormand (36 cards)',
