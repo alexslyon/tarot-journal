@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from database import Database, create_default_spreads, create_default_decks
 from thumbnail_cache import get_cache
-from import_presets import get_presets, BUILTIN_PRESETS
+from import_presets import get_presets, BUILTIN_PRESETS, COURT_PRESETS, ARCHETYPE_MAPPING_OPTIONS
 from theme_config import get_theme, PRESET_THEMES
 
 # Version
@@ -3660,9 +3660,108 @@ class MainFrame(wx.Frame):
             # Bind text events for preview updates
             for ctrl in suit_ctrls.values():
                 ctrl.Bind(wx.EVT_TEXT, update_preview)
-        
+
         sizer.Add(suit_box_sizer, 0, wx.EXPAND | wx.ALL, 10)
-        
+
+        # Court Cards section (only shown for Tarot)
+        court_box = wx.StaticBox(dlg, label="Court Cards")
+        court_box.SetForegroundColour(get_wx_color('accent'))
+        court_box_sizer = wx.StaticBoxSizer(court_box, wx.VERTICAL)
+
+        # Court preset dropdown row
+        court_preset_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        court_preset_label = wx.StaticText(dlg, label="Court Style:")
+        court_preset_label.SetForegroundColour(get_wx_color('text_secondary'))
+        court_preset_sizer.Add(court_preset_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+        court_preset_names = list(COURT_PRESETS.keys())
+        court_preset_choice = wx.Choice(dlg, choices=court_preset_names)
+        court_preset_choice.SetSelection(0)  # Default to RWS
+        court_preset_sizer.Add(court_preset_choice, 0, wx.RIGHT, 20)
+
+        # Archetype mapping dropdown
+        archetype_label = wx.StaticText(dlg, label="Archetype Mapping:")
+        archetype_label.SetForegroundColour(get_wx_color('text_secondary'))
+        court_preset_sizer.Add(archetype_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+        archetype_choice = wx.Choice(dlg, choices=ARCHETYPE_MAPPING_OPTIONS)
+        archetype_choice.SetSelection(0)  # Default to RWS archetypes
+        court_preset_sizer.Add(archetype_choice, 0)
+
+        court_box_sizer.Add(court_preset_sizer, 0, wx.EXPAND | wx.ALL, 5)
+
+        # Custom court name controls (hidden by default)
+        court_custom_panel = wx.Panel(dlg)
+        court_custom_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        court_custom_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        court_ctrls = {}
+        court_positions = [('page', 'Page'), ('knight', 'Knight'), ('queen', 'Queen'), ('king', 'King')]
+        for pos_key, default_name in court_positions:
+            col = wx.BoxSizer(wx.VERTICAL)
+            label = wx.StaticText(court_custom_panel, label=f"{default_name}:")
+            label.SetForegroundColour(get_wx_color('text_secondary'))
+            col.Add(label, 0, wx.BOTTOM, 2)
+
+            ctrl = wx.TextCtrl(court_custom_panel, value=default_name, size=(100, -1))
+            ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+            ctrl.SetForegroundColour(get_wx_color('text_primary'))
+            ctrl.Bind(wx.EVT_TEXT, lambda e: update_preview())
+            court_ctrls[pos_key] = ctrl
+            col.Add(ctrl, 0)
+
+            court_custom_sizer.Add(col, 0, wx.ALL, 5)
+
+        court_custom_panel.SetSizer(court_custom_sizer)
+        court_custom_panel.Hide()  # Hidden by default
+        court_box_sizer.Add(court_custom_panel, 0, wx.EXPAND)
+
+        sizer.Add(court_box_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # Track court section visibility
+        court_section_visible = [True]
+
+        def update_court_section_visibility(deck_type):
+            """Show/hide court section based on deck type"""
+            should_show = deck_type == 'Tarot'
+            if should_show != court_section_visible[0]:
+                court_section_visible[0] = should_show
+                court_box.Show(should_show)
+                court_box_sizer.ShowItems(should_show)
+                dlg.Layout()
+
+        def on_court_preset_change(e=None):
+            """Handle court preset dropdown change"""
+            preset_name = court_preset_choice.GetStringSelection()
+            preset_values = COURT_PRESETS.get(preset_name)
+
+            if preset_values is None:
+                # "Custom..." selected - show text fields
+                court_custom_panel.Show()
+            else:
+                # Preset selected - hide text fields and update values
+                court_custom_panel.Hide()
+                for pos_key, name in preset_values.items():
+                    if pos_key in court_ctrls:
+                        court_ctrls[pos_key].SetValue(name)
+
+            dlg.Layout()
+            update_preview()
+
+        court_preset_choice.Bind(wx.EVT_CHOICE, on_court_preset_change)
+        archetype_choice.Bind(wx.EVT_CHOICE, lambda e: update_preview())
+
+        def get_court_names():
+            """Get current court card names from UI"""
+            preset_name = court_preset_choice.GetStringSelection()
+            preset_values = COURT_PRESETS.get(preset_name)
+
+            if preset_values is None:
+                # Custom - use text field values
+                return {pos: ctrl.GetValue() for pos, ctrl in court_ctrls.items()}
+            else:
+                return preset_values.copy()
+
         # Preview
         preview_label = wx.StaticText(dlg, label="Preview:")
         preview_label.SetForegroundColour(get_wx_color('text_primary'))
@@ -3681,20 +3780,30 @@ class MainFrame(wx.Frame):
             if updating_preview[0]:
                 return
             updating_preview[0] = True
-            
+
             try:
                 preview_list.DeleteAllItems()
-                
+
                 # Get custom suit names for preview (use whatever keys are currently active)
                 custom_suit_names = {}
                 for key, ctrl in suit_ctrls.items():
                     custom_suit_names[key] = ctrl.GetValue()
-                
+
+                # Get court card settings if it's a Tarot deck
+                custom_court_names = None
+                archetype_mapping = None
+                if current_deck_type[0] == 'Tarot':
+                    custom_court_names = get_court_names()
+                    archetype_mapping = archetype_choice.GetStringSelection()
+
                 preset_name = preset_choice.GetStringSelection()
-                preview = self.presets.preview_import(folder, preset_name, custom_suit_names)
-                for orig, mapped, order in preview:
-                    idx = preview_list.InsertItem(preview_list.GetItemCount(), orig)
-                    preview_list.SetItem(idx, 1, mapped)
+                # Use the metadata-aware preview to show card names with court customization
+                preview = self.presets.preview_import_with_metadata(
+                    folder, preset_name, custom_suit_names, custom_court_names, archetype_mapping
+                )
+                for card_info in preview:
+                    idx = preview_list.InsertItem(preview_list.GetItemCount(), card_info['filename'])
+                    preview_list.SetItem(idx, 1, card_info['name'])
             finally:
                 updating_preview[0] = False
         
@@ -3702,18 +3811,20 @@ class MainFrame(wx.Frame):
             if updating_preview[0]:
                 return
             updating_preview[0] = True
-            
+
             try:
                 # Get preset info
                 preset_name = preset_choice.GetStringSelection()
                 preset = self.presets.get_preset(preset_name)
                 deck_type = preset.get('type', 'Oracle') if preset else 'Oracle'
-                
+
                 # Recreate suit controls if deck type changed
                 if deck_type != current_deck_type[0]:
                     current_deck_type[0] = deck_type
                     create_suit_controls(deck_type)
-                
+                    # Update court section visibility
+                    update_court_section_visibility(deck_type)
+
                 # Update suit control values from preset
                 if preset:
                     preset_suits = preset.get('suit_names', {})
@@ -3724,7 +3835,7 @@ class MainFrame(wx.Frame):
                             ctrl.SetValue(suit_key.title())
             finally:
                 updating_preview[0] = False
-            
+
             # Now update preview with new values
             update_preview()
         
@@ -3749,24 +3860,35 @@ class MainFrame(wx.Frame):
             if name:
                 preset = self.presets.get_preset(preset_choice.GetStringSelection())
                 cart_type = preset.get('type', 'Oracle') if preset else 'Oracle'
-                
+
                 types = self.db.get_cartomancy_types()
                 type_id = types[0]['id']
                 for t in types:
                     if t['name'] == cart_type:
                         type_id = t['id']
                         break
-                
+
                 # Get suit names (keys depend on deck type)
                 suit_names = {}
                 for key, ctrl in suit_ctrls.items():
                     suit_names[key] = ctrl.GetValue().strip() or key.title()
-                
-                deck_id = self.db.add_deck(name, type_id, folder, suit_names)
+
+                # Get court card names (only for Tarot)
+                court_names = None
+                custom_court_names = None
+                archetype_mapping = None
+                if cart_type == 'Tarot':
+                    court_names = get_court_names()
+                    custom_court_names = court_names
+                    archetype_mapping = archetype_choice.GetStringSelection()
+
+                deck_id = self.db.add_deck(name, type_id, folder, suit_names, court_names)
 
                 # Use the metadata-aware import to get archetype, rank, suit
                 preset_name = preset_choice.GetStringSelection()
-                preview = self.presets.preview_import_with_metadata(folder, preset_name, suit_names)
+                preview = self.presets.preview_import_with_metadata(
+                    folder, preset_name, suit_names, custom_court_names, archetype_mapping
+                )
                 cards = []
                 for card_info in preview:
                     cards.append({
@@ -3782,7 +3904,7 @@ class MainFrame(wx.Frame):
                     self.db.bulk_add_cards(deck_id, cards)
                     self.thumb_cache.pregenerate_thumbnails([c['image_path'] for c in cards])
                     wx.MessageBox(f"Imported {len(cards)} cards into '{name}'", "Success", wx.OK | wx.ICON_INFORMATION)
-                
+
                 self._refresh_decks_list()
         
         dlg.Destroy()

@@ -9,6 +9,53 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 
+# Court card preset definitions
+COURT_PRESETS = {
+    "RWS (Page/Knight/Queen/King)": {
+        "page": "Page",
+        "knight": "Knight",
+        "queen": "Queen",
+        "king": "King"
+    },
+    "Thoth (Princess/Prince/Queen/Knight)": {
+        "page": "Princess",
+        "knight": "Prince",
+        "queen": "Queen",
+        "king": "Knight"
+    },
+    "Marseille (Valet/Cavalier/Queen/King)": {
+        "page": "Valet",
+        "knight": "Cavalier",
+        "queen": "Queen",
+        "king": "King"
+    },
+    "Custom...": None  # Signals UI should show text fields
+}
+
+# Archetype mapping options
+ARCHETYPE_MAPPING_OPTIONS = [
+    "Map to RWS archetypes",
+    "Map to Thoth archetypes",
+    "Create new archetypes"
+]
+
+# Standard RWS court card archetypes (for mapping)
+RWS_COURT_ARCHETYPES = {
+    "page": "Page",
+    "knight": "Knight",
+    "queen": "Queen",
+    "king": "King"
+}
+
+# Standard Thoth court card archetypes (for mapping)
+THOTH_COURT_ARCHETYPES = {
+    "page": "Princess",
+    "knight": "Prince",
+    "queen": "Queen",
+    "king": "Knight"
+}
+
+
 # Standard Tarot deck (78 cards)
 STANDARD_TAROT = {
     # Major Arcana (0-21)
@@ -746,10 +793,15 @@ class ImportPresets:
         return results
 
     def preview_import_with_metadata(self, folder: str, preset_name: str,
-                                      custom_suit_names: dict = None) -> List[dict]:
+                                      custom_suit_names: dict = None,
+                                      custom_court_names: dict = None,
+                                      archetype_mapping: str = None) -> List[dict]:
         """
         Preview what cards would be imported from a folder, including full metadata.
         Returns list of dicts with: filename, name, sort_order, archetype, rank, suit
+
+        custom_court_names: dict with keys 'page', 'knight', 'queen', 'king'
+        archetype_mapping: 'Map to RWS archetypes', 'Map to Thoth archetypes', or 'Create new archetypes'
         """
         valid_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
         results = []
@@ -761,7 +813,11 @@ class ImportPresets:
         for filepath in sorted(folder_path.iterdir()):
             if filepath.suffix.lower() in valid_extensions:
                 mapped_name = self.map_filename_to_card(filepath.name, preset_name, custom_suit_names)
-                metadata = self.get_card_metadata(mapped_name, preset_name, custom_suit_names)
+                # Apply court card name customization
+                if custom_court_names:
+                    mapped_name = self._apply_custom_court_names(mapped_name, custom_court_names)
+                metadata = self.get_card_metadata(mapped_name, preset_name, custom_suit_names,
+                                                  custom_court_names, archetype_mapping)
                 results.append({
                     'filename': filepath.name,
                     'name': mapped_name,
@@ -776,10 +832,14 @@ class ImportPresets:
 
         return results
     
-    def get_card_metadata(self, card_name: str, preset_name: str, custom_suit_names: dict = None) -> dict:
+    def get_card_metadata(self, card_name: str, preset_name: str, custom_suit_names: dict = None,
+                          custom_court_names: dict = None, archetype_mapping: str = None) -> dict:
         """
         Get full metadata for a card based on its name and the preset.
         Returns dict with: archetype, rank, suit, sort_order
+
+        custom_court_names: dict with keys 'page', 'knight', 'queen', 'king'
+        archetype_mapping: 'Map to RWS archetypes', 'Map to Thoth archetypes', or 'Create new archetypes'
         """
         preset = self.get_preset(preset_name)
         preset_type = preset.get('type', 'Oracle') if preset else 'Oracle'
@@ -787,7 +847,8 @@ class ImportPresets:
         sort_order = self._get_card_sort_order(card_name, custom_suit_names, preset_name)
 
         if preset_type == 'Tarot':
-            return self._get_tarot_metadata(card_name, sort_order, custom_suit_names, preset_name)
+            return self._get_tarot_metadata(card_name, sort_order, custom_suit_names, preset_name,
+                                            custom_court_names, archetype_mapping)
         elif preset_type == 'Lenormand':
             return self._get_lenormand_metadata(card_name, sort_order)
         elif preset_type == 'Kipper':
@@ -804,8 +865,13 @@ class ImportPresets:
             }
 
     def _get_tarot_metadata(self, card_name: str, sort_order: int, custom_suit_names: dict = None,
-                            preset_name: str = None) -> dict:
-        """Get metadata for a Tarot card, respecting preset ordering"""
+                            preset_name: str = None, custom_court_names: dict = None,
+                            archetype_mapping: str = None) -> dict:
+        """Get metadata for a Tarot card, respecting preset ordering and court customization.
+
+        custom_court_names: dict with keys 'page', 'knight', 'queen', 'king' -> custom display names
+        archetype_mapping: 'Map to RWS archetypes', 'Map to Thoth archetypes', or 'Create new archetypes'
+        """
         name_lower = card_name.lower()
 
         # Determine ordering based on preset
@@ -891,34 +957,67 @@ class ImportPresets:
             }
 
         # Minor Arcana - parse "Rank of Suit" pattern
-        # Court cards: Keep RWS and Thoth courts separate
-        # RWS: Page, Knight, Queen, King
-        # Thoth: Princess, Prince, Queen, Knight (Thoth)
-        # Note: Thoth "Knight" is equivalent to RWS "King" but we keep them distinct
+        # Build list of all court card names to recognize (standard + custom)
+        # Map from display name (lowercase) -> base position (page/knight/queen/king)
+        court_card_positions = {}
+
+        # Standard court names
+        standard_courts = {
+            'page': 'page', 'princess': 'page', 'valet': 'page',
+            'knight': 'knight', 'prince': 'knight', 'cavalier': 'knight',
+            'queen': 'queen',
+            'king': 'king',
+        }
+        court_card_positions.update(standard_courts)
+
+        # Add custom court names if provided
+        if custom_court_names:
+            for pos, name in custom_court_names.items():
+                court_card_positions[name.lower()] = pos
+
+        # Pip card ranks
         rank_names = {
             'ace': 'Ace', 'two': 'Two', 'three': 'Three', 'four': 'Four', 'five': 'Five',
             'six': 'Six', 'seven': 'Seven', 'eight': 'Eight', 'nine': 'Nine', 'ten': 'Ten',
-            'page': 'Page',
-            'princess': 'Princess',  # Thoth equivalent of Page
-            'knight': 'Knight',      # RWS Knight (distinct from Thoth Knight)
-            'prince': 'Prince',      # Thoth equivalent of RWS Knight
-            'queen': 'Queen',
-            'king': 'King',          # RWS King (Thoth uses Knight for this role)
         }
 
         suit_names = ['wands', 'cups', 'swords', 'pentacles', 'coins', 'disks']
         if custom_suit_names:
             suit_names.extend([v.lower() for v in custom_suit_names.values()])
 
-        for rank_key, rank_val in rank_names.items():
+        # Check for court cards first
+        for court_name, base_position in court_card_positions.items():
             for suit_name in suit_names:
-                if f'{rank_key} of {suit_name}' in name_lower:
-                    # Normalize suit name (Coins -> Pentacles, keep Disks as Disks)
+                if f'{court_name} of {suit_name}' in name_lower:
+                    # Normalize suit name
                     normalized_suit = suit_name.title()
                     if normalized_suit == 'Coins':
                         normalized_suit = 'Pentacles'
 
-                    # Build archetype - keep court cards distinct between traditions
+                    # Determine the display rank (from card name)
+                    display_rank = court_name.title()
+
+                    # Determine archetype based on mapping option
+                    archetype = self._get_court_archetype(
+                        base_position, normalized_suit, display_rank, archetype_mapping
+                    )
+
+                    return {
+                        'archetype': archetype,
+                        'rank': display_rank,
+                        'suit': normalized_suit,
+                        'sort_order': sort_order
+                    }
+
+        # Check for pip cards
+        for rank_key, rank_val in rank_names.items():
+            for suit_name in suit_names:
+                if f'{rank_key} of {suit_name}' in name_lower:
+                    # Normalize suit name
+                    normalized_suit = suit_name.title()
+                    if normalized_suit == 'Coins':
+                        normalized_suit = 'Pentacles'
+
                     archetype = f"{rank_val} of {normalized_suit}"
 
                     return {
@@ -935,6 +1034,51 @@ class ImportPresets:
             'suit': None,
             'sort_order': sort_order
         }
+
+    def _get_court_archetype(self, base_position: str, suit: str, display_rank: str,
+                             archetype_mapping: str = None) -> str:
+        """Determine the archetype for a court card based on mapping option.
+
+        base_position: 'page', 'knight', 'queen', or 'king'
+        suit: The normalized suit name (e.g., 'Wands')
+        display_rank: The actual rank name displayed on the card (e.g., 'Princess')
+        archetype_mapping: 'Map to RWS archetypes', 'Map to Thoth archetypes', or 'Create new archetypes'
+        """
+        if archetype_mapping == 'Map to RWS archetypes':
+            # Map to standard RWS names: Page, Knight, Queen, King
+            archetype_rank = RWS_COURT_ARCHETYPES.get(base_position, display_rank)
+        elif archetype_mapping == 'Map to Thoth archetypes':
+            # Map to Thoth names: Princess, Prince, Queen, Knight
+            archetype_rank = THOTH_COURT_ARCHETYPES.get(base_position, display_rank)
+        else:
+            # Create new archetypes - use the display name as-is
+            archetype_rank = display_rank
+
+        return f"{archetype_rank} of {suit}"
+
+    def _apply_custom_court_names(self, card_name: str, custom_court_names: dict) -> str:
+        """Replace standard court card names with custom ones in a card name.
+
+        custom_court_names: dict with keys 'page', 'knight', 'queen', 'king'
+        """
+        if not custom_court_names:
+            return card_name
+
+        # Map of standard names to their position key
+        standard_to_position = {
+            'Page': 'page', 'Princess': 'page', 'Valet': 'page',
+            'Knight': 'knight', 'Prince': 'knight', 'Cavalier': 'knight',
+            'Queen': 'queen',
+            'King': 'king',
+        }
+
+        for standard_name, position in standard_to_position.items():
+            if f'{standard_name} of ' in card_name:
+                custom_name = custom_court_names.get(position)
+                if custom_name and custom_name != standard_name:
+                    return card_name.replace(f'{standard_name} of ', f'{custom_name} of ')
+
+        return card_name
 
     def _get_lenormand_metadata(self, card_name: str, sort_order: int) -> dict:
         """Get metadata for a Lenormand card"""

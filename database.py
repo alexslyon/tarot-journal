@@ -40,16 +40,19 @@ class Database:
                 cartomancy_type_id INTEGER NOT NULL,
                 image_folder TEXT,
                 suit_names TEXT,
+                court_names TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (cartomancy_type_id) REFERENCES cartomancy_types(id)
             )
         ''')
-        
-        # Migration: add suit_names column if missing
+
+        # Migration: add suit_names and court_names columns if missing
         cursor.execute("PRAGMA table_info(decks)")
         columns = [col[1] for col in cursor.fetchall()]
         if 'suit_names' not in columns:
             cursor.execute('ALTER TABLE decks ADD COLUMN suit_names TEXT')
+        if 'court_names' not in columns:
+            cursor.execute('ALTER TABLE decks ADD COLUMN court_names TEXT')
         
         # Cards table
         cursor.execute('''
@@ -430,12 +433,14 @@ class Database:
         ''', (deck_id,))
         return cursor.fetchone()
     
-    def add_deck(self, name: str, cartomancy_type_id: int, image_folder: str = None, suit_names: dict = None):
+    def add_deck(self, name: str, cartomancy_type_id: int, image_folder: str = None,
+                 suit_names: dict = None, court_names: dict = None):
         cursor = self.conn.cursor()
         suit_names_json = json.dumps(suit_names) if suit_names else None
+        court_names_json = json.dumps(court_names) if court_names else None
         cursor.execute(
-            'INSERT INTO decks (name, cartomancy_type_id, image_folder, suit_names) VALUES (?, ?, ?, ?)',
-            (name, cartomancy_type_id, image_folder, suit_names_json)
+            'INSERT INTO decks (name, cartomancy_type_id, image_folder, suit_names, court_names) VALUES (?, ?, ?, ?, ?)',
+            (name, cartomancy_type_id, image_folder, suit_names_json, court_names_json)
         )
         self.conn.commit()
         return cursor.lastrowid
@@ -458,11 +463,28 @@ class Database:
             return json.loads(deck['suit_names'])
         return {
             'wands': 'Wands',
-            'cups': 'Cups', 
+            'cups': 'Cups',
             'swords': 'Swords',
             'pentacles': 'Pentacles'
         }
-    
+
+    def get_deck_court_names(self, deck_id: int) -> dict:
+        """Get custom court card names for a deck, or defaults"""
+        deck = self.get_deck(deck_id)
+        if deck:
+            try:
+                court_names = deck['court_names']
+                if court_names:
+                    return json.loads(court_names)
+            except (KeyError, TypeError):
+                pass
+        return {
+            'page': 'Page',
+            'knight': 'Knight',
+            'queen': 'Queen',
+            'king': 'King'
+        }
+
     def update_deck_suit_names(self, deck_id: int, suit_names: dict, old_suit_names: dict = None):
         """Update suit names and rename all cards accordingly"""
         cursor = self.conn.cursor()
