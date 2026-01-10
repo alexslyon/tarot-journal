@@ -993,7 +993,7 @@ class MainFrame(wx.Frame):
                 try:
                     img = wx.Image(thumb_path, wx.BITMAP_TYPE_ANY)
                     # Scale to fit while preserving aspect ratio
-                    max_width, max_height = 150, 225
+                    max_width, max_height = 200, 300
                     orig_width, orig_height = img.GetWidth(), img.GetHeight()
                     scale = min(max_width / orig_width, max_height / orig_height)
                     new_width = int(orig_width * scale)
@@ -1014,7 +1014,7 @@ class MainFrame(wx.Frame):
         if self.show_card_names:
             name = wx.StaticText(card_panel, label=card['name'])
             name.SetForegroundColour(get_wx_color('text_primary'))
-            name.Wrap(160)
+            name.Wrap(210)
             card_sizer.Add(name, 0, wx.ALL | wx.ALIGN_CENTER, 4)
             name.Bind(wx.EVT_LEFT_DOWN, lambda e, cid=card['id']: self._on_card_click(e, cid))
             name.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card['id']: self._on_edit_card(None, cid))

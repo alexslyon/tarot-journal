@@ -971,7 +971,7 @@ class TarotJournalApp:
                     try:
                         img = Image.open(thumb_path)
                         # Scale to fit while preserving aspect ratio
-                        max_width, max_height = 150, 225
+                        max_width, max_height = 200, 300
                         img.thumbnail((max_width, max_height), Image.Resampling.LANCZOS)
                         photo = ImageTk.PhotoImage(img)
                         self.photo_refs[card['id']] = photo
