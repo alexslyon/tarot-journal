@@ -13,7 +13,7 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
-from database import Database, create_default_spreads
+from database import Database, create_default_spreads, create_default_decks
 from thumbnail_cache import get_cache
 from import_presets import get_presets, BUILTIN_PRESETS
 from theme_config import get_theme, PRESET_THEMES
@@ -58,6 +58,7 @@ class MainFrame(wx.Frame):
         # Initialize systems
         self.db = Database()
         create_default_spreads(self.db)
+        create_default_decks(self.db)
         self.thumb_cache = get_cache()
         self.presets = get_presets()
         

@@ -687,3 +687,83 @@ def create_default_spreads(db: Database):
             gt_positions,
             "Full 36-card Lenormand Grand Tableau"
         )
+
+
+def create_default_decks(db: Database):
+    """Import default decks if they exist and no decks have been added yet"""
+    from import_presets import get_presets
+
+    # Only import if no decks exist yet
+    existing_decks = db.get_decks()
+    if len(existing_decks) > 0:
+        return
+
+    # Get import presets instance
+    presets = get_presets()
+
+    # Define default decks to import
+    default_decks = [
+        {
+            'name': 'Hello Tarot',
+            'folder': 'Hello Tarot',
+            'preset': 'Tarot (RWS Ordering)',
+            'type': 'Tarot'
+        },
+        {
+            'name': 'Rider-Waite-Smith',
+            'folder': 'Rider-Waite-Smith',
+            'preset': 'Tarot (RWS Ordering)',
+            'type': 'Tarot'
+        },
+        {
+            'name': 'Blue Owl Lenormand',
+            'folder': 'Blue Owl Lenormand',
+            'preset': 'Lenormand (36 cards)',
+            'type': 'Lenormand'
+        }
+    ]
+
+    for deck_info in default_decks:
+        folder_path = Path(deck_info['folder'])
+
+        # Skip if folder doesn't exist
+        if not folder_path.exists():
+            continue
+
+        # Get cartomancy type ID
+        type_id = None
+        for ct in db.get_cartomancy_types():
+            if ct['name'] == deck_info['type']:
+                type_id = ct['id']
+                break
+
+        if not type_id:
+            continue
+
+        # Create the deck
+        deck_id = db.add_deck(
+            name=deck_info['name'],
+            cartomancy_type_id=type_id,
+            image_folder=str(folder_path.absolute())
+        )
+
+        # Import cards from folder
+        valid_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+        cards_to_add = []
+
+        for filepath in sorted(folder_path.iterdir()):
+            if filepath.suffix.lower() in valid_extensions:
+                # Map filename to card name using preset
+                card_name = presets.map_filename_to_card(
+                    filepath.name,
+                    deck_info['preset']
+                )
+
+                # Get sort order
+                sort_order = presets._get_card_sort_order(card_name)
+
+                cards_to_add.append((card_name, str(filepath.absolute()), sort_order))
+
+        # Sort by sort order and add to database
+        cards_to_add.sort(key=lambda x: x[2])
+        db.bulk_add_cards(deck_id, cards_to_add)
