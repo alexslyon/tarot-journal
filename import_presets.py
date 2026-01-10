@@ -452,7 +452,7 @@ class ImportPresets:
             del self.custom_presets[clean_name]
             self._save_presets()
     
-    def map_filename_to_card(self, filename: str, preset_name: str = None, 
+    def map_filename_to_card(self, filename: str, preset_name: str = None,
                               custom_suit_names: dict = None) -> str:
         """
         Map a filename to a card name using the specified preset.
@@ -461,26 +461,34 @@ class ImportPresets:
         """
         # Get just the filename without extension
         stem = Path(filename).stem
-        
+
         # Create normalized key (lowercase, no spaces/separators)
         normalized = re.sub(r'[\s_\-\.]', '', stem.lower())
-        
+
         # Try to find in preset
         if preset_name:
             preset = self.get_preset(preset_name)
             if preset and preset.get('mappings'):
                 mappings = preset['mappings']
-                
+
                 # Direct match
                 if normalized in mappings:
                     card_name = mappings[normalized]
                     return self._apply_custom_suit_names(card_name, custom_suit_names)
-                
+
                 # Try with original stem
                 if stem.lower() in mappings:
                     card_name = mappings[stem.lower()]
                     return self._apply_custom_suit_names(card_name, custom_suit_names)
-        
+
+                # Try extracting just numbers from filename (for patterns like "PLen-A-01")
+                number_match = re.search(r'(\d+)(?=\D*$)', stem)
+                if number_match:
+                    number_only = number_match.group(1)
+                    if number_only in mappings:
+                        card_name = mappings[number_only]
+                        return self._apply_custom_suit_names(card_name, custom_suit_names)
+
         # Fall back to cleaned filename
         return self._clean_filename(stem)
     
