@@ -1274,7 +1274,16 @@ class MainFrame(wx.Frame):
         for deck in decks:
             name = f"{deck['name']} ({deck['cartomancy_type_name']})"
             self._deck_map[name] = deck['id']
-    
+
+    def _select_deck_by_id(self, deck_id):
+        """Select a deck in the list by its ID"""
+        for i in range(self.deck_list.GetItemCount()):
+            if self.deck_list.GetItemData(i) == deck_id:
+                self.deck_list.Select(i)
+                self.deck_list.EnsureVisible(i)
+                return True
+        return False
+
     def _update_spread_choice(self):
         """Update the spread map for use in dialogs"""
         spreads = self.db.get_spreads()
@@ -3466,6 +3475,8 @@ class MainFrame(wx.Frame):
                 self.db.update_deck_suit_names(deck_id, new_suit_names, suit_names)
 
             self._refresh_decks_list()
+            # Re-select the deck after refresh
+            self._select_deck_by_id(deck_id)
             self._refresh_cards_display(deck_id)
             wx.MessageBox("Deck updated!", "Success", wx.OK | wx.ICON_INFORMATION)
 

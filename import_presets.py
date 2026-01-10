@@ -1064,8 +1064,9 @@ class ImportPresets:
         """Get sort order for playing cards.
         Jokers: 1 (Red), 2 (Black)
         Suits: Spades=1xx, Hearts=2xx, Clubs=3xx, Diamonds=4xx
-        Ranks: Ace=01, Two=02, ... Ten=10, Jack=11, Queen=12, King=13
-        Examples: Ace of Spades=101, Three of Hearts=203, Jack of Clubs=311, King of Diamonds=413
+        Ranks: Two=01, Three=02, ... Ten=09, Jack=10, Queen=11, King=12, Ace=13
+        Order within suit: 2, 3, 4, 5, 6, 7, 8, 9, 10, J, Q, K, A
+        Examples: Two of Spades=101, Ace of Spades=113, Two of Hearts=201, Ace of Diamonds=413
         """
         # Jokers first
         if 'joker' in name_lower:
@@ -1084,11 +1085,11 @@ class ImportPresets:
             'diamonds': 400,
         }
 
-        # Rank values (1-13)
+        # Rank values (2-A order: 2=1, 3=2, ..., K=12, A=13)
         rank_values = {
-            'ace': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
-            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-            'jack': 11, 'queen': 12, 'king': 13,
+            'two': 1, 'three': 2, 'four': 3, 'five': 4, 'six': 5,
+            'seven': 6, 'eight': 7, 'nine': 8, 'ten': 9,
+            'jack': 10, 'queen': 11, 'king': 12, 'ace': 13,
         }
 
         # Find suit and rank
