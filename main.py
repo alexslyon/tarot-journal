@@ -1410,8 +1410,9 @@ class MainFrame(wx.Frame):
         self.cards_scroll.Update()
     
     def _sort_lenormand_cards(self, cards):
-        """Sort Lenormand cards by traditional order (1-36)"""
-        # Map card names to their traditional order
+        """Sort Lenormand cards by card_order field (set during import/auto-assign).
+        Fallback: traditional order (1-36) based on card name."""
+        # Map card names to their traditional order (for fallback)
         lenormand_order = {
             'rider': 1, 'clover': 2, 'ship': 3, 'house': 4, 'tree': 5,
             'clouds': 6, 'snake': 7, 'coffin': 8, 'bouquet': 9, 'flowers': 9,
@@ -1423,8 +1424,17 @@ class MainFrame(wx.Frame):
             'woman': 29, 'lady': 29, 'lily': 30, 'lilies': 30, 'sun': 31,
             'moon': 32, 'key': 33, 'fish': 34, 'anchor': 35, 'cross': 36,
         }
-        
+
         def get_lenormand_order(card):
+            # Primary: use card_order if set (not 0 or None)
+            try:
+                card_order = card['card_order']
+                if card_order is not None and card_order != 0:
+                    return card_order
+            except (KeyError, TypeError):
+                pass
+
+            # Fallback: parse card name
             name = card['name'].lower().strip()
             # Direct lookup
             if name in lenormand_order:
@@ -1434,7 +1444,7 @@ class MainFrame(wx.Frame):
             if match:
                 return int(match.group(1))
             return 999
-        
+
         return sorted(cards, key=get_lenormand_order)
     
     def _categorize_lenormand_cards(self, cards):
@@ -1569,9 +1579,10 @@ class MainFrame(wx.Frame):
         return categorized
     
     def _sort_cards(self, cards, suit_names):
-        """Sort cards: Major Arcana first (Fool-World), then Wands, Cups, Swords, Pentacles (Ace-King)"""
-        
-        # Define sort order
+        """Sort cards by card_order field (set during import/auto-assign).
+        Fallback: Major Arcana first (Fool-World), then Wands, Cups, Swords, Pentacles (Ace-King)"""
+
+        # Define sort order for name-based fallback
         major_arcana_order = {
             'the fool': 0, 'fool': 0,
             'the magician': 1, 'magician': 1, 'the magus': 1, 'magus': 1,
@@ -1596,7 +1607,7 @@ class MainFrame(wx.Frame):
             'judgement': 20, 'judgment': 20, 'the aeon': 20, 'aeon': 20,  # Thoth: The Aeon
             'the world': 21, 'world': 21, 'the universe': 21, 'universe': 21,  # Thoth: The Universe
         }
-        
+
         rank_order = {
             'ace': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
             'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
@@ -1605,7 +1616,7 @@ class MainFrame(wx.Frame):
             'queen': 13,
             'king': 14
         }
-        
+
         # Suit order (Wands, Cups, Swords, Pentacles)
         suit_order = {
             suit_names.get('wands', 'Wands').lower(): 100,
@@ -1615,14 +1626,23 @@ class MainFrame(wx.Frame):
             'wands': 100, 'cups': 200, 'swords': 300, 'pentacles': 400,
             'coins': 400, 'disks': 400,
         }
-        
+
         def get_sort_key(card):
+            # Primary: use card_order if set (not 0 or None)
+            try:
+                card_order = card['card_order']
+                if card_order is not None and card_order != 0:
+                    return (0, card_order, 0)
+            except (KeyError, TypeError):
+                pass
+
+            # Fallback: parse card name
             name_lower = card['name'].lower()
-            
+
             # Check if it's a major arcana
             if name_lower in major_arcana_order:
                 return (0, major_arcana_order[name_lower], 0)
-            
+
             # Check for suit cards
             for suit_name, suit_val in suit_order.items():
                 if f'of {suit_name}' in name_lower:
@@ -1631,10 +1651,10 @@ class MainFrame(wx.Frame):
                         if name_lower.startswith(rank):
                             return (1, suit_val, rank_val)
                     return (1, suit_val, 50)  # Unknown rank
-            
-            # Unknown card - put at end
-            return (2, 999, card['card_order'] if 'card_order' in card.keys() else 0)
-        
+
+            # Unknown card - put at end but preserve relative order
+            return (2, 999, 0)
+
         return sorted(cards, key=get_sort_key)
     
     def _categorize_cards(self, cards, suit_names):
