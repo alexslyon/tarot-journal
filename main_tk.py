@@ -970,9 +970,12 @@ class TarotJournalApp:
                 if thumb_path:
                     try:
                         img = Image.open(thumb_path)
+                        # Scale to fit while preserving aspect ratio
+                        max_width, max_height = 150, 225
+                        img.thumbnail((max_width, max_height), Image.Resampling.LANCZOS)
                         photo = ImageTk.PhotoImage(img)
                         self.photo_refs[card['id']] = photo
-                        
+
                         img_label = tk.Label(card_frame, image=photo,
                                            bg=COLORS['bg_tertiary'])
                         img_label.pack(padx=4, pady=4)

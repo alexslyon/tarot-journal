@@ -15,8 +15,8 @@ import time
 class ThumbnailCache:
     """Manages thumbnail generation and caching for card images"""
     
-    THUMBNAIL_SIZE = (120, 180)  # Standard card proportions
-    PREVIEW_SIZE = (200, 300)    # Larger preview size
+    THUMBNAIL_SIZE = (200, 300)  # Standard card proportions
+    PREVIEW_SIZE = (350, 525)    # Larger preview size
     
     def __init__(self, cache_dir: str = None):
         if cache_dir is None:
