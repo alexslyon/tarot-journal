@@ -1,0 +1,72 @@
+{
+  "version": "1.0",
+  "exported_at": "2026-01-10T05:42:04.512950",
+  "entries": [
+    {
+      "id": 20,
+      "title": "test cc",
+      "content": "test cc",
+      "created_at": "2026-01-10T05:28:35.591658",
+      "updated_at": "2026-01-10T05:29:48.108761",
+      "reading_datetime": "2026-01-10T05:29:48.108736",
+      "location_name": "Portland, OR",
+      "location_lat": null,
+      "location_lon": null,
+      "readings": [
+        {
+          "id": 4,
+          "entry_id": 20,
+          "spread_id": 5,
+          "spread_name": "Celtic Cross",
+          "deck_id": 6,
+          "deck_name": "Rider-Waite-Smith",
+          "cartomancy_type": "Tarot",
+          "cards_used": [
+            {
+              "name": "Six of Wands",
+              "reversed": false
+            },
+            {
+              "name": "The Lovers",
+              "reversed": false
+            },
+            {
+              "name": "The Emperor",
+              "reversed": false
+            },
+            {
+              "name": "Three of Pentacles",
+              "reversed": false
+            },
+            {
+              "name": "Knight of Pentacles",
+              "reversed": false
+            },
+            {
+              "name": "Two of Wands",
+              "reversed": false
+            },
+            {
+              "name": "Queen of Wands",
+              "reversed": false
+            },
+            {
+              "name": "Four of Swords",
+              "reversed": false
+            },
+            {
+              "name": "The Moon",
+              "reversed": false
+            },
+            {
+              "name": "Temperance",
+              "reversed": false
+            }
+          ],
+          "position_order": 0
+        }
+      ],
+      "tags": []
+    }
+  ]
+}
