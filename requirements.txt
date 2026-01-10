@@ -1,2 +1,2 @@
 Pillow
-wxPython>=9.0.0
+wxPython>=4.2.0
