@@ -232,6 +232,46 @@ STANDARD_LENORMAND = {
     "36": "Cross", "cross": "Cross",
 }
 
+# Standard Kipper deck (36 cards)
+STANDARD_KIPPER = {
+    "01": "Main Male", "1": "Main Male", "mainmale": "Main Male", "hauptperson": "Main Male",
+    "02": "Main Female", "2": "Main Female", "mainfemale": "Main Female",
+    "03": "Marriage", "3": "Marriage", "marriage": "Marriage", "union": "Marriage",
+    "04": "Meeting", "4": "Meeting", "meeting": "Meeting", "rendezvous": "Meeting",
+    "05": "Good Gentleman", "5": "Good Gentleman", "goodgentleman": "Good Gentleman", "goodman": "Good Gentleman",
+    "06": "Good Lady", "6": "Good Lady", "goodlady": "Good Lady", "goodwoman": "Good Lady",
+    "07": "Pleasant Letter", "7": "Pleasant Letter", "pleasantletter": "Pleasant Letter", "goodnews": "Pleasant Letter",
+    "08": "False Person", "8": "False Person", "falseperson": "False Person", "falsity": "False Person",
+    "09": "A Change", "9": "A Change", "change": "A Change", "achange": "A Change",
+    "10": "A Journey", "journey": "A Journey", "ajourney": "A Journey", "travel": "A Journey",
+    "11": "Gain Money", "gainmoney": "Gain Money", "winmoney": "Gain Money", "wealth": "Gain Money",
+    "12": "Rich Girl", "richgirl": "Rich Girl", "wealthygirl": "Rich Girl",
+    "13": "Rich Man", "richman": "Rich Man", "wealthyman": "Rich Man",
+    "14": "Sad News", "sadnews": "Sad News", "badnews": "Sad News", "message": "Sad News",
+    "15": "Success in Love", "successinlove": "Success in Love", "loversuccess": "Success in Love",
+    "16": "His Thoughts", "histhoughts": "His Thoughts", "herthoughts": "His Thoughts", "thoughts": "His Thoughts",
+    "17": "A Gift", "gift": "A Gift", "agift": "A Gift", "present": "A Gift",
+    "18": "A Small Child", "smallchild": "A Small Child", "child": "A Small Child", "asmallchild": "A Small Child",
+    "19": "A Funeral", "funeral": "A Funeral", "afuneral": "A Funeral", "death": "A Funeral",
+    "20": "House", "house": "House", "home": "House",
+    "21": "Living Room", "livingroom": "Living Room", "parlor": "Living Room", "room": "Living Room",
+    "22": "Official Person", "officialperson": "Official Person", "military": "Official Person", "official": "Official Person",
+    "23": "Court House", "courthouse": "Court House", "court": "Court House",
+    "24": "Theft", "theft": "Theft", "thief": "Theft", "stealing": "Theft",
+    "25": "High Honors", "highhonors": "High Honors", "honor": "High Honors", "achievement": "High Honors",
+    "26": "Great Fortune", "greatfortune": "Great Fortune", "fortune": "Great Fortune", "luck": "Great Fortune",
+    "27": "Unexpected Money", "unexpectedmoney": "Unexpected Money", "surprise": "Unexpected Money",
+    "28": "Expectation", "expectation": "Expectation", "hope": "Expectation", "waiting": "Expectation",
+    "29": "Prison", "prison": "Prison", "confinement": "Prison", "jail": "Prison",
+    "30": "Court", "30": "Court", "legal": "Court", "judge": "Court", "judiciary": "Court",
+    "31": "Short Illness", "shortillness": "Short Illness", "illness": "Short Illness", "sickness": "Short Illness",
+    "32": "Grief and Adversity", "grief": "Grief and Adversity", "adversity": "Grief and Adversity", "sorrow": "Grief and Adversity",
+    "33": "Gloomy Thoughts", "gloomythoughts": "Gloomy Thoughts", "sadness": "Gloomy Thoughts", "melancholy": "Gloomy Thoughts",
+    "34": "Work", "work": "Work", "employment": "Work", "occupation": "Work", "labor": "Work",
+    "35": "A Long Way", "longway": "A Long Way", "longroad": "A Long Way", "distance": "A Long Way",
+    "36": "Hope, Great Water", "hope": "Hope, Great Water", "greatwater": "Hope, Great Water", "water": "Hope, Great Water", "ocean": "Hope, Great Water",
+}
+
 # Pre-Golden Dawn Tarot (swaps Strength/Justice - 8 and 11)
 # In Marseille/Pre-Golden Dawn ordering: 8 = Justice, 11 = Strength (also called Fortitude)
 PRE_GOLDEN_DAWN_TAROT = dict(STANDARD_TAROT)
@@ -477,6 +517,12 @@ BUILTIN_PRESETS = {
         "mappings": STANDARD_LENORMAND,
         "description": "Standard 36-card Lenormand deck",
         "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"}
+    },
+    "Kipper (36 cards)": {
+        "type": "Kipper",
+        "mappings": STANDARD_KIPPER,
+        "description": "Traditional German 36-card Kipper fortune-telling deck",
+        "suit_names": {}
     },
     "Playing Cards (52 cards)": {
         "type": "Playing Cards",
@@ -744,6 +790,8 @@ class ImportPresets:
             return self._get_tarot_metadata(card_name, sort_order, custom_suit_names, preset_name)
         elif preset_type == 'Lenormand':
             return self._get_lenormand_metadata(card_name, sort_order)
+        elif preset_type == 'Kipper':
+            return self._get_kipper_metadata(card_name, sort_order)
         elif preset_type == 'Playing Cards':
             return self._get_playing_card_metadata(card_name, sort_order)
         else:
@@ -910,6 +958,64 @@ class ImportPresets:
 
         name_lower = card_name.lower()
         for key, (archetype, rank) in lenormand_cards.items():
+            if key in name_lower:
+                return {
+                    'archetype': archetype,
+                    'rank': rank,
+                    'suit': None,
+                    'sort_order': sort_order
+                }
+
+        return {
+            'archetype': None,
+            'rank': None,
+            'suit': None,
+            'sort_order': sort_order
+        }
+
+    def _get_kipper_metadata(self, card_name: str, sort_order: int) -> dict:
+        """Get metadata for a Kipper card"""
+        kipper_cards = {
+            'main male': ('Main Male', '1'), 'hauptperson': ('Main Male', '1'),
+            'main female': ('Main Female', '2'),
+            'marriage': ('Marriage', '3'), 'union': ('Marriage', '3'),
+            'meeting': ('Meeting', '4'), 'rendezvous': ('Meeting', '4'),
+            'good gentleman': ('Good Gentleman', '5'), 'good man': ('Good Gentleman', '5'),
+            'good lady': ('Good Lady', '6'), 'good woman': ('Good Lady', '6'),
+            'pleasant letter': ('Pleasant Letter', '7'), 'good news': ('Pleasant Letter', '7'),
+            'false person': ('False Person', '8'), 'falsity': ('False Person', '8'),
+            'a change': ('A Change', '9'), 'change': ('A Change', '9'),
+            'a journey': ('A Journey', '10'), 'journey': ('A Journey', '10'), 'travel': ('A Journey', '10'),
+            'gain money': ('Gain Money', '11'), 'win money': ('Gain Money', '11'), 'wealth': ('Gain Money', '11'),
+            'rich girl': ('Rich Girl', '12'), 'wealthy girl': ('Rich Girl', '12'),
+            'rich man': ('Rich Man', '13'), 'wealthy man': ('Rich Man', '13'),
+            'sad news': ('Sad News', '14'), 'bad news': ('Sad News', '14'),
+            'success in love': ('Success in Love', '15'), 'love success': ('Success in Love', '15'),
+            'his thoughts': ('His Thoughts', '16'), 'her thoughts': ('His Thoughts', '16'), 'thoughts': ('His Thoughts', '16'),
+            'a gift': ('A Gift', '17'), 'gift': ('A Gift', '17'), 'present': ('A Gift', '17'),
+            'a small child': ('A Small Child', '18'), 'small child': ('A Small Child', '18'), 'child': ('A Small Child', '18'),
+            'a funeral': ('A Funeral', '19'), 'funeral': ('A Funeral', '19'), 'death': ('A Funeral', '19'),
+            'house': ('House', '20'), 'home': ('House', '20'),
+            'living room': ('Living Room', '21'), 'parlor': ('Living Room', '21'), 'room': ('Living Room', '21'),
+            'official person': ('Official Person', '22'), 'military': ('Official Person', '22'), 'official': ('Official Person', '22'),
+            'court house': ('Court House', '23'), 'courthouse': ('Court House', '23'),
+            'theft': ('Theft', '24'), 'thief': ('Theft', '24'), 'stealing': ('Theft', '24'),
+            'high honors': ('High Honors', '25'), 'honor': ('High Honors', '25'), 'achievement': ('High Honors', '25'),
+            'great fortune': ('Great Fortune', '26'), 'fortune': ('Great Fortune', '26'), 'luck': ('Great Fortune', '26'),
+            'unexpected money': ('Unexpected Money', '27'), 'surprise': ('Unexpected Money', '27'),
+            'expectation': ('Expectation', '28'), 'hope': ('Expectation', '28'), 'waiting': ('Expectation', '28'),
+            'prison': ('Prison', '29'), 'confinement': ('Prison', '29'), 'jail': ('Prison', '29'),
+            'court': ('Court', '30'), 'legal': ('Court', '30'), 'judge': ('Court', '30'), 'judiciary': ('Court', '30'),
+            'short illness': ('Short Illness', '31'), 'illness': ('Short Illness', '31'), 'sickness': ('Short Illness', '31'),
+            'grief and adversity': ('Grief and Adversity', '32'), 'grief': ('Grief and Adversity', '32'), 'adversity': ('Grief and Adversity', '32'), 'sorrow': ('Grief and Adversity', '32'),
+            'gloomy thoughts': ('Gloomy Thoughts', '33'), 'sadness': ('Gloomy Thoughts', '33'), 'melancholy': ('Gloomy Thoughts', '33'),
+            'work': ('Work', '34'), 'employment': ('Work', '34'), 'occupation': ('Work', '34'), 'labor': ('Work', '34'),
+            'a long way': ('A Long Way', '35'), 'long way': ('A Long Way', '35'), 'long road': ('A Long Way', '35'), 'distance': ('A Long Way', '35'),
+            'hope, great water': ('Hope, Great Water', '36'), 'great water': ('Hope, Great Water', '36'), 'water': ('Hope, Great Water', '36'), 'ocean': ('Hope, Great Water', '36'),
+        }
+
+        name_lower = card_name.lower()
+        for key, (archetype, rank) in kipper_cards.items():
             if key in name_lower:
                 return {
                     'archetype': archetype,

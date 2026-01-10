@@ -248,7 +248,7 @@ class Database:
         ''')
 
         # Insert default cartomancy types
-        default_types = ['Tarot', 'Lenormand', 'Playing Cards', 'Oracle']
+        default_types = ['Tarot', 'Lenormand', 'Kipper', 'Playing Cards', 'Oracle']
         for ct in default_types:
             cursor.execute(
                 'INSERT OR IGNORE INTO cartomancy_types (name) VALUES (?)',
