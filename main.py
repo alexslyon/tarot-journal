@@ -1171,16 +1171,28 @@ class MainFrame(wx.Frame):
                         label = pos.get('label', f'Position {i+1}')
                         
                         if i < len(cards_used):
-                            card_name = cards_used[i]
+                            # Handle both old format (string) and new format (dict)
+                            card_data = cards_used[i]
+                            if isinstance(card_data, str):
+                                card_name = card_data
+                                is_reversed = False
+                            else:
+                                card_name = card_data.get('name', '')
+                                is_reversed = card_data.get('reversed', False)
+
                             image_path = deck_cards.get(card_name)
                             image_placed = False
-                            
+
                             if image_path and os.path.exists(image_path):
                                 try:
                                     from PIL import Image as PILImage
                                     pil_img = PILImage.open(image_path)
                                     pil_img = pil_img.convert('RGB')
-                                    
+
+                                    # Rotate if reversed
+                                    if is_reversed:
+                                        pil_img = pil_img.rotate(180)
+
                                     orig_w, orig_h = pil_img.size
                                     if orig_h > 0:
                                         target_h = h - 4
@@ -1193,6 +1205,14 @@ class MainFrame(wx.Frame):
                                         bmp = wx.StaticBitmap(spread_panel, bitmap=wx.Bitmap(wx_img))
                                         img_x = x + (w - target_w) // 2
                                         bmp.SetPosition((img_x, y + 2))
+
+                                        # Add (R) indicator for reversed cards
+                                        if is_reversed:
+                                            r_label = wx.StaticText(spread_panel, label="(R)")
+                                            r_label.SetForegroundColour(get_wx_color('accent'))
+                                            r_label.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+                                            r_label.SetPosition((img_x + 2, y + 4))
+
                                         image_placed = True
                                 except Exception:
                                     pass
@@ -1380,10 +1400,19 @@ class MainFrame(wx.Frame):
                 if dlg._selected_deck_id:
                     for card in self.db.get_cards(dlg._selected_deck_id):
                         deck_cards[card['name']] = card['image_path']
-                for i, card_name in enumerate(cards_used):
+                for i, card_data in enumerate(cards_used):
+                    # Handle both old format (string) and new format (dict)
+                    if isinstance(card_data, str):
+                        card_name = card_data
+                        reversed_state = False
+                    else:
+                        card_name = card_data.get('name', '')
+                        reversed_state = card_data.get('reversed', False)
+
                     dlg._spread_cards[i] = {
                         'name': card_name,
-                        'image_path': deck_cards.get(card_name)
+                        'image_path': deck_cards.get(card_name),
+                        'reversed': reversed_state
                     }
         
         def on_deck_change(event):
@@ -1429,14 +1458,18 @@ class MainFrame(wx.Frame):
                             from PIL import Image as PILImage
                             pil_img = PILImage.open(image_path)
                             pil_img = pil_img.convert('RGB')
-                            
+
+                            # Rotate if card is reversed
+                            if card_data.get('reversed', False):
+                                pil_img = pil_img.rotate(180)
+
                             orig_w, orig_h = pil_img.size
                             if orig_h > 0:
                                 target_h = h - 4
                                 scale_factor = target_h / orig_h
                                 target_w = int(orig_w * scale_factor)
                                 pil_img = pil_img.resize((target_w, target_h), PILImage.LANCZOS)
-                                
+
                                 wx_img = wx.Image(target_w, target_h)
                                 wx_img.SetData(pil_img.tobytes())
                                 bmp = wx.Bitmap(wx_img)
@@ -1445,6 +1478,13 @@ class MainFrame(wx.Frame):
                                 dc.SetBrush(wx.TRANSPARENT_BRUSH)
                                 dc.SetPen(wx.Pen(get_wx_color('accent'), 2))
                                 dc.DrawRectangle(img_x - 1, y, target_w + 2, h)
+
+                                # Add (R) indicator for reversed cards
+                                if card_data.get('reversed', False):
+                                    dc.SetTextForeground(get_wx_color('accent'))
+                                    dc.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+                                    dc.DrawText("(R)", img_x + 2, y + 4)
+
                                 image_drawn = True
                         except:
                             pass
@@ -1499,7 +1539,8 @@ class MainFrame(wx.Frame):
                                 dlg._spread_cards[i] = {
                                     'id': card['id'],
                                     'name': card['name'],
-                                    'image_path': card['image_path']
+                                    'image_path': card['image_path'],
+                                    'reversed': False
                                 }
                                 break
                         
@@ -1511,8 +1552,55 @@ class MainFrame(wx.Frame):
                         spread_canvas.Refresh()
                     card_dlg.Destroy()
                     break
-        
+
+        def on_canvas_right_click(event):
+            spread_name = spread_choice.GetStringSelection()
+            if not spread_name or spread_name not in self._spread_map:
+                return
+
+            spread = self.db.get_spread(self._spread_map[spread_name])
+            if not spread:
+                return
+
+            positions = json.loads(spread['positions'])
+            click_x, click_y = event.GetX(), event.GetY()
+
+            for i, pos in enumerate(positions):
+                px, py = pos.get('x', 0), pos.get('y', 0)
+                pw, ph = pos.get('width', 80), pos.get('height', 120)
+
+                if px <= click_x <= px + pw and py <= click_y <= py + ph:
+                    # Check if there's a card in this position
+                    if i in dlg._spread_cards:
+                        # Create context menu
+                        menu = wx.Menu()
+                        is_reversed = dlg._spread_cards[i].get('reversed', False)
+
+                        toggle_item = menu.Append(wx.ID_ANY, "Upright" if is_reversed else "Reversed")
+                        remove_item = menu.Append(wx.ID_ANY, "Remove Card")
+
+                        def on_toggle(e):
+                            dlg._spread_cards[i]['reversed'] = not dlg._spread_cards[i].get('reversed', False)
+                            spread_canvas.Refresh()
+
+                        def on_remove(e):
+                            del dlg._spread_cards[i]
+                            if dlg._spread_cards:
+                                names = [c['name'] for c in dlg._spread_cards.values()]
+                                cards_label.SetLabel(f"Cards: {', '.join(names)}")
+                            else:
+                                cards_label.SetLabel("Cards: None")
+                            spread_canvas.Refresh()
+
+                        spread_canvas.Bind(wx.EVT_MENU, on_toggle, toggle_item)
+                        spread_canvas.Bind(wx.EVT_MENU, on_remove, remove_item)
+
+                        spread_canvas.PopupMenu(menu)
+                        menu.Destroy()
+                    break
+
         spread_canvas.Bind(wx.EVT_LEFT_DOWN, on_canvas_click)
+        spread_canvas.Bind(wx.EVT_RIGHT_DOWN, on_canvas_right_click)
         
         # Buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -1547,7 +1635,14 @@ class MainFrame(wx.Frame):
                     if deck:
                         cartomancy_type = deck['cartomancy_type_name']
                 
-                cards_used = [c['name'] for c in dlg._spread_cards.values()]
+                # Save cards with reversed state
+                cards_used = [
+                    {
+                        'name': c['name'],
+                        'reversed': c.get('reversed', False)
+                    }
+                    for c in dlg._spread_cards.values()
+                ]
                 deck_name_clean = deck_name.split(' (')[0] if deck_name else None
                 
                 self.db.add_entry_reading(
