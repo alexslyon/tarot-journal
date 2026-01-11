@@ -844,7 +844,7 @@ class ImportPresets:
         preset = self.get_preset(preset_name)
         preset_type = preset.get('type', 'Oracle') if preset else 'Oracle'
 
-        sort_order = self._get_card_sort_order(card_name, custom_suit_names, preset_name)
+        sort_order = self._get_card_sort_order(card_name, custom_suit_names, preset_name, custom_court_names)
 
         if preset_type == 'Tarot':
             return self._get_tarot_metadata(card_name, sort_order, custom_suit_names, preset_name,
@@ -856,13 +856,8 @@ class ImportPresets:
         elif preset_type == 'Playing Cards':
             return self._get_playing_card_metadata(card_name, sort_order)
         else:
-            # Oracle - no standard metadata
-            return {
-                'archetype': None,
-                'rank': None,
-                'suit': None,
-                'sort_order': sort_order
-            }
+            # Oracle
+            return self._get_oracle_metadata(card_name, sort_order)
 
     def _get_tarot_metadata(self, card_name: str, sort_order: int, custom_suit_names: dict = None,
                             preset_name: str = None, custom_court_names: dict = None,
@@ -958,22 +953,58 @@ class ImportPresets:
 
         # Minor Arcana - parse "Rank of Suit" pattern
         # Build list of all court card names to recognize (standard + custom)
-        # Map from display name (lowercase) -> base position (page/knight/queen/king)
-        court_card_positions = {}
+        # Map from display name (lowercase) -> (position, rank_name, sort_offset)
+        # Position is for archetype mapping, rank_name is what goes in metadata,
+        # sort_offset is added to suit base (11, 12, 13, 14)
 
-        # Standard court names
-        standard_courts = {
-            'page': 'page', 'princess': 'page', 'valet': 'page',
-            'knight': 'knight', 'prince': 'knight', 'cavalier': 'knight',
-            'queen': 'queen',
-            'king': 'king',
+        # Standard rank names for each court position (based on sort offset)
+        # These encompass all common names for each position
+        court_rank_by_position = {
+            11: 'Page / Knave / Princess / Court Card 1',
+            12: 'Knight / Prince / Court Card 2',
+            13: 'Queen / Court Card 3',
+            14: 'King / Knight (Thoth) / Court Card 4',
         }
-        court_card_positions.update(standard_courts)
+
+        # For Thoth: Princess=11, Prince=12, Queen=13, Knight=14
+        # For RWS/standard: Page=11, Knight=12, Queen=13, King=14
+        if is_thoth:
+            # Thoth court cards - these are their own archetypes
+            # Also include RWS names mapped to Thoth equivalents for compatibility
+            court_card_info = {
+                'princess': ('princess', 11),
+                'prince': ('prince', 12),
+                'queen': ('queen', 13),
+                'knight': ('knight', 14),  # Thoth Knight = King position
+                # RWS names mapped to Thoth positions
+                'page': ('princess', 11),      # Page -> Princess position
+                'knave': ('princess', 11),
+                'valet': ('princess', 11),
+                'king': ('knight', 14),        # King -> Knight (Thoth) position
+                'cavalier': ('prince', 12),    # Cavalier -> Prince position
+            }
+        else:
+            # Standard/RWS court cards
+            court_card_info = {
+                'page': ('page', 11),
+                'princess': ('page', 11),  # Maps to Page archetype
+                'valet': ('page', 11),
+                'knave': ('page', 11),
+                'knight': ('knight', 12),
+                'prince': ('knight', 12),  # Maps to Knight archetype
+                'cavalier': ('knight', 12),
+                'queen': ('queen', 13),
+                'king': ('king', 14),
+            }
 
         # Add custom court names if provided
         if custom_court_names:
-            for pos, name in custom_court_names.items():
-                court_card_positions[name.lower()] = pos
+            court_card_info[custom_court_names.get('page', '').lower()] = ('page', 11)
+            court_card_info[custom_court_names.get('knight', '').lower()] = ('knight', 12)
+            court_card_info[custom_court_names.get('queen', '').lower()] = ('queen', 13)
+            court_card_info[custom_court_names.get('king', '').lower()] = ('king', 14)
+            # Remove empty string key if any custom name was empty
+            court_card_info.pop('', None)
 
         # Pip card ranks
         rank_names = {
@@ -985,27 +1016,55 @@ class ImportPresets:
         if custom_suit_names:
             suit_names.extend([v.lower() for v in custom_suit_names.values()])
 
+        # Build reverse mapping from custom suit names to standard archetypes
+        # e.g., 'earth' -> 'Pentacles', 'fire' -> 'Wands'
+        # Disks/Coins always map to Pentacles for archetype consistency
+        suit_to_archetype = {
+            'wands': 'Wands', 'cups': 'Cups', 'swords': 'Swords', 'pentacles': 'Pentacles',
+            'coins': 'Pentacles', 'disks': 'Pentacles',
+        }
+        if custom_suit_names:
+            # Map custom names back to their standard archetype suits
+            if 'wands' in custom_suit_names:
+                suit_to_archetype[custom_suit_names['wands'].lower()] = 'Wands'
+            if 'cups' in custom_suit_names:
+                suit_to_archetype[custom_suit_names['cups'].lower()] = 'Cups'
+            if 'swords' in custom_suit_names:
+                suit_to_archetype[custom_suit_names['swords'].lower()] = 'Swords'
+            if 'pentacles' in custom_suit_names:
+                suit_to_archetype[custom_suit_names['pentacles'].lower()] = 'Pentacles'
+
         # Check for court cards first
-        for court_name, base_position in court_card_positions.items():
+        # Sort by court name length (descending) to match longer names first
+        for court_name in sorted(court_card_info.keys(), key=len, reverse=True):
+            position, sort_offset = court_card_info[court_name]
             for suit_name in suit_names:
                 if f'{court_name} of {suit_name}' in name_lower:
-                    # Normalize suit name
-                    normalized_suit = suit_name.title()
-                    if normalized_suit == 'Coins':
-                        normalized_suit = 'Pentacles'
+                    # Map to standard archetype suit
+                    archetype_suit = suit_to_archetype.get(suit_name, suit_name.title())
 
-                    # Determine the display rank (from card name)
-                    display_rank = court_name.title()
+                    # Get the standard rank name based on sort position
+                    rank_name = court_rank_by_position.get(sort_offset, court_name.title())
 
-                    # Determine archetype based on mapping option
-                    archetype = self._get_court_archetype(
-                        base_position, normalized_suit, display_rank, archetype_mapping
-                    )
+                    # Build archetype - for Thoth, use the Thoth court names with (Thoth) suffix
+                    if is_thoth:
+                        # Map position to Thoth archetype name
+                        thoth_archetype_names = {
+                            'princess': 'Princess', 'prince': 'Prince',
+                            'queen': 'Queen', 'knight': 'Knight'
+                        }
+                        archetype_rank = thoth_archetype_names.get(position, court_name.title())
+                        archetype = f"{archetype_rank} of {archetype_suit} (Thoth)"
+                    else:
+                        # For non-Thoth, use the archetype mapping system
+                        archetype = self._get_court_archetype(
+                            position, archetype_suit, court_name.title(), archetype_mapping
+                        )
 
                     return {
                         'archetype': archetype,
-                        'rank': display_rank,
-                        'suit': normalized_suit,
+                        'rank': rank_name,
+                        'suit': archetype_suit,
                         'sort_order': sort_order
                     }
 
@@ -1013,17 +1072,15 @@ class ImportPresets:
         for rank_key, rank_val in rank_names.items():
             for suit_name in suit_names:
                 if f'{rank_key} of {suit_name}' in name_lower:
-                    # Normalize suit name
-                    normalized_suit = suit_name.title()
-                    if normalized_suit == 'Coins':
-                        normalized_suit = 'Pentacles'
+                    # Map to standard archetype suit
+                    archetype_suit = suit_to_archetype.get(suit_name, suit_name.title())
 
-                    archetype = f"{rank_val} of {normalized_suit}"
+                    archetype = f"{rank_val} of {archetype_suit}"
 
                     return {
                         'archetype': archetype,
                         'rank': rank_val,
-                        'suit': normalized_suit,
+                        'suit': archetype_suit,
                         'sort_order': sort_order
                     }
 
@@ -1081,33 +1138,73 @@ class ImportPresets:
         return card_name
 
     def _get_lenormand_metadata(self, card_name: str, sort_order: int) -> dict:
-        """Get metadata for a Lenormand card"""
+        """Get metadata for a Lenormand card.
+
+        Each Lenormand card has:
+        - archetype: the card name (Rider, Clover, etc.)
+        - card_number: 1-36, used for sort_order
+        - rank: the playing card rank (6, 7, 8, 9, 10, Jack, Queen, King, Ace)
+        - suit: the playing card suit (Hearts, Diamonds, Clubs, Spades)
+        """
+        # Lenormand cards with their number, playing card rank, and suit
+        # Format: 'keyword': (archetype, card_number, rank, suit)
         lenormand_cards = {
-            'rider': ('Rider', '1'), 'clover': ('Clover', '2'), 'ship': ('Ship', '3'),
-            'house': ('House', '4'), 'tree': ('Tree', '5'), 'clouds': ('Clouds', '6'),
-            'snake': ('Snake', '7'), 'coffin': ('Coffin', '8'), 'bouquet': ('Bouquet', '9'),
-            'flowers': ('Bouquet', '9'), 'scythe': ('Scythe', '10'), 'whip': ('Whip', '11'),
-            'broom': ('Whip', '11'), 'birds': ('Birds', '12'), 'owls': ('Birds', '12'),
-            'child': ('Child', '13'), 'fox': ('Fox', '14'), 'bear': ('Bear', '15'),
-            'stars': ('Stars', '16'), 'stork': ('Stork', '17'), 'dog': ('Dog', '18'),
-            'tower': ('Tower', '19'), 'garden': ('Garden', '20'), 'mountain': ('Mountain', '21'),
-            'crossroads': ('Crossroads', '22'), 'paths': ('Crossroads', '22'),
-            'mice': ('Mice', '23'), 'heart': ('Heart', '24'), 'ring': ('Ring', '25'),
-            'book': ('Book', '26'), 'letter': ('Letter', '27'), 'man': ('Man', '28'),
-            'gentleman': ('Man', '28'), 'woman': ('Woman', '29'), 'lady': ('Woman', '29'),
-            'lily': ('Lily', '30'), 'lilies': ('Lily', '30'), 'sun': ('Sun', '31'),
-            'moon': ('Moon', '32'), 'key': ('Key', '33'), 'fish': ('Fish', '34'),
-            'anchor': ('Anchor', '35'), 'cross': ('Cross', '36'),
+            'rider': ('Rider', 1, '9', 'Hearts'),
+            'clover': ('Clover', 2, '6', 'Diamonds'),
+            'ship': ('Ship', 3, '10', 'Spades'),
+            'house': ('House', 4, 'King', 'Hearts'),
+            'tree': ('Tree', 5, '7', 'Hearts'),
+            'clouds': ('Clouds', 6, 'King', 'Clubs'),
+            'snake': ('Snake', 7, 'Queen', 'Clubs'),
+            'coffin': ('Coffin', 8, '9', 'Diamonds'),
+            'bouquet': ('Bouquet', 9, 'Queen', 'Spades'),
+            'flowers': ('Bouquet', 9, 'Queen', 'Spades'),
+            'scythe': ('Scythe', 10, 'Jack', 'Diamonds'),
+            'whip': ('Whip', 11, 'Jack', 'Clubs'),
+            'broom': ('Whip', 11, 'Jack', 'Clubs'),
+            'birds': ('Birds', 12, '7', 'Diamonds'),
+            'owls': ('Birds', 12, '7', 'Diamonds'),
+            'child': ('Child', 13, 'Jack', 'Spades'),
+            'fox': ('Fox', 14, '9', 'Clubs'),
+            'bear': ('Bear', 15, '10', 'Clubs'),
+            'stars': ('Stars', 16, '6', 'Hearts'),
+            'stork': ('Stork', 17, 'Queen', 'Hearts'),
+            'dog': ('Dog', 18, '10', 'Hearts'),
+            'tower': ('Tower', 19, '6', 'Spades'),
+            'garden': ('Garden', 20, '8', 'Spades'),
+            'mountain': ('Mountain', 21, '8', 'Clubs'),
+            'crossroads': ('Crossroads', 22, 'Queen', 'Diamonds'),
+            'paths': ('Crossroads', 22, 'Queen', 'Diamonds'),
+            'mice': ('Mice', 23, '7', 'Clubs'),
+            'heart': ('Heart', 24, 'Jack', 'Hearts'),
+            'ring': ('Ring', 25, 'Ace', 'Clubs'),
+            'book': ('Book', 26, '10', 'Diamonds'),
+            'letter': ('Letter', 27, '7', 'Spades'),
+            'man': ('Man', 28, 'Ace', 'Hearts'),
+            'gentleman': ('Man', 28, 'Ace', 'Hearts'),
+            'woman': ('Woman', 29, 'Ace', 'Spades'),
+            'lady': ('Woman', 29, 'Ace', 'Spades'),
+            'lily': ('Lily', 30, 'King', 'Spades'),
+            'lilies': ('Lily', 30, 'King', 'Spades'),
+            'sun': ('Sun', 31, 'Ace', 'Diamonds'),
+            'moon': ('Moon', 32, '8', 'Hearts'),
+            'key': ('Key', 33, '8', 'Diamonds'),
+            'fish': ('Fish', 34, 'King', 'Diamonds'),
+            'anchor': ('Anchor', 35, '9', 'Spades'),
+            'cross': ('Cross', 36, '6', 'Clubs'),
         }
 
         name_lower = card_name.lower()
-        for key, (archetype, rank) in lenormand_cards.items():
+        # Sort by key length descending to match longer/more specific keys first
+        # (e.g., 'woman' before 'man', 'gentleman' before 'man')
+        sorted_items = sorted(lenormand_cards.items(), key=lambda x: len(x[0]), reverse=True)
+        for key, (archetype, card_number, rank, suit) in sorted_items:
             if key in name_lower:
                 return {
                     'archetype': archetype,
                     'rank': rank,
-                    'suit': None,
-                    'sort_order': sort_order
+                    'suit': suit,
+                    'sort_order': card_number
                 }
 
         return {
@@ -1118,54 +1215,61 @@ class ImportPresets:
         }
 
     def _get_kipper_metadata(self, card_name: str, sort_order: int) -> dict:
-        """Get metadata for a Kipper card"""
+        """Get metadata for a Kipper card.
+
+        Kipper cards have numbers 1-36 but no playing card associations.
+        The card number is used for sort_order, not rank.
+        """
+        # Format: 'keyword': (archetype, card_number)
         kipper_cards = {
-            'main male': ('Main Male', '1'), 'hauptperson': ('Main Male', '1'),
-            'main female': ('Main Female', '2'),
-            'marriage': ('Marriage', '3'), 'union': ('Marriage', '3'),
-            'meeting': ('Meeting', '4'), 'rendezvous': ('Meeting', '4'),
-            'good gentleman': ('Good Gentleman', '5'), 'good man': ('Good Gentleman', '5'),
-            'good lady': ('Good Lady', '6'), 'good woman': ('Good Lady', '6'),
-            'pleasant letter': ('Pleasant Letter', '7'), 'good news': ('Pleasant Letter', '7'),
-            'false person': ('False Person', '8'), 'falsity': ('False Person', '8'),
-            'a change': ('A Change', '9'), 'change': ('A Change', '9'),
-            'a journey': ('A Journey', '10'), 'journey': ('A Journey', '10'), 'travel': ('A Journey', '10'),
-            'gain money': ('Gain Money', '11'), 'win money': ('Gain Money', '11'), 'wealth': ('Gain Money', '11'),
-            'rich girl': ('Rich Girl', '12'), 'wealthy girl': ('Rich Girl', '12'),
-            'rich man': ('Rich Man', '13'), 'wealthy man': ('Rich Man', '13'),
-            'sad news': ('Sad News', '14'), 'bad news': ('Sad News', '14'),
-            'success in love': ('Success in Love', '15'), 'love success': ('Success in Love', '15'),
-            'his thoughts': ('His Thoughts', '16'), 'her thoughts': ('His Thoughts', '16'), 'thoughts': ('His Thoughts', '16'),
-            'a gift': ('A Gift', '17'), 'gift': ('A Gift', '17'), 'present': ('A Gift', '17'),
-            'a small child': ('A Small Child', '18'), 'small child': ('A Small Child', '18'), 'child': ('A Small Child', '18'),
-            'a funeral': ('A Funeral', '19'), 'funeral': ('A Funeral', '19'), 'death': ('A Funeral', '19'),
-            'house': ('House', '20'), 'home': ('House', '20'),
-            'living room': ('Living Room', '21'), 'parlor': ('Living Room', '21'), 'room': ('Living Room', '21'),
-            'official person': ('Official Person', '22'), 'military': ('Official Person', '22'), 'official': ('Official Person', '22'),
-            'court house': ('Court House', '23'), 'courthouse': ('Court House', '23'),
-            'theft': ('Theft', '24'), 'thief': ('Theft', '24'), 'stealing': ('Theft', '24'),
-            'high honors': ('High Honors', '25'), 'honor': ('High Honors', '25'), 'achievement': ('High Honors', '25'),
-            'great fortune': ('Great Fortune', '26'), 'fortune': ('Great Fortune', '26'), 'luck': ('Great Fortune', '26'),
-            'unexpected money': ('Unexpected Money', '27'), 'surprise': ('Unexpected Money', '27'),
-            'expectation': ('Expectation', '28'), 'hope': ('Expectation', '28'), 'waiting': ('Expectation', '28'),
-            'prison': ('Prison', '29'), 'confinement': ('Prison', '29'), 'jail': ('Prison', '29'),
-            'court': ('Court', '30'), 'legal': ('Court', '30'), 'judge': ('Court', '30'), 'judiciary': ('Court', '30'),
-            'short illness': ('Short Illness', '31'), 'illness': ('Short Illness', '31'), 'sickness': ('Short Illness', '31'),
-            'grief and adversity': ('Grief and Adversity', '32'), 'grief': ('Grief and Adversity', '32'), 'adversity': ('Grief and Adversity', '32'), 'sorrow': ('Grief and Adversity', '32'),
-            'gloomy thoughts': ('Gloomy Thoughts', '33'), 'sadness': ('Gloomy Thoughts', '33'), 'melancholy': ('Gloomy Thoughts', '33'),
-            'work': ('Work', '34'), 'employment': ('Work', '34'), 'occupation': ('Work', '34'), 'labor': ('Work', '34'),
-            'a long way': ('A Long Way', '35'), 'long way': ('A Long Way', '35'), 'long road': ('A Long Way', '35'), 'distance': ('A Long Way', '35'),
-            'hope, great water': ('Hope, Great Water', '36'), 'great water': ('Hope, Great Water', '36'), 'water': ('Hope, Great Water', '36'), 'ocean': ('Hope, Great Water', '36'),
+            'main male': ('Main Male', 1), 'hauptperson': ('Main Male', 1),
+            'main female': ('Main Female', 2),
+            'marriage': ('Marriage', 3), 'union': ('Marriage', 3),
+            'meeting': ('Meeting', 4), 'rendezvous': ('Meeting', 4),
+            'good gentleman': ('Good Gentleman', 5), 'good man': ('Good Gentleman', 5),
+            'good lady': ('Good Lady', 6), 'good woman': ('Good Lady', 6),
+            'pleasant letter': ('Pleasant Letter', 7), 'good news': ('Pleasant Letter', 7),
+            'false person': ('False Person', 8), 'falsity': ('False Person', 8),
+            'a change': ('A Change', 9), 'change': ('A Change', 9),
+            'a journey': ('A Journey', 10), 'journey': ('A Journey', 10), 'travel': ('A Journey', 10),
+            'gain money': ('Gain Money', 11), 'win money': ('Gain Money', 11), 'wealth': ('Gain Money', 11),
+            'rich girl': ('Rich Girl', 12), 'wealthy girl': ('Rich Girl', 12),
+            'rich man': ('Rich Man', 13), 'wealthy man': ('Rich Man', 13),
+            'sad news': ('Sad News', 14), 'bad news': ('Sad News', 14),
+            'success in love': ('Success in Love', 15), 'love success': ('Success in Love', 15),
+            'his thoughts': ('His Thoughts', 16), 'her thoughts': ('His Thoughts', 16), 'thoughts': ('His Thoughts', 16),
+            'a gift': ('A Gift', 17), 'gift': ('A Gift', 17), 'present': ('A Gift', 17),
+            'a small child': ('A Small Child', 18), 'small child': ('A Small Child', 18), 'child': ('A Small Child', 18),
+            'a funeral': ('A Funeral', 19), 'funeral': ('A Funeral', 19), 'death': ('A Funeral', 19),
+            'house': ('House', 20), 'home': ('House', 20),
+            'living room': ('Living Room', 21), 'parlor': ('Living Room', 21), 'room': ('Living Room', 21),
+            'official person': ('Official Person', 22), 'military': ('Official Person', 22), 'official': ('Official Person', 22),
+            'court house': ('Court House', 23), 'courthouse': ('Court House', 23),
+            'theft': ('Theft', 24), 'thief': ('Theft', 24), 'stealing': ('Theft', 24),
+            'high honors': ('High Honors', 25), 'honor': ('High Honors', 25), 'achievement': ('High Honors', 25),
+            'great fortune': ('Great Fortune', 26), 'fortune': ('Great Fortune', 26), 'luck': ('Great Fortune', 26),
+            'unexpected money': ('Unexpected Money', 27), 'surprise': ('Unexpected Money', 27),
+            'expectation': ('Expectation', 28), 'hope': ('Expectation', 28), 'waiting': ('Expectation', 28),
+            'prison': ('Prison', 29), 'confinement': ('Prison', 29), 'jail': ('Prison', 29),
+            'court': ('Court', 30), 'legal': ('Court', 30), 'judge': ('Court', 30), 'judiciary': ('Court', 30),
+            'short illness': ('Short Illness', 31), 'illness': ('Short Illness', 31), 'sickness': ('Short Illness', 31),
+            'grief and adversity': ('Grief and Adversity', 32), 'grief': ('Grief and Adversity', 32), 'adversity': ('Grief and Adversity', 32), 'sorrow': ('Grief and Adversity', 32),
+            'gloomy thoughts': ('Gloomy Thoughts', 33), 'sadness': ('Gloomy Thoughts', 33), 'melancholy': ('Gloomy Thoughts', 33),
+            'work': ('Work', 34), 'employment': ('Work', 34), 'occupation': ('Work', 34), 'labor': ('Work', 34),
+            'a long way': ('A Long Way', 35), 'long way': ('A Long Way', 35), 'long road': ('A Long Way', 35), 'distance': ('A Long Way', 35),
+            'hope, great water': ('Hope, Great Water', 36), 'great water': ('Hope, Great Water', 36), 'water': ('Hope, Great Water', 36), 'ocean': ('Hope, Great Water', 36),
         }
 
         name_lower = card_name.lower()
-        for key, (archetype, rank) in kipper_cards.items():
+        # Sort by key length descending to match longer/more specific keys first
+        sorted_items = sorted(kipper_cards.items(), key=lambda x: len(x[0]), reverse=True)
+        for key, (archetype, card_number) in sorted_items:
             if key in name_lower:
                 return {
                     'archetype': archetype,
-                    'rank': rank,
+                    'rank': None,
                     'suit': None,
-                    'sort_order': sort_order
+                    'sort_order': card_number
                 }
 
         return {
@@ -1225,11 +1329,32 @@ class ImportPresets:
             'sort_order': sort_order
         }
 
+    def _get_oracle_metadata(self, card_name: str, sort_order: int) -> dict:
+        """Get metadata for an Oracle card.
+
+        If the card name starts with a number, use that as the sort order.
+        Oracle cards don't have standard archetypes, ranks, or suits.
+        """
+        # Try to extract a leading number from the card name for sort order
+        match = re.match(r'^(\d+)', card_name.strip())
+        if match:
+            sort_order = int(match.group(1))
+
+        return {
+            'archetype': None,
+            'rank': None,
+            'suit': None,
+            'sort_order': sort_order
+        }
+
     def _get_card_sort_order(self, card_name: str, custom_suit_names: dict = None,
-                             preset_name: str = None) -> int:
+                             preset_name: str = None, custom_court_names: dict = None) -> int:
         """Get sort order: Major Arcana (0-21), then Wands, Cups, Swords, Pentacles for Tarot.
         For Playing Cards: Jokers (1-2), then Spades=1xx, Hearts=2xx, Clubs=3xx, Diamonds=4xx.
-        Respects preset ordering for Strength/Justice swap."""
+        Respects preset ordering for Strength/Justice swap.
+
+        Court cards are always ordered: first court=11, second=12, third=13, fourth=14
+        regardless of their display names (Page, Knave, Princess, etc.)"""
         name_lower = card_name.lower()
 
         # Check if this is a playing cards preset
@@ -1282,15 +1407,42 @@ class ImportPresets:
         if name_lower in major_arcana:
             return major_arcana[name_lower]
 
-        # Rank order within suits
-        rank_order = {
-            'ace': 0, 'two': 1, 'three': 2, 'four': 3, 'five': 4,
-            'six': 5, 'seven': 6, 'eight': 7, 'nine': 8, 'ten': 9,
-            'page': 10, 'princess': 10, 'jack': 10,
-            'knight': 11, 'prince': 11,
-            'queen': 12,
-            'king': 13,
+        # Pip card rank order within suits (Ace-Ten = 1-10)
+        pip_rank_order = {
+            'ace': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
         }
+
+        # Court card positions - map to fixed sort values (11, 12, 13, 14)
+        # For Thoth: Princess=11, Prince=12, Queen=13, Knight=14
+        # For RWS/standard: Page=11, Knight=12, Queen=13, King=14
+        is_thoth = preset_name and 'thoth' in preset_name.lower()
+
+        if is_thoth:
+            court_positions = {
+                'princess': 11,
+                'prince': 12,
+                'queen': 13,
+                'knight': 14,  # Thoth Knight = King position
+            }
+        else:
+            court_positions = {
+                'page': 11, 'princess': 11, 'jack': 11, 'knave': 11, 'valet': 11,
+                'knight': 12, 'prince': 12, 'cavalier': 12,
+                'queen': 13,
+                'king': 14,
+            }
+
+        # Add custom court names if provided - they map to their position's sort order
+        if custom_court_names:
+            if custom_court_names.get('page'):
+                court_positions[custom_court_names['page'].lower()] = 11
+            if custom_court_names.get('knight'):
+                court_positions[custom_court_names['knight'].lower()] = 12
+            if custom_court_names.get('queen'):
+                court_positions[custom_court_names['queen'].lower()] = 13
+            if custom_court_names.get('king'):
+                court_positions[custom_court_names['king'].lower()] = 14
 
         # Get suit names (custom or default)
         suit_names = custom_suit_names or {}
@@ -1313,8 +1465,12 @@ class ImportPresets:
         # Find suit
         for suit_name, base in suit_bases.items():
             if f'of {suit_name}' in name_lower:
-                # Find rank
-                for rank, rank_val in rank_order.items():
+                # Check court cards first (sort by length to match longer names first)
+                for court_name in sorted(court_positions.keys(), key=len, reverse=True):
+                    if name_lower.startswith(court_name):
+                        return base + court_positions[court_name]
+                # Check pip cards
+                for rank, rank_val in pip_rank_order.items():
                     if name_lower.startswith(rank):
                         return base + rank_val
                 return base + 50  # Unknown rank

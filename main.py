@@ -309,12 +309,14 @@ class MainFrame(wx.Frame):
         self.library_panel = self._create_library_panel()
         self.spreads_panel = self._create_spreads_panel()
         self.profiles_panel = self._create_profiles_panel()
+        self.tags_panel = self._create_tags_panel()
         self.settings_panel = self._create_settings_panel()
 
         self.notebook.AddPage(self.journal_panel, "Journal")
         self.notebook.AddPage(self.library_panel, "Card Library")
         self.notebook.AddPage(self.spreads_panel, "Spreads")
         self.notebook.AddPage(self.profiles_panel, "Profiles")
+        self.notebook.AddPage(self.tags_panel, "Tags")
         self.notebook.AddPage(self.settings_panel, "Settings")
         
         main_sizer.Add(self.notebook, 1, wx.EXPAND | wx.ALL, 10)
@@ -429,7 +431,7 @@ class MainFrame(wx.Frame):
         left_sizer.Add(decks_label, 0, wx.ALL, 5)
         
         # Type filter
-        self.type_filter = wx.Choice(left, choices=['All', 'Tarot', 'Lenormand', 'Oracle'])
+        self.type_filter = wx.Choice(left, choices=['All', 'Tarot', 'Lenormand', 'Kipper', 'Oracle'])
         self.type_filter.SetSelection(0)
         self.type_filter.Bind(wx.EVT_CHOICE, self._on_type_filter)
         left_sizer.Add(self.type_filter, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
@@ -443,7 +445,13 @@ class MainFrame(wx.Frame):
         self.deck_list.InsertColumn(2, "#", width=40)
         self.deck_list.Bind(wx.EVT_LIST_ITEM_SELECTED, self._on_deck_select)
         self.deck_list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self._on_edit_deck)
+        self.deck_list.Bind(wx.EVT_LIST_COL_CLICK, self._on_deck_list_col_click)
         left_sizer.Add(self.deck_list, 1, wx.EXPAND | wx.ALL, 5)
+
+        # Track deck list sorting state
+        self._deck_list_sort_col = 0  # Default sort by name
+        self._deck_list_sort_asc = True  # Ascending by default
+        self._deck_list_data = []  # Store deck data for sorting
         
         # Buttons - vertical stack for cleaner look
         btn_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -1003,6 +1011,242 @@ class MainFrame(wx.Frame):
         dlg.Destroy()
 
     # ═══════════════════════════════════════════
+    # TAGS PANEL
+    # ═══════════════════════════════════════════
+    def _create_tags_panel(self):
+        """Create the Tags management panel with Deck Tags and Card Tags sections"""
+        panel = wx.Panel(self.notebook)
+        panel.SetBackgroundColour(get_wx_color('bg_primary'))
+
+        main_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # === Left side: Deck Tags ===
+        deck_tags_box = wx.StaticBox(panel, label="Deck Tags")
+        deck_tags_box.SetForegroundColour(get_wx_color('accent'))
+        deck_tags_sizer = wx.StaticBoxSizer(deck_tags_box, wx.VERTICAL)
+
+        deck_tags_info = wx.StaticText(panel, label="Tags that can be applied to decks.\nCards inherit their deck's tags.")
+        deck_tags_info.SetForegroundColour(get_wx_color('text_secondary'))
+        deck_tags_sizer.Add(deck_tags_info, 0, wx.ALL, 10)
+
+        self.deck_tags_list = wx.ListCtrl(panel, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
+        self.deck_tags_list.SetBackgroundColour(get_wx_color('bg_secondary'))
+        self.deck_tags_list.SetForegroundColour(get_wx_color('text_primary'))
+        self.deck_tags_list.InsertColumn(0, "Name", width=150)
+        self.deck_tags_list.InsertColumn(1, "Color", width=80)
+        self.deck_tags_list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self._on_edit_deck_tag)
+        deck_tags_sizer.Add(self.deck_tags_list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
+        deck_tags_btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        add_deck_tag_btn = wx.Button(panel, label="+ Add Tag")
+        add_deck_tag_btn.Bind(wx.EVT_BUTTON, self._on_add_deck_tag)
+        deck_tags_btn_sizer.Add(add_deck_tag_btn, 0, wx.RIGHT, 5)
+
+        edit_deck_tag_btn = wx.Button(panel, label="Edit")
+        edit_deck_tag_btn.Bind(wx.EVT_BUTTON, self._on_edit_deck_tag)
+        deck_tags_btn_sizer.Add(edit_deck_tag_btn, 0, wx.RIGHT, 5)
+
+        del_deck_tag_btn = wx.Button(panel, label="Delete")
+        del_deck_tag_btn.Bind(wx.EVT_BUTTON, self._on_delete_deck_tag)
+        deck_tags_btn_sizer.Add(del_deck_tag_btn, 0)
+
+        deck_tags_sizer.Add(deck_tags_btn_sizer, 0, wx.ALL, 10)
+
+        main_sizer.Add(deck_tags_sizer, 1, wx.EXPAND | wx.ALL, 10)
+
+        # === Right side: Card Tags ===
+        card_tags_box = wx.StaticBox(panel, label="Card Tags")
+        card_tags_box.SetForegroundColour(get_wx_color('accent'))
+        card_tags_sizer = wx.StaticBoxSizer(card_tags_box, wx.VERTICAL)
+
+        card_tags_info = wx.StaticText(panel, label="Tags that can be applied to individual cards.\nThese are separate from deck tags.")
+        card_tags_info.SetForegroundColour(get_wx_color('text_secondary'))
+        card_tags_sizer.Add(card_tags_info, 0, wx.ALL, 10)
+
+        self.card_tags_list = wx.ListCtrl(panel, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
+        self.card_tags_list.SetBackgroundColour(get_wx_color('bg_secondary'))
+        self.card_tags_list.SetForegroundColour(get_wx_color('text_primary'))
+        self.card_tags_list.InsertColumn(0, "Name", width=150)
+        self.card_tags_list.InsertColumn(1, "Color", width=80)
+        self.card_tags_list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self._on_edit_card_tag)
+        card_tags_sizer.Add(self.card_tags_list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
+        card_tags_btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        add_card_tag_btn = wx.Button(panel, label="+ Add Tag")
+        add_card_tag_btn.Bind(wx.EVT_BUTTON, self._on_add_card_tag)
+        card_tags_btn_sizer.Add(add_card_tag_btn, 0, wx.RIGHT, 5)
+
+        edit_card_tag_btn = wx.Button(panel, label="Edit")
+        edit_card_tag_btn.Bind(wx.EVT_BUTTON, self._on_edit_card_tag)
+        card_tags_btn_sizer.Add(edit_card_tag_btn, 0, wx.RIGHT, 5)
+
+        del_card_tag_btn = wx.Button(panel, label="Delete")
+        del_card_tag_btn.Bind(wx.EVT_BUTTON, self._on_delete_card_tag)
+        card_tags_btn_sizer.Add(del_card_tag_btn, 0)
+
+        card_tags_sizer.Add(card_tags_btn_sizer, 0, wx.ALL, 10)
+
+        main_sizer.Add(card_tags_sizer, 1, wx.EXPAND | wx.ALL, 10)
+
+        panel.SetSizer(main_sizer)
+
+        # Populate lists
+        self._refresh_deck_tags_list()
+        self._refresh_card_tags_list()
+
+        return panel
+
+    def _refresh_deck_tags_list(self):
+        """Refresh the deck tags list"""
+        self.deck_tags_list.DeleteAllItems()
+        tags = self.db.get_deck_tags()
+        for i, tag in enumerate(tags):
+            idx = self.deck_tags_list.InsertItem(i, tag['name'])
+            self.deck_tags_list.SetItem(idx, 1, tag['color'])
+            self.deck_tags_list.SetItemData(idx, tag['id'])
+
+    def _refresh_card_tags_list(self):
+        """Refresh the card tags list"""
+        self.card_tags_list.DeleteAllItems()
+        tags = self.db.get_card_tags()
+        for i, tag in enumerate(tags):
+            idx = self.card_tags_list.InsertItem(i, tag['name'])
+            self.card_tags_list.SetItem(idx, 1, tag['color'])
+            self.card_tags_list.SetItemData(idx, tag['id'])
+
+    def _show_tag_dialog(self, parent, title, name='', color='#6B5B95'):
+        """Show dialog to add/edit a tag"""
+        dlg = wx.Dialog(parent, title=title, size=(350, 200))
+        dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Name field
+        name_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        name_label = wx.StaticText(dlg, label="Name:")
+        name_label.SetForegroundColour(get_wx_color('text_primary'))
+        name_sizer.Add(name_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        name_ctrl = wx.TextCtrl(dlg, value=name)
+        name_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        name_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        name_sizer.Add(name_ctrl, 1)
+        sizer.Add(name_sizer, 0, wx.EXPAND | wx.ALL, 15)
+
+        # Color field
+        color_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        color_label = wx.StaticText(dlg, label="Color:")
+        color_label.SetForegroundColour(get_wx_color('text_primary'))
+        color_sizer.Add(color_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        color_ctrl = wx.ColourPickerCtrl(dlg, colour=wx.Colour(color))
+        color_sizer.Add(color_ctrl, 0)
+        sizer.Add(color_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 15)
+
+        # Buttons
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        cancel_btn = wx.Button(dlg, wx.ID_CANCEL, "Cancel")
+        save_btn = wx.Button(dlg, wx.ID_OK, "Save")
+        btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
+        btn_sizer.Add(save_btn, 0)
+        sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 15)
+
+        dlg.SetSizer(sizer)
+
+        if dlg.ShowModal() == wx.ID_OK:
+            new_name = name_ctrl.GetValue().strip()
+            new_color = color_ctrl.GetColour().GetAsString(wx.C2S_HTML_SYNTAX)
+            dlg.Destroy()
+            if new_name:
+                return {'name': new_name, 'color': new_color}
+        else:
+            dlg.Destroy()
+        return None
+
+    def _on_add_deck_tag(self, event):
+        """Add a new deck tag"""
+        result = self._show_tag_dialog(self, "Add Deck Tag")
+        if result:
+            try:
+                self.db.add_deck_tag(result['name'], result['color'])
+                self._refresh_deck_tags_list()
+            except Exception as e:
+                wx.MessageBox(f"Could not add tag: {e}", "Error", wx.OK | wx.ICON_ERROR)
+
+    def _on_edit_deck_tag(self, event):
+        """Edit selected deck tag"""
+        idx = self.deck_tags_list.GetFirstSelected()
+        if idx == -1:
+            wx.MessageBox("Select a tag to edit.", "No Selection", wx.OK | wx.ICON_INFORMATION)
+            return
+        tag_id = self.deck_tags_list.GetItemData(idx)
+        tag = self.db.get_deck_tag(tag_id)
+        if not tag:
+            return
+        result = self._show_tag_dialog(self, "Edit Deck Tag", tag['name'], tag['color'])
+        if result:
+            try:
+                self.db.update_deck_tag(tag_id, result['name'], result['color'])
+                self._refresh_deck_tags_list()
+            except Exception as e:
+                wx.MessageBox(f"Could not update tag: {e}", "Error", wx.OK | wx.ICON_ERROR)
+
+    def _on_delete_deck_tag(self, event):
+        """Delete selected deck tag"""
+        idx = self.deck_tags_list.GetFirstSelected()
+        if idx == -1:
+            wx.MessageBox("Select a tag to delete.", "No Selection", wx.OK | wx.ICON_INFORMATION)
+            return
+        tag_id = self.deck_tags_list.GetItemData(idx)
+        if wx.MessageBox(
+            "Delete this tag? It will be removed from all decks.",
+            "Confirm Delete",
+            wx.YES_NO | wx.ICON_WARNING
+        ) == wx.YES:
+            self.db.delete_deck_tag(tag_id)
+            self._refresh_deck_tags_list()
+
+    def _on_add_card_tag(self, event):
+        """Add a new card tag"""
+        result = self._show_tag_dialog(self, "Add Card Tag")
+        if result:
+            try:
+                self.db.add_card_tag(result['name'], result['color'])
+                self._refresh_card_tags_list()
+            except Exception as e:
+                wx.MessageBox(f"Could not add tag: {e}", "Error", wx.OK | wx.ICON_ERROR)
+
+    def _on_edit_card_tag(self, event):
+        """Edit selected card tag"""
+        idx = self.card_tags_list.GetFirstSelected()
+        if idx == -1:
+            wx.MessageBox("Select a tag to edit.", "No Selection", wx.OK | wx.ICON_INFORMATION)
+            return
+        tag_id = self.card_tags_list.GetItemData(idx)
+        tag = self.db.get_card_tag(tag_id)
+        if not tag:
+            return
+        result = self._show_tag_dialog(self, "Edit Card Tag", tag['name'], tag['color'])
+        if result:
+            try:
+                self.db.update_card_tag(tag_id, result['name'], result['color'])
+                self._refresh_card_tags_list()
+            except Exception as e:
+                wx.MessageBox(f"Could not update tag: {e}", "Error", wx.OK | wx.ICON_ERROR)
+
+    def _on_delete_card_tag(self, event):
+        """Delete selected card tag"""
+        idx = self.card_tags_list.GetFirstSelected()
+        if idx == -1:
+            wx.MessageBox("Select a tag to delete.", "No Selection", wx.OK | wx.ICON_INFORMATION)
+            return
+        tag_id = self.card_tags_list.GetItemData(idx)
+        if wx.MessageBox(
+            "Delete this tag? It will be removed from all cards.",
+            "Confirm Delete",
+            wx.YES_NO | wx.ICON_WARNING
+        ) == wx.YES:
+            self.db.delete_card_tag(tag_id)
+            self._refresh_card_tags_list()
+
+    # ═══════════════════════════════════════════
     # SETTINGS PANEL
     # ═══════════════════════════════════════════
     def _create_settings_panel(self):
@@ -1228,9 +1472,9 @@ class MainFrame(wx.Frame):
     
     def _refresh_decks_list(self):
         self.deck_list.DeleteAllItems()
-        
+
         type_filter = self.type_filter.GetString(self.type_filter.GetSelection())
-        
+
         if type_filter == 'All':
             decks = self.db.get_decks()
         else:
@@ -1241,15 +1485,56 @@ class MainFrame(wx.Frame):
                     type_id = t['id']
                     break
             decks = self.db.get_decks(type_id) if type_id else []
-        
+
+        # Store deck data with card counts for sorting
+        self._deck_list_data = []
         for deck in decks:
             cards = self.db.get_cards(deck['id'])
-            idx = self.deck_list.InsertItem(self.deck_list.GetItemCount(), deck['name'])
-            self.deck_list.SetItem(idx, 1, deck['cartomancy_type_name'])
-            self.deck_list.SetItem(idx, 2, str(len(cards)))
-            self.deck_list.SetItemData(idx, deck['id'])
-        
+            self._deck_list_data.append({
+                'id': deck['id'],
+                'name': deck['name'],
+                'type': deck['cartomancy_type_name'],
+                'count': len(cards)
+            })
+
+        # Apply current sort
+        self._sort_and_display_decks()
+
         self._update_deck_choice()
+
+    def _sort_and_display_decks(self):
+        """Sort deck data and display in list"""
+        self.deck_list.DeleteAllItems()
+
+        # Sort the data
+        if self._deck_list_sort_col == 0:
+            key_func = lambda x: x['name'].lower()
+        elif self._deck_list_sort_col == 1:
+            key_func = lambda x: x['type'].lower()
+        else:  # Column 2 - card count
+            key_func = lambda x: x['count']
+
+        sorted_data = sorted(self._deck_list_data, key=key_func, reverse=not self._deck_list_sort_asc)
+
+        # Display sorted data
+        for deck in sorted_data:
+            idx = self.deck_list.InsertItem(self.deck_list.GetItemCount(), deck['name'])
+            self.deck_list.SetItem(idx, 1, deck['type'])
+            self.deck_list.SetItem(idx, 2, str(deck['count']))
+            self.deck_list.SetItemData(idx, deck['id'])
+
+    def _on_deck_list_col_click(self, event):
+        """Handle column header click for sorting"""
+        col = event.GetColumn()
+
+        # If clicking same column, toggle direction; otherwise, sort ascending
+        if col == self._deck_list_sort_col:
+            self._deck_list_sort_asc = not self._deck_list_sort_asc
+        else:
+            self._deck_list_sort_col = col
+            self._deck_list_sort_asc = True
+
+        self._sort_and_display_decks()
     
     def _refresh_spreads_list(self):
         self.spread_list.DeleteAllItems()
@@ -1316,7 +1601,10 @@ class MainFrame(wx.Frame):
             self.deck_title.SetLabel(f"{deck['name']} ({deck['cartomancy_type_name']})")
         
         # Update filter dropdown based on deck type
-        if self._current_deck_type in ('Lenormand', 'Playing Cards'):
+        if self._current_deck_type == 'Kipper':
+            # Kipper cards have no suits, just show All
+            new_choices = ['All']
+        elif self._current_deck_type in ('Lenormand', 'Playing Cards'):
             # Lenormand and Playing Cards use playing card suits
             new_choices = ['All',
                           suit_names.get('hearts', 'Hearts'),
@@ -1348,6 +1636,9 @@ class MainFrame(wx.Frame):
         elif self._current_deck_type == 'Lenormand':
             self._current_cards_sorted = self._sort_lenormand_cards(list(cards))
             self._current_cards_categorized = self._categorize_lenormand_cards(self._current_cards_sorted)
+        elif self._current_deck_type == 'Kipper':
+            self._current_cards_sorted = self._sort_kipper_cards(list(cards))
+            self._current_cards_categorized = {'All': self._current_cards_sorted}
         else:
             self._current_cards_sorted = self._sort_cards(list(cards), suit_names)
             self._current_cards_categorized = self._categorize_cards(self._current_cards_sorted, suit_names)
@@ -1446,7 +1737,72 @@ class MainFrame(wx.Frame):
             return 999
 
         return sorted(cards, key=get_lenormand_order)
-    
+
+    def _sort_kipper_cards(self, cards):
+        """Sort Kipper cards by card_order field (1-36).
+        Fallback: traditional order based on card name."""
+        kipper_order = {
+            'main male': 1, 'hauptperson': 1,
+            'main female': 2,
+            'marriage': 3, 'union': 3,
+            'meeting': 4, 'rendezvous': 4,
+            'good gentleman': 5, 'good man': 5,
+            'good lady': 6, 'good woman': 6,
+            'pleasant letter': 7, 'good news': 7,
+            'false person': 8, 'falsity': 8,
+            'a change': 9, 'change': 9,
+            'a journey': 10, 'journey': 10, 'travel': 10,
+            'gain money': 11, 'win money': 11, 'wealth': 11,
+            'rich girl': 12, 'wealthy girl': 12,
+            'rich man': 13, 'wealthy man': 13,
+            'sad news': 14, 'bad news': 14,
+            'success in love': 15, 'love success': 15,
+            'his thoughts': 16, 'her thoughts': 16, 'thoughts': 16,
+            'a gift': 17, 'gift': 17, 'present': 17,
+            'a small child': 18, 'small child': 18, 'child': 18,
+            'a funeral': 19, 'funeral': 19, 'death': 19,
+            'house': 20, 'home': 20,
+            'living room': 21, 'parlor': 21, 'room': 21,
+            'official person': 22, 'military': 22, 'official': 22,
+            'court house': 23, 'courthouse': 23,
+            'theft': 24, 'thief': 24, 'stealing': 24,
+            'high honors': 25, 'honor': 25, 'achievement': 25,
+            'great fortune': 26, 'fortune': 26, 'luck': 26,
+            'unexpected money': 27, 'surprise': 27,
+            'expectation': 28, 'hope': 28, 'waiting': 28,
+            'prison': 29, 'confinement': 29, 'jail': 29,
+            'court': 30, 'legal': 30, 'judge': 30, 'judiciary': 30,
+            'short illness': 31, 'illness': 31, 'sickness': 31,
+            'grief and adversity': 32, 'grief': 32, 'adversity': 32, 'sorrow': 32,
+            'gloomy thoughts': 33, 'sadness': 33, 'melancholy': 33,
+            'work': 34, 'employment': 34, 'occupation': 34, 'labor': 34,
+            'a long way': 35, 'long way': 35, 'long road': 35, 'distance': 35,
+            'hope, great water': 36, 'great water': 36, 'water': 36, 'ocean': 36,
+        }
+
+        def get_kipper_order(card):
+            # Primary: use card_order if set (not 0, 999, or None)
+            try:
+                card_order = card['card_order']
+                if card_order is not None and card_order != 0 and card_order != 999:
+                    return card_order
+            except (KeyError, TypeError):
+                pass
+
+            # Fallback: parse card name
+            name = card['name'].lower().strip()
+            # Sort by key length to match longer names first
+            for key in sorted(kipper_order.keys(), key=len, reverse=True):
+                if key in name:
+                    return kipper_order[key]
+            # Try to extract number from name if present
+            match = re.match(r'^(\d+)', name)
+            if match:
+                return int(match.group(1))
+            return 999
+
+        return sorted(cards, key=get_kipper_order)
+
     def _categorize_lenormand_cards(self, cards):
         """Categorize Lenormand cards by their traditional playing card suit associations"""
         # Map card names to suits
@@ -3251,8 +3607,8 @@ class MainFrame(wx.Frame):
 
         general_sizer.Add(suit_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 15)
 
-        # Auto-assign metadata button (for Tarot, Lenormand, Playing Cards)
-        if deck_type in ('Tarot', 'Lenormand', 'Playing Cards'):
+        # Auto-assign metadata button (for Tarot, Lenormand, Kipper, Playing Cards, Oracle)
+        if deck_type in ('Tarot', 'Lenormand', 'Kipper', 'Playing Cards', 'Oracle'):
             auto_meta_sizer = wx.BoxSizer(wx.HORIZONTAL)
             auto_meta_btn = wx.Button(general_panel, label="Auto-assign Card Metadata")
 
@@ -3287,20 +3643,57 @@ class MainFrame(wx.Frame):
                 elif deck_type == 'Lenormand':
                     # Use Lenormand preset
                     preset_name = "Lenormand (36 cards)"
+                elif deck_type == 'Kipper':
+                    # Use Kipper preset
+                    preset_name = "Kipper (36 cards)"
                 elif deck_type == 'Playing Cards':
                     # Use Playing Cards preset
                     preset_name = "Playing Cards with Jokers (54 cards)"
+                elif deck_type == 'Oracle':
+                    # Use Oracle preset
+                    preset_name = "Oracle (filename only)"
 
-                result = wx.MessageBox(
-                    "This will automatically assign archetype, rank, and suit\n"
-                    "to cards based on their names.\n\n"
-                    "Cards with existing metadata will be skipped.\n"
-                    "Continue?",
-                    "Auto-assign Metadata",
-                    wx.YES_NO | wx.ICON_QUESTION
-                )
-                if result == wx.YES:
-                    updated = self.db.auto_assign_deck_metadata(deck_id, overwrite=False,
+                # Create a dialog with overwrite option
+                overwrite_dlg = wx.Dialog(dlg, title="Auto-assign Metadata", size=(400, 200))
+                overwrite_dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+                dlg_sizer = wx.BoxSizer(wx.VERTICAL)
+
+                msg = wx.StaticText(overwrite_dlg,
+                    label="This will automatically assign archetype, rank, and suit\n"
+                          "to cards based on their names.")
+                msg.SetForegroundColour(get_wx_color('text_primary'))
+                dlg_sizer.Add(msg, 0, wx.ALL, 15)
+
+                # Use separate checkbox and label because wx.CheckBox doesn't respect
+                # SetForegroundColour on macOS
+                overwrite_sizer = wx.BoxSizer(wx.HORIZONTAL)
+                overwrite_cb = wx.CheckBox(overwrite_dlg, label="")
+                overwrite_sizer.Add(overwrite_cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+                overwrite_label = wx.StaticText(overwrite_dlg, label="Overwrite existing metadata")
+                overwrite_label.SetForegroundColour(get_wx_color('text_primary'))
+                overwrite_sizer.Add(overwrite_label, 0, wx.ALIGN_CENTER_VERTICAL)
+                dlg_sizer.Add(overwrite_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
+
+                btn_sizer = wx.StdDialogButtonSizer()
+                ok_btn = wx.Button(overwrite_dlg, wx.ID_OK, "Continue")
+                ok_btn.SetForegroundColour(get_wx_color('text_primary'))
+                ok_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
+                cancel_btn = wx.Button(overwrite_dlg, wx.ID_CANCEL, "Cancel")
+                cancel_btn.SetForegroundColour(get_wx_color('text_primary'))
+                cancel_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
+                btn_sizer.AddButton(ok_btn)
+                btn_sizer.AddButton(cancel_btn)
+                btn_sizer.Realize()
+                dlg_sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 15)
+
+                overwrite_dlg.SetSizer(dlg_sizer)
+                overwrite_dlg.Fit()
+                overwrite_dlg.CenterOnParent()
+
+                if overwrite_dlg.ShowModal() == wx.ID_OK:
+                    overwrite = overwrite_cb.GetValue()
+                    overwrite_dlg.Destroy()
+                    updated = self.db.auto_assign_deck_metadata(deck_id, overwrite=overwrite,
                                                                  preset_name=preset_name)
                     # Refresh the cards display to update selection state
                     self._refresh_cards_display(deck_id)
@@ -3309,6 +3702,8 @@ class MainFrame(wx.Frame):
                         "Complete",
                         wx.OK | wx.ICON_INFORMATION
                     )
+                else:
+                    overwrite_dlg.Destroy()
 
             auto_meta_btn.Bind(wx.EVT_BUTTON, on_auto_assign)
             auto_meta_sizer.Add(auto_meta_btn, 0)
@@ -3322,6 +3717,105 @@ class MainFrame(wx.Frame):
 
         general_panel.SetSizer(general_sizer)
         notebook.AddPage(general_panel, "General")
+
+        # === Details Tab ===
+        details_panel = wx.Panel(notebook)
+        details_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        details_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Date Published
+        date_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        date_label = wx.StaticText(details_panel, label="Date Published:")
+        date_label.SetForegroundColour(get_wx_color('text_primary'))
+        date_sizer.Add(date_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        date_ctrl = wx.TextCtrl(details_panel, value=deck['date_published'] or '' if 'date_published' in deck.keys() else '')
+        date_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        date_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        date_sizer.Add(date_ctrl, 1)
+        details_sizer.Add(date_sizer, 0, wx.EXPAND | wx.ALL, 15)
+
+        # Publisher
+        pub_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        pub_label = wx.StaticText(details_panel, label="Publisher:")
+        pub_label.SetForegroundColour(get_wx_color('text_primary'))
+        pub_sizer.Add(pub_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        pub_ctrl = wx.TextCtrl(details_panel, value=deck['publisher'] or '' if 'publisher' in deck.keys() else '')
+        pub_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        pub_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        pub_sizer.Add(pub_ctrl, 1)
+        details_sizer.Add(pub_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
+
+        # Credits
+        credits_label = wx.StaticText(details_panel, label="Credits:")
+        credits_label.SetForegroundColour(get_wx_color('text_primary'))
+        details_sizer.Add(credits_label, 0, wx.LEFT | wx.RIGHT, 15)
+        credits_ctrl = wx.TextCtrl(details_panel, value=deck['credits'] or '' if 'credits' in deck.keys() else '',
+                                   style=wx.TE_MULTILINE, size=(-1, 60))
+        credits_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        credits_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        details_sizer.Add(credits_ctrl, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
+
+        # Notes
+        notes_label = wx.StaticText(details_panel, label="Notes:")
+        notes_label.SetForegroundColour(get_wx_color('text_primary'))
+        details_sizer.Add(notes_label, 0, wx.LEFT | wx.RIGHT, 15)
+        deck_notes_ctrl = wx.TextCtrl(details_panel, value=deck['notes'] or '' if 'notes' in deck.keys() else '',
+                                      style=wx.TE_MULTILINE, size=(-1, 80))
+        deck_notes_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        deck_notes_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        details_sizer.Add(deck_notes_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
+
+        details_panel.SetSizer(details_sizer)
+        notebook.AddPage(details_panel, "Details")
+
+        # === Tags Tab ===
+        tags_panel = wx.Panel(notebook)
+        tags_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        tags_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        tags_info = wx.StaticText(tags_panel,
+            label="Assign tags to this deck. Cards in this deck will inherit these tags.")
+        tags_info.SetForegroundColour(get_wx_color('text_secondary'))
+        tags_sizer.Add(tags_info, 0, wx.ALL, 10)
+
+        # Get current deck tags and all available deck tags
+        current_deck_tags = {t['id'] for t in self.db.get_tags_for_deck(deck_id)}
+        all_deck_tags = list(self.db.get_deck_tags())
+
+        # CheckListBox for tag selection
+        tag_choices = [tag['name'] for tag in all_deck_tags]
+        deck_tag_checklist = wx.CheckListBox(tags_panel, choices=tag_choices)
+        deck_tag_checklist.SetBackgroundColour(get_wx_color('bg_secondary'))
+        deck_tag_checklist.SetForegroundColour(get_wx_color('text_primary'))
+
+        # Check the tags that are already assigned
+        for i, tag in enumerate(all_deck_tags):
+            if tag['id'] in current_deck_tags:
+                deck_tag_checklist.Check(i, True)
+
+        tags_sizer.Add(deck_tag_checklist, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
+        # Button to add new tag
+        def on_add_new_deck_tag(e):
+            result = self._show_tag_dialog(dlg, "Add Deck Tag")
+            if result:
+                try:
+                    new_id = self.db.add_deck_tag(result['name'], result['color'])
+                    # Refresh the checklist
+                    all_deck_tags.append({'id': new_id, 'name': result['name'], 'color': result['color']})
+                    deck_tag_checklist.Append(result['name'])
+                    deck_tag_checklist.Check(deck_tag_checklist.GetCount() - 1, True)
+                    # Also refresh the main tags list if visible
+                    self._refresh_deck_tags_list()
+                except Exception as ex:
+                    wx.MessageBox(f"Could not add tag: {ex}", "Error", wx.OK | wx.ICON_ERROR)
+
+        add_tag_btn = wx.Button(tags_panel, label="+ New Tag")
+        add_tag_btn.Bind(wx.EVT_BUTTON, on_add_new_deck_tag)
+        tags_sizer.Add(add_tag_btn, 0, wx.ALL, 10)
+
+        tags_panel.SetSizer(tags_sizer)
+        notebook.AddPage(tags_panel, "Tags")
 
         # === Custom Fields Tab ===
         cf_panel = wx.Panel(notebook)
@@ -3493,6 +3987,24 @@ class MainFrame(wx.Frame):
             # Update suit names (this also updates card names)
             if new_suit_names != suit_names:
                 self.db.update_deck_suit_names(deck_id, new_suit_names, suit_names)
+
+            # Update deck details
+            new_date = date_ctrl.GetValue().strip()
+            new_publisher = pub_ctrl.GetValue().strip()
+            new_credits = credits_ctrl.GetValue().strip()
+            new_notes = deck_notes_ctrl.GetValue().strip()
+            self.db.update_deck(deck_id,
+                                date_published=new_date,
+                                publisher=new_publisher,
+                                credits=new_credits,
+                                notes=new_notes)
+
+            # Update deck tags
+            selected_tag_ids = []
+            for i in range(deck_tag_checklist.GetCount()):
+                if deck_tag_checklist.IsChecked(i):
+                    selected_tag_ids.append(all_deck_tags[i]['id'])
+            self.db.set_deck_tags(deck_id, selected_tag_ids)
 
             self._refresh_decks_list()
             # Re-select the deck after refresh
@@ -4243,6 +4755,41 @@ class MainFrame(wx.Frame):
             except:
                 pass
 
+        # Tags section
+        inherited_tags = self.db.get_inherited_tags_for_card(card_id)
+        card_tags = self.db.get_tags_for_card(card_id)
+
+        if inherited_tags or card_tags:
+            sep4 = wx.StaticLine(info_panel)
+            info_sizer.Add(sep4, 0, wx.EXPAND | wx.BOTTOM, 15)
+
+            tags_title = wx.StaticText(info_panel, label="Tags")
+            tags_title.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+            tags_title.SetForegroundColour(get_wx_color('accent'))
+            info_sizer.Add(tags_title, 0, wx.BOTTOM, 8)
+
+            # Deck tags (inherited)
+            if inherited_tags:
+                deck_tags_row = wx.BoxSizer(wx.HORIZONTAL)
+                deck_tags_lbl = wx.StaticText(info_panel, label="Deck Tags: ")
+                deck_tags_lbl.SetForegroundColour(get_wx_color('text_secondary'))
+                deck_tags_row.Add(deck_tags_lbl, 0)
+                deck_tags_val = wx.StaticText(info_panel, label=", ".join([t['name'] for t in inherited_tags]))
+                deck_tags_val.SetForegroundColour(get_wx_color('text_primary'))
+                deck_tags_row.Add(deck_tags_val, 0)
+                info_sizer.Add(deck_tags_row, 0, wx.BOTTOM, 5)
+
+            # Card-specific tags
+            if card_tags:
+                card_tags_row = wx.BoxSizer(wx.HORIZONTAL)
+                card_tags_lbl = wx.StaticText(info_panel, label="Card Tags: ")
+                card_tags_lbl.SetForegroundColour(get_wx_color('text_secondary'))
+                card_tags_row.Add(card_tags_lbl, 0)
+                card_tags_val = wx.StaticText(info_panel, label=", ".join([t['name'] for t in card_tags]))
+                card_tags_val.SetForegroundColour(get_wx_color('text_primary'))
+                card_tags_row.Add(card_tags_val, 0)
+                info_sizer.Add(card_tags_row, 0, wx.BOTTOM, 5)
+
         info_panel.SetSizer(info_sizer)
         content_sizer.Add(info_panel, 1, wx.EXPAND | wx.ALL, 10)
 
@@ -4475,25 +5022,41 @@ class MainFrame(wx.Frame):
             class_sizer.Add(suit_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         elif cartomancy_type == 'Lenormand':
-            # Lenormand: Number field (1-36)
+            # Lenormand: Playing card rank (6-10, Jack, Queen, King, Ace)
             rank_sizer = wx.BoxSizer(wx.HORIZONTAL)
-            rank_label = wx.StaticText(class_panel, label="Card Number (1-36):")
+            rank_label = wx.StaticText(class_panel, label="Playing Card Rank:")
             rank_label.SetForegroundColour(get_wx_color('text_primary'))
             rank_sizer.Add(rank_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
 
-            current_num = 1
-            card_rank = get_card_field('rank', '')
-            if card_rank:
-                try:
-                    current_num = int(card_rank)
-                except:
-                    pass
-            rank_ctrl = wx.SpinCtrl(class_panel, min=1, max=36, initial=current_num)
+            lenormand_ranks = ['', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Jack', 'Queen', 'King', 'Ace']
+            rank_ctrl = wx.Choice(class_panel, choices=lenormand_ranks)
             rank_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
             rank_ctrl.SetForegroundColour(get_wx_color('text_primary'))
-            rank_sizer.Add(rank_ctrl, 0)
+            card_rank = get_card_field('rank', '')
+            if card_rank in lenormand_ranks:
+                rank_ctrl.SetSelection(lenormand_ranks.index(card_rank))
+            else:
+                rank_ctrl.SetSelection(0)
+            rank_sizer.Add(rank_ctrl, 1)
             class_sizer.Add(rank_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
-            # No suit for Lenormand
+
+            # Lenormand: Playing card suit
+            suit_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            suit_label = wx.StaticText(class_panel, label="Playing Card Suit:")
+            suit_label.SetForegroundColour(get_wx_color('text_primary'))
+            suit_sizer.Add(suit_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+            lenormand_suits = ['', 'Hearts', 'Diamonds', 'Clubs', 'Spades']
+            suit_ctrl = wx.Choice(class_panel, choices=lenormand_suits)
+            suit_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+            suit_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+            card_suit = get_card_field('suit', '')
+            if card_suit in lenormand_suits:
+                suit_ctrl.SetSelection(lenormand_suits.index(card_suit))
+            else:
+                suit_ctrl.SetSelection(0)
+            suit_sizer.Add(suit_ctrl, 1)
+            class_sizer.Add(suit_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         # Oracle: No rank/suit fields shown
 
@@ -4524,6 +5087,67 @@ class MainFrame(wx.Frame):
 
         notes_panel.SetSizer(notes_sizer)
         notebook.AddPage(notes_panel, "Notes")
+
+        # === Tags Tab ===
+        card_tags_panel = wx.Panel(notebook)
+        card_tags_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        card_tags_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Inherited tags from deck (read-only)
+        inherited_tags = self.db.get_inherited_tags_for_card(card_id)
+        if inherited_tags:
+            inherited_label = wx.StaticText(card_tags_panel, label="Inherited from deck:")
+            inherited_label.SetForegroundColour(get_wx_color('text_secondary'))
+            card_tags_sizer.Add(inherited_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+
+            inherited_tags_text = ", ".join([t['name'] for t in inherited_tags])
+            inherited_display = wx.StaticText(card_tags_panel, label=inherited_tags_text)
+            inherited_display.SetForegroundColour(get_wx_color('text_dim'))
+            card_tags_sizer.Add(inherited_display, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # Card-specific tags
+        card_tags_label = wx.StaticText(card_tags_panel, label="Card Tags:")
+        card_tags_label.SetForegroundColour(get_wx_color('text_primary'))
+        card_tags_sizer.Add(card_tags_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+
+        # Get current card tags and all available card tags
+        current_card_tags = {t['id'] for t in self.db.get_tags_for_card(card_id)}
+        all_card_tags = list(self.db.get_card_tags())
+
+        # CheckListBox for tag selection
+        card_tag_choices = [tag['name'] for tag in all_card_tags]
+        card_tag_checklist = wx.CheckListBox(card_tags_panel, choices=card_tag_choices)
+        card_tag_checklist.SetBackgroundColour(get_wx_color('bg_secondary'))
+        card_tag_checklist.SetForegroundColour(get_wx_color('text_primary'))
+
+        # Check the tags that are already assigned
+        for i, tag in enumerate(all_card_tags):
+            if tag['id'] in current_card_tags:
+                card_tag_checklist.Check(i, True)
+
+        card_tags_sizer.Add(card_tag_checklist, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
+        # Button to add new card tag
+        def on_add_new_card_tag(e):
+            result = self._show_tag_dialog(dlg, "Add Card Tag")
+            if result:
+                try:
+                    new_id = self.db.add_card_tag(result['name'], result['color'])
+                    # Refresh the checklist
+                    all_card_tags.append({'id': new_id, 'name': result['name'], 'color': result['color']})
+                    card_tag_checklist.Append(result['name'])
+                    card_tag_checklist.Check(card_tag_checklist.GetCount() - 1, True)
+                    # Also refresh the main tags list if visible
+                    self._refresh_card_tags_list()
+                except Exception as ex:
+                    wx.MessageBox(f"Could not add tag: {ex}", "Error", wx.OK | wx.ICON_ERROR)
+
+        add_card_tag_btn = wx.Button(card_tags_panel, label="+ New Tag")
+        add_card_tag_btn.Bind(wx.EVT_BUTTON, on_add_new_card_tag)
+        card_tags_sizer.Add(add_card_tag_btn, 0, wx.ALL, 10)
+
+        card_tags_panel.SetSizer(card_tags_sizer)
+        notebook.AddPage(card_tags_panel, "Tags")
 
         # === Custom Fields Tab ===
         custom_panel = wx.Panel(notebook)
@@ -4678,6 +5302,13 @@ class MainFrame(wx.Frame):
                     notes=new_notes,
                     custom_fields=new_custom_fields if new_custom_fields else None
                 )
+
+                # Update card tags
+                selected_card_tag_ids = []
+                for i in range(card_tag_checklist.GetCount()):
+                    if card_tag_checklist.IsChecked(i):
+                        selected_card_tag_ids.append(all_card_tags[i]['id'])
+                self.db.set_card_tags(card_id, selected_card_tag_ids)
 
                 if new_image and new_image != card['image_path']:
                     self.thumb_cache.get_thumbnail(new_image)

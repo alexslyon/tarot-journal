@@ -53,6 +53,15 @@ class Database:
             cursor.execute('ALTER TABLE decks ADD COLUMN suit_names TEXT')
         if 'court_names' not in columns:
             cursor.execute('ALTER TABLE decks ADD COLUMN court_names TEXT')
+        # Migration: add deck metadata columns
+        if 'date_published' not in columns:
+            cursor.execute('ALTER TABLE decks ADD COLUMN date_published TEXT')
+        if 'publisher' not in columns:
+            cursor.execute('ALTER TABLE decks ADD COLUMN publisher TEXT')
+        if 'credits' not in columns:
+            cursor.execute('ALTER TABLE decks ADD COLUMN credits TEXT')
+        if 'notes' not in columns:
+            cursor.execute('ALTER TABLE decks ADD COLUMN notes TEXT')
         
         # Cards table
         cursor.execute('''
@@ -165,6 +174,46 @@ class Database:
                 PRIMARY KEY (entry_id, tag_id),
                 FOREIGN KEY (entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE,
                 FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+            )
+        ''')
+
+        # Deck tags table (separate from entry tags)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS deck_tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                color TEXT DEFAULT '#6B5B95'
+            )
+        ''')
+
+        # Deck tag assignments junction table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS deck_tag_assignments (
+                deck_id INTEGER NOT NULL,
+                tag_id INTEGER NOT NULL,
+                PRIMARY KEY (deck_id, tag_id),
+                FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE,
+                FOREIGN KEY (tag_id) REFERENCES deck_tags(id) ON DELETE CASCADE
+            )
+        ''')
+
+        # Card tags table (separate from deck tags)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS card_tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                color TEXT DEFAULT '#6B5B95'
+            )
+        ''')
+
+        # Card tag assignments junction table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS card_tag_assignments (
+                card_id INTEGER NOT NULL,
+                tag_id INTEGER NOT NULL,
+                PRIMARY KEY (card_id, tag_id),
+                FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
+                FOREIGN KEY (tag_id) REFERENCES card_tags(id) ON DELETE CASCADE
             )
         ''')
 
@@ -445,7 +494,8 @@ class Database:
         self.conn.commit()
         return cursor.lastrowid
     
-    def update_deck(self, deck_id: int, name: str = None, image_folder: str = None, suit_names: dict = None):
+    def update_deck(self, deck_id: int, name: str = None, image_folder: str = None, suit_names: dict = None,
+                    date_published: str = None, publisher: str = None, credits: str = None, notes: str = None):
         cursor = self.conn.cursor()
         if name:
             cursor.execute('UPDATE decks SET name = ? WHERE id = ?', (name, deck_id))
@@ -454,6 +504,14 @@ class Database:
         if suit_names is not None:
             suit_names_json = json.dumps(suit_names) if suit_names else None
             cursor.execute('UPDATE decks SET suit_names = ? WHERE id = ?', (suit_names_json, deck_id))
+        if date_published is not None:
+            cursor.execute('UPDATE decks SET date_published = ? WHERE id = ?', (date_published, deck_id))
+        if publisher is not None:
+            cursor.execute('UPDATE decks SET publisher = ? WHERE id = ?', (publisher, deck_id))
+        if credits is not None:
+            cursor.execute('UPDATE decks SET credits = ? WHERE id = ?', (credits, deck_id))
+        if notes is not None:
+            cursor.execute('UPDATE decks SET notes = ? WHERE id = ?', (notes, deck_id))
         self.conn.commit()
     
     def get_deck_suit_names(self, deck_id: int) -> dict:
@@ -1231,6 +1289,168 @@ class Database:
             )
         self.conn.commit()
 
+    # === Deck Tags ===
+    def get_deck_tags(self):
+        """Get all deck tags"""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT * FROM deck_tags ORDER BY name')
+        return cursor.fetchall()
+
+    def get_deck_tag(self, tag_id: int):
+        """Get a single deck tag by ID"""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT * FROM deck_tags WHERE id = ?', (tag_id,))
+        return cursor.fetchone()
+
+    def add_deck_tag(self, name: str, color: str = '#6B5B95'):
+        """Create a new deck tag"""
+        cursor = self.conn.cursor()
+        cursor.execute('INSERT INTO deck_tags (name, color) VALUES (?, ?)', (name, color))
+        self.conn.commit()
+        return cursor.lastrowid
+
+    def update_deck_tag(self, tag_id: int, name: str = None, color: str = None):
+        """Update a deck tag's name and/or color"""
+        cursor = self.conn.cursor()
+        if name:
+            cursor.execute('UPDATE deck_tags SET name = ? WHERE id = ?', (name, tag_id))
+        if color:
+            cursor.execute('UPDATE deck_tags SET color = ? WHERE id = ?', (color, tag_id))
+        self.conn.commit()
+
+    def delete_deck_tag(self, tag_id: int):
+        """Delete a deck tag (cascades to assignments)"""
+        cursor = self.conn.cursor()
+        cursor.execute('DELETE FROM deck_tags WHERE id = ?', (tag_id,))
+        self.conn.commit()
+
+    def get_tags_for_deck(self, deck_id: int):
+        """Get all tags assigned to a deck"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT t.* FROM deck_tags t
+            JOIN deck_tag_assignments dta ON t.id = dta.tag_id
+            WHERE dta.deck_id = ?
+            ORDER BY t.name
+        ''', (deck_id,))
+        return cursor.fetchall()
+
+    def add_tag_to_deck(self, deck_id: int, tag_id: int):
+        """Assign a tag to a deck"""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'INSERT OR IGNORE INTO deck_tag_assignments (deck_id, tag_id) VALUES (?, ?)',
+            (deck_id, tag_id)
+        )
+        self.conn.commit()
+
+    def remove_tag_from_deck(self, deck_id: int, tag_id: int):
+        """Remove a tag from a deck"""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'DELETE FROM deck_tag_assignments WHERE deck_id = ? AND tag_id = ?',
+            (deck_id, tag_id)
+        )
+        self.conn.commit()
+
+    def set_deck_tags(self, deck_id: int, tag_ids: list):
+        """Replace all tags for a deck"""
+        cursor = self.conn.cursor()
+        cursor.execute('DELETE FROM deck_tag_assignments WHERE deck_id = ?', (deck_id,))
+        for tag_id in tag_ids:
+            cursor.execute(
+                'INSERT INTO deck_tag_assignments (deck_id, tag_id) VALUES (?, ?)',
+                (deck_id, tag_id)
+            )
+        self.conn.commit()
+
+    # === Card Tags ===
+    def get_card_tags(self):
+        """Get all card tags"""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT * FROM card_tags ORDER BY name')
+        return cursor.fetchall()
+
+    def get_card_tag(self, tag_id: int):
+        """Get a single card tag by ID"""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT * FROM card_tags WHERE id = ?', (tag_id,))
+        return cursor.fetchone()
+
+    def add_card_tag(self, name: str, color: str = '#6B5B95'):
+        """Create a new card tag"""
+        cursor = self.conn.cursor()
+        cursor.execute('INSERT INTO card_tags (name, color) VALUES (?, ?)', (name, color))
+        self.conn.commit()
+        return cursor.lastrowid
+
+    def update_card_tag(self, tag_id: int, name: str = None, color: str = None):
+        """Update a card tag's name and/or color"""
+        cursor = self.conn.cursor()
+        if name:
+            cursor.execute('UPDATE card_tags SET name = ? WHERE id = ?', (name, tag_id))
+        if color:
+            cursor.execute('UPDATE card_tags SET color = ? WHERE id = ?', (color, tag_id))
+        self.conn.commit()
+
+    def delete_card_tag(self, tag_id: int):
+        """Delete a card tag (cascades to assignments)"""
+        cursor = self.conn.cursor()
+        cursor.execute('DELETE FROM card_tags WHERE id = ?', (tag_id,))
+        self.conn.commit()
+
+    def get_tags_for_card(self, card_id: int):
+        """Get all tags directly assigned to a card"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT t.* FROM card_tags t
+            JOIN card_tag_assignments cta ON t.id = cta.tag_id
+            WHERE cta.card_id = ?
+            ORDER BY t.name
+        ''', (card_id,))
+        return cursor.fetchall()
+
+    def get_inherited_tags_for_card(self, card_id: int):
+        """Get deck tags inherited by a card (from its parent deck)"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT dt.* FROM deck_tags dt
+            JOIN deck_tag_assignments dta ON dt.id = dta.tag_id
+            JOIN cards c ON c.deck_id = dta.deck_id
+            WHERE c.id = ?
+            ORDER BY dt.name
+        ''', (card_id,))
+        return cursor.fetchall()
+
+    def add_tag_to_card(self, card_id: int, tag_id: int):
+        """Assign a tag to a card"""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'INSERT OR IGNORE INTO card_tag_assignments (card_id, tag_id) VALUES (?, ?)',
+            (card_id, tag_id)
+        )
+        self.conn.commit()
+
+    def remove_tag_from_card(self, card_id: int, tag_id: int):
+        """Remove a tag from a card"""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'DELETE FROM card_tag_assignments WHERE card_id = ? AND tag_id = ?',
+            (card_id, tag_id)
+        )
+        self.conn.commit()
+
+    def set_card_tags(self, card_id: int, tag_ids: list):
+        """Replace all tags for a card"""
+        cursor = self.conn.cursor()
+        cursor.execute('DELETE FROM card_tag_assignments WHERE card_id = ?', (card_id,))
+        for tag_id in tag_ids:
+            cursor.execute(
+                'INSERT INTO card_tag_assignments (card_id, tag_id) VALUES (?, ?)',
+                (card_id, tag_id)
+            )
+        self.conn.commit()
+
     # === Card Archetypes ===
     def get_archetypes(self, cartomancy_type: str = None):
         """Get all archetypes, optionally filtered by cartomancy type"""
@@ -1567,6 +1787,14 @@ class Database:
             except:
                 pass
 
+        # Get custom court names from deck if available
+        custom_court_names = None
+        if deck['court_names']:
+            try:
+                custom_court_names = json.loads(deck['court_names'])
+            except:
+                pass
+
         # Use import_presets if preset_name is provided
         if preset_name:
             from import_presets import get_presets
@@ -1578,12 +1806,18 @@ class Database:
                 if not overwrite and existing_archetype:
                     continue
 
-                metadata = presets.get_card_metadata(card['name'], preset_name, custom_suit_names)
-                if metadata.get('archetype') or metadata.get('rank') or metadata.get('suit'):
-                    self.update_card_metadata(card['id'], archetype=metadata.get('archetype'),
-                                             rank=metadata.get('rank'), suit=metadata.get('suit'))
+                metadata = presets.get_card_metadata(card['name'], preset_name, custom_suit_names,
+                                                     custom_court_names)
+                # Check if we have any metadata to update (including sort_order for Oracle decks)
+                has_metadata = metadata.get('archetype') or metadata.get('rank') or metadata.get('suit')
+                has_sort_order = metadata.get('sort_order') is not None and metadata.get('sort_order') != 999
+
+                if has_metadata or has_sort_order:
+                    if has_metadata:
+                        self.update_card_metadata(card['id'], archetype=metadata.get('archetype'),
+                                                 rank=metadata.get('rank'), suit=metadata.get('suit'))
                     # Also update sort order
-                    if metadata.get('sort_order') is not None:
+                    if has_sort_order:
                         self.update_card(card['id'], card_order=metadata.get('sort_order'))
                     updated += 1
         else:
