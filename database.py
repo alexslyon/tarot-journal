@@ -62,7 +62,11 @@ class Database:
             cursor.execute('ALTER TABLE decks ADD COLUMN credits TEXT')
         if 'notes' not in columns:
             cursor.execute('ALTER TABLE decks ADD COLUMN notes TEXT')
-        
+        if 'card_back_image' not in columns:
+            cursor.execute('ALTER TABLE decks ADD COLUMN card_back_image TEXT')
+        if 'booklet_info' not in columns:
+            cursor.execute('ALTER TABLE decks ADD COLUMN booklet_info TEXT')
+
         # Cards table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS cards (
@@ -111,6 +115,10 @@ class Database:
         columns = [col[1] for col in cursor.fetchall()]
         if 'cartomancy_type' not in columns:
             cursor.execute('ALTER TABLE spreads ADD COLUMN cartomancy_type TEXT')
+
+        # Migration: add allowed_deck_types column for multi-deck-type spreads
+        if 'allowed_deck_types' not in columns:
+            cursor.execute('ALTER TABLE spreads ADD COLUMN allowed_deck_types TEXT')
         
         # Journal entries table
         cursor.execute('''
@@ -495,7 +503,8 @@ class Database:
         return cursor.lastrowid
     
     def update_deck(self, deck_id: int, name: str = None, image_folder: str = None, suit_names: dict = None,
-                    date_published: str = None, publisher: str = None, credits: str = None, notes: str = None):
+                    date_published: str = None, publisher: str = None, credits: str = None, notes: str = None,
+                    card_back_image: str = None, booklet_info: str = None):
         cursor = self.conn.cursor()
         if name:
             cursor.execute('UPDATE decks SET name = ? WHERE id = ?', (name, deck_id))
@@ -512,6 +521,10 @@ class Database:
             cursor.execute('UPDATE decks SET credits = ? WHERE id = ?', (credits, deck_id))
         if notes is not None:
             cursor.execute('UPDATE decks SET notes = ? WHERE id = ?', (notes, deck_id))
+        if card_back_image is not None:
+            cursor.execute('UPDATE decks SET card_back_image = ? WHERE id = ?', (card_back_image, deck_id))
+        if booklet_info is not None:
+            cursor.execute('UPDATE decks SET booklet_info = ? WHERE id = ?', (booklet_info, deck_id))
         self.conn.commit()
     
     def get_deck_suit_names(self, deck_id: int) -> dict:
@@ -680,20 +693,24 @@ class Database:
         cursor.execute('SELECT * FROM spreads WHERE id = ?', (spread_id,))
         return cursor.fetchone()
     
-    def add_spread(self, name: str, positions: list, description: str = None, cartomancy_type: str = None):
+    def add_spread(self, name: str, positions: list, description: str = None,
+                   cartomancy_type: str = None, allowed_deck_types: list = None):
         """
         positions is a list of dicts: [{"x": 0, "y": 0, "label": "Past"}, ...]
-        cartomancy_type: 'Tarot', 'Lenormand', 'Oracle', etc.
+        cartomancy_type: 'Tarot', 'Lenormand', 'Oracle', etc. (deprecated, for backwards compat)
+        allowed_deck_types: list of cartomancy type names allowed for this spread, e.g. ['Tarot', 'Oracle']
         """
         cursor = self.conn.cursor()
         cursor.execute(
-            'INSERT INTO spreads (name, description, positions, cartomancy_type) VALUES (?, ?, ?, ?)',
-            (name, description, json.dumps(positions), cartomancy_type)
+            'INSERT INTO spreads (name, description, positions, cartomancy_type, allowed_deck_types) VALUES (?, ?, ?, ?, ?)',
+            (name, description, json.dumps(positions), cartomancy_type,
+             json.dumps(allowed_deck_types) if allowed_deck_types else None)
         )
         self.conn.commit()
         return cursor.lastrowid
     
-    def update_spread(self, spread_id: int, name: str = None, positions: list = None, description: str = None):
+    def update_spread(self, spread_id: int, name: str = None, positions: list = None,
+                      description: str = None, allowed_deck_types: list = None):
         cursor = self.conn.cursor()
         if name:
             cursor.execute('UPDATE spreads SET name = ? WHERE id = ?', (name, spread_id))
@@ -701,6 +718,9 @@ class Database:
             cursor.execute('UPDATE spreads SET positions = ? WHERE id = ?', (json.dumps(positions), spread_id))
         if description is not None:
             cursor.execute('UPDATE spreads SET description = ? WHERE id = ?', (description, spread_id))
+        if allowed_deck_types is not None:
+            cursor.execute('UPDATE spreads SET allowed_deck_types = ? WHERE id = ?',
+                          (json.dumps(allowed_deck_types) if allowed_deck_types else None, spread_id))
         self.conn.commit()
     
     def delete_spread(self, spread_id: int):
@@ -2400,9 +2420,15 @@ def create_default_decks(db: Database):
             'type': 'Tarot'
         },
         {
-            'name': 'Hello Tarot',
-            'folder': 'Hello Tarot',
-            'preset': 'Tarot (RWS Ordering)',
+            'name': 'Tarot de Marseille',
+            'folder': 'TdM',
+            'preset': 'Tarot (Pre-Golden Dawn Ordering)',
+            'type': 'Tarot'
+        },
+        {
+            'name': 'Thoth',
+            'folder': 'Thoth',
+            'preset': 'Tarot (Thoth)',
             'type': 'Tarot'
         },
         {
@@ -2443,12 +2469,21 @@ def create_default_decks(db: Database):
             image_folder=str(folder_path.absolute())
         )
 
+        # Look for card back image
+        card_back_path = presets.find_card_back_image(str(folder_path), deck_info['preset'])
+        if card_back_path:
+            db.update_deck(deck_id, card_back_image=card_back_path)
+
         # Import cards from folder
         valid_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
         cards_to_add = []
 
         for filepath in sorted(folder_path.iterdir()):
             if filepath.suffix.lower() in valid_extensions:
+                # Skip card back images
+                if presets.is_card_back_file(filepath.name, deck_info['preset']):
+                    continue
+
                 # Map filename to card name using preset
                 card_name = presets.map_filename_to_card(
                     filepath.name,

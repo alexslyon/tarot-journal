@@ -540,54 +540,71 @@ PLAYING_CARDS_54.update({
 })
 
 # Built-in presets
+# Default card back filename patterns (matched case-insensitively, without extension)
+DEFAULT_CARD_BACK_PATTERNS = [
+    "cardback", "card_back", "card-back",
+    "back", "deckback", "deck_back", "deck-back",
+    "cover", "reverse", "verso",
+    "00_back", "00-back", "00back",
+    "back_00", "back-00", "back00",
+]
+
 BUILTIN_PRESETS = {
     "Tarot (RWS Ordering)": {
         "type": "Tarot",
         "mappings": STANDARD_TAROT,
         "description": "Rider-Waite-Smith ordering: 8=Strength, 11=Justice. Standard 78-card tarot deck.",
-        "suit_names": {"wands": "Wands", "cups": "Cups", "swords": "Swords", "pentacles": "Pentacles"}
+        "suit_names": {"wands": "Wands", "cups": "Cups", "swords": "Swords", "pentacles": "Pentacles"},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
     "Tarot (Pre-Golden Dawn Ordering)": {
         "type": "Tarot",
         "mappings": PRE_GOLDEN_DAWN_TAROT,
         "description": "Marseille/Pre-Golden Dawn ordering: 8=Justice, 11=Strength. Standard 78-card tarot deck.",
-        "suit_names": {"wands": "Wands", "cups": "Cups", "swords": "Swords", "pentacles": "Pentacles"}
+        "suit_names": {"wands": "Wands", "cups": "Cups", "swords": "Swords", "pentacles": "Pentacles"},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
     "Tarot (Thoth)": {
         "type": "Tarot",
         "mappings": THOTH_TAROT,
         "description": "Crowley/Harris Thoth deck: Lust, Adjustment, The Aeon, The Universe. Knight/Queen/Prince/Princess courts. Disks instead of Pentacles.",
-        "suit_names": {"wands": "Wands", "cups": "Cups", "swords": "Swords", "pentacles": "Disks"}
+        "suit_names": {"wands": "Wands", "cups": "Cups", "swords": "Swords", "pentacles": "Disks"},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
     "Lenormand (36 cards)": {
         "type": "Lenormand",
         "mappings": STANDARD_LENORMAND,
         "description": "Standard 36-card Lenormand deck",
-        "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"}
+        "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
     "Kipper (36 cards)": {
         "type": "Kipper",
         "mappings": STANDARD_KIPPER,
         "description": "Traditional German 36-card Kipper fortune-telling deck",
-        "suit_names": {}
+        "suit_names": {},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
     "Playing Cards (52 cards)": {
         "type": "Playing Cards",
         "mappings": PLAYING_CARDS_52,
         "description": "Standard 52-card playing card deck (Hearts, Diamonds, Clubs, Spades)",
-        "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"}
+        "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
     "Playing Cards with Jokers (54 cards)": {
         "type": "Playing Cards",
         "mappings": PLAYING_CARDS_54,
         "description": "Playing card deck with 2 jokers (52 cards + Red Joker + Black Joker)",
-        "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"}
+        "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
     "Oracle (filename only)": {
         "type": "Oracle",
         "mappings": {},
         "description": "Uses cleaned filename as card name (for custom oracle decks)",
-        "suit_names": {}
+        "suit_names": {},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     }
 }
 
@@ -768,11 +785,59 @@ class ImportPresets:
         except ValueError:
             return len(values)  # Unknown cards go at the end
     
+    def find_card_back_image(self, folder: str, preset_name: str = None) -> Optional[str]:
+        """
+        Find a card back image in the folder based on preset patterns.
+        Returns the full path to the card back image, or None if not found.
+        """
+        valid_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}
+        folder_path = Path(folder)
+
+        if not folder_path.exists():
+            return None
+
+        # Get patterns from preset, or use defaults
+        patterns = DEFAULT_CARD_BACK_PATTERNS
+        if preset_name:
+            preset = self.get_preset(preset_name)
+            if preset and preset.get('card_back_patterns'):
+                patterns = preset['card_back_patterns']
+
+        # Search for matching files
+        for filepath in folder_path.iterdir():
+            if filepath.suffix.lower() in valid_extensions:
+                stem_lower = filepath.stem.lower()
+                # Check for exact match with any pattern
+                for pattern in patterns:
+                    if stem_lower == pattern.lower():
+                        return str(filepath)
+
+        return None
+
+    def is_card_back_file(self, filename: str, preset_name: str = None) -> bool:
+        """
+        Check if a filename matches card back patterns.
+        """
+        stem_lower = Path(filename).stem.lower()
+
+        # Get patterns from preset, or use defaults
+        patterns = DEFAULT_CARD_BACK_PATTERNS
+        if preset_name:
+            preset = self.get_preset(preset_name)
+            if preset and preset.get('card_back_patterns'):
+                patterns = preset['card_back_patterns']
+
+        for pattern in patterns:
+            if stem_lower == pattern.lower():
+                return True
+        return False
+
     def preview_import(self, folder: str, preset_name: str,
                       custom_suit_names: dict = None) -> List[Tuple[str, str, int]]:
         """
         Preview what cards would be imported from a folder.
         Returns list of (original_filename, mapped_name, sort_order) tuples.
+        Excludes card back images from the list.
         """
         valid_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
         results = []
@@ -783,6 +848,9 @@ class ImportPresets:
 
         for filepath in sorted(folder_path.iterdir()):
             if filepath.suffix.lower() in valid_extensions:
+                # Skip card back images
+                if self.is_card_back_file(filepath.name, preset_name):
+                    continue
                 mapped_name = self.map_filename_to_card(filepath.name, preset_name, custom_suit_names)
                 sort_order = self._get_card_sort_order(mapped_name, custom_suit_names)
                 results.append((filepath.name, mapped_name, sort_order))
@@ -799,6 +867,7 @@ class ImportPresets:
         """
         Preview what cards would be imported from a folder, including full metadata.
         Returns list of dicts with: filename, name, sort_order, archetype, rank, suit
+        Excludes card back images from the list.
 
         custom_court_names: dict with keys 'page', 'knight', 'queen', 'king'
         archetype_mapping: 'Map to RWS archetypes', 'Map to Thoth archetypes', or 'Create new archetypes'
@@ -812,6 +881,9 @@ class ImportPresets:
 
         for filepath in sorted(folder_path.iterdir()):
             if filepath.suffix.lower() in valid_extensions:
+                # Skip card back images
+                if self.is_card_back_file(filepath.name, preset_name):
+                    continue
                 mapped_name = self.map_filename_to_card(filepath.name, preset_name, custom_suit_names)
                 # Apply court card name customization
                 if custom_court_names:
