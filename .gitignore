@@ -41,8 +41,8 @@ Thumbs.db
 
 # Thumbnails and cache
 thumbnail_cache/
+.thumbnail_cache/
 *.cache
 
-# Image folders (keep only Rider-Waite-Smith, Blue Owl Lenormand, and PlayingCards)
+# Image folders (keep only Rider-Waite-Smith, Thoth, Blue Owl Lenormand, and PlayingCards)
 Hello Tarot/
-Thoth/

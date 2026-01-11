@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from database import Database, create_default_spreads, create_default_decks
 from thumbnail_cache import get_cache
-from import_presets import get_presets, BUILTIN_PRESETS, COURT_PRESETS, ARCHETYPE_MAPPING_OPTIONS
+from import_presets import get_presets, BUILTIN_PRESETS, COURT_PRESETS, ARCHETYPE_MAPPING_OPTIONS, DEFAULT_CARD_BACK_PATTERNS
 from theme_config import get_theme, PRESET_THEMES
 
 # Version
@@ -621,7 +621,33 @@ class MainFrame(wx.Frame):
         meta_sizer.Add(self.spread_desc_ctrl, 1)
         
         right_sizer.Add(meta_sizer, 0, wx.EXPAND | wx.ALL, 10)
-        
+
+        # Deck types selection
+        deck_types_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        deck_types_label = wx.StaticText(right, label="Allowed Deck Types:")
+        deck_types_label.SetForegroundColour(get_wx_color('text_primary'))
+        deck_types_sizer.Add(deck_types_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+        # Create checkboxes for each cartomancy type (empty label + StaticText for macOS)
+        self.spread_deck_type_checks = {}
+        cart_types = self.db.get_cartomancy_types()
+        for ct in cart_types:
+            cb_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            cb = wx.CheckBox(right, label="")
+            cb_sizer.Add(cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
+            cb_label = wx.StaticText(right, label=ct['name'])
+            cb_label.SetForegroundColour(get_wx_color('text_primary'))
+            cb_sizer.Add(cb_label, 0, wx.ALIGN_CENTER_VERTICAL)
+            self.spread_deck_type_checks[ct['name']] = cb
+            deck_types_sizer.Add(cb_sizer, 0, wx.RIGHT, 15)
+
+        # "Any deck" label when none selected
+        any_deck_note = wx.StaticText(right, label="(none checked = any deck allowed)")
+        any_deck_note.SetForegroundColour(get_wx_color('text_dim'))
+        deck_types_sizer.Add(any_deck_note, 0, wx.ALIGN_CENTER_VERTICAL)
+
+        right_sizer.Add(deck_types_sizer, 0, wx.LEFT | wx.BOTTOM, 10)
+
         # Instructions
         instr = wx.StaticText(right, label="Drag positions to arrange • Right-click to delete")
         instr.SetForegroundColour(get_wx_color('text_dim'))
@@ -1564,7 +1590,12 @@ class MainFrame(wx.Frame):
         for spread in spreads:
             self._spread_map[spread['name']] = spread['id']
     
-    def _refresh_cards_display(self, deck_id):
+    def _refresh_cards_display(self, deck_id, preserve_scroll=False):
+        # Save scroll position if requested
+        scroll_pos = None
+        if preserve_scroll:
+            scroll_pos = self.cards_scroll.GetViewStart()
+
         self.cards_sizer.Clear(True)
         self.bitmap_cache.clear()
         self.selected_card_ids = set()
@@ -1573,6 +1604,7 @@ class MainFrame(wx.Frame):
         self._current_cards_sorted = []
         self._current_cards_categorized = {}
         self._current_suit_names = {}
+        self._pending_scroll_pos = scroll_pos  # Store for later restoration
 
         if not deck_id:
             self.cards_scroll.Layout()
@@ -1683,7 +1715,12 @@ class MainFrame(wx.Frame):
         self.cards_scroll.SetupScrolling()
         self.cards_scroll.Refresh()
         self.cards_scroll.Update()
-    
+
+        # Restore scroll position if one was saved
+        if hasattr(self, '_pending_scroll_pos') and self._pending_scroll_pos is not None:
+            wx.CallAfter(self.cards_scroll.Scroll, self._pending_scroll_pos[0], self._pending_scroll_pos[1])
+            self._pending_scroll_pos = None
+
     def _sort_lenormand_cards(self, cards):
         """Sort Lenormand cards by card_order field (set during import/auto-assign).
         Fallback: traditional order (1-36) based on card name."""
@@ -2151,10 +2188,19 @@ class MainFrame(wx.Frame):
         
         self.cards_scroll.Refresh()
     
-    def _refresh_presets_list(self):
+    def _refresh_presets_list(self, preserve_scroll=True):
+        # Save scroll position of settings panel (if it exists)
+        scroll_pos = None
+        if preserve_scroll and hasattr(self, 'settings_panel') and self.settings_panel:
+            scroll_pos = self.settings_panel.GetViewStart()
+
         self.presets_list.DeleteAllItems()
         for name in self.presets.get_preset_names():
             self.presets_list.InsertItem(self.presets_list.GetItemCount(), name)
+
+        # Restore scroll position
+        if scroll_pos is not None:
+            wx.CallAfter(self.settings_panel.Scroll, scroll_pos[0], scroll_pos[1])
     
     def _update_cache_info(self):
         count = self.thumb_cache.get_cache_count()
@@ -2252,18 +2298,25 @@ class MainFrame(wx.Frame):
             # Add spacing if no location and no people
             self.viewer_sizer.AddSpacer(10)
 
-        # Reading info
+        # Reading info - display all readings
         readings = self.db.get_entry_readings(entry_id)
-        if readings:
-            reading = readings[0]
-            
+        for reading_idx, reading in enumerate(readings):
+            # Add separator between multiple readings
+            if reading_idx > 0:
+                sep = wx.StaticLine(self.viewer_panel)
+                self.viewer_sizer.Add(sep, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP | wx.BOTTOM, 15)
+                reading_label = wx.StaticText(self.viewer_panel, label=f"Reading {reading_idx + 1}")
+                reading_label.SetForegroundColour(get_wx_color('accent'))
+                reading_label.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+                self.viewer_sizer.Add(reading_label, 0, wx.LEFT | wx.BOTTOM, 15)
+
             # Spread and deck info
             info_parts = []
             if reading['spread_name']:
                 info_parts.append(f"Spread: {reading['spread_name']}")
             if reading['deck_name']:
                 info_parts.append(f"Deck: {reading['deck_name']}")
-            
+
             if info_parts:
                 info_label = wx.StaticText(self.viewer_panel, label=" • ".join(info_parts))
                 info_label.SetForegroundColour(get_wx_color('text_secondary'))
@@ -2272,15 +2325,41 @@ class MainFrame(wx.Frame):
             # Cards in spread layout
             if reading['cards_used']:
                 cards_used = json.loads(reading['cards_used'])
-                
-                # Get image paths from deck
-                deck_cards = {}
+
+                # Build lookup for all decks (multi-deck support)
+                # deck_id -> {card_name -> {image_path, card_id}}
+                all_deck_cards = {}
+                for name, did in self._deck_map.items():
+                    all_deck_cards[did] = {}
+                    for card in self.db.get_cards(did):
+                        all_deck_cards[did][card['name']] = {
+                            'image_path': card['image_path'],
+                            'card_id': card['id']
+                        }
+
+                # Also build legacy lookup for backwards compatibility
+                deck_cards = {}  # card_name -> image_path
+                deck_card_ids = {}  # card_name -> card_id
+                default_deck_id = None
                 if reading['deck_name']:
                     for name, did in self._deck_map.items():
                         if reading['deck_name'] in name:
+                            default_deck_id = did
                             for card in self.db.get_cards(did):
                                 deck_cards[card['name']] = card['image_path']
+                                deck_card_ids[card['name']] = card['id']
                             break
+
+                def get_card_info(card_data, card_name):
+                    """Get image_path and card_id for a card, handling multi-deck format"""
+                    # Check if card has deck_id (multi-deck format)
+                    if isinstance(card_data, dict) and card_data.get('deck_id'):
+                        card_deck_id = card_data['deck_id']
+                        if card_deck_id in all_deck_cards:
+                            info = all_deck_cards[card_deck_id].get(card_name, {})
+                            return info.get('image_path'), info.get('card_id')
+                    # Fall back to legacy lookup
+                    return deck_cards.get(card_name), deck_card_ids.get(card_name)
                 
                 # Get spread positions
                 spread_positions = []
@@ -2350,7 +2429,8 @@ class MainFrame(wx.Frame):
                                 card_name = card_data.get('name', '')
                                 is_reversed = card_data.get('reversed', False)
 
-                            image_path = deck_cards.get(card_name)
+                            # Get image path and card ID using multi-deck aware function
+                            image_path, card_id = get_card_info(card_data, card_name)
                             image_placed = False
 
                             if image_path and os.path.exists(image_path):
@@ -2373,12 +2453,22 @@ class MainFrame(wx.Frame):
                                         scale_factor = target_h / orig_h
                                         target_w = int(orig_w * scale_factor)
                                         pil_img = pil_img.resize((target_w, target_h), PILImage.LANCZOS)
-                                        
+
                                         wx_img = wx.Image(target_w, target_h)
                                         wx_img.SetData(pil_img.tobytes())
                                         bmp = wx.StaticBitmap(spread_panel, bitmap=wx.Bitmap(wx_img))
                                         img_x = x + (w - target_w) // 2
                                         bmp.SetPosition((img_x, y + 2))
+
+                                        # Add tooltip with card name and position
+                                        tooltip_text = f"{card_name} - {label}"
+                                        if is_reversed:
+                                            tooltip_text += " (Reversed)"
+                                        bmp.SetToolTip(tooltip_text)
+
+                                        # Add double-click to open card info
+                                        if card_id:
+                                            bmp.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
 
                                         # Add (R) indicator for reversed cards
                                         if is_reversed:
@@ -2398,6 +2488,17 @@ class MainFrame(wx.Frame):
                                 slot_label = wx.StaticText(slot, label=card_name[:12])
                                 slot_label.SetForegroundColour(get_wx_color('text_primary'))
                                 slot_label.SetPosition((5, h//2 - 8))
+
+                                # Add tooltip with card name and position
+                                tooltip_text = f"{card_name} - {label}"
+                                if is_reversed:
+                                    tooltip_text += " (Reversed)"
+                                slot.SetToolTip(tooltip_text)
+
+                                # Add double-click to open card info
+                                if card_id:
+                                    slot.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
+                                    slot_label.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
 
                             # Add position number (hidden by default)
                             pos_num = wx.StaticText(spread_panel, label=str(i + 1))
@@ -2456,36 +2557,61 @@ class MainFrame(wx.Frame):
                 else:
                     # No spread - show cards in a row
                     cards_sizer = wx.WrapSizer(wx.HORIZONTAL)
-                    for card_name in cards_used:
+                    for card_info in cards_used:
+                        # Handle both old format (string) and new format (dict)
+                        if isinstance(card_info, str):
+                            card_name = card_info
+                            is_reversed = False
+                        else:
+                            card_name = card_info.get('name', '')
+                            is_reversed = card_info.get('reversed', False)
+
+                        # Get image path and card ID using multi-deck aware function
+                        image_path, card_id = get_card_info(card_info, card_name)
+
                         card_panel = wx.Panel(self.viewer_panel, size=(90, 140))
                         card_panel.SetBackgroundColour(get_wx_color('bg_tertiary'))
                         card_sizer_inner = wx.BoxSizer(wx.VERTICAL)
-                        
-                        image_path = deck_cards.get(card_name)
+
+                        # Add tooltip with card name
+                        tooltip_text = card_name
+                        if is_reversed:
+                            tooltip_text += " (Reversed)"
+                        card_panel.SetToolTip(tooltip_text)
+
+                        # Add double-click to open card info
+                        if card_id:
+                            card_panel.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
+
                         if image_path and os.path.exists(image_path):
                             try:
                                 from PIL import Image as PILImage
                                 pil_img = PILImage.open(image_path)
                                 pil_img = pil_img.convert('RGB')
                                 pil_img = pil_img.resize((80, 110), PILImage.LANCZOS)
-                                
+
                                 wx_img = wx.Image(80, 110)
                                 wx_img.SetData(pil_img.tobytes())
                                 bmp = wx.StaticBitmap(card_panel, bitmap=wx.Bitmap(wx_img))
                                 card_sizer_inner.Add(bmp, 0, wx.ALL | wx.ALIGN_CENTER, 2)
                             except:
                                 pass
-                        
+
                         name_label = wx.StaticText(card_panel, label=card_name[:15])
                         name_label.SetForegroundColour(get_wx_color('text_primary'))
                         name_label.SetFont(wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
                         card_sizer_inner.Add(name_label, 0, wx.ALL | wx.ALIGN_CENTER, 2)
-                        
+
                         card_panel.SetSizer(card_sizer_inner)
                         cards_sizer.Add(card_panel, 0, wx.ALL, 5)
                     
                     self.viewer_sizer.Add(cards_sizer, 0, wx.LEFT | wx.BOTTOM, 15)
-        
+
+        # Add Reading button
+        add_reading_btn = wx.Button(self.viewer_panel, label="+ Add Another Reading")
+        add_reading_btn.Bind(wx.EVT_BUTTON, lambda e: self._on_add_reading(entry_id))
+        self.viewer_sizer.Add(add_reading_btn, 0, wx.LEFT | wx.BOTTOM, 15)
+
         # Notes
         if entry['content']:
             notes_label = wx.StaticText(self.viewer_panel, label="Notes:")
@@ -2857,20 +2983,44 @@ class MainFrame(wx.Frame):
 
         # Spread/Deck selection
         select_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        
+
         spread_label = wx.StaticText(dlg, label="Spread:")
         spread_label.SetForegroundColour(get_wx_color('text_primary'))
         select_sizer.Add(spread_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
         spread_choice = wx.Choice(dlg, choices=list(self._spread_map.keys()))
         select_sizer.Add(spread_choice, 0, wx.RIGHT, 20)
-        
-        deck_label = wx.StaticText(dlg, label="Deck:")
+
+        deck_label = wx.StaticText(dlg, label="Default Deck:")
         deck_label.SetForegroundColour(get_wx_color('text_primary'))
         select_sizer.Add(deck_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
         deck_choice = wx.Choice(dlg, choices=list(self._deck_map.keys()))
-        select_sizer.Add(deck_choice, 0)
-        
+        select_sizer.Add(deck_choice, 0, wx.RIGHT, 10)
+
+        # Use Any Deck toggle (empty label + StaticText for macOS)
+        use_any_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        use_any_deck_cb = wx.CheckBox(dlg, label="")
+        use_any_sizer.Add(use_any_deck_cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
+        use_any_label = wx.StaticText(dlg, label="Use Any Deck")
+        use_any_label.SetForegroundColour(get_wx_color('text_primary'))
+        use_any_sizer.Add(use_any_label, 0, wx.ALIGN_CENTER_VERTICAL)
+        select_sizer.Add(use_any_sizer, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+        # Hint about multi-deck
+        multi_deck_hint = wx.StaticText(dlg, label="(You can select different decks per position)")
+        multi_deck_hint.SetForegroundColour(get_wx_color('text_dim'))
+        multi_deck_hint.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_NORMAL))
+        select_sizer.Add(multi_deck_hint, 0, wx.ALIGN_CENTER_VERTICAL)
+
         sizer.Add(select_sizer, 0, wx.LEFT | wx.RIGHT, 15)
+
+        # Store full deck info for filtering (deck_name -> {id, cartomancy_type})
+        dlg._all_decks = {}
+        for deck_name, deck_id in self._deck_map.items():
+            deck = self.db.get_deck(deck_id)
+            dlg._all_decks[deck_name] = {
+                'id': deck_id,
+                'cartomancy_type': deck['cartomancy_type_name'] if deck else None
+            }
         
         # Spread canvas
         spread_canvas = wx.Panel(dlg, size=(-1, 350))
@@ -2916,23 +3066,45 @@ class MainFrame(wx.Frame):
                         break
             if reading['cards_used']:
                 cards_used = json.loads(reading['cards_used'])
-                deck_cards = {}
-                if dlg._selected_deck_id:
-                    for card in self.db.get_cards(dlg._selected_deck_id):
-                        deck_cards[card['name']] = card['image_path']
+                # Build deck_cards lookup for all decks that might be referenced
+                all_deck_cards = {}  # deck_id -> {card_name -> {id, image_path}}
+                for did in self._deck_map.values():
+                    all_deck_cards[did] = {}
+                    for card in self.db.get_cards(did):
+                        all_deck_cards[did][card['name']] = {
+                            'id': card['id'],
+                            'image_path': card['image_path']
+                        }
+
                 for i, card_data in enumerate(cards_used):
-                    # Handle both old format (string) and new format (dict)
+                    # Handle old format (string), basic dict, and multi-deck format
                     if isinstance(card_data, str):
                         card_name = card_data
                         reversed_state = False
+                        card_deck_id = dlg._selected_deck_id
+                        card_deck_name = reading.get('deck_name', '')
                     else:
                         card_name = card_data.get('name', '')
                         reversed_state = card_data.get('reversed', False)
+                        # Multi-deck format includes deck_id per card
+                        card_deck_id = card_data.get('deck_id', dlg._selected_deck_id)
+                        card_deck_name = card_data.get('deck_name', reading.get('deck_name', ''))
+
+                    # Get image path from the card's deck
+                    image_path = None
+                    card_id = None
+                    if card_deck_id and card_deck_id in all_deck_cards:
+                        card_info = all_deck_cards[card_deck_id].get(card_name, {})
+                        image_path = card_info.get('image_path')
+                        card_id = card_info.get('id')
 
                     dlg._spread_cards[i] = {
+                        'id': card_id,
                         'name': card_name,
-                        'image_path': deck_cards.get(card_name),
-                        'reversed': reversed_state
+                        'image_path': image_path,
+                        'reversed': reversed_state,
+                        'deck_id': card_deck_id,
+                        'deck_name': card_deck_name
                     }
         else:
             # For new entries, auto-select default deck if a spread is selected
@@ -2953,32 +3125,95 @@ class MainFrame(wx.Frame):
 
         def on_deck_change(event):
             name = deck_choice.GetStringSelection()
-            if name in self._deck_map:
-                dlg._selected_deck_id = self._deck_map[name]
-        
+            if name in dlg._all_decks:
+                dlg._selected_deck_id = dlg._all_decks[name]['id']
+
         deck_choice.Bind(wx.EVT_CHOICE, on_deck_change)
-        
+
+        def update_deck_choices(allowed_types=None):
+            """Update deck choices based on allowed cartomancy types"""
+            current_selection = deck_choice.GetStringSelection()
+            deck_choice.Clear()
+
+            for deck_name, deck_info in dlg._all_decks.items():
+                # If no restrictions or "use any deck" is checked, show all
+                if not allowed_types or use_any_deck_cb.GetValue():
+                    deck_choice.Append(deck_name)
+                # Otherwise only show decks matching allowed types
+                elif deck_info['cartomancy_type'] in allowed_types:
+                    deck_choice.Append(deck_name)
+
+            # Try to restore previous selection
+            if current_selection:
+                idx = deck_choice.FindString(current_selection)
+                if idx != wx.NOT_FOUND:
+                    deck_choice.SetSelection(idx)
+
         def on_spread_change(event):
             dlg._spread_cards = {}
             spread_canvas.Refresh()
 
-            # Auto-select default deck based on spread's cartomancy type
+            spread_name = spread_choice.GetStringSelection()
+            allowed_types = None
+
+            if spread_name and spread_name in self._spread_map:
+                spread = self.db.get_spread(self._spread_map[spread_name])
+                if spread:
+                    # Check for allowed_deck_types (new format)
+                    allowed_types_json = spread['allowed_deck_types'] if 'allowed_deck_types' in spread.keys() else None
+                    if allowed_types_json:
+                        allowed_types = json.loads(allowed_types_json)
+
+                    # Filter deck choices based on allowed types
+                    update_deck_choices(allowed_types)
+
+                    # Auto-select default deck based on first allowed type
+                    if allowed_types:
+                        default_deck_id = self.db.get_default_deck(allowed_types[0])
+                        if default_deck_id:
+                            for name, info in dlg._all_decks.items():
+                                if info['id'] == default_deck_id:
+                                    idx = deck_choice.FindString(name)
+                                    if idx != wx.NOT_FOUND:
+                                        deck_choice.SetSelection(idx)
+                                        dlg._selected_deck_id = default_deck_id
+                                    break
+                    # Fall back to old cartomancy_type field
+                    elif 'cartomancy_type' in spread.keys() and spread['cartomancy_type']:
+                        default_deck_id = self.db.get_default_deck(spread['cartomancy_type'])
+                        if default_deck_id:
+                            for name, info in dlg._all_decks.items():
+                                if info['id'] == default_deck_id:
+                                    idx = deck_choice.FindString(name)
+                                    if idx != wx.NOT_FOUND:
+                                        deck_choice.SetSelection(idx)
+                                        dlg._selected_deck_id = default_deck_id
+                                    break
+                    else:
+                        # No restrictions - show all decks
+                        update_deck_choices(None)
+
+            # Store allowed types for card picker
+            dlg._spread_allowed_types = allowed_types
+
+        spread_choice.Bind(wx.EVT_CHOICE, on_spread_change)
+
+        def on_use_any_deck_change(event):
+            """Re-filter decks when 'use any deck' is toggled"""
             spread_name = spread_choice.GetStringSelection()
             if spread_name and spread_name in self._spread_map:
                 spread = self.db.get_spread(self._spread_map[spread_name])
-                if spread and 'cartomancy_type' in spread.keys() and spread['cartomancy_type']:
-                    default_deck_id = self.db.get_default_deck(spread['cartomancy_type'])
-                    if default_deck_id:
-                        # Find and select the default deck in the deck_choice dropdown
-                        for name, did in self._deck_map.items():
-                            if did == default_deck_id:
-                                idx = deck_choice.FindString(name)
-                                if idx != wx.NOT_FOUND:
-                                    deck_choice.SetSelection(idx)
-                                    dlg._selected_deck_id = did
-                                break
+                if spread:
+                    allowed_types_json = spread['allowed_deck_types'] if 'allowed_deck_types' in spread.keys() else None
+                    if allowed_types_json:
+                        allowed_types = json.loads(allowed_types_json)
+                        update_deck_choices(allowed_types)
+                    else:
+                        update_deck_choices(None)
+            else:
+                update_deck_choices(None)
 
-        spread_choice.Bind(wx.EVT_CHOICE, on_spread_change)
+        use_any_deck_cb.Bind(wx.EVT_CHECKBOX, on_use_any_deck_change)
         
         def on_canvas_paint(event):
             dc = wx.PaintDC(spread_canvas)
@@ -3113,31 +3348,170 @@ class MainFrame(wx.Frame):
                 pw, ph = pos.get('width', 80), pos.get('height', 120)
 
                 if px <= click_x <= px + pw and py <= click_y <= py + ph:
-                    cards = self.db.get_cards(dlg._selected_deck_id)
-                    if not cards:
-                        return
-                    
-                    card_names = [c['name'] for c in cards]
-                    card_dlg = wx.SingleChoiceDialog(dlg, f"Select card for: {pos.get('label', f'Position {i+1}')}", 
-                                                    "Select Card", card_names)
-                    if card_dlg.ShowModal() == wx.ID_OK:
-                        selected_name = card_dlg.GetStringSelection()
-                        for card in cards:
-                            if card['name'] == selected_name:
-                                dlg._spread_cards[i] = {
-                                    'id': card['id'],
-                                    'name': card['name'],
-                                    'image_path': card['image_path'],
-                                    'reversed': False
-                                }
+                    # Create a card picker dialog with deck selection
+                    card_dlg = wx.Dialog(dlg, title=f"Select Card for: {pos.get('label', f'Position {i+1}')}",
+                                        size=(450, 550))
+                    card_dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+                    card_dlg_sizer = wx.BoxSizer(wx.VERTICAL)
+
+                    # Deck selector
+                    deck_select_sizer = wx.BoxSizer(wx.HORIZONTAL)
+                    deck_select_label = wx.StaticText(card_dlg, label="Deck:")
+                    deck_select_label.SetForegroundColour(get_wx_color('text_primary'))
+                    deck_select_sizer.Add(deck_select_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+                    # Build filtered deck list based on spread's allowed types
+                    allowed_types = getattr(dlg, '_spread_allowed_types', None)
+                    use_any = use_any_deck_cb.GetValue()
+                    picker_deck_names = []
+                    for deck_name, deck_info in dlg._all_decks.items():
+                        if not allowed_types or use_any:
+                            picker_deck_names.append(deck_name)
+                        elif deck_info['cartomancy_type'] in allowed_types:
+                            picker_deck_names.append(deck_name)
+
+                    picker_deck_choice = wx.Choice(card_dlg, choices=picker_deck_names)
+                    # Pre-select the default deck
+                    if dlg._selected_deck_id:
+                        for name, info in dlg._all_decks.items():
+                            if info['id'] == dlg._selected_deck_id:
+                                idx = picker_deck_choice.FindString(name)
+                                if idx != wx.NOT_FOUND:
+                                    picker_deck_choice.SetSelection(idx)
                                 break
-                        
-                        # Update cards label
-                        if dlg._spread_cards:
-                            names = [c['name'] for c in dlg._spread_cards.values()]
-                            cards_label.SetLabel(f"Cards: {', '.join(names)}")
-                        
-                        spread_canvas.Refresh()
+                    deck_select_sizer.Add(picker_deck_choice, 1, wx.EXPAND)
+                    card_dlg_sizer.Add(deck_select_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+                    # Use any deck checkbox in card picker (empty label + StaticText for macOS)
+                    picker_use_any_sizer = wx.BoxSizer(wx.HORIZONTAL)
+                    picker_use_any_cb = wx.CheckBox(card_dlg, label="")
+                    picker_use_any_cb.SetValue(use_any)
+                    picker_use_any_sizer.Add(picker_use_any_cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
+                    picker_use_any_label = wx.StaticText(card_dlg, label="Use Any Deck (override restriction)")
+                    picker_use_any_label.SetForegroundColour(get_wx_color('text_dim'))
+                    picker_use_any_sizer.Add(picker_use_any_label, 0, wx.ALIGN_CENTER_VERTICAL)
+                    card_dlg_sizer.Add(picker_use_any_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+                    # Card list with thumbnails
+                    thumb_size = 48
+                    card_listctrl = wx.ListCtrl(card_dlg, style=wx.LC_LIST | wx.LC_SINGLE_SEL)
+                    card_listctrl.SetBackgroundColour(get_wx_color('bg_input'))
+                    card_listctrl.SetForegroundColour(get_wx_color('text_primary'))
+                    card_dlg_sizer.Add(card_listctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
+                    # Store card data and image list (must keep reference to prevent GC)
+                    card_dlg._card_data = []
+                    card_dlg._image_list = wx.ImageList(thumb_size, thumb_size)
+                    card_listctrl.SetImageList(card_dlg._image_list, wx.IMAGE_LIST_SMALL)
+
+                    # Populate cards from selected deck with thumbnails
+                    def populate_cards(deck_id):
+                        card_listctrl.DeleteAllItems()
+                        card_dlg._card_data = []
+                        # Clear and recreate image list
+                        card_dlg._image_list.RemoveAll()
+
+                        if deck_id:
+                            cards = self.db.get_cards(deck_id)
+                            for card in cards:
+                                card_dlg._card_data.append(card)
+                                # Get thumbnail
+                                img_idx = -1
+                                if card['image_path']:
+                                    thumb_path = self.thumb_cache.get_thumbnail_path(card['image_path'])
+                                    if thumb_path:
+                                        try:
+                                            img = wx.Image(thumb_path, wx.BITMAP_TYPE_ANY)
+                                            if img.IsOk():
+                                                # Scale to fit the thumbnail size
+                                                w, h = img.GetWidth(), img.GetHeight()
+                                                if w > 0 and h > 0:
+                                                    scale = min(thumb_size / w, thumb_size / h)
+                                                    new_w, new_h = max(1, int(w * scale)), max(1, int(h * scale))
+                                                    img = img.Scale(new_w, new_h, wx.IMAGE_QUALITY_HIGH)
+                                                    # Resize canvas to exact thumb_size with dark background
+                                                    img.Resize((thumb_size, thumb_size),
+                                                              ((thumb_size - new_w) // 2, (thumb_size - new_h) // 2),
+                                                              40, 40, 40)
+                                                    img_idx = card_dlg._image_list.Add(wx.Bitmap(img))
+                                        except Exception:
+                                            pass
+                                idx = card_listctrl.InsertItem(card_listctrl.GetItemCount(), card['name'], img_idx)
+                                card_listctrl.SetItemData(idx, len(card_dlg._card_data) - 1)
+
+                    # Initial populate
+                    current_picker_deck_id = dlg._selected_deck_id
+                    populate_cards(current_picker_deck_id)
+
+                    def on_picker_deck_change(e):
+                        nonlocal current_picker_deck_id
+                        name = picker_deck_choice.GetStringSelection()
+                        if name in dlg._all_decks:
+                            current_picker_deck_id = dlg._all_decks[name]['id']
+                            populate_cards(current_picker_deck_id)
+
+                    picker_deck_choice.Bind(wx.EVT_CHOICE, on_picker_deck_change)
+
+                    def on_picker_use_any_change(e):
+                        """Re-filter deck choices when 'use any deck' is toggled in picker"""
+                        nonlocal current_picker_deck_id
+                        current_selection = picker_deck_choice.GetStringSelection()
+                        picker_deck_choice.Clear()
+
+                        picker_use_any = picker_use_any_cb.GetValue()
+                        for deck_name, deck_info in dlg._all_decks.items():
+                            if not allowed_types or picker_use_any:
+                                picker_deck_choice.Append(deck_name)
+                            elif deck_info['cartomancy_type'] in allowed_types:
+                                picker_deck_choice.Append(deck_name)
+
+                        # Try to restore selection
+                        if current_selection:
+                            idx = picker_deck_choice.FindString(current_selection)
+                            if idx != wx.NOT_FOUND:
+                                picker_deck_choice.SetSelection(idx)
+                            elif picker_deck_choice.GetCount() > 0:
+                                picker_deck_choice.SetSelection(0)
+                                name = picker_deck_choice.GetStringSelection()
+                                if name in dlg._all_decks:
+                                    current_picker_deck_id = dlg._all_decks[name]['id']
+                                    populate_cards(current_picker_deck_id)
+
+                    picker_use_any_cb.Bind(wx.EVT_CHECKBOX, on_picker_use_any_change)
+
+                    # Buttons
+                    btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+                    cancel_btn = wx.Button(card_dlg, wx.ID_CANCEL, "Cancel")
+                    select_btn = wx.Button(card_dlg, wx.ID_OK, "Select")
+                    btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
+                    btn_sizer.Add(select_btn, 0)
+                    card_dlg_sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
+
+                    card_dlg.SetSizer(card_dlg_sizer)
+
+                    if card_dlg.ShowModal() == wx.ID_OK:
+                        sel_idx = card_listctrl.GetFirstSelected()
+                        if sel_idx != -1:
+                            data_idx = card_listctrl.GetItemData(sel_idx)
+                            card = card_dlg._card_data[data_idx]
+                            deck_name_full = picker_deck_choice.GetStringSelection()
+                            deck_name_clean = deck_name_full.split(' (')[0] if deck_name_full else None
+
+                            dlg._spread_cards[i] = {
+                                'id': card['id'],
+                                'name': card['name'],
+                                'image_path': card['image_path'],
+                                'reversed': False,
+                                'deck_id': current_picker_deck_id,
+                                'deck_name': deck_name_clean
+                            }
+
+                            # Update cards label
+                            if dlg._spread_cards:
+                                names = [c['name'] for c in dlg._spread_cards.values()]
+                                cards_label.SetLabel(f"Cards: {', '.join(names)}")
+
+                            spread_canvas.Refresh()
                     card_dlg.Destroy()
                     break
 
@@ -3264,11 +3638,13 @@ class MainFrame(wx.Frame):
                     if deck:
                         cartomancy_type = deck['cartomancy_type_name']
                 
-                # Save cards with reversed state
+                # Save cards with reversed state and deck info (multi-deck support)
                 cards_used = [
                     {
                         'name': c['name'],
-                        'reversed': c.get('reversed', False)
+                        'reversed': c.get('reversed', False),
+                        'deck_id': c.get('deck_id'),
+                        'deck_name': c.get('deck_name')
                     }
                     for c in dlg._spread_cards.values()
                 ]
@@ -3309,6 +3685,444 @@ class MainFrame(wx.Frame):
             self.viewer_sizer.Add(placeholder, 0, wx.ALL, 20)
             self.viewer_panel.Layout()
             self._refresh_entries_list()
+
+    def _on_add_reading(self, entry_id):
+        """Add another reading to an existing entry"""
+        dlg = wx.Dialog(self, title="Add Reading", size=(700, 500))
+        dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Spread/Deck selection
+        select_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        spread_label = wx.StaticText(dlg, label="Spread:")
+        spread_label.SetForegroundColour(get_wx_color('text_primary'))
+        select_sizer.Add(spread_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        spread_choice = wx.Choice(dlg, choices=list(self._spread_map.keys()))
+        select_sizer.Add(spread_choice, 0, wx.RIGHT, 20)
+
+        deck_label = wx.StaticText(dlg, label="Default Deck:")
+        deck_label.SetForegroundColour(get_wx_color('text_primary'))
+        select_sizer.Add(deck_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        deck_choice = wx.Choice(dlg, choices=list(self._deck_map.keys()))
+        select_sizer.Add(deck_choice, 0, wx.RIGHT, 10)
+
+        # Use Any Deck toggle (empty label + StaticText for macOS)
+        use_any_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        use_any_deck_cb = wx.CheckBox(dlg, label="")
+        use_any_sizer.Add(use_any_deck_cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
+        use_any_label = wx.StaticText(dlg, label="Use Any Deck")
+        use_any_label.SetForegroundColour(get_wx_color('text_primary'))
+        use_any_sizer.Add(use_any_label, 0, wx.ALIGN_CENTER_VERTICAL)
+        select_sizer.Add(use_any_sizer, 0, wx.ALIGN_CENTER_VERTICAL)
+
+        sizer.Add(select_sizer, 0, wx.ALL, 15)
+
+        # Store full deck info for filtering
+        dlg._all_decks = {}
+        for deck_name, deck_id in self._deck_map.items():
+            deck = self.db.get_deck(deck_id)
+            dlg._all_decks[deck_name] = {
+                'id': deck_id,
+                'cartomancy_type': deck['cartomancy_type_name'] if deck else None
+            }
+
+        # Spread canvas
+        spread_canvas = wx.Panel(dlg, size=(-1, 300))
+        spread_canvas.SetBackgroundColour(get_wx_color('card_slot'))
+        sizer.Add(spread_canvas, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 15)
+
+        # Cards label
+        cards_label = wx.StaticText(dlg, label="Click positions above to assign cards")
+        cards_label.SetForegroundColour(get_wx_color('text_dim'))
+        sizer.Add(cards_label, 0, wx.LEFT | wx.TOP, 15)
+
+        # Dialog state
+        dlg._spread_cards = {}
+        dlg._selected_deck_id = None
+
+        def on_deck_change(event):
+            name = deck_choice.GetStringSelection()
+            if name in dlg._all_decks:
+                dlg._selected_deck_id = dlg._all_decks[name]['id']
+
+        deck_choice.Bind(wx.EVT_CHOICE, on_deck_change)
+
+        def update_deck_choices(allowed_types=None):
+            """Update deck choices based on allowed cartomancy types"""
+            current_selection = deck_choice.GetStringSelection()
+            deck_choice.Clear()
+
+            for deck_name, deck_info in dlg._all_decks.items():
+                if not allowed_types or use_any_deck_cb.GetValue():
+                    deck_choice.Append(deck_name)
+                elif deck_info['cartomancy_type'] in allowed_types:
+                    deck_choice.Append(deck_name)
+
+            if current_selection:
+                idx = deck_choice.FindString(current_selection)
+                if idx != wx.NOT_FOUND:
+                    deck_choice.SetSelection(idx)
+
+        def on_spread_change(event):
+            dlg._spread_cards = {}
+            spread_canvas.Refresh()
+
+            spread_name = spread_choice.GetStringSelection()
+            allowed_types = None
+
+            if spread_name and spread_name in self._spread_map:
+                spread = self.db.get_spread(self._spread_map[spread_name])
+                if spread:
+                    allowed_types_json = spread['allowed_deck_types'] if 'allowed_deck_types' in spread.keys() else None
+                    if allowed_types_json:
+                        allowed_types = json.loads(allowed_types_json)
+
+                    update_deck_choices(allowed_types)
+
+                    if allowed_types:
+                        default_deck_id = self.db.get_default_deck(allowed_types[0])
+                        if default_deck_id:
+                            for name, info in dlg._all_decks.items():
+                                if info['id'] == default_deck_id:
+                                    idx = deck_choice.FindString(name)
+                                    if idx != wx.NOT_FOUND:
+                                        deck_choice.SetSelection(idx)
+                                        dlg._selected_deck_id = default_deck_id
+                                    break
+                    elif 'cartomancy_type' in spread.keys() and spread['cartomancy_type']:
+                        default_deck_id = self.db.get_default_deck(spread['cartomancy_type'])
+                        if default_deck_id:
+                            for name, info in dlg._all_decks.items():
+                                if info['id'] == default_deck_id:
+                                    idx = deck_choice.FindString(name)
+                                    if idx != wx.NOT_FOUND:
+                                        deck_choice.SetSelection(idx)
+                                        dlg._selected_deck_id = default_deck_id
+                                    break
+                    else:
+                        update_deck_choices(None)
+
+            dlg._spread_allowed_types = allowed_types
+
+        spread_choice.Bind(wx.EVT_CHOICE, on_spread_change)
+
+        def on_use_any_deck_change(event):
+            spread_name = spread_choice.GetStringSelection()
+            if spread_name and spread_name in self._spread_map:
+                spread = self.db.get_spread(self._spread_map[spread_name])
+                if spread:
+                    allowed_types_json = spread['allowed_deck_types'] if 'allowed_deck_types' in spread.keys() else None
+                    if allowed_types_json:
+                        allowed_types = json.loads(allowed_types_json)
+                        update_deck_choices(allowed_types)
+                    else:
+                        update_deck_choices(None)
+            else:
+                update_deck_choices(None)
+
+        use_any_deck_cb.Bind(wx.EVT_CHECKBOX, on_use_any_deck_change)
+
+        def on_canvas_paint(event):
+            dc = wx.PaintDC(spread_canvas)
+            dc.SetBackground(wx.Brush(get_wx_color('card_slot')))
+            dc.Clear()
+
+            spread_name = spread_choice.GetStringSelection()
+            if not spread_name or spread_name not in self._spread_map:
+                return
+
+            spread = self.db.get_spread(self._spread_map[spread_name])
+            if not spread:
+                return
+
+            positions = json.loads(spread['positions'])
+            if not positions:
+                return
+
+            # Calculate centering offset
+            min_x = min(p.get('x', 0) for p in positions)
+            min_y = min(p.get('y', 0) for p in positions)
+            max_x = max(p.get('x', 0) + p.get('width', 80) for p in positions)
+            max_y = max(p.get('y', 0) + p.get('height', 120) for p in positions)
+            spread_width = max_x - min_x
+            spread_height = max_y - min_y
+            canvas_w, canvas_h = spread_canvas.GetSize()
+            offset_x = (canvas_w - spread_width) // 2 - min_x
+            offset_y = (canvas_h - spread_height) // 2 - min_y
+
+            dc.SetPen(wx.Pen(get_wx_color('border'), 1))
+            dc.SetBrush(wx.Brush(get_wx_color('bg_tertiary')))
+            dc.SetTextForeground(get_wx_color('text_dim'))
+
+            for i, pos in enumerate(positions):
+                x, y = pos.get('x', 0) + offset_x, pos.get('y', 0) + offset_y
+                w, h = pos.get('width', 80), pos.get('height', 120)
+                label = pos.get('label', f'Position {i+1}')
+
+                if i in dlg._spread_cards:
+                    dc.SetBrush(wx.Brush(get_wx_color('accent_dim')))
+                    dc.DrawRectangle(x, y, w, h)
+                    dc.SetTextForeground(get_wx_color('text_primary'))
+                    dc.DrawText(dlg._spread_cards[i]['name'][:12], x + 5, y + h//2 - 8)
+                    dc.SetTextForeground(get_wx_color('text_dim'))
+                else:
+                    dc.SetBrush(wx.Brush(get_wx_color('bg_tertiary')))
+                    dc.DrawRectangle(x, y, w, h)
+                    dc.DrawText(label, x + 5, y + h//2 - 8)
+
+        spread_canvas.Bind(wx.EVT_PAINT, on_canvas_paint)
+
+        def on_canvas_click(event):
+            spread_name = spread_choice.GetStringSelection()
+            if not spread_name or spread_name not in self._spread_map:
+                return
+
+            if not dlg._selected_deck_id:
+                wx.MessageBox("Please select a deck first.", "Select Deck", wx.OK | wx.ICON_INFORMATION)
+                return
+
+            spread = self.db.get_spread(self._spread_map[spread_name])
+            if not spread:
+                return
+
+            positions = json.loads(spread['positions'])
+            if not positions:
+                return
+
+            # Calculate offset
+            min_x = min(p.get('x', 0) for p in positions)
+            min_y = min(p.get('y', 0) for p in positions)
+            max_x = max(p.get('x', 0) + p.get('width', 80) for p in positions)
+            max_y = max(p.get('y', 0) + p.get('height', 120) for p in positions)
+            spread_width = max_x - min_x
+            spread_height = max_y - min_y
+            canvas_w, canvas_h = spread_canvas.GetSize()
+            offset_x = (canvas_w - spread_width) // 2 - min_x
+            offset_y = (canvas_h - spread_height) // 2 - min_y
+
+            click_x, click_y = event.GetX(), event.GetY()
+
+            for i, pos in enumerate(positions):
+                px, py = pos.get('x', 0) + offset_x, pos.get('y', 0) + offset_y
+                pw, ph = pos.get('width', 80), pos.get('height', 120)
+
+                if px <= click_x <= px + pw and py <= click_y <= py + ph:
+                    # Card picker with deck selection
+                    card_dlg = wx.Dialog(dlg, title=f"Select Card for: {pos.get('label', f'Position {i+1}')}",
+                                        size=(450, 550))
+                    card_dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+                    card_dlg_sizer = wx.BoxSizer(wx.VERTICAL)
+
+                    deck_select_sizer = wx.BoxSizer(wx.HORIZONTAL)
+                    deck_select_label = wx.StaticText(card_dlg, label="Deck:")
+                    deck_select_label.SetForegroundColour(get_wx_color('text_primary'))
+                    deck_select_sizer.Add(deck_select_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+                    # Build filtered deck list based on spread's allowed types
+                    allowed_types = getattr(dlg, '_spread_allowed_types', None)
+                    use_any = use_any_deck_cb.GetValue()
+                    picker_deck_names = []
+                    for deck_name, deck_info in dlg._all_decks.items():
+                        if not allowed_types or use_any:
+                            picker_deck_names.append(deck_name)
+                        elif deck_info['cartomancy_type'] in allowed_types:
+                            picker_deck_names.append(deck_name)
+
+                    picker_deck_choice = wx.Choice(card_dlg, choices=picker_deck_names)
+                    if dlg._selected_deck_id:
+                        for name, info in dlg._all_decks.items():
+                            if info['id'] == dlg._selected_deck_id:
+                                idx = picker_deck_choice.FindString(name)
+                                if idx != wx.NOT_FOUND:
+                                    picker_deck_choice.SetSelection(idx)
+                                break
+                    deck_select_sizer.Add(picker_deck_choice, 1, wx.EXPAND)
+                    card_dlg_sizer.Add(deck_select_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+                    # Use any deck checkbox in card picker (empty label + StaticText for macOS)
+                    picker_use_any_sizer = wx.BoxSizer(wx.HORIZONTAL)
+                    picker_use_any_cb = wx.CheckBox(card_dlg, label="")
+                    picker_use_any_cb.SetValue(use_any)
+                    picker_use_any_sizer.Add(picker_use_any_cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
+                    picker_use_any_label = wx.StaticText(card_dlg, label="Use Any Deck (override restriction)")
+                    picker_use_any_label.SetForegroundColour(get_wx_color('text_dim'))
+                    picker_use_any_sizer.Add(picker_use_any_label, 0, wx.ALIGN_CENTER_VERTICAL)
+                    card_dlg_sizer.Add(picker_use_any_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+                    # Card list with thumbnails
+                    thumb_size = 48
+                    card_listctrl = wx.ListCtrl(card_dlg, style=wx.LC_LIST | wx.LC_SINGLE_SEL)
+                    card_listctrl.SetBackgroundColour(get_wx_color('bg_input'))
+                    card_listctrl.SetForegroundColour(get_wx_color('text_primary'))
+                    card_dlg_sizer.Add(card_listctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
+                    # Store card data and image list (must keep reference to prevent GC)
+                    card_dlg._card_data = []
+                    card_dlg._image_list = wx.ImageList(thumb_size, thumb_size)
+                    card_listctrl.SetImageList(card_dlg._image_list, wx.IMAGE_LIST_SMALL)
+
+                    current_picker_deck_id = dlg._selected_deck_id
+
+                    def populate_cards(deck_id):
+                        card_listctrl.DeleteAllItems()
+                        card_dlg._card_data = []
+                        # Clear and recreate image list
+                        card_dlg._image_list.RemoveAll()
+
+                        if deck_id:
+                            cards = self.db.get_cards(deck_id)
+                            for card in cards:
+                                card_dlg._card_data.append(card)
+                                # Get thumbnail
+                                img_idx = -1
+                                if card['image_path']:
+                                    thumb_path = self.thumb_cache.get_thumbnail_path(card['image_path'])
+                                    if thumb_path:
+                                        try:
+                                            img = wx.Image(thumb_path, wx.BITMAP_TYPE_ANY)
+                                            if img.IsOk():
+                                                # Scale to fit the thumbnail size
+                                                w, h = img.GetWidth(), img.GetHeight()
+                                                if w > 0 and h > 0:
+                                                    scale = min(thumb_size / w, thumb_size / h)
+                                                    new_w, new_h = max(1, int(w * scale)), max(1, int(h * scale))
+                                                    img = img.Scale(new_w, new_h, wx.IMAGE_QUALITY_HIGH)
+                                                    # Resize canvas to exact thumb_size with dark background
+                                                    img.Resize((thumb_size, thumb_size),
+                                                              ((thumb_size - new_w) // 2, (thumb_size - new_h) // 2),
+                                                              40, 40, 40)
+                                                    img_idx = card_dlg._image_list.Add(wx.Bitmap(img))
+                                        except Exception:
+                                            pass
+                                idx = card_listctrl.InsertItem(card_listctrl.GetItemCount(), card['name'], img_idx)
+                                card_listctrl.SetItemData(idx, len(card_dlg._card_data) - 1)
+
+                    populate_cards(current_picker_deck_id)
+
+                    def on_picker_deck_change(e):
+                        nonlocal current_picker_deck_id
+                        name = picker_deck_choice.GetStringSelection()
+                        if name in dlg._all_decks:
+                            current_picker_deck_id = dlg._all_decks[name]['id']
+                            populate_cards(current_picker_deck_id)
+
+                    picker_deck_choice.Bind(wx.EVT_CHOICE, on_picker_deck_change)
+
+                    def on_picker_use_any_change(e):
+                        nonlocal current_picker_deck_id
+                        current_selection = picker_deck_choice.GetStringSelection()
+                        picker_deck_choice.Clear()
+
+                        picker_use_any = picker_use_any_cb.GetValue()
+                        for deck_name, deck_info in dlg._all_decks.items():
+                            if not allowed_types or picker_use_any:
+                                picker_deck_choice.Append(deck_name)
+                            elif deck_info['cartomancy_type'] in allowed_types:
+                                picker_deck_choice.Append(deck_name)
+
+                        if current_selection:
+                            idx = picker_deck_choice.FindString(current_selection)
+                            if idx != wx.NOT_FOUND:
+                                picker_deck_choice.SetSelection(idx)
+                            elif picker_deck_choice.GetCount() > 0:
+                                picker_deck_choice.SetSelection(0)
+                                name = picker_deck_choice.GetStringSelection()
+                                if name in dlg._all_decks:
+                                    current_picker_deck_id = dlg._all_decks[name]['id']
+                                    populate_cards(current_picker_deck_id)
+
+                    picker_use_any_cb.Bind(wx.EVT_CHECKBOX, on_picker_use_any_change)
+
+                    btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+                    cancel_btn = wx.Button(card_dlg, wx.ID_CANCEL, "Cancel")
+                    select_btn = wx.Button(card_dlg, wx.ID_OK, "Select")
+                    btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
+                    btn_sizer.Add(select_btn, 0)
+                    card_dlg_sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
+
+                    card_dlg.SetSizer(card_dlg_sizer)
+
+                    if card_dlg.ShowModal() == wx.ID_OK:
+                        sel_idx = card_listctrl.GetFirstSelected()
+                        if sel_idx != -1:
+                            data_idx = card_listctrl.GetItemData(sel_idx)
+                            card = card_dlg._card_data[data_idx]
+                            deck_name_full = picker_deck_choice.GetStringSelection()
+                            deck_name_clean = deck_name_full.split(' (')[0] if deck_name_full else None
+
+                            dlg._spread_cards[i] = {
+                                'id': card['id'],
+                                'name': card['name'],
+                                'image_path': card['image_path'],
+                                'reversed': False,
+                                'deck_id': current_picker_deck_id,
+                                'deck_name': deck_name_clean
+                            }
+
+                            if dlg._spread_cards:
+                                names = [c['name'] for c in dlg._spread_cards.values()]
+                                cards_label.SetLabel(f"Cards: {', '.join(names)}")
+
+                            spread_canvas.Refresh()
+                    card_dlg.Destroy()
+                    break
+
+        spread_canvas.Bind(wx.EVT_LEFT_DOWN, on_canvas_click)
+
+        # Buttons
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        cancel_btn = wx.Button(dlg, wx.ID_CANCEL, "Cancel")
+        save_btn = wx.Button(dlg, wx.ID_OK, "Add Reading")
+        btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
+        btn_sizer.Add(save_btn, 0)
+        sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 15)
+
+        dlg.SetSizer(sizer)
+
+        if dlg.ShowModal() == wx.ID_OK:
+            spread_name = spread_choice.GetStringSelection()
+            deck_name = deck_choice.GetStringSelection()
+
+            if spread_name or deck_name or dlg._spread_cards:
+                spread_id = self._spread_map.get(spread_name)
+                deck_id = self._deck_map.get(deck_name)
+
+                cartomancy_type = None
+                if deck_id:
+                    deck = self.db.get_deck(deck_id)
+                    if deck:
+                        cartomancy_type = deck['cartomancy_type_name']
+
+                cards_used = [
+                    {
+                        'name': c['name'],
+                        'reversed': c.get('reversed', False),
+                        'deck_id': c.get('deck_id'),
+                        'deck_name': c.get('deck_name')
+                    }
+                    for c in dlg._spread_cards.values()
+                ]
+                deck_name_clean = deck_name.split(' (')[0] if deck_name else None
+
+                # Get next position_order
+                existing_readings = self.db.get_entry_readings(entry_id)
+                next_order = len(existing_readings)
+
+                self.db.add_entry_reading(
+                    entry_id=entry_id,
+                    spread_id=spread_id,
+                    spread_name=spread_name,
+                    deck_id=deck_id,
+                    deck_name=deck_name_clean,
+                    cartomancy_type=cartomancy_type,
+                    cards_used=cards_used,
+                    position_order=next_order
+                )
+
+                self._display_entry_in_viewer(entry_id)
+
+        dlg.Destroy()
 
     def _on_export_entries(self, event):
         """Show export dialog for journal entries"""
@@ -3525,9 +4339,9 @@ class MainFrame(wx.Frame):
             return
 
         suit_names = self.db.get_deck_suit_names(deck_id)
-        custom_fields = list(self.db.get_deck_custom_fields(deck_id))
+        custom_fields = [dict(row) for row in self.db.get_deck_custom_fields(deck_id)]
 
-        dlg = wx.Dialog(self, title="Edit Deck", size=(550, 480))
+        dlg = wx.Dialog(self, title="Edit Deck", size=(650, 520))
         dlg.SetBackgroundColour(get_wx_color('bg_primary'))
         main_sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -3683,7 +4497,7 @@ class MainFrame(wx.Frame):
                     updated = self.db.auto_assign_deck_metadata(deck_id, overwrite=overwrite,
                                                                  preset_name=preset_name)
                     # Refresh the cards display to update selection state
-                    self._refresh_cards_display(deck_id)
+                    self._refresh_cards_display(deck_id, preserve_scroll=True)
                     wx.MessageBox(
                         f"Updated metadata for {updated} cards.",
                         "Complete",
@@ -3708,49 +4522,160 @@ class MainFrame(wx.Frame):
         # === Details Tab ===
         details_panel = wx.Panel(notebook)
         details_panel.SetBackgroundColour(get_wx_color('bg_primary'))
-        details_sizer = wx.BoxSizer(wx.VERTICAL)
+        details_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # Left side: Card Back Image
+        card_back_panel = wx.Panel(details_panel)
+        card_back_panel.SetBackgroundColour(get_wx_color('bg_secondary'))
+        card_back_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        card_back_label = wx.StaticText(card_back_panel, label="Card Back")
+        card_back_label.SetForegroundColour(get_wx_color('text_primary'))
+        card_back_label.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        card_back_sizer.Add(card_back_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+
+        # Image preview (150x225 - half the size of card preview)
+        max_back_width, max_back_height = 150, 225
+        card_back_path = deck['card_back_image'] if 'card_back_image' in deck.keys() else None
+
+        def load_card_back_image(path):
+            """Load and scale card back image"""
+            if path and os.path.exists(path):
+                try:
+                    from PIL import ImageOps
+                    pil_img = Image.open(path)
+                    pil_img = ImageOps.exif_transpose(pil_img)
+                    orig_width, orig_height = pil_img.size
+                    scale = min(max_back_width / orig_width, max_back_height / orig_height)
+                    new_width = int(orig_width * scale)
+                    new_height = int(orig_height * scale)
+                    pil_img = pil_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    if pil_img.mode != 'RGB':
+                        pil_img = pil_img.convert('RGB')
+                    wx_img = wx.Image(new_width, new_height)
+                    wx_img.SetData(pil_img.tobytes())
+                    return wx.Bitmap(wx_img)
+                except:
+                    pass
+            return None
+
+        card_back_bitmap = load_card_back_image(card_back_path)
+        if card_back_bitmap:
+            card_back_display = wx.StaticBitmap(card_back_panel, bitmap=card_back_bitmap)
+        else:
+            card_back_display = wx.StaticText(card_back_panel, label="🂠")
+            card_back_display.SetFont(wx.Font(48, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+            card_back_display.SetForegroundColour(get_wx_color('text_dim'))
+
+        card_back_sizer.Add(card_back_display, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+
+        # Store the current path
+        dlg._card_back_path = card_back_path
+
+        def on_select_card_back(e):
+            with wx.FileDialog(dlg, "Select Card Back Image",
+                              wildcard="Image files (*.png;*.jpg;*.jpeg;*.gif;*.bmp)|*.png;*.jpg;*.jpeg;*.gif;*.bmp",
+                              style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as file_dlg:
+                if file_dlg.ShowModal() == wx.ID_OK:
+                    new_path = file_dlg.GetPath()
+                    dlg._card_back_path = new_path
+                    # Update preview
+                    nonlocal card_back_display
+                    new_bitmap = load_card_back_image(new_path)
+                    if new_bitmap:
+                        if isinstance(card_back_display, wx.StaticText):
+                            card_back_display.Destroy()
+                            card_back_display = wx.StaticBitmap(card_back_panel, bitmap=new_bitmap)
+                            card_back_sizer.Insert(1, card_back_display, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+                        else:
+                            card_back_display.SetBitmap(new_bitmap)
+                        card_back_panel.Layout()
+
+        def on_clear_card_back(e):
+            nonlocal card_back_display
+            dlg._card_back_path = ""  # Empty string to clear
+            if isinstance(card_back_display, wx.StaticBitmap):
+                card_back_display.Destroy()
+                card_back_display = wx.StaticText(card_back_panel, label="🂠")
+                card_back_display.SetFont(wx.Font(48, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+                card_back_display.SetForegroundColour(get_wx_color('text_dim'))
+                card_back_sizer.Insert(1, card_back_display, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+                card_back_panel.Layout()
+
+        # Buttons for card back
+        card_back_btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        select_back_btn = wx.Button(card_back_panel, label="Select...")
+        select_back_btn.Bind(wx.EVT_BUTTON, on_select_card_back)
+        card_back_btn_sizer.Add(select_back_btn, 0, wx.RIGHT, 5)
+
+        clear_back_btn = wx.Button(card_back_panel, label="Clear")
+        clear_back_btn.Bind(wx.EVT_BUTTON, on_clear_card_back)
+        card_back_btn_sizer.Add(clear_back_btn, 0)
+
+        card_back_sizer.Add(card_back_btn_sizer, 0, wx.ALL | wx.ALIGN_CENTER, 5)
+
+        card_back_panel.SetSizer(card_back_sizer)
+        details_sizer.Add(card_back_panel, 0, wx.ALL, 10)
+
+        # Right side: Other details
+        details_fields_panel = wx.Panel(details_panel)
+        details_fields_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        details_fields_sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Date Published
         date_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        date_label = wx.StaticText(details_panel, label="Date Published:")
+        date_label = wx.StaticText(details_fields_panel, label="Date Published:")
         date_label.SetForegroundColour(get_wx_color('text_primary'))
         date_sizer.Add(date_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
-        date_ctrl = wx.TextCtrl(details_panel, value=deck['date_published'] or '' if 'date_published' in deck.keys() else '')
+        date_ctrl = wx.TextCtrl(details_fields_panel, value=deck['date_published'] or '' if 'date_published' in deck.keys() else '')
         date_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
         date_ctrl.SetForegroundColour(get_wx_color('text_primary'))
         date_sizer.Add(date_ctrl, 1)
-        details_sizer.Add(date_sizer, 0, wx.EXPAND | wx.ALL, 15)
+        details_fields_sizer.Add(date_sizer, 0, wx.EXPAND | wx.ALL, 10)
 
         # Publisher
         pub_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        pub_label = wx.StaticText(details_panel, label="Publisher:")
+        pub_label = wx.StaticText(details_fields_panel, label="Publisher:")
         pub_label.SetForegroundColour(get_wx_color('text_primary'))
         pub_sizer.Add(pub_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
-        pub_ctrl = wx.TextCtrl(details_panel, value=deck['publisher'] or '' if 'publisher' in deck.keys() else '')
+        pub_ctrl = wx.TextCtrl(details_fields_panel, value=deck['publisher'] or '' if 'publisher' in deck.keys() else '')
         pub_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
         pub_ctrl.SetForegroundColour(get_wx_color('text_primary'))
         pub_sizer.Add(pub_ctrl, 1)
-        details_sizer.Add(pub_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
+        details_fields_sizer.Add(pub_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         # Credits
-        credits_label = wx.StaticText(details_panel, label="Credits:")
+        credits_label = wx.StaticText(details_fields_panel, label="Credits:")
         credits_label.SetForegroundColour(get_wx_color('text_primary'))
-        details_sizer.Add(credits_label, 0, wx.LEFT | wx.RIGHT, 15)
-        credits_ctrl = wx.TextCtrl(details_panel, value=deck['credits'] or '' if 'credits' in deck.keys() else '',
+        details_fields_sizer.Add(credits_label, 0, wx.LEFT | wx.RIGHT, 10)
+        credits_ctrl = wx.TextCtrl(details_fields_panel, value=deck['credits'] or '' if 'credits' in deck.keys() else '',
                                    style=wx.TE_MULTILINE, size=(-1, 60))
         credits_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
         credits_ctrl.SetForegroundColour(get_wx_color('text_primary'))
-        details_sizer.Add(credits_ctrl, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
+        details_fields_sizer.Add(credits_ctrl, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         # Notes
-        notes_label = wx.StaticText(details_panel, label="Notes:")
+        notes_label = wx.StaticText(details_fields_panel, label="Notes:")
         notes_label.SetForegroundColour(get_wx_color('text_primary'))
-        details_sizer.Add(notes_label, 0, wx.LEFT | wx.RIGHT, 15)
-        deck_notes_ctrl = wx.TextCtrl(details_panel, value=deck['notes'] or '' if 'notes' in deck.keys() else '',
-                                      style=wx.TE_MULTILINE, size=(-1, 80))
+        details_fields_sizer.Add(notes_label, 0, wx.LEFT | wx.RIGHT, 10)
+        deck_notes_ctrl = wx.TextCtrl(details_fields_panel, value=deck['notes'] or '' if 'notes' in deck.keys() else '',
+                                      style=wx.TE_MULTILINE, size=(-1, 60))
         deck_notes_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
         deck_notes_ctrl.SetForegroundColour(get_wx_color('text_primary'))
-        details_sizer.Add(deck_notes_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
+        details_fields_sizer.Add(deck_notes_ctrl, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # Booklet Info
+        booklet_label = wx.StaticText(details_fields_panel, label="Booklet Info:")
+        booklet_label.SetForegroundColour(get_wx_color('text_primary'))
+        details_fields_sizer.Add(booklet_label, 0, wx.LEFT | wx.RIGHT, 10)
+        booklet_ctrl = wx.TextCtrl(details_fields_panel, value=deck['booklet_info'] or '' if 'booklet_info' in deck.keys() else '',
+                                   style=wx.TE_MULTILINE, size=(-1, 60))
+        booklet_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        booklet_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        details_fields_sizer.Add(booklet_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        details_fields_panel.SetSizer(details_fields_sizer)
+        details_sizer.Add(details_fields_panel, 1, wx.EXPAND | wx.ALL, 5)
 
         details_panel.SetSizer(details_sizer)
         notebook.AddPage(details_panel, "Details")
@@ -3931,6 +4856,42 @@ class MainFrame(wx.Frame):
                         break
                 refresh_cf_list()
 
+        def on_move_up(e):
+            sel = cf_list.GetFirstSelected()
+            if sel <= 0:
+                return
+            # Get the IDs before swapping
+            moving_up_id = custom_fields[sel]['id']
+            moving_down_id = custom_fields[sel - 1]['id']
+            # Swap in local list
+            custom_fields[sel], custom_fields[sel - 1] = custom_fields[sel - 1], custom_fields[sel]
+            # Update field_order in database (item that moved up goes to sel-1, item that moved down goes to sel)
+            self.db.update_deck_custom_field(moving_up_id, field_order=sel - 1)
+            self.db.update_deck_custom_field(moving_down_id, field_order=sel)
+            # Update field_order in local list
+            custom_fields[sel - 1]['field_order'] = sel - 1
+            custom_fields[sel]['field_order'] = sel
+            refresh_cf_list()
+            cf_list.Select(sel - 1)
+
+        def on_move_down(e):
+            sel = cf_list.GetFirstSelected()
+            if sel == -1 or sel >= len(custom_fields) - 1:
+                return
+            # Get the IDs before swapping
+            moving_down_id = custom_fields[sel]['id']
+            moving_up_id = custom_fields[sel + 1]['id']
+            # Swap in local list
+            custom_fields[sel], custom_fields[sel + 1] = custom_fields[sel + 1], custom_fields[sel]
+            # Update field_order in database (item that moved down goes to sel+1, item that moved up goes to sel)
+            self.db.update_deck_custom_field(moving_down_id, field_order=sel + 1)
+            self.db.update_deck_custom_field(moving_up_id, field_order=sel)
+            # Update field_order in local list
+            custom_fields[sel]['field_order'] = sel
+            custom_fields[sel + 1]['field_order'] = sel + 1
+            refresh_cf_list()
+            cf_list.Select(sel + 1)
+
         add_cf_btn = wx.Button(cf_panel, label="+ Add Field")
         add_cf_btn.Bind(wx.EVT_BUTTON, on_add_field)
         cf_btn_sizer.Add(add_cf_btn, 0, wx.RIGHT, 5)
@@ -3941,7 +4902,15 @@ class MainFrame(wx.Frame):
 
         del_cf_btn = wx.Button(cf_panel, label="Delete")
         del_cf_btn.Bind(wx.EVT_BUTTON, on_delete_field)
-        cf_btn_sizer.Add(del_cf_btn, 0)
+        cf_btn_sizer.Add(del_cf_btn, 0, wx.RIGHT, 15)
+
+        move_up_btn = wx.Button(cf_panel, label="Move Up")
+        move_up_btn.Bind(wx.EVT_BUTTON, on_move_up)
+        cf_btn_sizer.Add(move_up_btn, 0, wx.RIGHT, 5)
+
+        move_down_btn = wx.Button(cf_panel, label="Move Down")
+        move_down_btn.Bind(wx.EVT_BUTTON, on_move_down)
+        cf_btn_sizer.Add(move_down_btn, 0)
 
         cf_sizer.Add(cf_btn_sizer, 0, wx.ALL, 10)
 
@@ -3980,11 +4949,19 @@ class MainFrame(wx.Frame):
             new_publisher = pub_ctrl.GetValue().strip()
             new_credits = credits_ctrl.GetValue().strip()
             new_notes = deck_notes_ctrl.GetValue().strip()
+            new_booklet = booklet_ctrl.GetValue().strip()
+
+            # Update card back image if changed
+            new_card_back = dlg._card_back_path
+            if new_card_back != card_back_path:
+                self.db.update_deck(deck_id, card_back_image=new_card_back if new_card_back else None)
+
             self.db.update_deck(deck_id,
                                 date_published=new_date,
                                 publisher=new_publisher,
                                 credits=new_credits,
-                                notes=new_notes)
+                                notes=new_notes,
+                                booklet_info=new_booklet)
 
             # Update deck tags
             selected_tag_ids = []
@@ -3996,7 +4973,7 @@ class MainFrame(wx.Frame):
             self._refresh_decks_list()
             # Re-select the deck after refresh
             self._select_deck_by_id(deck_id)
-            self._refresh_cards_display(deck_id)
+            self._refresh_cards_display(deck_id, preserve_scroll=True)
             wx.MessageBox("Deck updated!", "Success", wx.OK | wx.ICON_INFORMATION)
 
         dlg.Destroy()
@@ -4399,10 +5376,16 @@ class MainFrame(wx.Frame):
                         'suit': card_info['suit'],
                     })
 
+                # Look for card back image
+                card_back_path = self.presets.find_card_back_image(folder, preset_name)
+                if card_back_path:
+                    self.db.update_deck(deck_id, card_back_image=card_back_path)
+
                 if cards:
                     self.db.bulk_add_cards(deck_id, cards)
                     self.thumb_cache.pregenerate_thumbnails([c['image_path'] for c in cards])
-                    wx.MessageBox(f"Imported {len(cards)} cards into '{name}'", "Success", wx.OK | wx.ICON_INFORMATION)
+                    card_back_msg = f"\nCard back image: Found" if card_back_path else ""
+                    wx.MessageBox(f"Imported {len(cards)} cards into '{name}'{card_back_msg}", "Success", wx.OK | wx.ICON_INFORMATION)
 
                 self._refresh_decks_list()
         
@@ -4545,7 +5528,7 @@ class MainFrame(wx.Frame):
             wx.MessageBox(f"Imported {len(cards)} cards.", "Success", wx.OK | wx.ICON_INFORMATION)
         dlg.Destroy()
 
-    def _on_view_card(self, event, card_id):
+    def _on_view_card(self, event, card_id, return_after_edit=False):
         """Show a card detail view with full-size image and all metadata"""
         if not card_id:
             return
@@ -4554,6 +5537,11 @@ class MainFrame(wx.Frame):
         if idx == -1:
             return
         deck_id = self.deck_list.GetItemData(idx)
+
+        # Get the sorted list of cards for navigation
+        card_list = self._current_cards_sorted if hasattr(self, '_current_cards_sorted') else []
+        card_ids = [c['id'] for c in card_list]
+        current_index = card_ids.index(card_id) if card_id in card_ids else -1
 
         # Get card with full metadata
         card = self.db.get_card_with_metadata(card_id)
@@ -4785,9 +5773,41 @@ class MainFrame(wx.Frame):
         # Button row
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
+        # Navigation buttons on the left
+        nav_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # Track navigation state
+        nav_to_card = [None]  # Use list to allow modification in nested function
+
+        prev_btn = wx.Button(dlg, label="< Prev")
+        if current_index <= 0:
+            prev_btn.Disable()
+        def on_prev(e):
+            if current_index > 0:
+                nav_to_card[0] = card_ids[current_index - 1]
+                dlg.EndModal(wx.ID_BACKWARD)
+        prev_btn.Bind(wx.EVT_BUTTON, on_prev)
+        nav_sizer.Add(prev_btn, 0, wx.RIGHT, 5)
+
+        next_btn = wx.Button(dlg, label="Next >")
+        if current_index < 0 or current_index >= len(card_ids) - 1:
+            next_btn.Disable()
+        def on_next(e):
+            if current_index < len(card_ids) - 1:
+                nav_to_card[0] = card_ids[current_index + 1]
+                dlg.EndModal(wx.ID_FORWARD)
+        next_btn.Bind(wx.EVT_BUTTON, on_next)
+        nav_sizer.Add(next_btn, 0)
+
+        btn_sizer.Add(nav_sizer, 0, wx.RIGHT, 20)
+        btn_sizer.AddStretchSpacer()
+
+        # Action buttons on the right
+        edit_requested = [False]  # Track if edit was requested
+
         def on_edit(e):
+            edit_requested[0] = True
             dlg.EndModal(wx.ID_OK)
-            self._on_edit_card(None, card_id)
 
         edit_btn = wx.Button(dlg, label="Edit Card")
         edit_btn.Bind(wx.EVT_BUTTON, on_edit)
@@ -4796,13 +5816,20 @@ class MainFrame(wx.Frame):
         close_btn = wx.Button(dlg, wx.ID_CANCEL, "Close")
         btn_sizer.Add(close_btn, 0)
 
-        main_sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 15)
+        main_sizer.Add(btn_sizer, 0, wx.EXPAND | wx.ALL, 15)
 
         dlg.SetSizer(main_sizer)
-        dlg.ShowModal()
+        result = dlg.ShowModal()
         dlg.Destroy()
 
-    def _on_edit_card(self, event, card_id=None):
+        # Handle navigation or edit
+        if result == wx.ID_BACKWARD or result == wx.ID_FORWARD:
+            if nav_to_card[0]:
+                self._on_view_card(None, nav_to_card[0])
+        elif edit_requested[0]:
+            self._on_edit_card(None, card_id, return_to_view=True)
+
+    def _on_edit_card(self, event, card_id=None, return_to_view=False):
         if card_id is None:
             # Get first selected card
             if self.selected_card_ids:
@@ -4818,6 +5845,9 @@ class MainFrame(wx.Frame):
         if idx == -1:
             return
         deck_id = self.deck_list.GetItemData(idx)
+
+        # Store return_to_view for after dialog closes
+        should_return_to_view = return_to_view
 
         # Get card with full metadata
         card = self.db.get_card_with_metadata(card_id)
@@ -4852,11 +5882,75 @@ class MainFrame(wx.Frame):
         except:
             pass
 
-        dlg = wx.Dialog(self, title="Edit Card", size=(500, 480))
+        dlg = wx.Dialog(self, title="Edit Card", size=(750, 580))
         dlg.SetBackgroundColour(get_wx_color('bg_primary'))
         main_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # Create notebook for tabs using FlatNotebook for better color control
+        # Content area: image on left, notebook on right
+        content_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # Left side: Card image preview (visible on all tabs)
+        image_preview_panel = wx.Panel(dlg)
+        image_preview_panel.SetBackgroundColour(get_wx_color('bg_secondary'))
+        image_preview_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Create the image display - same size as card info page (300x450)
+        max_width, max_height = 300, 450
+        card_image_path = card['image_path']
+
+        def load_preview_image(path):
+            """Load and scale image for preview using PIL for EXIF handling"""
+            if path and os.path.exists(path):
+                try:
+                    from PIL import ImageOps
+                    # Load with PIL to handle EXIF orientation properly
+                    pil_img = Image.open(path)
+                    pil_img = ImageOps.exif_transpose(pil_img)
+
+                    # Scale to fit while preserving aspect ratio
+                    orig_width, orig_height = pil_img.size
+                    scale = min(max_width / orig_width, max_height / orig_height)
+                    new_width = int(orig_width * scale)
+                    new_height = int(orig_height * scale)
+                    pil_img = pil_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+                    # Convert PIL image to wx.Bitmap
+                    if pil_img.mode != 'RGB':
+                        pil_img = pil_img.convert('RGB')
+                    wx_img = wx.Image(new_width, new_height)
+                    wx_img.SetData(pil_img.tobytes())
+                    return wx.Bitmap(wx_img)
+                except:
+                    pass
+            return None
+
+        preview_bitmap = load_preview_image(card_image_path)
+        if preview_bitmap:
+            image_display = wx.StaticBitmap(image_preview_panel, bitmap=preview_bitmap)
+        else:
+            image_display = wx.StaticText(image_preview_panel, label="🂠")
+            image_display.SetFont(wx.Font(72, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+            image_display.SetForegroundColour(get_wx_color('text_dim'))
+
+        image_preview_sizer.Add(image_display, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+        image_preview_panel.SetSizer(image_preview_sizer)
+        content_sizer.Add(image_preview_panel, 0, wx.ALL, 10)
+
+        def update_preview(path):
+            """Update the image preview"""
+            nonlocal image_display
+            new_bitmap = load_preview_image(path)
+            if new_bitmap:
+                if isinstance(image_display, wx.StaticText):
+                    # Replace text with bitmap
+                    image_display.Destroy()
+                    image_display = wx.StaticBitmap(image_preview_panel, bitmap=new_bitmap)
+                    image_preview_sizer.Insert(0, image_display, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+                else:
+                    image_display.SetBitmap(new_bitmap)
+                image_preview_panel.Layout()
+
+        # Right side: Notebook with tabs
         style = (fnb.FNB_NO_X_BUTTON | fnb.FNB_NO_NAV_BUTTONS | fnb.FNB_NODRAG)
         notebook = fnb.FlatNotebook(dlg, agwStyle=style)
         notebook.SetBackgroundColour(get_wx_color('bg_primary'))
@@ -4883,26 +5977,28 @@ class MainFrame(wx.Frame):
         name_sizer.Add(name_ctrl, 1)
         basic_sizer.Add(name_sizer, 0, wx.EXPAND | wx.ALL, 10)
 
-        # Image
-        image_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        # Image path
+        image_path_sizer = wx.BoxSizer(wx.HORIZONTAL)
         image_label = wx.StaticText(basic_panel, label="Image:")
         image_label.SetForegroundColour(get_wx_color('text_primary'))
-        image_sizer.Add(image_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        image_path_sizer.Add(image_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
         image_ctrl = wx.TextCtrl(basic_panel, value=card['image_path'] or '')
         image_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
         image_ctrl.SetForegroundColour(get_wx_color('text_primary'))
-        image_sizer.Add(image_ctrl, 1, wx.RIGHT, 5)
+        image_path_sizer.Add(image_ctrl, 1, wx.RIGHT, 5)
 
         def browse(e):
             file_dlg = wx.FileDialog(dlg, wildcard="Images|*.jpg;*.jpeg;*.png;*.gif;*.webp")
             if file_dlg.ShowModal() == wx.ID_OK:
-                image_ctrl.SetValue(file_dlg.GetPath())
+                new_path = file_dlg.GetPath()
+                image_ctrl.SetValue(new_path)
+                update_preview(new_path)
             file_dlg.Destroy()
 
         browse_btn = wx.Button(basic_panel, label="Browse")
         browse_btn.Bind(wx.EVT_BUTTON, browse)
-        image_sizer.Add(browse_btn, 0)
-        basic_sizer.Add(image_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+        image_path_sizer.Add(browse_btn, 0)
+        basic_sizer.Add(image_path_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
 
         # Sort order
         order_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -5219,19 +6315,19 @@ class MainFrame(wx.Frame):
         custom_panel.SetSizer(custom_sizer)
         notebook.AddPage(custom_panel, "Custom Fields")
 
-        main_sizer.Add(notebook, 1, wx.EXPAND | wx.ALL, 10)
+        content_sizer.Add(notebook, 1, wx.EXPAND | wx.ALL, 10)
+        main_sizer.Add(content_sizer, 1, wx.EXPAND)
 
-        # Buttons
-        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        cancel_btn = wx.Button(dlg, wx.ID_CANCEL, "Cancel")
-        save_btn = wx.Button(dlg, wx.ID_OK, "Save")
-        btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
-        btn_sizer.Add(save_btn, 0)
-        main_sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
+        # Get the sorted list of cards for navigation
+        card_list = self._current_cards_sorted if hasattr(self, '_current_cards_sorted') else []
+        card_ids = [c['id'] for c in card_list]
+        current_index = card_ids.index(card_id) if card_id in card_ids else -1
 
-        dlg.SetSizer(main_sizer)
+        # Track navigation state
+        nav_to_card = [None]
 
-        if dlg.ShowModal() == wx.ID_OK:
+        # Function to save card data
+        def save_card_data():
             new_name = name_ctrl.GetValue().strip()
             new_image = image_ctrl.GetValue().strip() or None
             new_order = order_ctrl.GetValue()
@@ -5299,10 +6395,69 @@ class MainFrame(wx.Frame):
 
                 if new_image and new_image != card['image_path']:
                     self.thumb_cache.get_thumbnail(new_image)
-                self._refresh_cards_display(deck_id)
+                return True
+            return False
+
+        # Buttons
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # Navigation buttons on the left
+        nav_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        prev_btn = wx.Button(dlg, label="< Prev")
+        if current_index <= 0:
+            prev_btn.Disable()
+        def on_prev(e):
+            if current_index > 0:
+                if save_card_data():
+                    nav_to_card[0] = card_ids[current_index - 1]
+                    dlg.EndModal(wx.ID_BACKWARD)
+        prev_btn.Bind(wx.EVT_BUTTON, on_prev)
+        nav_sizer.Add(prev_btn, 0, wx.RIGHT, 5)
+
+        next_btn = wx.Button(dlg, label="Next >")
+        if current_index < 0 or current_index >= len(card_ids) - 1:
+            next_btn.Disable()
+        def on_next(e):
+            if current_index < len(card_ids) - 1:
+                if save_card_data():
+                    nav_to_card[0] = card_ids[current_index + 1]
+                    dlg.EndModal(wx.ID_FORWARD)
+        next_btn.Bind(wx.EVT_BUTTON, on_next)
+        nav_sizer.Add(next_btn, 0)
+
+        btn_sizer.Add(nav_sizer, 0, wx.RIGHT, 20)
+        btn_sizer.AddStretchSpacer()
+
+        # Save/Cancel buttons on the right
+        cancel_btn = wx.Button(dlg, wx.ID_CANCEL, "Cancel")
+        save_btn = wx.Button(dlg, wx.ID_OK, "Save")
+        btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
+        btn_sizer.Add(save_btn, 0)
+        main_sizer.Add(btn_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        dlg.SetSizer(main_sizer)
+
+        result = dlg.ShowModal()
+
+        # Handle navigation (save already done in nav button handlers)
+        if result == wx.ID_BACKWARD or result == wx.ID_FORWARD:
+            self._refresh_cards_display(deck_id, preserve_scroll=True)
+            dlg.Destroy()
+            if nav_to_card[0]:
+                self._on_edit_card(None, nav_to_card[0], return_to_view=should_return_to_view)
+            return
+
+        if result == wx.ID_OK:
+            if save_card_data():
+                self._refresh_cards_display(deck_id, preserve_scroll=True)
 
         dlg.Destroy()
-    
+
+        # Return to card view if requested
+        if should_return_to_view:
+            self._on_view_card(None, card_id)
+
     def _on_delete_card(self, event):
         if not self.selected_card_ids:
             wx.MessageBox("Select card(s) to delete.", "No Card", wx.OK | wx.ICON_INFORMATION)
@@ -5329,16 +6484,27 @@ class MainFrame(wx.Frame):
         idx = self.spread_list.GetFirstSelected()
         if idx == -1:
             return
-        
+
         spread_name = self.spread_list.GetItemText(idx)
         spreads = self.db.get_spreads()
-        
+
         for spread in spreads:
             if spread['name'] == spread_name:
                 self.editing_spread_id = spread['id']
                 self.spread_name_ctrl.SetValue(spread['name'])
                 self.spread_desc_ctrl.SetValue(spread['description'] or '')
                 self.designer_positions = json.loads(spread['positions'])
+
+                # Load allowed deck types
+                for cb in self.spread_deck_type_checks.values():
+                    cb.SetValue(False)
+                allowed_types_json = spread['allowed_deck_types'] if 'allowed_deck_types' in spread.keys() else None
+                if allowed_types_json:
+                    allowed_types = json.loads(allowed_types_json)
+                    for deck_type in allowed_types:
+                        if deck_type in self.spread_deck_type_checks:
+                            self.spread_deck_type_checks[deck_type].SetValue(True)
+
                 self._update_designer_legend()
                 self.designer_canvas.Refresh()
                 break
@@ -5348,6 +6514,9 @@ class MainFrame(wx.Frame):
         self.spread_name_ctrl.SetValue('')
         self.spread_desc_ctrl.SetValue('')
         self.designer_positions = []
+        # Clear deck type checkboxes
+        for cb in self.spread_deck_type_checks.values():
+            cb.SetValue(False)
         self._update_designer_legend()
         self.designer_canvas.Refresh()
     
@@ -5372,19 +6541,27 @@ class MainFrame(wx.Frame):
         if not name:
             wx.MessageBox("Please enter a spread name.", "Name Required", wx.OK | wx.ICON_WARNING)
             return
-        
+
         if not self.designer_positions:
             wx.MessageBox("Add at least one card position.", "No Positions", wx.OK | wx.ICON_WARNING)
             return
-        
+
         desc = self.spread_desc_ctrl.GetValue().strip()
-        
+
+        # Collect allowed deck types
+        allowed_deck_types = [
+            deck_type for deck_type, cb in self.spread_deck_type_checks.items()
+            if cb.GetValue()
+        ]
+
         if self.editing_spread_id:
             self.db.update_spread(self.editing_spread_id, name=name,
-                                 positions=self.designer_positions, description=desc)
+                                 positions=self.designer_positions, description=desc,
+                                 allowed_deck_types=allowed_deck_types if allowed_deck_types else None)
         else:
-            self.editing_spread_id = self.db.add_spread(name, self.designer_positions, desc)
-        
+            self.editing_spread_id = self.db.add_spread(name, self.designer_positions, desc,
+                                                        allowed_deck_types=allowed_deck_types if allowed_deck_types else None)
+
         self._refresh_spreads_list()
         wx.MessageBox("Spread saved!", "Success", wx.OK | wx.ICON_INFORMATION)
     
