@@ -6257,23 +6257,28 @@ class MainFrame(wx.Frame):
 
                 current_value = existing_custom_values.get(field_name, '')
 
-                field_sizer = wx.BoxSizer(wx.HORIZONTAL)
-                f_label = wx.StaticText(custom_panel, label=f"{field_name}:")
-                f_label.SetForegroundColour(get_wx_color('text_primary'))
-                field_sizer.Add(f_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+                # Use vertical layout for multiline fields, horizontal for others
+                if field_type == 'multiline':
+                    field_sizer = wx.BoxSizer(wx.VERTICAL)
+                    f_label = wx.StaticText(custom_panel, label=f"{field_name}:")
+                    f_label.SetForegroundColour(get_wx_color('text_primary'))
+                    field_sizer.Add(f_label, 0, wx.BOTTOM, 5)
+                    ctrl = wx.TextCtrl(custom_panel, value=str(current_value),
+                                       style=wx.TE_MULTILINE | wx.TE_WORDWRAP, size=(-1, 80))
+                    ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+                    ctrl.SetForegroundColour(get_wx_color('text_primary'))
+                    field_sizer.Add(ctrl, 0, wx.EXPAND)
+                else:
+                    field_sizer = wx.BoxSizer(wx.HORIZONTAL)
+                    f_label = wx.StaticText(custom_panel, label=f"{field_name}:")
+                    f_label.SetForegroundColour(get_wx_color('text_primary'))
+                    field_sizer.Add(f_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
 
                 if field_type == 'text':
                     ctrl = wx.TextCtrl(custom_panel, value=str(current_value))
                     ctrl.SetBackgroundColour(get_wx_color('bg_input'))
                     ctrl.SetForegroundColour(get_wx_color('text_primary'))
                     field_sizer.Add(ctrl, 1)
-
-                elif field_type == 'multiline':
-                    ctrl = wx.TextCtrl(custom_panel, value=str(current_value),
-                                       style=wx.TE_MULTILINE, size=(-1, 60))
-                    ctrl.SetBackgroundColour(get_wx_color('bg_input'))
-                    ctrl.SetForegroundColour(get_wx_color('text_primary'))
-                    field_sizer.Add(ctrl, 1, wx.EXPAND)
 
                 elif field_type == 'number':
                     try:
@@ -6297,6 +6302,9 @@ class MainFrame(wx.Frame):
                     ctrl = wx.CheckBox(custom_panel, label="")
                     ctrl.SetValue(bool(current_value))
                     field_sizer.Add(ctrl, 0)
+
+                elif field_type == 'multiline':
+                    pass  # Already handled above
 
                 else:
                     ctrl = wx.TextCtrl(custom_panel, value=str(current_value))
