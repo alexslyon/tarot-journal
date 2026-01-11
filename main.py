@@ -237,8 +237,7 @@ class MainFrame(wx.Frame):
         self._current_suit_names = {}
         self._current_deck_type = 'Tarot'
         self._card_widgets = {}  # Track card widgets by card_id
-        self.show_card_names = True  # Display option for card names
-        
+
         # Bitmap cache
         self.bitmap_cache = {}
         
@@ -506,18 +505,7 @@ class MainFrame(wx.Frame):
         header_row.Add(self.deck_title, 0, wx.ALIGN_CENTER_VERTICAL)
         
         header_row.AddStretchSpacer()
-        
-        # Show card names checkbox with separate label for better visibility
-        self.show_card_names_cb = wx.CheckBox(right, label="")
-        self.show_card_names_cb.SetValue(self.show_card_names)
-        self.show_card_names_cb.Bind(wx.EVT_CHECKBOX, self._on_toggle_card_names)
-        header_row.Add(self.show_card_names_cb, 0, wx.ALIGN_CENTER_VERTICAL)
-        
-        names_label = wx.StaticText(right, label="Show names")
-        names_label.SetForegroundColour(get_wx_color('text_primary'))
-        names_label.Bind(wx.EVT_LEFT_DOWN, lambda e: self._toggle_card_names_checkbox())
-        header_row.Add(names_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 15)
-        
+
         # Card filter dropdown
         filter_label = wx.StaticText(right, label="Filter:")
         filter_label.SetForegroundColour(get_wx_color('text_primary'))
@@ -1591,7 +1579,6 @@ class MainFrame(wx.Frame):
             return
 
         cards = self.db.get_cards(deck_id)
-        print(f"DEBUG: Loading {len(cards)} cards for deck_id={deck_id}")
         deck = self.db.get_deck(deck_id)
         suit_names = self.db.get_deck_suit_names(deck_id)
         self._current_suit_names = suit_names
@@ -1657,8 +1644,6 @@ class MainFrame(wx.Frame):
         filter_idx = self.card_filter_choice.GetSelection()
         filter_name = self.card_filter_names[filter_idx] if filter_idx >= 0 and filter_idx < len(self.card_filter_names) else 'All'
 
-        print(f"DEBUG: _display_filtered_cards - filter={filter_name}, total_cards={len(self._current_cards_sorted)}")
-
         if filter_name == 'All':
             cards_to_show = self._current_cards_sorted
         elif self._current_deck_type in ('Lenormand', 'Playing Cards'):
@@ -1688,8 +1673,7 @@ class MainFrame(wx.Frame):
                 cards_to_show = self._current_cards_categorized.get('Pentacles', [])
             else:
                 cards_to_show = self._current_cards_sorted
-        
-        print(f"DEBUG: Creating widgets for {len(cards_to_show)} cards")
+
         for card in cards_to_show:
             self._create_card_widget(self.cards_scroll, self.cards_sizer, card)
 
@@ -2070,14 +2054,17 @@ class MainFrame(wx.Frame):
     
     def _create_card_widget(self, parent, sizer, card):
         """Create a card widget and add to sizer"""
-        # Panel height: thumbnail (120x180 cached) + padding, plus text if showing
-        # Thumbnail display is about 120+8 padding = 128 height after scaling
-        panel_height = 175 if self.show_card_names else 140
+        # Panel height: thumbnail (120x180 cached) + padding + text
+        panel_height = 175
         card_panel = wx.Panel(parent)
         card_panel.SetMinSize((130, panel_height))
         card_panel.SetBackgroundColour(get_wx_color('bg_tertiary'))
         card_panel.card_id = card['id']
-        
+
+        # Add tooltip with card name (uses system default delay, typically ~500ms)
+        card_name = card['name'] if 'name' in card.keys() else ''
+        card_panel.SetToolTip(card_name)
+
         # Register widget for later access
         self._card_widgets[card['id']] = card_panel
         
@@ -6107,22 +6094,7 @@ class MainFrame(wx.Frame):
             self.thumb_cache.clear_cache()
             self._update_cache_info()
             wx.MessageBox("Cache cleared.", "Done", wx.OK | wx.ICON_INFORMATION)
-    
-    def _on_toggle_card_names(self, event):
-        """Toggle display of card names under thumbnails"""
-        self.show_card_names = event.IsChecked()
-        print(f"DEBUG: Toggled card names to: {self.show_card_names}")
-        # Refresh the cards display if a deck is selected
-        if self._current_deck_id_for_cards:
-            self._display_filtered_cards()
-    
-    def _toggle_card_names_checkbox(self):
-        """Helper to toggle checkbox when label is clicked"""
-        self.show_card_names_cb.SetValue(not self.show_card_names_cb.GetValue())
-        self.show_card_names = self.show_card_names_cb.GetValue()
-        if self._current_deck_id_for_cards:
-            self._display_filtered_cards()
-    
+
     def _on_stats(self, event):
         stats = self.db.get_stats()
         
