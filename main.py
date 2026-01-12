@@ -18,6 +18,7 @@ from database import Database, create_default_spreads, create_default_decks
 from thumbnail_cache import get_cache
 from import_presets import get_presets, BUILTIN_PRESETS, COURT_PRESETS, ARCHETYPE_MAPPING_OPTIONS, DEFAULT_CARD_BACK_PATTERNS
 from theme_config import get_theme, PRESET_THEMES
+from rich_text_panel import RichTextPanel, RichTextViewer
 
 # Version
 VERSION = "0.4.0"
@@ -1571,7 +1572,7 @@ class MainFrame(wx.Frame):
         decks = self.db.get_decks()
         self._deck_map = {}
         for deck in decks:
-            name = f"{deck['name']} ({deck['cartomancy_type_name']})"
+            name = deck['name']
             self._deck_map[name] = deck['id']
 
     def _select_deck_by_id(self, deck_id):
@@ -1617,7 +1618,7 @@ class MainFrame(wx.Frame):
         self._current_deck_type = deck['cartomancy_type_name'] if deck else 'Tarot'
         
         if deck:
-            self.deck_title.SetLabel(f"{deck['name']} ({deck['cartomancy_type_name']})")
+            self.deck_title.SetLabel(deck['name'])
         
         # Update filter dropdown based on deck type
         if self._current_deck_type == 'Kipper':
@@ -2619,10 +2620,8 @@ class MainFrame(wx.Frame):
             notes_label.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
             self.viewer_sizer.Add(notes_label, 0, wx.LEFT, 15)
 
-            notes_text = wx.StaticText(self.viewer_panel, label=entry['content'])
-            notes_text.SetForegroundColour(get_wx_color('text_primary'))
-            notes_text.Wrap(500)
-            self.viewer_sizer.Add(notes_text, 0, wx.LEFT | wx.BOTTOM, 15)
+            notes_viewer = RichTextViewer(self.viewer_panel, value=entry['content'], min_height=60)
+            self.viewer_sizer.Add(notes_viewer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
 
         # Follow-up Notes
         follow_up_notes = self.db.get_follow_up_notes(entry_id)
@@ -2658,10 +2657,8 @@ class MainFrame(wx.Frame):
                 note_sizer.Add(date_label, 0, wx.ALL, 8)
 
                 # Note content
-                note_text = wx.StaticText(note_panel, label=note['content'])
-                note_text.SetForegroundColour(get_wx_color('text_primary'))
-                note_text.Wrap(450)
-                note_sizer.Add(note_text, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+                note_viewer = RichTextViewer(note_panel, value=note['content'], min_height=40)
+                note_sizer.Add(note_viewer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
 
                 # Edit/Delete buttons
                 btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -2711,10 +2708,7 @@ class MainFrame(wx.Frame):
         sizer.Add(instr_label, 0, wx.ALL, 15)
 
         # Note content
-        note_ctrl = wx.TextCtrl(dlg, style=wx.TE_MULTILINE)
-        note_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
-        note_ctrl.SetForegroundColour(get_wx_color('text_primary'))
-        note_ctrl.SetMinSize((-1, 150))
+        note_ctrl = RichTextPanel(dlg, value='', min_height=150)
         sizer.Add(note_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 15)
 
         # Date note
@@ -2766,11 +2760,7 @@ class MainFrame(wx.Frame):
         sizer.Add(date_label, 0, wx.ALL, 15)
 
         # Note content
-        note_ctrl = wx.TextCtrl(dlg, style=wx.TE_MULTILINE)
-        note_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
-        note_ctrl.SetForegroundColour(get_wx_color('text_primary'))
-        note_ctrl.SetMinSize((-1, 150))
-        note_ctrl.SetValue(note['content'])
+        note_ctrl = RichTextPanel(dlg, value=note['content'], min_height=150)
         sizer.Add(note_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 15)
 
         # Buttons
@@ -2825,18 +2815,26 @@ class MainFrame(wx.Frame):
             if not entry:
                 return
         
-        dlg = wx.Dialog(self, title="New Entry" if is_new else "Edit Entry", 
+        dlg = wx.Dialog(self, title="New Entry" if is_new else "Edit Entry",
                        size=(800, 700), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         dlg.SetBackgroundColour(get_wx_color('bg_primary'))
-        
+
+        # Main dialog sizer
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Scrolled window for content
+        scroll_win = wx.ScrolledWindow(dlg, style=wx.VSCROLL)
+        scroll_win.SetScrollRate(0, 20)
+        scroll_win.SetBackgroundColour(get_wx_color('bg_primary'))
+
         sizer = wx.BoxSizer(wx.VERTICAL)
-        
+
         # Title
         title_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        title_label = wx.StaticText(dlg, label="Title:")
+        title_label = wx.StaticText(scroll_win, label="Title:")
         title_label.SetForegroundColour(get_wx_color('text_primary'))
         title_sizer.Add(title_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
-        title_ctrl = wx.TextCtrl(dlg)
+        title_ctrl = wx.TextCtrl(scroll_win)
         title_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
         title_ctrl.SetForegroundColour(get_wx_color('text_primary'))
         title_ctrl.SetValue(entry['title'] or '')
@@ -2846,29 +2844,29 @@ class MainFrame(wx.Frame):
         # Date/Time selection
         datetime_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        datetime_label = wx.StaticText(dlg, label="Reading Date/Time:")
+        datetime_label = wx.StaticText(scroll_win, label="Reading Date/Time:")
         datetime_label.SetForegroundColour(get_wx_color('text_primary'))
         datetime_sizer.Add(datetime_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
 
         # Radio buttons for now vs custom (empty labels with separate StaticText for macOS)
-        use_now_radio = wx.RadioButton(dlg, label="", style=wx.RB_GROUP)
+        use_now_radio = wx.RadioButton(scroll_win, label="", style=wx.RB_GROUP)
         datetime_sizer.Add(use_now_radio, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
-        now_label = wx.StaticText(dlg, label="Now")
+        now_label = wx.StaticText(scroll_win, label="Now")
         now_label.SetForegroundColour(get_wx_color('text_primary'))
         datetime_sizer.Add(now_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 15)
 
-        use_custom_radio = wx.RadioButton(dlg, label="")
+        use_custom_radio = wx.RadioButton(scroll_win, label="")
         datetime_sizer.Add(use_custom_radio, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
-        custom_label = wx.StaticText(dlg, label="Custom:")
+        custom_label = wx.StaticText(scroll_win, label="Custom:")
         custom_label.SetForegroundColour(get_wx_color('text_primary'))
         datetime_sizer.Add(custom_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
 
         # Date picker
-        date_picker = wx.adv.DatePickerCtrl(dlg, style=wx.adv.DP_DROPDOWN)
+        date_picker = wx.adv.DatePickerCtrl(scroll_win, style=wx.adv.DP_DROPDOWN)
         datetime_sizer.Add(date_picker, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
 
         # Time picker (hour:minute)
-        time_ctrl = wx.TextCtrl(dlg, size=(60, -1))
+        time_ctrl = wx.TextCtrl(scroll_win, size=(60, -1))
         time_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
         time_ctrl.SetForegroundColour(get_wx_color('text_primary'))
         time_ctrl.SetValue(datetime.now().strftime("%H:%M"))
@@ -2904,11 +2902,11 @@ class MainFrame(wx.Frame):
         # Location
         location_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        location_label = wx.StaticText(dlg, label="Location:")
+        location_label = wx.StaticText(scroll_win, label="Location:")
         location_label.SetForegroundColour(get_wx_color('text_primary'))
         location_sizer.Add(location_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
 
-        location_ctrl = wx.TextCtrl(dlg, size=(250, -1))
+        location_ctrl = wx.TextCtrl(scroll_win, size=(250, -1))
         location_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
         location_ctrl.SetForegroundColour(get_wx_color('text_primary'))
         location_ctrl.SetHint("City, Country or address")
@@ -2930,24 +2928,24 @@ class MainFrame(wx.Frame):
 
         people_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        querent_label = wx.StaticText(dlg, label="Querent:")
+        querent_label = wx.StaticText(scroll_win, label="Querent:")
         querent_label.SetForegroundColour(get_wx_color('text_primary'))
         people_sizer.Add(querent_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
-        querent_choice = wx.Choice(dlg, choices=profile_names)
+        querent_choice = wx.Choice(scroll_win, choices=profile_names)
         querent_choice.SetSelection(0)
         people_sizer.Add(querent_choice, 0, wx.RIGHT, 20)
 
-        reader_label = wx.StaticText(dlg, label="Reader:")
+        reader_label = wx.StaticText(scroll_win, label="Reader:")
         reader_label.SetForegroundColour(get_wx_color('text_primary'))
         people_sizer.Add(reader_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
-        reader_choice = wx.Choice(dlg, choices=profile_names)
+        reader_choice = wx.Choice(scroll_win, choices=profile_names)
         reader_choice.SetSelection(0)
         people_sizer.Add(reader_choice, 0, wx.RIGHT, 15)
 
         # "Same as Querent" checkbox (empty label with separate StaticText for macOS)
-        same_as_querent_cb = wx.CheckBox(dlg, label="")
+        same_as_querent_cb = wx.CheckBox(scroll_win, label="")
         people_sizer.Add(same_as_querent_cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
-        same_label = wx.StaticText(dlg, label="Reader same as Querent")
+        same_label = wx.StaticText(scroll_win, label="Reader same as Querent")
         same_label.SetForegroundColour(get_wx_color('text_primary'))
         people_sizer.Add(same_label, 0, wx.ALIGN_CENTER_VERTICAL)
 
@@ -2984,29 +2982,29 @@ class MainFrame(wx.Frame):
         # Spread/Deck selection
         select_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        spread_label = wx.StaticText(dlg, label="Spread:")
+        spread_label = wx.StaticText(scroll_win, label="Spread:")
         spread_label.SetForegroundColour(get_wx_color('text_primary'))
         select_sizer.Add(spread_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
-        spread_choice = wx.Choice(dlg, choices=list(self._spread_map.keys()))
+        spread_choice = wx.Choice(scroll_win, choices=list(self._spread_map.keys()))
         select_sizer.Add(spread_choice, 0, wx.RIGHT, 20)
 
-        deck_label = wx.StaticText(dlg, label="Default Deck:")
+        deck_label = wx.StaticText(scroll_win, label="Default Deck:")
         deck_label.SetForegroundColour(get_wx_color('text_primary'))
         select_sizer.Add(deck_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
-        deck_choice = wx.Choice(dlg, choices=list(self._deck_map.keys()))
+        deck_choice = wx.Choice(scroll_win, choices=list(self._deck_map.keys()))
         select_sizer.Add(deck_choice, 0, wx.RIGHT, 10)
 
         # Use Any Deck toggle (empty label + StaticText for macOS)
         use_any_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        use_any_deck_cb = wx.CheckBox(dlg, label="")
+        use_any_deck_cb = wx.CheckBox(scroll_win, label="")
         use_any_sizer.Add(use_any_deck_cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
-        use_any_label = wx.StaticText(dlg, label="Use Any Deck")
+        use_any_label = wx.StaticText(scroll_win, label="Use Any Deck")
         use_any_label.SetForegroundColour(get_wx_color('text_primary'))
         use_any_sizer.Add(use_any_label, 0, wx.ALIGN_CENTER_VERTICAL)
         select_sizer.Add(use_any_sizer, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
 
         # Hint about multi-deck
-        multi_deck_hint = wx.StaticText(dlg, label="(You can select different decks per position)")
+        multi_deck_hint = wx.StaticText(scroll_win, label="(You can select different decks per position)")
         multi_deck_hint.SetForegroundColour(get_wx_color('text_dim'))
         multi_deck_hint.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_ITALIC, wx.FONTWEIGHT_NORMAL))
         select_sizer.Add(multi_deck_hint, 0, wx.ALIGN_CENTER_VERTICAL)
@@ -3023,26 +3021,22 @@ class MainFrame(wx.Frame):
             }
         
         # Spread canvas
-        spread_canvas = wx.Panel(dlg, size=(-1, 350))
+        spread_canvas = wx.Panel(scroll_win, size=(-1, 350))
         spread_canvas.SetBackgroundColour(get_wx_color('card_slot'))
         sizer.Add(spread_canvas, 0, wx.EXPAND | wx.ALL, 15)
-        
+
         # Cards label
-        cards_label = wx.StaticText(dlg, label="Click positions above to assign cards")
+        cards_label = wx.StaticText(scroll_win, label="Click positions above to assign cards")
         cards_label.SetForegroundColour(get_wx_color('text_dim'))
         sizer.Add(cards_label, 0, wx.LEFT, 15)
-        
+
         # Notes
-        notes_label = wx.StaticText(dlg, label="Notes:")
+        notes_label = wx.StaticText(scroll_win, label="Notes:")
         notes_label.SetForegroundColour(get_wx_color('text_primary'))
         sizer.Add(notes_label, 0, wx.LEFT | wx.TOP, 15)
-        
-        content_ctrl = wx.TextCtrl(dlg, style=wx.TE_MULTILINE)
-        content_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
-        content_ctrl.SetForegroundColour(get_wx_color('text_primary'))
-        content_ctrl.SetMinSize((-1, 120))
-        content_ctrl.SetValue(entry['content'] or '')
-        sizer.Add(content_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 15)
+
+        content_ctrl = RichTextPanel(scroll_win, value=entry['content'] or '', min_height=120)
+        sizer.Add(content_ctrl, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
         
         # Store state for this dialog
         dlg._spread_cards = {}
@@ -3564,15 +3558,21 @@ class MainFrame(wx.Frame):
         spread_canvas.Bind(wx.EVT_LEFT_DOWN, on_canvas_click)
         spread_canvas.Bind(wx.EVT_RIGHT_DOWN, on_canvas_right_click)
 
-        # Buttons
+        # Set the scroll window sizer
+        scroll_win.SetSizer(sizer)
+
+        # Add scroll window to main sizer
+        main_sizer.Add(scroll_win, 1, wx.EXPAND)
+
+        # Buttons (outside scroll area so always visible)
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         cancel_btn = wx.Button(dlg, wx.ID_CANCEL, "Cancel")
         save_btn = wx.Button(dlg, wx.ID_OK, "Save")
         btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
         btn_sizer.Add(save_btn, 0)
-        sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 15)
+        main_sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 15)
 
-        dlg.SetSizer(sizer)
+        dlg.SetSizer(main_sizer)
 
         if dlg.ShowModal() == wx.ID_OK:
             # Save the entry
@@ -4648,30 +4648,27 @@ class MainFrame(wx.Frame):
         credits_label = wx.StaticText(details_fields_panel, label="Credits:")
         credits_label.SetForegroundColour(get_wx_color('text_primary'))
         details_fields_sizer.Add(credits_label, 0, wx.LEFT | wx.RIGHT, 10)
-        credits_ctrl = wx.TextCtrl(details_fields_panel, value=deck['credits'] or '' if 'credits' in deck.keys() else '',
-                                   style=wx.TE_MULTILINE, size=(-1, 60))
-        credits_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
-        credits_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        credits_ctrl = RichTextPanel(details_fields_panel,
+                                     value=deck['credits'] or '' if 'credits' in deck.keys() else '',
+                                     min_height=60)
         details_fields_sizer.Add(credits_ctrl, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         # Notes
         notes_label = wx.StaticText(details_fields_panel, label="Notes:")
         notes_label.SetForegroundColour(get_wx_color('text_primary'))
         details_fields_sizer.Add(notes_label, 0, wx.LEFT | wx.RIGHT, 10)
-        deck_notes_ctrl = wx.TextCtrl(details_fields_panel, value=deck['notes'] or '' if 'notes' in deck.keys() else '',
-                                      style=wx.TE_MULTILINE, size=(-1, 60))
-        deck_notes_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
-        deck_notes_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        deck_notes_ctrl = RichTextPanel(details_fields_panel,
+                                        value=deck['notes'] or '' if 'notes' in deck.keys() else '',
+                                        min_height=60)
         details_fields_sizer.Add(deck_notes_ctrl, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         # Booklet Info
         booklet_label = wx.StaticText(details_fields_panel, label="Booklet Info:")
         booklet_label.SetForegroundColour(get_wx_color('text_primary'))
         details_fields_sizer.Add(booklet_label, 0, wx.LEFT | wx.RIGHT, 10)
-        booklet_ctrl = wx.TextCtrl(details_fields_panel, value=deck['booklet_info'] or '' if 'booklet_info' in deck.keys() else '',
-                                   style=wx.TE_MULTILINE, size=(-1, 60))
-        booklet_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
-        booklet_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        booklet_ctrl = RichTextPanel(details_fields_panel,
+                                     value=deck['booklet_info'] or '' if 'booklet_info' in deck.keys() else '',
+                                     min_height=60)
         details_fields_sizer.Add(booklet_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         details_fields_panel.SetSizer(details_fields_sizer)
@@ -5719,25 +5716,19 @@ class MainFrame(wx.Frame):
                     info_sizer.Add(cf_title, 0, wx.BOTTOM, 8)
 
                     for field_name, field_value in custom_fields.items():
+                        # Skip empty fields
+                        if field_value is None or str(field_value).strip() == '':
+                            continue
                         value_str = str(field_value)
-                        # Use vertical layout for long text, horizontal for short
-                        if len(value_str) > 50 or '\n' in value_str:
-                            cf_lbl = wx.StaticText(info_panel, label=f"{field_name}:")
-                            cf_lbl.SetForegroundColour(get_wx_color('text_secondary'))
-                            info_sizer.Add(cf_lbl, 0, wx.BOTTOM, 3)
-                            cf_val = wx.StaticText(info_panel, label=value_str)
-                            cf_val.SetForegroundColour(get_wx_color('text_primary'))
-                            cf_val.Wrap(280)
-                            info_sizer.Add(cf_val, 0, wx.BOTTOM, 10)
-                        else:
-                            cf_row = wx.BoxSizer(wx.HORIZONTAL)
-                            cf_lbl = wx.StaticText(info_panel, label=f"{field_name}: ")
-                            cf_lbl.SetForegroundColour(get_wx_color('text_secondary'))
-                            cf_row.Add(cf_lbl, 0)
-                            cf_val = wx.StaticText(info_panel, label=value_str)
-                            cf_val.SetForegroundColour(get_wx_color('text_primary'))
-                            cf_row.Add(cf_val, 0)
-                            info_sizer.Add(cf_row, 0, wx.BOTTOM, 5)
+                        # Always use vertical layout with wrapping for custom fields
+                        # This ensures long text is always readable
+                        cf_lbl = wx.StaticText(info_panel, label=f"{field_name}:")
+                        cf_lbl.SetForegroundColour(get_wx_color('text_secondary'))
+                        info_sizer.Add(cf_lbl, 0, wx.BOTTOM, 3)
+                        cf_val = wx.StaticText(info_panel, label=value_str)
+                        cf_val.SetForegroundColour(get_wx_color('text_primary'))
+                        cf_val.Wrap(280)
+                        info_sizer.Add(cf_val, 0, wx.BOTTOM, 10)
             except:
                 pass
 
@@ -6054,7 +6045,11 @@ class MainFrame(wx.Frame):
             rank_sizer.Add(rank_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
 
             tarot_ranks = ['', 'Ace', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven',
-                          'Eight', 'Nine', 'Ten', 'Page', 'Knight', 'Queen', 'King',
+                          'Eight', 'Nine', 'Ten',
+                          'Page / Knave / Princess / Court Rank 1',
+                          'Knight / Prince / Court Rank 2',
+                          'Queen / Court Rank 3',
+                          'King / Court Rank 4',
                           '0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX',
                           'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII',
                           'XIX', 'XX', 'XXI']
@@ -6173,10 +6168,7 @@ class MainFrame(wx.Frame):
         notes_label.SetForegroundColour(get_wx_color('text_primary'))
         notes_sizer.Add(notes_label, 0, wx.ALL, 10)
 
-        notes_ctrl = wx.TextCtrl(notes_panel, value=get_card_field('notes', ''),
-                                 style=wx.TE_MULTILINE)
-        notes_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
-        notes_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        notes_ctrl = RichTextPanel(notes_panel, value=get_card_field('notes', ''), min_height=100)
         notes_sizer.Add(notes_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         notes_panel.SetSizer(notes_sizer)
@@ -6274,12 +6266,8 @@ class MainFrame(wx.Frame):
                     f_label = wx.StaticText(custom_panel, label=f"{field_name}:")
                     f_label.SetForegroundColour(get_wx_color('text_primary'))
                     field_sizer.Add(f_label, 0, wx.BOTTOM, 5)
-                    # Use fixed size to force text wrapping
-                    ctrl = wx.TextCtrl(custom_panel, value=str(current_value),
-                                       style=wx.TE_MULTILINE, size=(450, 100))
-                    ctrl.SetBackgroundColour(get_wx_color('bg_input'))
-                    ctrl.SetForegroundColour(get_wx_color('text_primary'))
-                    field_sizer.Add(ctrl, 0)
+                    ctrl = RichTextPanel(custom_panel, value=str(current_value), min_height=100)
+                    field_sizer.Add(ctrl, 0, wx.EXPAND)
                 else:
                     field_sizer = wx.BoxSizer(wx.HORIZONTAL)
                     f_label = wx.StaticText(custom_panel, label=f"{field_name}:")
