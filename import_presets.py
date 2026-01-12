@@ -1479,13 +1479,13 @@ class ImportPresets:
         if name_lower in major_arcana:
             return major_arcana[name_lower]
 
-        # Pip card rank order within suits (Ace-Ten = 1-10)
+        # Pip card rank order within suits (Ace-Ten = 1-10 for sort order calculation)
         pip_rank_order = {
             'ace': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
             'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
         }
 
-        # Court card positions - map to fixed sort values (11, 12, 13, 14)
+        # Court card positions - map to fixed sort offsets (11, 12, 13, 14)
         # For Thoth: Princess=11, Prince=12, Queen=13, Knight=14
         # For RWS/standard: Page=11, Knight=12, Queen=13, King=14
         is_thoth = preset_name and 'thoth' in preset_name.lower()
@@ -1523,7 +1523,8 @@ class ImportPresets:
         swords_name = suit_names.get('swords', 'Swords').lower()
         pentacles_name = suit_names.get('pentacles', 'Pentacles').lower()
 
-        # Suit base values (after 22 major arcana)
+        # Suit base values for Minor Arcana
+        # Wands: 100-114, Cups: 200-214, Swords: 300-314, Pentacles: 400-414
         suit_bases = {
             wands_name: 100,
             cups_name: 200,

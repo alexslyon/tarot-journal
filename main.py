@@ -5719,14 +5719,25 @@ class MainFrame(wx.Frame):
                     info_sizer.Add(cf_title, 0, wx.BOTTOM, 8)
 
                     for field_name, field_value in custom_fields.items():
-                        cf_row = wx.BoxSizer(wx.HORIZONTAL)
-                        cf_lbl = wx.StaticText(info_panel, label=f"{field_name}: ")
-                        cf_lbl.SetForegroundColour(get_wx_color('text_secondary'))
-                        cf_row.Add(cf_lbl, 0)
-                        cf_val = wx.StaticText(info_panel, label=str(field_value))
-                        cf_val.SetForegroundColour(get_wx_color('text_primary'))
-                        cf_row.Add(cf_val, 0)
-                        info_sizer.Add(cf_row, 0, wx.BOTTOM, 5)
+                        value_str = str(field_value)
+                        # Use vertical layout for long text, horizontal for short
+                        if len(value_str) > 50 or '\n' in value_str:
+                            cf_lbl = wx.StaticText(info_panel, label=f"{field_name}:")
+                            cf_lbl.SetForegroundColour(get_wx_color('text_secondary'))
+                            info_sizer.Add(cf_lbl, 0, wx.BOTTOM, 3)
+                            cf_val = wx.StaticText(info_panel, label=value_str)
+                            cf_val.SetForegroundColour(get_wx_color('text_primary'))
+                            cf_val.Wrap(280)
+                            info_sizer.Add(cf_val, 0, wx.BOTTOM, 10)
+                        else:
+                            cf_row = wx.BoxSizer(wx.HORIZONTAL)
+                            cf_lbl = wx.StaticText(info_panel, label=f"{field_name}: ")
+                            cf_lbl.SetForegroundColour(get_wx_color('text_secondary'))
+                            cf_row.Add(cf_lbl, 0)
+                            cf_val = wx.StaticText(info_panel, label=value_str)
+                            cf_val.SetForegroundColour(get_wx_color('text_primary'))
+                            cf_row.Add(cf_val, 0)
+                            info_sizer.Add(cf_row, 0, wx.BOTTOM, 5)
             except:
                 pass
 
@@ -6263,11 +6274,12 @@ class MainFrame(wx.Frame):
                     f_label = wx.StaticText(custom_panel, label=f"{field_name}:")
                     f_label.SetForegroundColour(get_wx_color('text_primary'))
                     field_sizer.Add(f_label, 0, wx.BOTTOM, 5)
+                    # Use fixed size to force text wrapping
                     ctrl = wx.TextCtrl(custom_panel, value=str(current_value),
-                                       style=wx.TE_MULTILINE | wx.TE_WORDWRAP, size=(-1, 80))
+                                       style=wx.TE_MULTILINE, size=(450, 100))
                     ctrl.SetBackgroundColour(get_wx_color('bg_input'))
                     ctrl.SetForegroundColour(get_wx_color('text_primary'))
-                    field_sizer.Add(ctrl, 0, wx.EXPAND)
+                    field_sizer.Add(ctrl, 0)
                 else:
                     field_sizer = wx.BoxSizer(wx.HORIZONTAL)
                     f_label = wx.StaticText(custom_panel, label=f"{field_name}:")
@@ -6313,7 +6325,11 @@ class MainFrame(wx.Frame):
                     field_sizer.Add(ctrl, 1)
 
                 custom_field_ctrls[field_name] = (ctrl, field_type)
-                custom_sizer.Add(field_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+                # Give multiline fields more vertical space
+                if field_type == 'multiline':
+                    custom_sizer.Add(field_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+                else:
+                    custom_sizer.Add(field_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
         else:
             no_fields_label = wx.StaticText(custom_panel,
                 label="No custom fields defined for this deck.\nEdit the deck to add custom fields.")
