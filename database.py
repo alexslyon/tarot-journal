@@ -2329,7 +2329,43 @@ def create_default_spreads(db: Database):
             "The classic 10-card Celtic Cross spread",
             "Tarot"
         )
-        
+
+        # 15-Card Golden Dawn / Thoth Spread
+        # Layout: Wide X shape with horizontal triads
+        # Center triad in middle, 4 triads at diagonal corners
+        # Card size 50x75, gap of 8 between cards
+        db.add_spread(
+            "Golden Dawn 15-Card",
+            [
+                # Spirit/Significator Triad (Center) - Cards 2, 1, 3 horizontal
+                {"x": 175, "y": 150, "label": "2", "width": 50, "height": 75},
+                {"x": 233, "y": 150, "label": "1 - Significator", "width": 50, "height": 75},
+                {"x": 291, "y": 150, "label": "3", "width": 50, "height": 75},
+
+                # Current Path / Earth Triad (Upper Right) - Cards 4, 8, 12 horizontal
+                {"x": 320, "y": 50, "label": "4", "width": 50, "height": 75},
+                {"x": 378, "y": 50, "label": "8 - Current Path", "width": 50, "height": 75},
+                {"x": 436, "y": 50, "label": "12", "width": 50, "height": 75},
+
+                # Alternate Path / Water Triad (Upper Left) - Cards 5, 9, 13 horizontal
+                {"x": 30, "y": 50, "label": "5", "width": 50, "height": 75},
+                {"x": 88, "y": 50, "label": "9 - Alternate Path", "width": 50, "height": 75},
+                {"x": 146, "y": 50, "label": "13", "width": 50, "height": 75},
+
+                # Psychological / Air Triad (Lower Left) - Cards 6, 10, 14 horizontal
+                {"x": 30, "y": 250, "label": "6", "width": 50, "height": 75},
+                {"x": 88, "y": 250, "label": "10 - Psychology", "width": 50, "height": 75},
+                {"x": 146, "y": 250, "label": "14", "width": 50, "height": 75},
+
+                # Karma / Fire Triad (Lower Right) - Cards 7, 11, 15 horizontal
+                {"x": 320, "y": 250, "label": "7", "width": 50, "height": 75},
+                {"x": 378, "y": 250, "label": "11 - Karma/Destiny", "width": 50, "height": 75},
+                {"x": 436, "y": 250, "label": "15", "width": 50, "height": 75},
+            ],
+            "The 15-card Golden Dawn/Thoth spread with five elemental triads. Uses elemental dignities, not reversals.",
+            "Tarot"
+        )
+
         # === LENORMAND SPREADS ===
         
         # Three card line (Lenormand)
@@ -2396,6 +2432,48 @@ def create_default_spreads(db: Database):
             gt_positions,
             "Full 36-card Lenormand Grand Tableau",
             "Lenormand"
+        )
+
+    # Always check for missing default spreads (for existing users)
+    _add_missing_default_spreads(db)
+
+
+def _add_missing_default_spreads(db: Database):
+    """Add any default spreads that are missing (for existing databases)"""
+    existing_spreads = {s['name'] for s in db.get_spreads()}
+
+    # Golden Dawn 15-Card spread - wide X shape with horizontal triads
+    if "Golden Dawn 15-Card" not in existing_spreads:
+        db.add_spread(
+            "Golden Dawn 15-Card",
+            [
+                # Spirit/Significator Triad (Center) - Cards 2, 1, 3 horizontal
+                {"x": 175, "y": 150, "label": "2", "width": 50, "height": 75},
+                {"x": 233, "y": 150, "label": "1 - Significator", "width": 50, "height": 75},
+                {"x": 291, "y": 150, "label": "3", "width": 50, "height": 75},
+
+                # Current Path / Earth Triad (Upper Right) - Cards 4, 8, 12 horizontal
+                {"x": 320, "y": 50, "label": "4", "width": 50, "height": 75},
+                {"x": 378, "y": 50, "label": "8 - Current Path", "width": 50, "height": 75},
+                {"x": 436, "y": 50, "label": "12", "width": 50, "height": 75},
+
+                # Alternate Path / Water Triad (Upper Left) - Cards 5, 9, 13 horizontal
+                {"x": 30, "y": 50, "label": "5", "width": 50, "height": 75},
+                {"x": 88, "y": 50, "label": "9 - Alternate Path", "width": 50, "height": 75},
+                {"x": 146, "y": 50, "label": "13", "width": 50, "height": 75},
+
+                # Psychological / Air Triad (Lower Left) - Cards 6, 10, 14 horizontal
+                {"x": 30, "y": 250, "label": "6", "width": 50, "height": 75},
+                {"x": 88, "y": 250, "label": "10 - Psychology", "width": 50, "height": 75},
+                {"x": 146, "y": 250, "label": "14", "width": 50, "height": 75},
+
+                # Karma / Fire Triad (Lower Right) - Cards 7, 11, 15 horizontal
+                {"x": 320, "y": 250, "label": "7", "width": 50, "height": 75},
+                {"x": 378, "y": 250, "label": "11 - Karma/Destiny", "width": 50, "height": 75},
+                {"x": 436, "y": 250, "label": "15", "width": 50, "height": 75},
+            ],
+            "The 15-card Golden Dawn/Thoth spread with five elemental triads. Uses elemental dignities, not reversals.",
+            "Tarot"
         )
 
 

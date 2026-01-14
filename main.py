@@ -429,7 +429,24 @@ class MainFrame(wx.Frame):
         decks_label = wx.StaticText(left, label="Decks")
         decks_label.SetForegroundColour(get_wx_color('text_primary'))
         left_sizer.Add(decks_label, 0, wx.ALL, 5)
-        
+
+        # View toggle buttons (List / Images)
+        view_toggle_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.deck_list_view_btn = wx.ToggleButton(left, label="List")
+        self.deck_list_view_btn.SetValue(True)  # Default to list view
+        self.deck_list_view_btn.Bind(wx.EVT_TOGGLEBUTTON, lambda e: self._set_deck_view_mode('list'))
+        view_toggle_sizer.Add(self.deck_list_view_btn, 0, wx.RIGHT, 5)
+
+        self.deck_image_view_btn = wx.ToggleButton(left, label="Images")
+        self.deck_image_view_btn.Bind(wx.EVT_TOGGLEBUTTON, lambda e: self._set_deck_view_mode('image'))
+        view_toggle_sizer.Add(self.deck_image_view_btn, 0)
+
+        left_sizer.Add(view_toggle_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
+
+        # Track deck view mode
+        self._deck_view_mode = 'list'
+        self._selected_deck_id = None  # Track selected deck across view switches
+
         # Type filter
         self.type_filter = wx.Choice(left, choices=['All', 'Tarot', 'Lenormand', 'Kipper', 'Oracle'])
         self.type_filter.SetSelection(0)
@@ -447,6 +464,15 @@ class MainFrame(wx.Frame):
         self.deck_list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self._on_edit_deck)
         self.deck_list.Bind(wx.EVT_LIST_COL_CLICK, self._on_deck_list_col_click)
         left_sizer.Add(self.deck_list, 1, wx.EXPAND | wx.ALL, 5)
+
+        # Deck image view (scrolled panel with card back thumbnails)
+        self.deck_image_scroll = scrolled.ScrolledPanel(left)
+        self.deck_image_scroll.SetBackgroundColour(get_wx_color('bg_secondary'))
+        self.deck_image_scroll.SetupScrolling()
+        self.deck_image_sizer = wx.WrapSizer(wx.HORIZONTAL)
+        self.deck_image_scroll.SetSizer(self.deck_image_sizer)
+        self.deck_image_scroll.Hide()  # Hidden by default, list view shown
+        left_sizer.Add(self.deck_image_scroll, 1, wx.EXPAND | wx.ALL, 5)
 
         # Track deck list sorting state
         self._deck_list_sort_col = 0  # Default sort by name
@@ -1505,15 +1531,18 @@ class MainFrame(wx.Frame):
         self._deck_list_data = []
         for deck in decks:
             cards = self.db.get_cards(deck['id'])
+            card_back = deck['card_back_image'] if 'card_back_image' in deck.keys() else None
             self._deck_list_data.append({
                 'id': deck['id'],
                 'name': deck['name'],
                 'type': deck['cartomancy_type_name'],
-                'count': len(cards)
+                'count': len(cards),
+                'card_back_image': card_back
             })
 
-        # Apply current sort
+        # Apply current sort and display based on view mode
         self._sort_and_display_decks()
+        self._refresh_deck_image_view()
 
         self._update_deck_choice()
 
@@ -1550,7 +1579,170 @@ class MainFrame(wx.Frame):
             self._deck_list_sort_asc = True
 
         self._sort_and_display_decks()
-    
+
+    def _set_deck_view_mode(self, mode):
+        """Switch between list and image view modes"""
+        if mode == self._deck_view_mode:
+            # Re-select the current button if clicking the already-active mode
+            if mode == 'list':
+                self.deck_list_view_btn.SetValue(True)
+            else:
+                self.deck_image_view_btn.SetValue(True)
+            return
+
+        self._deck_view_mode = mode
+
+        # Update toggle button states
+        self.deck_list_view_btn.SetValue(mode == 'list')
+        self.deck_image_view_btn.SetValue(mode == 'image')
+
+        # Show/hide views
+        if mode == 'list':
+            self.deck_image_scroll.Hide()
+            self.deck_list.Show()
+        else:
+            self.deck_list.Hide()
+            self.deck_image_scroll.Show()
+
+        # Refresh layout
+        self.deck_list.GetParent().Layout()
+
+        # Restore selection in the new view
+        if self._selected_deck_id:
+            if mode == 'list':
+                self._select_deck_by_id(self._selected_deck_id)
+            else:
+                self._select_deck_image_by_id(self._selected_deck_id)
+
+    def _refresh_deck_image_view(self):
+        """Refresh the deck image grid view"""
+        self.deck_image_sizer.Clear(True)
+
+        # Sort data same as list view
+        if self._deck_list_sort_col == 0:
+            key_func = lambda x: x['name'].lower()
+        elif self._deck_list_sort_col == 1:
+            key_func = lambda x: x['type'].lower()
+        else:
+            key_func = lambda x: x['count']
+
+        sorted_data = sorted(self._deck_list_data, key=key_func, reverse=not self._deck_list_sort_asc)
+
+        # Create deck widgets
+        for deck in sorted_data:
+            widget = self._create_deck_image_widget(deck)
+            self.deck_image_sizer.Add(widget, 0, wx.ALL, 5)
+
+        self.deck_image_scroll.Layout()
+        self.deck_image_scroll.SetupScrolling(scrollToTop=False)
+
+    def _create_deck_image_widget(self, deck):
+        """Create a clickable deck thumbnail with name label"""
+        panel = wx.Panel(self.deck_image_scroll)
+        panel.SetBackgroundColour(get_wx_color('bg_secondary'))
+        panel.deck_id = deck['id']
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Card back image (100x150 for deck thumbnails)
+        max_width, max_height = 100, 150
+        card_back_path = deck.get('card_back_image')
+
+        if card_back_path and os.path.exists(card_back_path):
+            try:
+                # Load with PIL to handle EXIF orientation properly
+                from PIL import ImageOps
+                pil_img = Image.open(card_back_path)
+                pil_img = ImageOps.exif_transpose(pil_img)
+
+                # Scale to fit
+                w, h = pil_img.size
+                scale = min(max_width / w, max_height / h)
+                new_w, new_h = int(w * scale), int(h * scale)
+                pil_img = pil_img.resize((new_w, new_h), Image.LANCZOS)
+
+                # Convert to wx.Image
+                if pil_img.mode != 'RGB':
+                    pil_img = pil_img.convert('RGB')
+                wx_img = wx.Image(new_w, new_h)
+                wx_img.SetData(pil_img.tobytes())
+                bitmap = wx.Bitmap(wx_img)
+                img_ctrl = wx.StaticBitmap(panel, bitmap=bitmap)
+            except Exception:
+                img_ctrl = self._create_deck_placeholder(panel, max_width, max_height)
+        else:
+            img_ctrl = self._create_deck_placeholder(panel, max_width, max_height)
+
+        sizer.Add(img_ctrl, 0, wx.ALIGN_CENTER | wx.ALL, 5)
+
+        # Deck name label (wrap to fit width)
+        name_label = wx.StaticText(panel, label=deck['name'])
+        name_label.SetForegroundColour(get_wx_color('text_primary'))
+        name_label.Wrap(max_width + 10)
+        sizer.Add(name_label, 0, wx.ALIGN_CENTER | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
+
+        panel.SetSizer(sizer)
+
+        # Click handlers
+        def on_click(e):
+            self._on_deck_image_click(deck['id'])
+
+        panel.Bind(wx.EVT_LEFT_DOWN, on_click)
+        img_ctrl.Bind(wx.EVT_LEFT_DOWN, on_click)
+        name_label.Bind(wx.EVT_LEFT_DOWN, on_click)
+
+        # Double-click to edit
+        def on_dclick(e):
+            self._selected_deck_id = deck['id']
+            self._on_edit_deck(None)
+
+        panel.Bind(wx.EVT_LEFT_DCLICK, on_dclick)
+        img_ctrl.Bind(wx.EVT_LEFT_DCLICK, on_dclick)
+        name_label.Bind(wx.EVT_LEFT_DCLICK, on_dclick)
+
+        return panel
+
+    def _create_deck_placeholder(self, parent, width, height):
+        """Create a placeholder for decks without card back images"""
+        placeholder = wx.Panel(parent, size=(width, height))
+        placeholder.SetBackgroundColour(get_wx_color('bg_tertiary'))
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.AddStretchSpacer()
+        icon = wx.StaticText(placeholder, label="🂠")
+        icon.SetFont(wx.Font(32, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+        icon.SetForegroundColour(get_wx_color('text_dim'))
+        sizer.Add(icon, 0, wx.ALIGN_CENTER)
+        sizer.AddStretchSpacer()
+        placeholder.SetSizer(sizer)
+
+        return placeholder
+
+    def _on_deck_image_click(self, deck_id):
+        """Handle click on a deck image in image view"""
+        self._selected_deck_id = deck_id
+        self._highlight_selected_deck_image(deck_id)
+        self._refresh_cards_display(deck_id)
+
+    def _highlight_selected_deck_image(self, deck_id):
+        """Highlight the selected deck in image view"""
+        for child in self.deck_image_scroll.GetChildren():
+            if hasattr(child, 'deck_id'):
+                if child.deck_id == deck_id:
+                    child.SetBackgroundColour(get_wx_color('accent_dim'))
+                else:
+                    child.SetBackgroundColour(get_wx_color('bg_secondary'))
+                child.Refresh()
+
+    def _select_deck_image_by_id(self, deck_id):
+        """Select a deck in the image view by its ID"""
+        self._highlight_selected_deck_image(deck_id)
+        # Scroll to make it visible if needed
+        for child in self.deck_image_scroll.GetChildren():
+            if hasattr(child, 'deck_id') and child.deck_id == deck_id:
+                self.deck_image_scroll.ScrollChildIntoView(child)
+                break
+
     def _refresh_spreads_list(self):
         self.spread_list.DeleteAllItems()
         spreads = self.db.get_spreads()
@@ -4304,6 +4496,7 @@ class MainFrame(wx.Frame):
     def _on_deck_select(self, event):
         idx = event.GetIndex()
         deck_id = self.deck_list.GetItemData(idx)
+        self._selected_deck_id = deck_id
         self._refresh_cards_display(deck_id)
     
     def _on_add_deck(self, event):
@@ -4328,12 +4521,20 @@ class MainFrame(wx.Frame):
     
     def _on_edit_deck(self, event):
         """Edit deck name, suit names, and custom fields"""
-        idx = self.deck_list.GetFirstSelected()
-        if idx == -1:
+        # Get deck_id based on current view mode
+        deck_id = None
+        if self._deck_view_mode == 'image':
+            # In image view, use _selected_deck_id
+            deck_id = self._selected_deck_id
+        else:
+            # In list view, use list selection
+            idx = self.deck_list.GetFirstSelected()
+            if idx != -1:
+                deck_id = self.deck_list.GetItemData(idx)
+
+        if not deck_id:
             wx.MessageBox("Select a deck to edit.", "No Selection", wx.OK | wx.ICON_INFORMATION)
             return
-
-        deck_id = self.deck_list.GetItemData(idx)
         deck = self.db.get_deck(deck_id)
         if not deck:
             return
@@ -4341,7 +4542,7 @@ class MainFrame(wx.Frame):
         suit_names = self.db.get_deck_suit_names(deck_id)
         custom_fields = [dict(row) for row in self.db.get_deck_custom_fields(deck_id)]
 
-        dlg = wx.Dialog(self, title="Edit Deck", size=(650, 520))
+        dlg = wx.Dialog(self, title="Edit Deck", size=(650, 520), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         dlg.SetBackgroundColour(get_wx_color('bg_primary'))
         main_sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -4617,17 +4818,18 @@ class MainFrame(wx.Frame):
         card_back_panel.SetSizer(card_back_sizer)
         details_sizer.Add(card_back_panel, 0, wx.ALL, 10)
 
-        # Right side: Other details
-        details_fields_panel = wx.Panel(details_panel)
-        details_fields_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        # Right side: Other details (in a scrolled panel)
+        details_fields_scroll = scrolled.ScrolledPanel(details_panel)
+        details_fields_scroll.SetBackgroundColour(get_wx_color('bg_primary'))
+        details_fields_scroll.SetupScrolling(scroll_x=False)
         details_fields_sizer = wx.BoxSizer(wx.VERTICAL)
 
         # Date Published
         date_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        date_label = wx.StaticText(details_fields_panel, label="Date Published:")
+        date_label = wx.StaticText(details_fields_scroll, label="Date Published:")
         date_label.SetForegroundColour(get_wx_color('text_primary'))
         date_sizer.Add(date_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
-        date_ctrl = wx.TextCtrl(details_fields_panel, value=deck['date_published'] or '' if 'date_published' in deck.keys() else '')
+        date_ctrl = wx.TextCtrl(details_fields_scroll, value=deck['date_published'] or '' if 'date_published' in deck.keys() else '')
         date_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
         date_ctrl.SetForegroundColour(get_wx_color('text_primary'))
         date_sizer.Add(date_ctrl, 1)
@@ -4635,44 +4837,44 @@ class MainFrame(wx.Frame):
 
         # Publisher
         pub_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        pub_label = wx.StaticText(details_fields_panel, label="Publisher:")
+        pub_label = wx.StaticText(details_fields_scroll, label="Publisher:")
         pub_label.SetForegroundColour(get_wx_color('text_primary'))
         pub_sizer.Add(pub_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
-        pub_ctrl = wx.TextCtrl(details_fields_panel, value=deck['publisher'] or '' if 'publisher' in deck.keys() else '')
+        pub_ctrl = wx.TextCtrl(details_fields_scroll, value=deck['publisher'] or '' if 'publisher' in deck.keys() else '')
         pub_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
         pub_ctrl.SetForegroundColour(get_wx_color('text_primary'))
         pub_sizer.Add(pub_ctrl, 1)
         details_fields_sizer.Add(pub_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         # Credits
-        credits_label = wx.StaticText(details_fields_panel, label="Credits:")
+        credits_label = wx.StaticText(details_fields_scroll, label="Credits:")
         credits_label.SetForegroundColour(get_wx_color('text_primary'))
         details_fields_sizer.Add(credits_label, 0, wx.LEFT | wx.RIGHT, 10)
-        credits_ctrl = RichTextPanel(details_fields_panel,
+        credits_ctrl = RichTextPanel(details_fields_scroll,
                                      value=deck['credits'] or '' if 'credits' in deck.keys() else '',
-                                     min_height=60)
+                                     min_height=100)
         details_fields_sizer.Add(credits_ctrl, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         # Notes
-        notes_label = wx.StaticText(details_fields_panel, label="Notes:")
+        notes_label = wx.StaticText(details_fields_scroll, label="Notes:")
         notes_label.SetForegroundColour(get_wx_color('text_primary'))
         details_fields_sizer.Add(notes_label, 0, wx.LEFT | wx.RIGHT, 10)
-        deck_notes_ctrl = RichTextPanel(details_fields_panel,
+        deck_notes_ctrl = RichTextPanel(details_fields_scroll,
                                         value=deck['notes'] or '' if 'notes' in deck.keys() else '',
-                                        min_height=60)
+                                        min_height=100)
         details_fields_sizer.Add(deck_notes_ctrl, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         # Booklet Info
-        booklet_label = wx.StaticText(details_fields_panel, label="Booklet Info:")
+        booklet_label = wx.StaticText(details_fields_scroll, label="Booklet Info:")
         booklet_label.SetForegroundColour(get_wx_color('text_primary'))
         details_fields_sizer.Add(booklet_label, 0, wx.LEFT | wx.RIGHT, 10)
-        booklet_ctrl = RichTextPanel(details_fields_panel,
+        booklet_ctrl = RichTextPanel(details_fields_scroll,
                                      value=deck['booklet_info'] or '' if 'booklet_info' in deck.keys() else '',
-                                     min_height=60)
-        details_fields_sizer.Add(booklet_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+                                     min_height=100)
+        details_fields_sizer.Add(booklet_ctrl, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
-        details_fields_panel.SetSizer(details_fields_sizer)
-        details_sizer.Add(details_fields_panel, 1, wx.EXPAND | wx.ALL, 5)
+        details_fields_scroll.SetSizer(details_fields_sizer)
+        details_sizer.Add(details_fields_scroll, 1, wx.EXPAND | wx.ALL, 5)
 
         details_panel.SetSizer(details_sizer)
         notebook.AddPage(details_panel, "Details")
@@ -5389,26 +5591,39 @@ class MainFrame(wx.Frame):
         dlg.Destroy()
     
     def _on_delete_deck(self, event):
-        idx = self.deck_list.GetFirstSelected()
-        if idx == -1:
-            return
+        # Get deck_id based on current view mode
+        deck_id = None
+        if self._deck_view_mode == 'image':
+            deck_id = self._selected_deck_id
+        else:
+            idx = self.deck_list.GetFirstSelected()
+            if idx != -1:
+                deck_id = self.deck_list.GetItemData(idx)
 
-        deck_id = self.deck_list.GetItemData(idx)
+        if not deck_id:
+            return
         deck = self.db.get_deck(deck_id)
 
         if wx.MessageBox(f"Delete '{deck['name']}' and all cards?", "Confirm", wx.YES_NO | wx.ICON_QUESTION) == wx.YES:
             self.db.delete_deck(deck_id)
+            self._selected_deck_id = None
             self._refresh_decks_list()
             self._refresh_cards_display(None)
 
     def _on_export_deck(self, event):
         """Export the selected deck with all metadata to a JSON file."""
-        idx = self.deck_list.GetFirstSelected()
-        if idx == -1:
+        # Get deck_id based on current view mode
+        deck_id = None
+        if self._deck_view_mode == 'image':
+            deck_id = self._selected_deck_id
+        else:
+            idx = self.deck_list.GetFirstSelected()
+            if idx != -1:
+                deck_id = self.deck_list.GetItemData(idx)
+
+        if not deck_id:
             wx.MessageBox("Select a deck to export.", "No Selection", wx.OK | wx.ICON_INFORMATION)
             return
-
-        deck_id = self.deck_list.GetItemData(idx)
         deck = self.db.get_deck(deck_id)
         if not deck:
             return
@@ -5475,12 +5690,18 @@ class MainFrame(wx.Frame):
         file_dlg.Destroy()
 
     def _on_add_card(self, event):
-        idx = self.deck_list.GetFirstSelected()
-        if idx == -1:
+        # Get deck_id based on current view mode
+        deck_id = None
+        if self._deck_view_mode == 'image':
+            deck_id = self._selected_deck_id
+        else:
+            idx = self.deck_list.GetFirstSelected()
+            if idx != -1:
+                deck_id = self.deck_list.GetItemData(idx)
+
+        if not deck_id:
             wx.MessageBox("Select a deck first.", "No Deck", wx.OK | wx.ICON_INFORMATION)
             return
-        
-        deck_id = self.deck_list.GetItemData(idx)
         
         dlg = wx.TextEntryDialog(self, "Card name:", "Add Card")
         if dlg.ShowModal() == wx.ID_OK:
@@ -5499,12 +5720,18 @@ class MainFrame(wx.Frame):
         dlg.Destroy()
     
     def _on_import_cards(self, event):
-        idx = self.deck_list.GetFirstSelected()
-        if idx == -1:
+        # Get deck_id based on current view mode
+        deck_id = None
+        if self._deck_view_mode == 'image':
+            deck_id = self._selected_deck_id
+        else:
+            idx = self.deck_list.GetFirstSelected()
+            if idx != -1:
+                deck_id = self.deck_list.GetItemData(idx)
+
+        if not deck_id:
             wx.MessageBox("Select a deck first.", "No Deck", wx.OK | wx.ICON_INFORMATION)
             return
-        
-        deck_id = self.deck_list.GetItemData(idx)
         
         dlg = wx.FileDialog(self, "Select images", wildcard="Images|*.jpg;*.jpeg;*.png;*.gif;*.webp",
                            style=wx.FD_OPEN | wx.FD_MULTIPLE)
@@ -5530,10 +5757,17 @@ class MainFrame(wx.Frame):
         if not card_id:
             return
 
-        idx = self.deck_list.GetFirstSelected()
-        if idx == -1:
+        # Get deck_id based on current view mode
+        deck_id = None
+        if self._deck_view_mode == 'image':
+            deck_id = self._selected_deck_id
+        else:
+            idx = self.deck_list.GetFirstSelected()
+            if idx != -1:
+                deck_id = self.deck_list.GetItemData(idx)
+
+        if not deck_id:
             return
-        deck_id = self.deck_list.GetItemData(idx)
 
         # Get the sorted list of cards for navigation
         card_list = self._current_cards_sorted if hasattr(self, '_current_cards_sorted') else []
@@ -5562,7 +5796,7 @@ class MainFrame(wx.Frame):
             return default
 
         # Create dialog
-        dlg = wx.Dialog(self, title=f"Card: {card['name']}", size=(700, 550))
+        dlg = wx.Dialog(self, title=f"Card: {card['name']}", size=(700, 550), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         dlg.SetBackgroundColour(get_wx_color('bg_primary'))
         main_sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -5843,10 +6077,17 @@ class MainFrame(wx.Frame):
             wx.MessageBox("Select a card to edit.", "No Card", wx.OK | wx.ICON_INFORMATION)
             return
 
-        idx = self.deck_list.GetFirstSelected()
-        if idx == -1:
+        # Get deck_id based on current view mode
+        deck_id = None
+        if self._deck_view_mode == 'image':
+            deck_id = self._selected_deck_id
+        else:
+            idx = self.deck_list.GetFirstSelected()
+            if idx != -1:
+                deck_id = self.deck_list.GetItemData(idx)
+
+        if not deck_id:
             return
-        deck_id = self.deck_list.GetItemData(idx)
 
         # Store return_to_view for after dialog closes
         should_return_to_view = return_to_view
@@ -5884,7 +6125,7 @@ class MainFrame(wx.Frame):
         except:
             pass
 
-        dlg = wx.Dialog(self, title="Edit Card", size=(750, 580))
+        dlg = wx.Dialog(self, title="Edit Card", size=(750, 580), style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         dlg.SetBackgroundColour(get_wx_color('bg_primary'))
         main_sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -6160,19 +6401,20 @@ class MainFrame(wx.Frame):
         notebook.AddPage(class_panel, "Classification")
 
         # === Notes Tab ===
-        notes_panel = wx.Panel(notebook)
-        notes_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        notes_scroll = scrolled.ScrolledPanel(notebook)
+        notes_scroll.SetBackgroundColour(get_wx_color('bg_primary'))
+        notes_scroll.SetupScrolling(scroll_x=False)
         notes_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        notes_label = wx.StaticText(notes_panel, label="Personal Notes / Interpretations:")
+        notes_label = wx.StaticText(notes_scroll, label="Personal Notes / Interpretations:")
         notes_label.SetForegroundColour(get_wx_color('text_primary'))
         notes_sizer.Add(notes_label, 0, wx.ALL, 10)
 
-        notes_ctrl = RichTextPanel(notes_panel, value=get_card_field('notes', ''), min_height=100)
-        notes_sizer.Add(notes_ctrl, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        notes_ctrl = RichTextPanel(notes_scroll, value=get_card_field('notes', ''), min_height=150)
+        notes_sizer.Add(notes_ctrl, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
-        notes_panel.SetSizer(notes_sizer)
-        notebook.AddPage(notes_panel, "Notes")
+        notes_scroll.SetSizer(notes_sizer)
+        notebook.AddPage(notes_scroll, "Notes")
 
         # === Tags Tab ===
         card_tags_panel = wx.Panel(notebook)
@@ -6236,14 +6478,15 @@ class MainFrame(wx.Frame):
         notebook.AddPage(card_tags_panel, "Tags")
 
         # === Custom Fields Tab ===
-        custom_panel = wx.Panel(notebook)
-        custom_panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        custom_scroll = scrolled.ScrolledPanel(notebook)
+        custom_scroll.SetBackgroundColour(get_wx_color('bg_primary'))
+        custom_scroll.SetupScrolling(scroll_x=False)
         custom_sizer = wx.BoxSizer(wx.VERTICAL)
 
         custom_field_ctrls = {}
 
         if deck_custom_fields:
-            custom_label = wx.StaticText(custom_panel, label="Deck Custom Fields:")
+            custom_label = wx.StaticText(custom_scroll, label="Deck Custom Fields:")
             custom_label.SetForegroundColour(get_wx_color('text_primary'))
             custom_label.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
             custom_sizer.Add(custom_label, 0, wx.ALL, 10)
@@ -6263,19 +6506,19 @@ class MainFrame(wx.Frame):
                 # Use vertical layout for multiline fields, horizontal for others
                 if field_type == 'multiline':
                     field_sizer = wx.BoxSizer(wx.VERTICAL)
-                    f_label = wx.StaticText(custom_panel, label=f"{field_name}:")
+                    f_label = wx.StaticText(custom_scroll, label=f"{field_name}:")
                     f_label.SetForegroundColour(get_wx_color('text_primary'))
                     field_sizer.Add(f_label, 0, wx.BOTTOM, 5)
-                    ctrl = RichTextPanel(custom_panel, value=str(current_value), min_height=100)
+                    ctrl = RichTextPanel(custom_scroll, value=str(current_value), min_height=120)
                     field_sizer.Add(ctrl, 0, wx.EXPAND)
                 else:
                     field_sizer = wx.BoxSizer(wx.HORIZONTAL)
-                    f_label = wx.StaticText(custom_panel, label=f"{field_name}:")
+                    f_label = wx.StaticText(custom_scroll, label=f"{field_name}:")
                     f_label.SetForegroundColour(get_wx_color('text_primary'))
                     field_sizer.Add(f_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
 
                 if field_type == 'text':
-                    ctrl = wx.TextCtrl(custom_panel, value=str(current_value))
+                    ctrl = wx.TextCtrl(custom_scroll, value=str(current_value))
                     ctrl.SetBackgroundColour(get_wx_color('bg_input'))
                     ctrl.SetForegroundColour(get_wx_color('text_primary'))
                     field_sizer.Add(ctrl, 1)
@@ -6285,13 +6528,13 @@ class MainFrame(wx.Frame):
                         num_val = int(current_value) if current_value else 0
                     except:
                         num_val = 0
-                    ctrl = wx.SpinCtrl(custom_panel, min=-9999, max=9999, initial=num_val)
+                    ctrl = wx.SpinCtrl(custom_scroll, min=-9999, max=9999, initial=num_val)
                     ctrl.SetBackgroundColour(get_wx_color('bg_input'))
                     ctrl.SetForegroundColour(get_wx_color('text_primary'))
                     field_sizer.Add(ctrl, 0)
 
                 elif field_type == 'select' and field_options:
-                    ctrl = wx.Choice(custom_panel, choices=[''] + field_options)
+                    ctrl = wx.Choice(custom_scroll, choices=[''] + field_options)
                     if current_value in field_options:
                         ctrl.SetSelection(field_options.index(current_value) + 1)
                     else:
@@ -6299,7 +6542,7 @@ class MainFrame(wx.Frame):
                     field_sizer.Add(ctrl, 1)
 
                 elif field_type == 'checkbox':
-                    ctrl = wx.CheckBox(custom_panel, label="")
+                    ctrl = wx.CheckBox(custom_scroll, label="")
                     ctrl.SetValue(bool(current_value))
                     field_sizer.Add(ctrl, 0)
 
@@ -6307,7 +6550,7 @@ class MainFrame(wx.Frame):
                     pass  # Already handled above
 
                 else:
-                    ctrl = wx.TextCtrl(custom_panel, value=str(current_value))
+                    ctrl = wx.TextCtrl(custom_scroll, value=str(current_value))
                     ctrl.SetBackgroundColour(get_wx_color('bg_input'))
                     ctrl.SetForegroundColour(get_wx_color('text_primary'))
                     field_sizer.Add(ctrl, 1)
@@ -6319,13 +6562,13 @@ class MainFrame(wx.Frame):
                 else:
                     custom_sizer.Add(field_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
         else:
-            no_fields_label = wx.StaticText(custom_panel,
+            no_fields_label = wx.StaticText(custom_scroll,
                 label="No custom fields defined for this deck.\nEdit the deck to add custom fields.")
             no_fields_label.SetForegroundColour(get_wx_color('text_secondary'))
             custom_sizer.Add(no_fields_label, 0, wx.ALL, 10)
 
-        custom_panel.SetSizer(custom_sizer)
-        notebook.AddPage(custom_panel, "Custom Fields")
+        custom_scroll.SetSizer(custom_sizer)
+        notebook.AddPage(custom_scroll, "Custom Fields")
 
         content_sizer.Add(notebook, 1, wx.EXPAND | wx.ALL, 10)
         main_sizer.Add(content_sizer, 1, wx.EXPAND)
@@ -6474,11 +6717,18 @@ class MainFrame(wx.Frame):
         if not self.selected_card_ids:
             wx.MessageBox("Select card(s) to delete.", "No Card", wx.OK | wx.ICON_INFORMATION)
             return
-        
-        idx = self.deck_list.GetFirstSelected()
-        if idx == -1:
+
+        # Get deck_id based on current view mode
+        deck_id = None
+        if self._deck_view_mode == 'image':
+            deck_id = self._selected_deck_id
+        else:
+            idx = self.deck_list.GetFirstSelected()
+            if idx != -1:
+                deck_id = self.deck_list.GetItemData(idx)
+
+        if not deck_id:
             return
-        deck_id = self.deck_list.GetItemData(idx)
         
         count = len(self.selected_card_ids)
         msg = f"Delete {count} card(s)?" if count > 1 else "Delete this card?"
