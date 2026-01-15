@@ -308,7 +308,7 @@ class Database:
         ''')
 
         # Insert default cartomancy types
-        default_types = ['Tarot', 'Lenormand', 'Kipper', 'Playing Cards', 'Oracle']
+        default_types = ['Tarot', 'Lenormand', 'Kipper', 'Playing Cards', 'Oracle', 'I Ching']
         for ct in default_types:
             cursor.execute(
                 'INSERT OR IGNORE INTO cartomancy_types (name) VALUES (?)',
@@ -504,10 +504,12 @@ class Database:
     
     def update_deck(self, deck_id: int, name: str = None, image_folder: str = None, suit_names: dict = None,
                     date_published: str = None, publisher: str = None, credits: str = None, notes: str = None,
-                    card_back_image: str = None, booklet_info: str = None):
+                    card_back_image: str = None, booklet_info: str = None, cartomancy_type_id: int = None):
         cursor = self.conn.cursor()
         if name:
             cursor.execute('UPDATE decks SET name = ? WHERE id = ?', (name, deck_id))
+        if cartomancy_type_id is not None:
+            cursor.execute('UPDATE decks SET cartomancy_type_id = ? WHERE id = ?', (cartomancy_type_id, deck_id))
         if image_folder:
             cursor.execute('UPDATE decks SET image_folder = ? WHERE id = ?', (image_folder, deck_id))
         if suit_names is not None:
@@ -645,19 +647,29 @@ class Database:
         """Add multiple cards at once.
         cards can be:
         - list of (name, image_path, order) tuples (legacy format)
-        - list of dicts with keys: name, image_path, sort_order, archetype, rank, suit (new format)
+        - list of dicts with keys: name, image_path, sort_order, archetype, rank, suit, custom_fields (new format)
         If auto_metadata is True and legacy format is used, automatically assign archetype/rank/suit."""
         cursor = self.conn.cursor()
 
         # Check if new dict format or legacy tuple format
         if cards and isinstance(cards[0], dict):
             # New format with pre-computed metadata
-            cursor.executemany(
-                '''INSERT INTO cards (deck_id, name, image_path, card_order, archetype, rank, suit)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)''',
-                [(deck_id, c['name'], c['image_path'], c['sort_order'],
-                  c.get('archetype'), c.get('rank'), c.get('suit')) for c in cards]
-            )
+            # Insert cards and collect custom_fields to apply after
+            cards_with_custom_fields = []
+            for c in cards:
+                cursor.execute(
+                    '''INSERT INTO cards (deck_id, name, image_path, card_order, archetype, rank, suit)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                    (deck_id, c['name'], c['image_path'], c['sort_order'],
+                     c.get('archetype'), c.get('rank'), c.get('suit'))
+                )
+                card_id = cursor.lastrowid
+                if c.get('custom_fields'):
+                    cards_with_custom_fields.append((card_id, c['custom_fields']))
+
+            # Apply custom_fields after all cards are inserted
+            for card_id, custom_fields in cards_with_custom_fields:
+                self.update_card_metadata(card_id, custom_fields=custom_fields)
         else:
             # Legacy tuple format
             cursor.executemany(
@@ -1784,11 +1796,13 @@ class Database:
                 self.update_card_metadata(card_id, archetype=archetype, rank=rank, suit=suit)
 
     def auto_assign_deck_metadata(self, deck_id: int, overwrite: bool = False,
-                                   preset_name: str = None):
+                                   preset_name: str = None, use_sort_order: bool = False):
         """
-        Automatically assign metadata to all cards in a deck based on their names.
+        Automatically assign metadata to all cards in a deck.
         If overwrite is False, only updates cards without existing archetype.
         If preset_name is provided, uses ordering-aware metadata from import_presets.
+        If use_sort_order is True, assigns metadata based on card sort order (1, 2, 3...)
+        instead of parsing card names.
         Returns the number of cards updated.
         """
         deck = self.get_deck(deck_id)
@@ -1820,26 +1834,50 @@ class Database:
             from import_presets import get_presets
             presets = get_presets()
 
-            for card in cards:
-                # Skip if already has archetype and not overwriting
-                existing_archetype = card['archetype'] if 'archetype' in card.keys() else None
-                if not overwrite and existing_archetype:
-                    continue
+            # If using sort order, sort cards and assign metadata sequentially
+            if use_sort_order:
+                # Sort cards by their current card_order
+                sorted_cards = sorted(cards, key=lambda c: c['card_order'] if c['card_order'] else 999)
+                for idx, card in enumerate(sorted_cards):
+                    # Skip if already has archetype and not overwriting
+                    existing_archetype = card['archetype'] if 'archetype' in card.keys() else None
+                    if not overwrite and existing_archetype:
+                        continue
 
-                metadata = presets.get_card_metadata(card['name'], preset_name, custom_suit_names,
-                                                     custom_court_names)
-                # Check if we have any metadata to update (including sort_order for Oracle decks)
-                has_metadata = metadata.get('archetype') or metadata.get('rank') or metadata.get('suit')
-                has_sort_order = metadata.get('sort_order') is not None and metadata.get('sort_order') != 999
+                    # Use 1-based index as the sort order for metadata lookup
+                    sort_order = idx + 1
+                    metadata = presets.get_card_metadata_by_sort_order(sort_order, preset_name)
 
-                if has_metadata or has_sort_order:
-                    if has_metadata:
+                    if metadata:
                         self.update_card_metadata(card['id'], archetype=metadata.get('archetype'),
-                                                 rank=metadata.get('rank'), suit=metadata.get('suit'))
-                    # Also update sort order
-                    if has_sort_order:
-                        self.update_card(card['id'], card_order=metadata.get('sort_order'))
-                    updated += 1
+                                                 rank=metadata.get('rank'), suit=metadata.get('suit'),
+                                                 custom_fields=metadata.get('custom_fields'))
+                        # Update sort order to match
+                        self.update_card(card['id'], card_order=sort_order)
+                        updated += 1
+            else:
+                # Parse card names for metadata
+                for card in cards:
+                    # Skip if already has archetype and not overwriting
+                    existing_archetype = card['archetype'] if 'archetype' in card.keys() else None
+                    if not overwrite and existing_archetype:
+                        continue
+
+                    metadata = presets.get_card_metadata(card['name'], preset_name, custom_suit_names,
+                                                         custom_court_names)
+                    # Check if we have any metadata to update (including sort_order for Oracle decks)
+                    has_metadata = metadata.get('archetype') or metadata.get('rank') or metadata.get('suit')
+                    has_sort_order = metadata.get('sort_order') is not None and metadata.get('sort_order') != 999
+
+                    if has_metadata or has_sort_order:
+                        if has_metadata:
+                            self.update_card_metadata(card['id'], archetype=metadata.get('archetype'),
+                                                     rank=metadata.get('rank'), suit=metadata.get('suit'),
+                                                     custom_fields=metadata.get('custom_fields'))
+                        # Also update sort order
+                        if has_sort_order:
+                            self.update_card(card['id'], card_order=metadata.get('sort_order'))
+                        updated += 1
         else:
             # Fall back to legacy parsing (no preset ordering)
             for card in cards:
@@ -2476,6 +2514,48 @@ def _add_missing_default_spreads(db: Database):
             "Tarot"
         )
 
+    # Fix Thoth deck metadata if needed
+    _fix_thoth_deck_metadata(db)
+
+
+def _fix_thoth_deck_metadata(db: Database):
+    """Fix Thoth deck court card metadata to use proper verbose rank names.
+
+    This fixes an issue where Thoth court cards were imported with incomplete
+    verbose rank names (e.g., 'King / Court Rank 4' instead of
+    'King / Knight (Thoth) / Court Card 4').
+    """
+    # Find Thoth decks (could be named 'Thoth' or 'Thoth Tarot')
+    decks = db.get_decks()
+    thoth_deck = None
+    for deck in decks:
+        if deck['name'] in ('Thoth', 'Thoth Tarot'):
+            thoth_deck = deck
+            break
+
+    if not thoth_deck:
+        return
+
+    # Check if fix is needed by looking at Knight of Disks
+    cards = db.get_cards(thoth_deck['id'])
+    knight_of_disks = None
+    for card in cards:
+        if card['name'] == 'Knight of Disks':
+            knight_of_disks = card
+            break
+
+    if not knight_of_disks:
+        return
+
+    # Check if rank is already correct - should be the full verbose format
+    # with "Knight (Thoth)" in it, not just "King / Court Rank 4"
+    current_rank = knight_of_disks['rank'] if knight_of_disks['rank'] else ''
+    if 'Knight (Thoth)' in str(current_rank):
+        return  # Already fixed
+
+    # Fix the metadata using preset-aware function
+    db.auto_assign_deck_metadata(thoth_deck['id'], overwrite=True, preset_name='Tarot (Thoth)')
+
 
 def create_default_decks(db: Database):
     """Import default decks if they exist and no decks have been added yet"""
@@ -2568,11 +2648,18 @@ def create_default_decks(db: Database):
                     deck_info['preset']
                 )
 
-                # Get sort order
-                sort_order = presets._get_card_sort_order(card_name)
+                # Get full metadata including verbose rank names
+                metadata = presets.get_card_metadata(card_name, deck_info['preset'])
 
-                cards_to_add.append((card_name, str(filepath.absolute()), sort_order))
+                cards_to_add.append({
+                    'name': card_name,
+                    'image_path': str(filepath.absolute()),
+                    'sort_order': metadata.get('sort_order', 0),
+                    'archetype': metadata.get('archetype'),
+                    'rank': metadata.get('rank'),
+                    'suit': metadata.get('suit')
+                })
 
         # Sort by sort order and add to database
-        cards_to_add.sort(key=lambda x: x[2])
+        cards_to_add.sort(key=lambda x: x['sort_order'])
         db.bulk_add_cards(deck_id, cards_to_add)
