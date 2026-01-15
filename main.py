@@ -63,7 +63,12 @@ class ArchetypeAutocomplete(wx.Panel):
 
         # Only show dropdown button for non-Oracle types
         if cartomancy_type != 'Oracle':
-            self.dropdown_btn = wx.Button(self, label="▼", size=(30, -1))
+            from wx.lib.buttons import GenButton
+            self.dropdown_btn = GenButton(self, label="▼", size=(30, -1))
+            self.dropdown_btn.SetBezelWidth(0)
+            self.dropdown_btn.SetUseFocusIndicator(False)
+            self.dropdown_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
+            self.dropdown_btn.SetForegroundColour(get_wx_color('text_primary'))
             self.dropdown_btn.Bind(wx.EVT_BUTTON, self._on_dropdown_click)
             sizer.Add(self.dropdown_btn, 0, wx.LEFT, 2)
 
@@ -95,27 +100,43 @@ class ArchetypeAutocomplete(wx.Panel):
         event.Skip()
 
     def _on_dropdown_click(self, event):
-        # Show all archetypes for this type
-        self._show_suggestions('')
+        # Toggle popup - if showing, hide it; otherwise show all archetypes
+        if self._popup and self._popup.IsShown():
+            self._hide_popup()
+        else:
+            self._show_suggestions('')
+            # Keep focus handling happy
+            if self._popup:
+                self._listbox.SetFocus()
 
     def _on_key_down(self, event):
         if event.GetKeyCode() == wx.WXK_ESCAPE:
             self._hide_popup()
         elif event.GetKeyCode() == wx.WXK_DOWN and self._popup and self._popup.IsShown():
             # Move focus to listbox
-            if self._listbox.GetCount() > 0:
-                self._listbox.SetSelection(0)
+            if self._listbox.GetItemCount() > 0:
+                self._listbox.Select(0)
                 self._listbox.SetFocus()
         else:
             event.Skip()
 
     def _on_focus_lost(self, event):
-        # Delay hiding to allow click on popup
-        wx.CallLater(150, self._check_and_hide_popup)
+        # Delay hiding to allow click on popup or dropdown button
+        wx.CallLater(200, self._check_and_hide_popup)
         event.Skip()
 
     def _check_and_hide_popup(self):
-        if self._popup and not self._listbox.HasFocus():
+        # Don't hide if listbox or dropdown button has focus
+        if self._popup and self._popup.IsShown():
+            if hasattr(self, '_listbox') and self._listbox.HasFocus():
+                return
+            if hasattr(self, 'dropdown_btn') and self.dropdown_btn.HasFocus():
+                return
+            # Check if mouse is over the popup
+            mouse_pos = wx.GetMousePosition()
+            popup_rect = self._popup.GetScreenRect()
+            if popup_rect.Contains(mouse_pos):
+                return
             self._hide_popup()
 
     def _show_suggestions(self, query):
@@ -138,35 +159,40 @@ class ArchetypeAutocomplete(wx.Panel):
             self._popup.SetBackgroundColour(get_wx_color('bg_secondary'))
 
             popup_sizer = wx.BoxSizer(wx.VERTICAL)
-            self._listbox = wx.ListBox(self._popup, style=wx.LB_SINGLE)
+            # Use ListCtrl for better color support on macOS
+            self._listbox = wx.ListCtrl(self._popup, style=wx.LC_REPORT | wx.LC_SINGLE_SEL | wx.LC_NO_HEADER)
             self._listbox.SetBackgroundColour(get_wx_color('bg_secondary'))
-            self._listbox.SetForegroundColour(get_wx_color('text_primary'))
-            self._listbox.Bind(wx.EVT_LISTBOX_DCLICK, self._on_select)
+            self._listbox.SetTextColour(get_wx_color('text_primary'))
+            self._listbox.InsertColumn(0, "", width=300)
+            # Single click to select (like a normal dropdown)
+            self._listbox.Bind(wx.EVT_LIST_ITEM_SELECTED, self._on_select)
+            self._listbox.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self._on_select)
             self._listbox.Bind(wx.EVT_KEY_DOWN, self._on_listbox_key)
             popup_sizer.Add(self._listbox, 1, wx.EXPAND | wx.ALL, 2)
             self._popup.SetSizer(popup_sizer)
 
         # Populate listbox
-        self._listbox.Clear()
+        self._listbox.DeleteAllItems()
         self._archetype_data = []
-        for arch in results:
+        for idx, arch in enumerate(results):
             # Format display: "Name (Rank - Suit)" or just "Name"
             display = arch['name']
             if arch['rank'] and arch['suit']:
                 display = f"{arch['name']} ({arch['rank']} - {arch['suit']})"
             elif arch['rank']:
                 display = f"{arch['name']} ({arch['rank']})"
-            self._listbox.Append(display)
+            self._listbox.InsertItem(idx, display)
             self._archetype_data.append(arch)
 
         # Position popup below text control
         pos = self.text_ctrl.ClientToScreen(wx.Point(0, self.text_ctrl.GetSize().height))
         width = self.text_ctrl.GetSize().width + 32
-        height = min(200, 20 * len(results) + 10)
+        height = min(200, 24 * len(results) + 10)
 
         self._popup.SetPosition(pos)
         self._popup.SetSize(width, height)
         self._listbox.SetSize(width - 4, height - 4)
+        self._listbox.SetColumnWidth(0, width - 24)  # Account for scrollbar
         self._popup.Show()
 
     def _hide_popup(self):
@@ -174,7 +200,7 @@ class ArchetypeAutocomplete(wx.Panel):
             self._popup.Hide()
 
     def _on_select(self, event):
-        idx = self._listbox.GetSelection()
+        idx = self._listbox.GetFirstSelected()
         if idx >= 0 and idx < len(self._archetype_data):
             arch = self._archetype_data[idx]
             self._suppress_popup = True
@@ -231,7 +257,7 @@ class MainFrame(wx.Frame):
         self.selected_card_ids = set()  # Multi-select support
         self.editing_spread_id = None
         self.designer_positions = []
-        self.drag_data = {'idx': None, 'offset_x': 0, 'offset_y': 0}
+        self.drag_data = {'idx': None, 'offset_x': 0, 'offset_y': 0, 'resize': None}  # resize: 'nw', 'ne', 'sw', 'se', or None
         self._current_deck_id_for_cards = None
         self._current_cards_sorted = []
         self._current_cards_categorized = {}
@@ -2628,8 +2654,10 @@ class MainFrame(wx.Frame):
 
                             if image_path and os.path.exists(image_path):
                                 try:
-                                    from PIL import Image as PILImage
+                                    from PIL import Image as PILImage, ImageOps
                                     pil_img = PILImage.open(image_path)
+                                    # Handle EXIF orientation before any other transforms
+                                    pil_img = ImageOps.exif_transpose(pil_img)
                                     pil_img = pil_img.convert('RGB')
 
                                     # Rotate if position is rotated (for horizontal cards like Celtic Cross challenge)
@@ -2641,17 +2669,24 @@ class MainFrame(wx.Frame):
                                         pil_img = pil_img.rotate(180)
 
                                     orig_w, orig_h = pil_img.size
-                                    if orig_h > 0:
-                                        target_h = h - 4
-                                        scale_factor = target_h / orig_h
-                                        target_w = int(orig_w * scale_factor)
+                                    if orig_h > 0 and orig_w > 0:
+                                        # For rotated positions, scale to fit width; for normal, scale to fit height
+                                        if is_position_rotated:
+                                            target_w = w - 4
+                                            scale_factor = target_w / orig_w
+                                            target_h = int(orig_h * scale_factor)
+                                        else:
+                                            target_h = h - 4
+                                            scale_factor = target_h / orig_h
+                                            target_w = int(orig_w * scale_factor)
                                         pil_img = pil_img.resize((target_w, target_h), PILImage.LANCZOS)
 
                                         wx_img = wx.Image(target_w, target_h)
                                         wx_img.SetData(pil_img.tobytes())
                                         bmp = wx.StaticBitmap(spread_panel, bitmap=wx.Bitmap(wx_img))
                                         img_x = x + (w - target_w) // 2
-                                        bmp.SetPosition((img_x, y + 2))
+                                        img_y = y + (h - target_h) // 2
+                                        bmp.SetPosition((img_x, img_y))
 
                                         # Add tooltip with card name and position
                                         tooltip_text = f"{card_name} - {label}"
@@ -2669,6 +2704,8 @@ class MainFrame(wx.Frame):
                                             r_label.SetForegroundColour(get_wx_color('accent'))
                                             r_label.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
                                             r_label.SetPosition((img_x + 2, y + 4))
+                                            if card_id:
+                                                r_label.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
 
                                         image_placed = True
                                 except Exception:
@@ -2778,8 +2815,9 @@ class MainFrame(wx.Frame):
 
                         if image_path and os.path.exists(image_path):
                             try:
-                                from PIL import Image as PILImage
+                                from PIL import Image as PILImage, ImageOps
                                 pil_img = PILImage.open(image_path)
+                                pil_img = ImageOps.exif_transpose(pil_img)
                                 pil_img = pil_img.convert('RGB')
                                 pil_img = pil_img.resize((80, 110), PILImage.LANCZOS)
 
@@ -2787,6 +2825,9 @@ class MainFrame(wx.Frame):
                                 wx_img.SetData(pil_img.tobytes())
                                 bmp = wx.StaticBitmap(card_panel, bitmap=wx.Bitmap(wx_img))
                                 card_sizer_inner.Add(bmp, 0, wx.ALL | wx.ALIGN_CENTER, 2)
+                                # Bind double-click on image too
+                                if card_id:
+                                    bmp.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
                             except:
                                 pass
 
@@ -2794,6 +2835,9 @@ class MainFrame(wx.Frame):
                         name_label.SetForegroundColour(get_wx_color('text_primary'))
                         name_label.SetFont(wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
                         card_sizer_inner.Add(name_label, 0, wx.ALL | wx.ALIGN_CENTER, 2)
+                        # Bind double-click on label too
+                        if card_id:
+                            name_label.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
 
                         card_panel.SetSizer(card_sizer_inner)
                         cards_sizer.Add(card_panel, 0, wx.ALL, 5)
@@ -3268,13 +3312,13 @@ class MainFrame(wx.Frame):
                         card_name = card_data
                         reversed_state = False
                         card_deck_id = dlg._selected_deck_id
-                        card_deck_name = reading.get('deck_name', '')
+                        card_deck_name = reading['deck_name'] if reading['deck_name'] else ''
                     else:
                         card_name = card_data.get('name', '')
                         reversed_state = card_data.get('reversed', False)
                         # Multi-deck format includes deck_id per card
                         card_deck_id = card_data.get('deck_id', dlg._selected_deck_id)
-                        card_deck_name = card_data.get('deck_name', reading.get('deck_name', ''))
+                        card_deck_name = card_data.get('deck_name', reading['deck_name'] if reading['deck_name'] else '')
 
                     # Get image path from the card's deck
                     image_path = None
@@ -3445,8 +3489,10 @@ class MainFrame(wx.Frame):
 
                     if image_path and os.path.exists(image_path):
                         try:
-                            from PIL import Image as PILImage
+                            from PIL import Image as PILImage, ImageOps
                             pil_img = PILImage.open(image_path)
+                            # Handle EXIF orientation before any other transforms
+                            pil_img = ImageOps.exif_transpose(pil_img)
                             pil_img = pil_img.convert('RGB')
 
                             # Rotate if position is rotated (for horizontal cards like Celtic Cross challenge)
@@ -3458,26 +3504,33 @@ class MainFrame(wx.Frame):
                                 pil_img = pil_img.rotate(180)
 
                             orig_w, orig_h = pil_img.size
-                            if orig_h > 0:
-                                target_h = h - 4
-                                scale_factor = target_h / orig_h
-                                target_w = int(orig_w * scale_factor)
+                            if orig_h > 0 and orig_w > 0:
+                                # For rotated positions, scale to fit width; for normal, scale to fit height
+                                if is_position_rotated:
+                                    target_w = w - 4
+                                    scale_factor = target_w / orig_w
+                                    target_h = int(orig_h * scale_factor)
+                                else:
+                                    target_h = h - 4
+                                    scale_factor = target_h / orig_h
+                                    target_w = int(orig_w * scale_factor)
                                 pil_img = pil_img.resize((target_w, target_h), PILImage.LANCZOS)
 
                                 wx_img = wx.Image(target_w, target_h)
                                 wx_img.SetData(pil_img.tobytes())
                                 bmp = wx.Bitmap(wx_img)
                                 img_x = x + (w - target_w) // 2
-                                dc.DrawBitmap(bmp, img_x, y + 2)
+                                img_y = y + (h - target_h) // 2
+                                dc.DrawBitmap(bmp, img_x, img_y)
                                 dc.SetBrush(wx.TRANSPARENT_BRUSH)
                                 dc.SetPen(wx.Pen(get_wx_color('accent'), 2))
-                                dc.DrawRectangle(img_x - 1, y, target_w + 2, h)
+                                dc.DrawRectangle(img_x - 1, img_y - 1, target_w + 2, target_h + 2)
 
                                 # Add (R) indicator for reversed cards
                                 if card_data.get('reversed', False):
                                     dc.SetTextForeground(get_wx_color('accent'))
                                     dc.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-                                    dc.DrawText("(R)", img_x + 2, y + 4)
+                                    dc.DrawText("(R)", img_x + 2, img_y + 2)
 
                                 image_drawn = True
                         except:
@@ -4655,26 +4708,51 @@ class MainFrame(wx.Frame):
                     # Use Oracle preset
                     preset_name = "Oracle (filename only)"
 
-                # Create a dialog with overwrite option
-                overwrite_dlg = wx.Dialog(dlg, title="Auto-assign Metadata", size=(400, 200))
+                # Create a dialog with options
+                overwrite_dlg = wx.Dialog(dlg, title="Auto-assign Metadata", size=(450, 280))
                 overwrite_dlg.SetBackgroundColour(get_wx_color('bg_primary'))
                 dlg_sizer = wx.BoxSizer(wx.VERTICAL)
 
                 msg = wx.StaticText(overwrite_dlg,
                     label="This will automatically assign archetype, rank, and suit\n"
-                          "to cards based on their names.")
+                          "to cards based on the selected method.")
                 msg.SetForegroundColour(get_wx_color('text_primary'))
                 dlg_sizer.Add(msg, 0, wx.ALL, 15)
 
-                # Use separate checkbox and label because wx.CheckBox doesn't respect
-                # SetForegroundColour on macOS
+                # Assignment method radio buttons
+                # NOTE: wx.RadioButton labels don't support custom colors on macOS
+                # Use empty-label radio buttons with separate StaticText labels
+                method_box = wx.StaticBox(overwrite_dlg, label="Assignment Method")
+                method_box.SetForegroundColour(get_wx_color('accent'))
+                method_sizer = wx.StaticBoxSizer(method_box, wx.VERTICAL)
+
+                method_name_sizer = wx.BoxSizer(wx.HORIZONTAL)
+                method_name_rb = wx.RadioButton(overwrite_dlg, label="", style=wx.RB_GROUP)
+                method_name_rb.SetValue(True)
+                method_name_sizer.Add(method_name_rb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+                method_name_label = wx.StaticText(overwrite_dlg, label="By card name (parse names for rank/suit)")
+                method_name_label.SetForegroundColour(get_wx_color('text_primary'))
+                method_name_sizer.Add(method_name_label, 0, wx.ALIGN_CENTER_VERTICAL)
+                method_sizer.Add(method_name_sizer, 0, wx.ALL, 5)
+
+                method_order_sizer = wx.BoxSizer(wx.HORIZONTAL)
+                method_order_rb = wx.RadioButton(overwrite_dlg, label="")
+                method_order_sizer.Add(method_order_rb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+                method_order_label = wx.StaticText(overwrite_dlg, label="By sort order (assign sequentially 1, 2, 3...)")
+                method_order_label.SetForegroundColour(get_wx_color('text_primary'))
+                method_order_sizer.Add(method_order_label, 0, wx.ALIGN_CENTER_VERTICAL)
+                method_sizer.Add(method_order_sizer, 0, wx.ALL, 5)
+
+                dlg_sizer.Add(method_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 15)
+
+                # Overwrite checkbox - use separate checkbox and label for macOS
                 overwrite_sizer = wx.BoxSizer(wx.HORIZONTAL)
                 overwrite_cb = wx.CheckBox(overwrite_dlg, label="")
                 overwrite_sizer.Add(overwrite_cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
                 overwrite_label = wx.StaticText(overwrite_dlg, label="Overwrite existing metadata")
                 overwrite_label.SetForegroundColour(get_wx_color('text_primary'))
                 overwrite_sizer.Add(overwrite_label, 0, wx.ALIGN_CENTER_VERTICAL)
-                dlg_sizer.Add(overwrite_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
+                dlg_sizer.Add(overwrite_sizer, 0, wx.ALL, 15)
 
                 btn_sizer = wx.StdDialogButtonSizer()
                 ok_btn = wx.Button(overwrite_dlg, wx.ID_OK, "Continue")
@@ -4694,9 +4772,11 @@ class MainFrame(wx.Frame):
 
                 if overwrite_dlg.ShowModal() == wx.ID_OK:
                     overwrite = overwrite_cb.GetValue()
+                    use_sort_order = method_order_rb.GetValue()
                     overwrite_dlg.Destroy()
                     updated = self.db.auto_assign_deck_metadata(deck_id, overwrite=overwrite,
-                                                                 preset_name=preset_name)
+                                                                 preset_name=preset_name,
+                                                                 use_sort_order=use_sort_order)
                     # Refresh the cards display to update selection state
                     self._refresh_cards_display(deck_id, preserve_scroll=True)
                     wx.MessageBox(
@@ -4716,6 +4796,181 @@ class MainFrame(wx.Frame):
             auto_meta_sizer.Add(auto_meta_note, 0, wx.ALIGN_CENTER_VERTICAL)
 
             general_sizer.Add(auto_meta_sizer, 0, wx.ALL, 15)
+
+        # Change Deck Type section
+        change_type_box = wx.StaticBox(general_panel, label="Change Deck Type")
+        change_type_box.SetForegroundColour(get_wx_color('accent'))
+        change_type_sizer = wx.StaticBoxSizer(change_type_box, wx.VERTICAL)
+
+        current_type_label = wx.StaticText(general_panel, label=f"Current type: {deck_type}")
+        current_type_label.SetForegroundColour(get_wx_color('text_primary'))
+        change_type_sizer.Add(current_type_label, 0, wx.ALL, 10)
+
+        change_type_btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        change_type_btn = wx.Button(general_panel, label="Change Deck Type...")
+
+        def on_change_type(e):
+            # Get all cartomancy types
+            types = self.db.get_cartomancy_types()
+            type_names = [t['name'] for t in types]
+            type_ids = {t['name']: t['id'] for t in types}
+
+            # Show type selection dialog
+            type_dlg = wx.SingleChoiceDialog(
+                dlg,
+                "Select the new deck type.\n\n"
+                "This will change the deck's cartomancy type and\n"
+                "reassign card metadata (archetype, rank, suit)\n"
+                "based on sort order. Custom fields will be preserved.",
+                "Change Deck Type",
+                type_names
+            )
+
+            # Pre-select current type
+            if deck_type in type_names:
+                type_dlg.SetSelection(type_names.index(deck_type))
+
+            if type_dlg.ShowModal() != wx.ID_OK:
+                type_dlg.Destroy()
+                return
+
+            new_type_name = type_dlg.GetStringSelection()
+            type_dlg.Destroy()
+
+            if new_type_name == deck_type:
+                wx.MessageBox("Deck type unchanged.", "No Change", wx.OK | wx.ICON_INFORMATION)
+                return
+
+            new_type_id = type_ids[new_type_name]
+
+            # For certain types, ask for preset selection
+            preset_name = None
+            if new_type_name == 'Tarot':
+                # Build list of Tarot presets
+                tarot_presets = []
+                for name in self.presets.get_preset_names():
+                    preset = self.presets.get_preset(name)
+                    if preset and preset.get('type') == 'Tarot':
+                        tarot_presets.append(name)
+
+                if tarot_presets:
+                    preset_dlg = wx.SingleChoiceDialog(
+                        dlg,
+                        "Select the Tarot system for this deck.\n"
+                        "This affects archetype naming and numbering:\n\n"
+                        "• RWS Ordering: Strength=VIII, Justice=XI\n"
+                        "• Thoth/Pre-Golden Dawn: Strength=XI, Justice=VIII\n"
+                        "• Gnostic/Eternal: 78 numbered Arcana (no suits)",
+                        "Select Tarot System",
+                        tarot_presets
+                    )
+                    if preset_dlg.ShowModal() == wx.ID_OK:
+                        preset_name = preset_dlg.GetStringSelection()
+                    else:
+                        preset_dlg.Destroy()
+                        return
+                    preset_dlg.Destroy()
+            elif new_type_name == 'Lenormand':
+                preset_name = "Lenormand (36 cards)"
+            elif new_type_name == 'Kipper':
+                preset_name = "Kipper (36 cards)"
+            elif new_type_name == 'Playing Cards':
+                preset_name = "Playing Cards with Jokers (54 cards)"
+            elif new_type_name == 'Oracle':
+                preset_name = "Oracle (filename only)"
+
+            # Show options dialog for the type change
+            options_dlg = wx.Dialog(dlg, title="Change Deck Type Options", size=(450, 280))
+            options_dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+            opt_sizer = wx.BoxSizer(wx.VERTICAL)
+
+            opt_msg = wx.StaticText(options_dlg,
+                label=f"Change deck type from '{deck_type}' to '{new_type_name}'.\n\n"
+                      "This will update the deck's cartomancy type and\n"
+                      "reassign metadata for all cards. Custom fields are preserved.")
+            opt_msg.SetForegroundColour(get_wx_color('text_primary'))
+            opt_sizer.Add(opt_msg, 0, wx.ALL, 15)
+
+            # Assignment method radio buttons
+            # NOTE: wx.RadioButton labels don't support custom colors on macOS
+            # Use empty-label radio buttons with separate StaticText labels
+            method_box = wx.StaticBox(options_dlg, label="Metadata Assignment Method")
+            method_box.SetForegroundColour(get_wx_color('accent'))
+            method_sizer = wx.StaticBoxSizer(method_box, wx.VERTICAL)
+
+            method_name_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            method_name_rb = wx.RadioButton(options_dlg, label="", style=wx.RB_GROUP)
+            method_name_sizer.Add(method_name_rb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+            method_name_label = wx.StaticText(options_dlg, label="By card name (parse names for rank/suit)")
+            method_name_label.SetForegroundColour(get_wx_color('text_primary'))
+            method_name_sizer.Add(method_name_label, 0, wx.ALIGN_CENTER_VERTICAL)
+            method_sizer.Add(method_name_sizer, 0, wx.ALL, 5)
+
+            method_order_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            method_order_rb = wx.RadioButton(options_dlg, label="")
+            method_order_rb.SetValue(True)  # Default to sort order for type changes
+            method_order_sizer.Add(method_order_rb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+            method_order_label = wx.StaticText(options_dlg, label="By sort order (assign sequentially 1, 2, 3...)")
+            method_order_label.SetForegroundColour(get_wx_color('text_primary'))
+            method_order_sizer.Add(method_order_label, 0, wx.ALIGN_CENTER_VERTICAL)
+            method_sizer.Add(method_order_sizer, 0, wx.ALL, 5)
+
+            opt_sizer.Add(method_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 15)
+
+            opt_btn_sizer = wx.StdDialogButtonSizer()
+            opt_ok_btn = wx.Button(options_dlg, wx.ID_OK, "Change Type")
+            opt_ok_btn.SetForegroundColour(get_wx_color('text_primary'))
+            opt_ok_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
+            opt_cancel_btn = wx.Button(options_dlg, wx.ID_CANCEL, "Cancel")
+            opt_cancel_btn.SetForegroundColour(get_wx_color('text_primary'))
+            opt_cancel_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
+            opt_btn_sizer.AddButton(opt_ok_btn)
+            opt_btn_sizer.AddButton(opt_cancel_btn)
+            opt_btn_sizer.Realize()
+            opt_sizer.Add(opt_btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 15)
+
+            options_dlg.SetSizer(opt_sizer)
+            options_dlg.Fit()
+            options_dlg.CenterOnParent()
+
+            if options_dlg.ShowModal() != wx.ID_OK:
+                options_dlg.Destroy()
+                return
+
+            use_sort_order = method_order_rb.GetValue()
+            options_dlg.Destroy()
+
+            # Update the deck type
+            self.db.update_deck(deck_id, cartomancy_type_id=new_type_id)
+
+            # Reassign metadata using the preset
+            updated = self.db.auto_assign_deck_metadata(deck_id, overwrite=True, preset_name=preset_name,
+                                                         use_sort_order=use_sort_order)
+
+            # Update the current type label
+            current_type_label.SetLabel(f"Current type: {new_type_name}")
+            general_panel.Layout()
+
+            # Refresh the cards display
+            self._refresh_cards_display(deck_id, preserve_scroll=True)
+
+            wx.MessageBox(
+                f"Deck type changed to '{new_type_name}'.\n"
+                f"Updated metadata for {updated} cards.",
+                "Complete",
+                wx.OK | wx.ICON_INFORMATION
+            )
+
+        change_type_btn.Bind(wx.EVT_BUTTON, on_change_type)
+        change_type_btn_sizer.Add(change_type_btn, 0)
+
+        change_type_note = wx.StaticText(general_panel,
+            label="  (Reassigns archetype/rank/suit by sort order)")
+        change_type_note.SetForegroundColour(get_wx_color('text_dim'))
+        change_type_btn_sizer.Add(change_type_note, 0, wx.ALIGN_CENTER_VERTICAL)
+
+        change_type_sizer.Add(change_type_btn_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        general_sizer.Add(change_type_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
 
         general_panel.SetSizer(general_sizer)
         notebook.AddPage(general_panel, "General")
@@ -5559,8 +5814,19 @@ class MainFrame(wx.Frame):
 
                 deck_id = self.db.add_deck(name, type_id, folder, suit_names, court_names)
 
-                # Use the metadata-aware import to get archetype, rank, suit
+                # Create custom fields defined by the preset
                 preset_name = preset_choice.GetStringSelection()
+                if preset and preset.get('custom_fields'):
+                    for idx, field_def in enumerate(preset['custom_fields']):
+                        self.db.add_deck_custom_field(
+                            deck_id,
+                            field_def['name'],
+                            field_def.get('type', 'text'),
+                            field_def.get('options'),
+                            idx
+                        )
+
+                # Use the metadata-aware import to get archetype, rank, suit
                 preview = self.presets.preview_import_with_metadata(
                     folder, preset_name, suit_names, custom_court_names, archetype_mapping
                 )
@@ -5573,6 +5839,7 @@ class MainFrame(wx.Frame):
                         'archetype': card_info['archetype'],
                         'rank': card_info['rank'],
                         'suit': card_info['suit'],
+                        'custom_fields': card_info.get('custom_fields'),
                     })
 
                 # Look for card back image
@@ -5757,7 +6024,12 @@ class MainFrame(wx.Frame):
         if not card_id:
             return
 
-        # Get deck_id based on current view mode
+        # Get card with full metadata first (we need it to find deck_id if not selected)
+        card = self.db.get_card_with_metadata(card_id)
+        if not card:
+            return
+
+        # Get deck_id based on current view mode, or from the card itself
         deck_id = None
         if self._deck_view_mode == 'image':
             deck_id = self._selected_deck_id
@@ -5766,6 +6038,10 @@ class MainFrame(wx.Frame):
             if idx != -1:
                 deck_id = self.deck_list.GetItemData(idx)
 
+        # Fall back to getting deck_id from the card itself (e.g., when opened from journal entry)
+        if not deck_id:
+            deck_id = card['deck_id']
+
         if not deck_id:
             return
 
@@ -5773,11 +6049,6 @@ class MainFrame(wx.Frame):
         card_list = self._current_cards_sorted if hasattr(self, '_current_cards_sorted') else []
         card_ids = [c['id'] for c in card_list]
         current_index = card_ids.index(card_id) if card_id in card_ids else -1
-
-        # Get card with full metadata
-        card = self.db.get_card_with_metadata(card_id)
-        if not card:
-            return
 
         # Get deck info
         deck = self.db.get_deck(deck_id)
@@ -5884,11 +6155,12 @@ class MainFrame(wx.Frame):
             arch_row.Add(arch_val, 0)
             info_sizer.Add(arch_row, 0, wx.BOTTOM, 5)
 
-        # Rank
+        # Rank / Hexagram Number (I Ching)
         rank = get_field('rank', '')
         if rank:
             rank_row = wx.BoxSizer(wx.HORIZONTAL)
-            rank_lbl = wx.StaticText(info_panel, label="Rank: ")
+            rank_label_text = "Hexagram Number: " if cartomancy_type == 'I Ching' else "Rank: "
+            rank_lbl = wx.StaticText(info_panel, label=rank_label_text)
             rank_lbl.SetForegroundColour(get_wx_color('text_secondary'))
             rank_row.Add(rank_lbl, 0)
             rank_val = wx.StaticText(info_panel, label=str(rank))
@@ -5896,17 +6168,52 @@ class MainFrame(wx.Frame):
             rank_row.Add(rank_val, 0)
             info_sizer.Add(rank_row, 0, wx.BOTTOM, 5)
 
-        # Suit
+        # Suit / Pinyin (I Ching)
         suit = get_field('suit', '')
         if suit:
             suit_row = wx.BoxSizer(wx.HORIZONTAL)
-            suit_lbl = wx.StaticText(info_panel, label="Suit: ")
+            suit_label_text = "Pinyin: " if cartomancy_type == 'I Ching' else "Suit: "
+            suit_lbl = wx.StaticText(info_panel, label=suit_label_text)
             suit_lbl.SetForegroundColour(get_wx_color('text_secondary'))
             suit_row.Add(suit_lbl, 0)
             suit_val = wx.StaticText(info_panel, label=suit)
             suit_val.SetForegroundColour(get_wx_color('text_primary'))
             suit_row.Add(suit_val, 0)
             info_sizer.Add(suit_row, 0, wx.BOTTOM, 5)
+
+        # I Ching specific: Traditional and Simplified Chinese
+        if cartomancy_type == 'I Ching':
+            custom_fields_json = get_field('custom_fields', None)
+            iching_custom = {}
+            if custom_fields_json:
+                try:
+                    iching_custom = json.loads(custom_fields_json)
+                except:
+                    pass
+
+            trad_chinese = iching_custom.get('traditional_chinese', '')
+            if trad_chinese:
+                trad_row = wx.BoxSizer(wx.HORIZONTAL)
+                trad_lbl = wx.StaticText(info_panel, label="Traditional Chinese: ")
+                trad_lbl.SetForegroundColour(get_wx_color('text_secondary'))
+                trad_row.Add(trad_lbl, 0)
+                trad_val = wx.StaticText(info_panel, label=trad_chinese)
+                trad_val.SetForegroundColour(get_wx_color('text_primary'))
+                trad_val.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+                trad_row.Add(trad_val, 0)
+                info_sizer.Add(trad_row, 0, wx.BOTTOM, 5)
+
+            simp_chinese = iching_custom.get('simplified_chinese', '')
+            if simp_chinese:
+                simp_row = wx.BoxSizer(wx.HORIZONTAL)
+                simp_lbl = wx.StaticText(info_panel, label="Simplified Chinese: ")
+                simp_lbl.SetForegroundColour(get_wx_color('text_secondary'))
+                simp_row.Add(simp_lbl, 0)
+                simp_val = wx.StaticText(info_panel, label=simp_chinese)
+                simp_val.SetForegroundColour(get_wx_color('text_primary'))
+                simp_val.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+                simp_row.Add(simp_val, 0)
+                info_sizer.Add(simp_row, 0, wx.BOTTOM, 5)
 
         # Sort order
         sort_order = get_field('card_order', 0)
@@ -6065,7 +6372,7 @@ class MainFrame(wx.Frame):
         elif edit_requested[0]:
             self._on_edit_card(None, card_id, return_to_view=True)
 
-    def _on_edit_card(self, event, card_id=None, return_to_view=False):
+    def _on_edit_card(self, event, card_id=None, return_to_view=False, selected_tab=0):
         if card_id is None:
             # Get first selected card
             if self.selected_card_ids:
@@ -6077,7 +6384,12 @@ class MainFrame(wx.Frame):
             wx.MessageBox("Select a card to edit.", "No Card", wx.OK | wx.ICON_INFORMATION)
             return
 
-        # Get deck_id based on current view mode
+        # Get card with full metadata first (we need it to find deck_id if not selected)
+        card = self.db.get_card_with_metadata(card_id)
+        if not card:
+            return
+
+        # Get deck_id based on current view mode, or from the card itself
         deck_id = None
         if self._deck_view_mode == 'image':
             deck_id = self._selected_deck_id
@@ -6086,16 +6398,15 @@ class MainFrame(wx.Frame):
             if idx != -1:
                 deck_id = self.deck_list.GetItemData(idx)
 
+        # Fall back to getting deck_id from the card itself (e.g., when opened from journal entry)
+        if not deck_id:
+            deck_id = card['deck_id']
+
         if not deck_id:
             return
 
         # Store return_to_view for after dialog closes
         should_return_to_view = return_to_view
-
-        # Get card with full metadata
-        card = self.db.get_card_with_metadata(card_id)
-        if not card:
-            return
 
         # Get deck info for cartomancy type
         deck = self.db.get_deck(deck_id)
@@ -6388,6 +6699,76 @@ class MainFrame(wx.Frame):
             suit_sizer.Add(suit_ctrl, 1)
             class_sizer.Add(suit_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
+        elif cartomancy_type == 'I Ching':
+            # I Ching: Hexagram Number, Pinyin, Traditional Chinese, Simplified Chinese
+            # Hexagram Number (rank field)
+            hex_num_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            hex_num_label = wx.StaticText(class_panel, label="Hexagram Number:")
+            hex_num_label.SetForegroundColour(get_wx_color('text_primary'))
+            hex_num_sizer.Add(hex_num_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+            hex_numbers = [''] + [str(i) for i in range(1, 65)]
+            rank_ctrl = wx.Choice(class_panel, choices=hex_numbers)
+            current_rank = get_card_field('rank', '')
+            if current_rank in hex_numbers:
+                rank_ctrl.SetSelection(hex_numbers.index(current_rank))
+            else:
+                rank_ctrl.SetSelection(0)
+            hex_num_sizer.Add(rank_ctrl, 1)
+            class_sizer.Add(hex_num_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+            # Pinyin (suit field)
+            pinyin_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            pinyin_label = wx.StaticText(class_panel, label="Pinyin:")
+            pinyin_label.SetForegroundColour(get_wx_color('text_primary'))
+            pinyin_sizer.Add(pinyin_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+            suit_ctrl = wx.TextCtrl(class_panel)
+            suit_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+            suit_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+            suit_ctrl.SetValue(get_card_field('suit', ''))
+            pinyin_sizer.Add(suit_ctrl, 1)
+            class_sizer.Add(pinyin_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+            # Get custom_fields for Chinese characters
+            custom_fields = {}
+            try:
+                cf_json = card.get('custom_fields') if hasattr(card, 'get') else (card['custom_fields'] if 'custom_fields' in card.keys() else None)
+                if cf_json:
+                    custom_fields = json.loads(cf_json) if isinstance(cf_json, str) else cf_json
+            except:
+                pass
+
+            # Traditional Chinese
+            trad_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            trad_label = wx.StaticText(class_panel, label="Traditional Chinese:")
+            trad_label.SetForegroundColour(get_wx_color('text_primary'))
+            trad_sizer.Add(trad_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+            trad_ctrl = wx.TextCtrl(class_panel)
+            trad_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+            trad_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+            trad_ctrl.SetValue(custom_fields.get('traditional_chinese', ''))
+            trad_sizer.Add(trad_ctrl, 1)
+            class_sizer.Add(trad_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+            # Simplified Chinese
+            simp_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            simp_label = wx.StaticText(class_panel, label="Simplified Chinese:")
+            simp_label.SetForegroundColour(get_wx_color('text_primary'))
+            simp_sizer.Add(simp_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+            simp_ctrl = wx.TextCtrl(class_panel)
+            simp_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+            simp_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+            simp_ctrl.SetValue(custom_fields.get('simplified_chinese', ''))
+            simp_sizer.Add(simp_ctrl, 1)
+            class_sizer.Add(simp_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+            # Store references for saving
+            dlg._iching_trad_ctrl = trad_ctrl
+            dlg._iching_simp_ctrl = simp_ctrl
+
         # Oracle: No rank/suit fields shown
 
         # Helper text
@@ -6570,6 +6951,10 @@ class MainFrame(wx.Frame):
         custom_scroll.SetSizer(custom_sizer)
         notebook.AddPage(custom_scroll, "Custom Fields")
 
+        # Restore selected tab from previous navigation
+        if selected_tab > 0 and selected_tab < notebook.GetPageCount():
+            notebook.SetSelection(selected_tab)
+
         content_sizer.Add(notebook, 1, wx.EXPAND | wx.ALL, 10)
         main_sizer.Add(content_sizer, 1, wx.EXPAND)
 
@@ -6603,9 +6988,13 @@ class MainFrame(wx.Frame):
             # Get suit value
             new_suit = None
             if suit_ctrl:
-                sel = suit_ctrl.GetSelection()
-                if sel > 0:
-                    new_suit = suit_ctrl.GetString(sel)
+                if isinstance(suit_ctrl, wx.TextCtrl):
+                    # I Ching uses TextCtrl for pinyin
+                    new_suit = suit_ctrl.GetValue().strip() or None
+                elif isinstance(suit_ctrl, wx.Choice):
+                    sel = suit_ctrl.GetSelection()
+                    if sel > 0:
+                        new_suit = suit_ctrl.GetString(sel)
 
             # Get notes
             new_notes = notes_ctrl.GetValue().strip() or None
@@ -6625,6 +7014,12 @@ class MainFrame(wx.Frame):
                         new_custom_fields[field_name] = ''
                 else:
                     new_custom_fields[field_name] = ctrl.GetValue()
+
+            # Add I Ching specific fields if present
+            if hasattr(dlg, '_iching_trad_ctrl') and dlg._iching_trad_ctrl:
+                new_custom_fields['traditional_chinese'] = dlg._iching_trad_ctrl.GetValue()
+            if hasattr(dlg, '_iching_simp_ctrl') and dlg._iching_simp_ctrl:
+                new_custom_fields['simplified_chinese'] = dlg._iching_simp_ctrl.GetValue()
 
             if new_name:
                 # Update basic card info
@@ -6695,12 +7090,16 @@ class MainFrame(wx.Frame):
 
         result = dlg.ShowModal()
 
+        # Get current tab selection before destroying dialog
+        current_tab = notebook.GetSelection()
+
         # Handle navigation (save already done in nav button handlers)
         if result == wx.ID_BACKWARD or result == wx.ID_FORWARD:
             self._refresh_cards_display(deck_id, preserve_scroll=True)
             dlg.Destroy()
             if nav_to_card[0]:
-                self._on_edit_card(None, nav_to_card[0], return_to_view=should_return_to_view)
+                self._on_edit_card(None, nav_to_card[0], return_to_view=should_return_to_view,
+                                   selected_tab=current_tab)
             return
 
         if result == wx.ID_OK:
@@ -6916,16 +7315,38 @@ class MainFrame(wx.Frame):
             if is_rotated:
                 dc.SetTextForeground(get_wx_color('accent'))
                 dc.DrawText("↻", int(x + w - 20), int(y + 5))
+
+            # Draw resize handles (small squares at corners)
+            handle_size = 8
+            dc.SetBrush(wx.Brush(get_wx_color('accent')))
+            dc.SetPen(wx.Pen(get_wx_color('bg_primary'), 1))
+            # Bottom-right corner (main resize handle)
+            dc.DrawRectangle(int(x + w - handle_size), int(y + h - handle_size), handle_size, handle_size)
     
     def _on_designer_left_down(self, event):
         x, y = event.GetX(), event.GetY()
-        
+        handle_size = 8
+
         for i, pos in enumerate(self.designer_positions):
             px, py = pos['x'], pos['y']
             pw, ph = pos.get('width', 80), pos.get('height', 120)
-            
+
+            # Check if clicking on resize handle (bottom-right corner)
+            if (px + pw - handle_size <= x <= px + pw and
+                py + ph - handle_size <= y <= py + ph):
+                self.drag_data['idx'] = i
+                self.drag_data['resize'] = 'se'
+                self.drag_data['start_w'] = pw
+                self.drag_data['start_h'] = ph
+                self.drag_data['start_x'] = x
+                self.drag_data['start_y'] = y
+                self.designer_canvas.CaptureMouse()
+                return
+
+            # Check if clicking inside the card (for dragging)
             if px <= x <= px + pw and py <= y <= py + ph:
                 self.drag_data['idx'] = i
+                self.drag_data['resize'] = None
                 self.drag_data['offset_x'] = x - px
                 self.drag_data['offset_y'] = y - py
                 self.designer_canvas.CaptureMouse()
@@ -6935,22 +7356,54 @@ class MainFrame(wx.Frame):
         if self.designer_canvas.HasCapture():
             self.designer_canvas.ReleaseMouse()
         self.drag_data['idx'] = None
+        self.drag_data['resize'] = None
     
     def _on_designer_motion(self, event):
+        x, y = event.GetX(), event.GetY()
+        handle_size = 8
+
+        # Update cursor based on position over resize handles
+        if not event.Dragging():
+            cursor = wx.CURSOR_ARROW
+            for pos in self.designer_positions:
+                px, py = pos['x'], pos['y']
+                pw, ph = pos.get('width', 80), pos.get('height', 120)
+                # Check if over bottom-right resize handle
+                if (px + pw - handle_size <= x <= px + pw and
+                    py + ph - handle_size <= y <= py + ph):
+                    cursor = wx.CURSOR_SIZENWSE
+                    break
+            self.designer_canvas.SetCursor(wx.Cursor(cursor))
+
         if self.drag_data['idx'] is not None and event.Dragging():
             idx = self.drag_data['idx']
-            x = event.GetX() - self.drag_data['offset_x']
-            y = event.GetY() - self.drag_data['offset_y']
-            
+
+            # Handle resizing
+            if self.drag_data.get('resize') == 'se':
+                # Calculate new size based on mouse delta
+                delta_x = x - self.drag_data['start_x']
+                delta_y = y - self.drag_data['start_y']
+                new_w = max(40, self.drag_data['start_w'] + delta_x)  # Min width 40
+                new_h = max(60, self.drag_data['start_h'] + delta_y)  # Min height 60
+
+                self.designer_positions[idx]['width'] = int(new_w)
+                self.designer_positions[idx]['height'] = int(new_h)
+                self.designer_canvas.Refresh()
+                return
+
+            # Handle dragging (moving)
+            mx = x - self.drag_data['offset_x']
+            my = y - self.drag_data['offset_y']
+
             # Bounds
-            w, h = self.designer_canvas.GetSize()
+            canvas_w, canvas_h = self.designer_canvas.GetSize()
             pw = self.designer_positions[idx].get('width', 80)
             ph = self.designer_positions[idx].get('height', 120)
-            x = max(0, min(x, w - pw))
-            y = max(0, min(y, h - ph))
-            
-            self.designer_positions[idx]['x'] = x
-            self.designer_positions[idx]['y'] = y
+            mx = max(0, min(mx, canvas_w - pw))
+            my = max(0, min(my, canvas_h - ph))
+
+            self.designer_positions[idx]['x'] = mx
+            self.designer_positions[idx]['y'] = my
             self.designer_canvas.Refresh()
     
     def _on_designer_right_down(self, event):

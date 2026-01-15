@@ -416,6 +416,120 @@ THOTH_TAROT.update({
     "p10": "Ten of Disks",
 })
 
+# Gnostic/Eternal Tarot - Samael Aun Weor / Glorian Publishing system
+# 78 Arcana with unique names (no traditional suits for Minor Arcana)
+# Major Arcana: 1-22, Minor Arcana: 23-78
+GNOSTIC_ETERNAL_TAROT = {
+    # Major Arcana (1-22)
+    "01": "Arcanum 1: The Magician", "1": "Arcanum 1: The Magician",
+    "themagician": "Arcanum 1: The Magician", "magician": "Arcanum 1: The Magician",
+    "02": "Arcanum 2: The Priestess", "2": "Arcanum 2: The Priestess",
+    "thepriestess": "Arcanum 2: The Priestess", "priestess": "Arcanum 2: The Priestess",
+    "highpriestess": "Arcanum 2: The Priestess",
+    "03": "Arcanum 3: The Empress", "3": "Arcanum 3: The Empress",
+    "theempress": "Arcanum 3: The Empress", "empress": "Arcanum 3: The Empress",
+    "04": "Arcanum 4: The Emperor", "4": "Arcanum 4: The Emperor",
+    "theemperor": "Arcanum 4: The Emperor", "emperor": "Arcanum 4: The Emperor",
+    "05": "Arcanum 5: The Hierarch", "5": "Arcanum 5: The Hierarch",
+    "thehierarch": "Arcanum 5: The Hierarch", "hierarch": "Arcanum 5: The Hierarch",
+    "hierophant": "Arcanum 5: The Hierarch",
+    "06": "Arcanum 6: Indecision", "6": "Arcanum 6: Indecision",
+    "indecision": "Arcanum 6: Indecision", "thelovers": "Arcanum 6: Indecision", "lovers": "Arcanum 6: Indecision",
+    "07": "Arcanum 7: Triumph", "7": "Arcanum 7: Triumph",
+    "triumph": "Arcanum 7: Triumph", "thechariot": "Arcanum 7: Triumph", "chariot": "Arcanum 7: Triumph",
+    "08": "Arcanum 8: Justice", "8": "Arcanum 8: Justice",
+    "justice": "Arcanum 8: Justice",
+    "09": "Arcanum 9: The Hermit", "9": "Arcanum 9: The Hermit",
+    "thehermit": "Arcanum 9: The Hermit", "hermit": "Arcanum 9: The Hermit",
+    "10": "Arcanum 10: Retribution",
+    "retribution": "Arcanum 10: Retribution", "wheeloffortune": "Arcanum 10: Retribution", "wheel": "Arcanum 10: Retribution",
+    "11": "Arcanum 11: Persuasion",
+    "persuasion": "Arcanum 11: Persuasion", "strength": "Arcanum 11: Persuasion",
+    "12": "Arcanum 12: The Apostolate",
+    "theapostolate": "Arcanum 12: The Apostolate", "apostolate": "Arcanum 12: The Apostolate",
+    "hangedman": "Arcanum 12: The Apostolate", "thehangedman": "Arcanum 12: The Apostolate",
+    "13": "Arcanum 13: Immortality",
+    "immortality": "Arcanum 13: Immortality", "death": "Arcanum 13: Immortality",
+    "14": "Arcanum 14: Temperance",
+    "temperance": "Arcanum 14: Temperance",
+    "15": "Arcanum 15: Passion",
+    "passion": "Arcanum 15: Passion", "thedevil": "Arcanum 15: Passion", "devil": "Arcanum 15: Passion",
+    "16": "Arcanum 16: Fragility",
+    "fragility": "Arcanum 16: Fragility", "thetower": "Arcanum 16: Fragility", "tower": "Arcanum 16: Fragility",
+    "17": "Arcanum 17: Hope",
+    "hope": "Arcanum 17: Hope", "thestar": "Arcanum 17: Hope", "star": "Arcanum 17: Hope",
+    "18": "Arcanum 18: Twilight",
+    "twilight": "Arcanum 18: Twilight", "themoon": "Arcanum 18: Twilight", "moon": "Arcanum 18: Twilight",
+    "19": "Arcanum 19: Inspiration",
+    "inspiration": "Arcanum 19: Inspiration", "thesun": "Arcanum 19: Inspiration", "sun": "Arcanum 19: Inspiration",
+    "20": "Arcanum 20: Resurrection",
+    "resurrection": "Arcanum 20: Resurrection", "judgement": "Arcanum 20: Resurrection", "judgment": "Arcanum 20: Resurrection",
+    "21": "Arcanum 21: Transmutation",
+    "transmutation": "Arcanum 21: Transmutation", "theworld": "Arcanum 21: Transmutation", "world": "Arcanum 21: Transmutation",
+    "22": "Arcanum 22: The Return",
+    "thereturn": "Arcanum 22: The Return", "return": "Arcanum 22: The Return",
+    "thefool": "Arcanum 22: The Return", "fool": "Arcanum 22: The Return",
+    # Note: In Gnostic system, The Fool is Arcanum 22, not 0
+
+    # Minor Arcana (23-78) - each with unique name
+    "23": "Arcanum 23: The Plower", "theplower": "Arcanum 23: The Plower", "plower": "Arcanum 23: The Plower",
+    "24": "Arcanum 24: The Weaver", "theweaver": "Arcanum 24: The Weaver", "weaver": "Arcanum 24: The Weaver",
+    "25": "Arcanum 25: The Argonaut", "theargonaut": "Arcanum 25: The Argonaut", "argonaut": "Arcanum 25: The Argonaut",
+    "26": "Arcanum 26: The Prodigy", "theprodigy": "Arcanum 26: The Prodigy", "prodigy": "Arcanum 26: The Prodigy",
+    "27": "Arcanum 27: The Unexpected", "theunexpected": "Arcanum 27: The Unexpected", "unexpected": "Arcanum 27: The Unexpected",
+    "28": "Arcanum 28: Uncertainty", "uncertainty": "Arcanum 28: Uncertainty",
+    "29": "Arcanum 29: Domesticity", "domesticity": "Arcanum 29: Domesticity",
+    "30": "Arcanum 30: Exchange", "exchange": "Arcanum 30: Exchange",
+    "31": "Arcanum 31: Impediments", "impediments": "Arcanum 31: Impediments",
+    "32": "Arcanum 32: Magnificence", "magnificence": "Arcanum 32: Magnificence",
+    "33": "Arcanum 33: Alliance", "alliance": "Arcanum 33: Alliance",
+    "34": "Arcanum 34: Innovation", "innovation": "Arcanum 34: Innovation",
+    "35": "Arcanum 35: Grief", "grief": "Arcanum 35: Grief",
+    "36": "Arcanum 36: Initiation", "initiation": "Arcanum 36: Initiation",
+    "37": "Arcanum 37: Art and Science", "artandscience": "Arcanum 37: Art and Science",
+    "38": "Arcanum 38: Duplicity", "duplicity": "Arcanum 38: Duplicity", "biplicity": "Arcanum 38: Duplicity",
+    "39": "Arcanum 39: Testimony", "testimony": "Arcanum 39: Testimony",
+    "40": "Arcanum 40: Presentiment", "presentiment": "Arcanum 40: Presentiment",
+    "41": "Arcanum 41: Uneasiness", "uneasiness": "Arcanum 41: Uneasiness",
+    "42": "Arcanum 42: Preeminence", "preeminence": "Arcanum 42: Preeminence",
+    "43": "Arcanum 43: Hallucination", "hallucination": "Arcanum 43: Hallucination", "imagination": "Arcanum 43: Hallucination",
+    "44": "Arcanum 44: Thinking", "thinking": "Arcanum 44: Thinking", "thought": "Arcanum 44: Thinking",
+    "45": "Arcanum 45: Regeneration", "regeneration": "Arcanum 45: Regeneration",
+    "46": "Arcanum 46: Patrimony", "patrimony": "Arcanum 46: Patrimony",
+    "47": "Arcanum 47: Conjecturing", "conjecturing": "Arcanum 47: Conjecturing", "deduction": "Arcanum 47: Conjecturing",
+    "48": "Arcanum 48: Consummation", "consummation": "Arcanum 48: Consummation",
+    "49": "Arcanum 49: Versatility", "versatility": "Arcanum 49: Versatility",
+    "50": "Arcanum 50: Affinity", "affinity": "Arcanum 50: Affinity",
+    "51": "Arcanum 51: Counseling", "counseling": "Arcanum 51: Counseling",
+    "52": "Arcanum 52: Premeditation", "premeditation": "Arcanum 52: Premeditation",
+    "53": "Arcanum 53: Resentment", "resentment": "Arcanum 53: Resentment",
+    "54": "Arcanum 54: Examination", "examination": "Arcanum 54: Examination",
+    "55": "Arcanum 55: Contrition", "contrition": "Arcanum 55: Contrition",
+    "56": "Arcanum 56: Pilgrimage", "pilgrimage": "Arcanum 56: Pilgrimage",
+    "57": "Arcanum 57: Rivalry", "rivalry": "Arcanum 57: Rivalry",
+    "58": "Arcanum 58: Requalification", "requalification": "Arcanum 58: Requalification",
+    "59": "Arcanum 59: Revelation", "revelation": "Arcanum 59: Revelation",
+    "60": "Arcanum 60: Evolution", "evolution": "Arcanum 60: Evolution",
+    "61": "Arcanum 61: Solitude", "solitude": "Arcanum 61: Solitude",
+    "62": "Arcanum 62: Proscription", "proscription": "Arcanum 62: Proscription",
+    "63": "Arcanum 63: Communion", "communion": "Arcanum 63: Communion",
+    "64": "Arcanum 64: Vehemence", "vehemence": "Arcanum 64: Vehemence", "zeal": "Arcanum 64: Vehemence",
+    "65": "Arcanum 65: Learning", "learning": "Arcanum 65: Learning",
+    "66": "Arcanum 66: Perplexity", "perplexity": "Arcanum 66: Perplexity",
+    "67": "Arcanum 67: Friendship", "friendship": "Arcanum 67: Friendship",
+    "68": "Arcanum 68: Speculation", "speculation": "Arcanum 68: Speculation",
+    "69": "Arcanum 69: Chance", "chance": "Arcanum 69: Chance",
+    "70": "Arcanum 70: Cooperation", "cooperation": "Arcanum 70: Cooperation",
+    "71": "Arcanum 71: Avarice", "avarice": "Arcanum 71: Avarice",
+    "72": "Arcanum 72: Purification", "purification": "Arcanum 72: Purification",
+    "73": "Arcanum 73: Love and Desire", "loveanddesire": "Arcanum 73: Love and Desire",
+    "74": "Arcanum 74: Offering", "offering": "Arcanum 74: Offering",
+    "75": "Arcanum 75: Generosity", "generosity": "Arcanum 75: Generosity",
+    "76": "Arcanum 76: The Dispenser", "thedispenser": "Arcanum 76: The Dispenser", "dispenser": "Arcanum 76: The Dispenser",
+    "77": "Arcanum 77: Disorientation", "disorientation": "Arcanum 77: Disorientation",
+    "78": "Arcanum 78: Renaissance", "renaissance": "Arcanum 78: Renaissance",
+}
+
 # Standard Playing Cards (52 cards)
 PLAYING_CARDS_52 = {
     # Hearts
@@ -539,6 +653,75 @@ PLAYING_CARDS_54.update({
     "jr": "Red Joker", "jb": "Black Joker",
 })
 
+# I Ching - 64 Hexagrams
+# Format: position -> English name (metadata provides Chinese, pinyin, etc.)
+I_CHING_HEXAGRAMS = {
+    "01": "The Creative", "1": "The Creative",
+    "02": "The Receptive", "2": "The Receptive",
+    "03": "Difficulty at the Beginning", "3": "Difficulty at the Beginning",
+    "04": "Youthful Folly", "4": "Youthful Folly",
+    "05": "Waiting", "5": "Waiting",
+    "06": "Conflict", "6": "Conflict",
+    "07": "The Army", "7": "The Army",
+    "08": "Holding Together", "8": "Holding Together",
+    "09": "Small Taming", "9": "Small Taming",
+    "10": "Treading",
+    "11": "Peace",
+    "12": "Standstill",
+    "13": "Fellowship",
+    "14": "Great Possession",
+    "15": "Modesty",
+    "16": "Enthusiasm",
+    "17": "Following",
+    "18": "Work on the Decayed",
+    "19": "Approach",
+    "20": "Contemplation",
+    "21": "Biting Through",
+    "22": "Grace",
+    "23": "Splitting Apart",
+    "24": "Return",
+    "25": "Innocence",
+    "26": "Great Taming",
+    "27": "Nourishment",
+    "28": "Great Excess",
+    "29": "The Abysmal",
+    "30": "The Clinging",
+    "31": "Influence",
+    "32": "Duration",
+    "33": "Retreat",
+    "34": "Great Power",
+    "35": "Progress",
+    "36": "Darkening of the Light",
+    "37": "The Family",
+    "38": "Opposition",
+    "39": "Obstruction",
+    "40": "Deliverance",
+    "41": "Decrease",
+    "42": "Increase",
+    "43": "Breakthrough",
+    "44": "Coming to Meet",
+    "45": "Gathering Together",
+    "46": "Pushing Upward",
+    "47": "Oppression",
+    "48": "The Well",
+    "49": "Revolution",
+    "50": "The Cauldron",
+    "51": "The Arousing",
+    "52": "Keeping Still",
+    "53": "Development",
+    "54": "The Marrying Maiden",
+    "55": "Abundance",
+    "56": "The Wanderer",
+    "57": "The Gentle",
+    "58": "The Joyous",
+    "59": "Dispersion",
+    "60": "Limitation",
+    "61": "Inner Truth",
+    "62": "Small Excess",
+    "63": "After Completion",
+    "64": "Before Completion",
+}
+
 # Built-in presets
 # Default card back filename patterns (matched case-insensitively, without extension)
 DEFAULT_CARD_BACK_PATTERNS = [
@@ -571,6 +754,13 @@ BUILTIN_PRESETS = {
         "suit_names": {"wands": "Wands", "cups": "Cups", "swords": "Swords", "pentacles": "Disks"},
         "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
+    "Tarot (Gnostic/Eternal)": {
+        "type": "Tarot",
+        "mappings": GNOSTIC_ETERNAL_TAROT,
+        "description": "Gnostic/Samael Aun Weor system (Glorian Publishing). 78 Arcana with unique names. No traditional suits - Minor Arcana are Arcanum 23-78.",
+        "suit_names": {},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
+    },
     "Lenormand (36 cards)": {
         "type": "Lenormand",
         "mappings": STANDARD_LENORMAND,
@@ -598,6 +788,19 @@ BUILTIN_PRESETS = {
         "description": "Playing card deck with 2 jokers (52 cards + Red Joker + Black Joker)",
         "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"},
         "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
+    },
+    "I Ching (64 Hexagrams)": {
+        "type": "I Ching",
+        "mappings": I_CHING_HEXAGRAMS,
+        "description": "64 I Ching Hexagrams with Chinese characters, pinyin, and English translations",
+        "suit_names": {},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS,
+        "custom_fields": [
+            {"name": "Hexagram", "type": "text"},
+            {"name": "Pinyin", "type": "text"},
+            {"name": "Simplified Chinese", "type": "text"},
+            {"name": "Traditional Chinese", "type": "text"},
+        ]
     },
     "Oracle (filename only)": {
         "type": "Oracle",
@@ -888,15 +1091,30 @@ class ImportPresets:
                 # Apply court card name customization
                 if custom_court_names:
                     mapped_name = self._apply_custom_court_names(mapped_name, custom_court_names)
-                metadata = self.get_card_metadata(mapped_name, preset_name, custom_suit_names,
-                                                  custom_court_names, archetype_mapping)
+
+                # For sort_order, use the original filename stem to extract numbers
+                # This is important for presets like I Ching where the mapped name
+                # loses the number (e.g., "01" -> "The Creative")
+                sort_order = self._get_card_sort_order(filepath.stem, custom_suit_names,
+                                                       preset_name, custom_court_names)
+
+                # Get metadata - for I Ching, use sort_order from filename
+                preset = self.get_preset(preset_name)
+                preset_type = preset.get('type') if preset else None
+                if preset_type == 'I Ching' and sort_order != 999:
+                    metadata = self._get_iching_metadata_by_position(sort_order)
+                else:
+                    metadata = self.get_card_metadata(mapped_name, preset_name, custom_suit_names,
+                                                      custom_court_names, archetype_mapping)
+
                 results.append({
                     'filename': filepath.name,
                     'name': mapped_name,
-                    'sort_order': metadata['sort_order'],
-                    'archetype': metadata['archetype'],
-                    'rank': metadata['rank'],
-                    'suit': metadata['suit'],
+                    'sort_order': sort_order,
+                    'archetype': metadata.get('archetype'),
+                    'rank': metadata.get('rank'),
+                    'suit': metadata.get('suit'),
+                    'custom_fields': metadata.get('custom_fields'),
                 })
 
         # Sort by sort order
@@ -927,9 +1145,348 @@ class ImportPresets:
             return self._get_kipper_metadata(card_name, sort_order)
         elif preset_type == 'Playing Cards':
             return self._get_playing_card_metadata(card_name, sort_order)
+        elif preset_type == 'I Ching':
+            return self._get_iching_metadata(card_name, sort_order)
         else:
             # Oracle
             return self._get_oracle_metadata(card_name, sort_order)
+
+    def get_card_metadata_by_sort_order(self, sort_order: int, preset_name: str) -> dict:
+        """
+        Get metadata for a card based purely on its sort order position (1, 2, 3...).
+        This is useful when cards don't have parseable names but are in the correct order.
+        Returns dict with: archetype, rank, suit, sort_order
+        """
+        preset = self.get_preset(preset_name)
+        preset_type = preset.get('type', 'Oracle') if preset else 'Oracle'
+
+        # Use a placeholder card name - the metadata functions will use sort_order
+        placeholder_name = f"Card {sort_order}"
+
+        if preset_type == 'Tarot':
+            # Check if it's Gnostic - it uses sort_order directly
+            is_gnostic = preset_name and 'gnostic' in preset_name.lower()
+            if is_gnostic:
+                return self._get_gnostic_tarot_metadata(placeholder_name, sort_order)
+            else:
+                # For standard Tarot, map sort_order to card position
+                return self._get_tarot_metadata_by_position(sort_order, preset_name)
+        elif preset_type == 'Lenormand':
+            return self._get_lenormand_metadata_by_position(sort_order)
+        elif preset_type == 'Kipper':
+            return self._get_kipper_metadata_by_position(sort_order)
+        elif preset_type == 'Playing Cards':
+            return self._get_playing_card_metadata_by_position(sort_order)
+        elif preset_type == 'I Ching':
+            return self._get_iching_metadata_by_position(sort_order)
+        else:
+            # Oracle - just return basic info
+            return {
+                'archetype': placeholder_name,
+                'rank': str(sort_order),
+                'suit': None,
+                'sort_order': sort_order
+            }
+
+    def _get_tarot_metadata_by_position(self, position: int, preset_name: str) -> dict:
+        """Get Tarot metadata by numeric position (1-78)."""
+        is_thoth = preset_name and 'thoth' in preset_name.lower()
+        is_pre_golden_dawn = preset_name and 'pre-golden' in preset_name.lower()
+        use_thoth_ordering = is_thoth or is_pre_golden_dawn
+
+        # Major Arcana: positions 1-22 (or 0-21 depending on system)
+        # We'll use 1-22 for Major, 23-78 for Minor (matching sort_order convention)
+        if position <= 0 or position > 78:
+            return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': position}
+
+        if position <= 22:
+            # Major Arcana
+            major_by_position = {
+                1: ('The Fool', '0'),
+                2: ('The Magician', 'I'),
+                3: ('The High Priestess', 'II'),
+                4: ('The Empress', 'III'),
+                5: ('The Emperor', 'IV'),
+                6: ('The Hierophant', 'V'),
+                7: ('The Lovers', 'VI'),
+                8: ('The Chariot', 'VII'),
+            }
+            if use_thoth_ordering:
+                major_by_position.update({
+                    9: ('Justice / Adjustment', 'VIII'),
+                    10: ('The Hermit', 'IX'),
+                    11: ('Wheel of Fortune', 'X'),
+                    12: ('Strength / Lust', 'XI'),
+                })
+            else:
+                major_by_position.update({
+                    9: ('Strength / Lust', 'VIII'),
+                    10: ('The Hermit', 'IX'),
+                    11: ('Wheel of Fortune', 'X'),
+                    12: ('Justice / Adjustment', 'XI'),
+                })
+            major_by_position.update({
+                13: ('The Hanged Man', 'XII'),
+                14: ('Death', 'XIII'),
+                15: ('Temperance', 'XIV'),
+                16: ('The Devil', 'XV'),
+                17: ('The Tower', 'XVI'),
+                18: ('The Star', 'XVII'),
+                19: ('The Moon', 'XVIII'),
+                20: ('The Sun', 'XIX'),
+                21: ('Judgement / The Aeon', 'XX'),
+                22: ('The World / The Universe', 'XXI'),
+            })
+            if position in major_by_position:
+                name, rank = major_by_position[position]
+                return {
+                    'archetype': name,
+                    'rank': rank,
+                    'suit': 'Major Arcana',
+                    'sort_order': position
+                }
+
+        # Minor Arcana: positions 23-78
+        # 14 cards per suit: Ace-10 + Page/Knight/Queen/King
+        minor_position = position - 22  # 1-56
+        suit_index = (minor_position - 1) // 14  # 0-3
+        card_in_suit = ((minor_position - 1) % 14) + 1  # 1-14
+
+        suits = ['Wands', 'Cups', 'Swords', 'Pentacles']
+        if is_thoth:
+            suits[3] = 'Disks'
+
+        if suit_index < 4:
+            suit = suits[suit_index]
+            if card_in_suit <= 10:
+                # Pip cards
+                ranks = ['Ace', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten']
+                rank_name = ranks[card_in_suit - 1]
+                return {
+                    'archetype': f"{rank_name} of {suit}",
+                    'rank': str(card_in_suit),
+                    'suit': suit,
+                    'sort_order': position
+                }
+            else:
+                # Court cards (11-14)
+                if is_thoth:
+                    court_names = ['Princess', 'Prince', 'Queen', 'Knight']
+                    verbose_ranks = [
+                        'Page / Knave / Princess / Court Card 1',
+                        'Knight / Prince / Court Card 2',
+                        'Queen / Court Card 3',
+                        'King / Knight (Thoth) / Court Card 4'
+                    ]
+                else:
+                    court_names = ['Page', 'Knight', 'Queen', 'King']
+                    verbose_ranks = [
+                        'Page / Knave / Princess / Court Card 1',
+                        'Knight / Prince / Court Card 2',
+                        'Queen / Court Card 3',
+                        'King / Court Card 4'
+                    ]
+                court_idx = card_in_suit - 11  # 0-3
+                return {
+                    'archetype': f"{court_names[court_idx]} of {suit}",
+                    'rank': verbose_ranks[court_idx],
+                    'suit': suit,
+                    'sort_order': position
+                }
+
+        return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': position}
+
+    def _get_lenormand_metadata_by_position(self, position: int) -> dict:
+        """Get Lenormand metadata by numeric position (1-36).
+
+        Each Lenormand card has an associated playing card rank and suit.
+        """
+        # Format: (archetype, playing_card_rank, playing_card_suit)
+        lenormand_cards = [
+            ('Rider', '9', 'Hearts'),
+            ('Clover', '6', 'Diamonds'),
+            ('Ship', '10', 'Spades'),
+            ('House', 'King', 'Hearts'),
+            ('Tree', '7', 'Hearts'),
+            ('Clouds', 'King', 'Clubs'),
+            ('Snake', 'Queen', 'Clubs'),
+            ('Coffin', '9', 'Diamonds'),
+            ('Bouquet', 'Queen', 'Spades'),
+            ('Scythe', 'Jack', 'Diamonds'),
+            ('Whip', 'Jack', 'Clubs'),
+            ('Birds', '7', 'Diamonds'),
+            ('Child', 'Jack', 'Spades'),
+            ('Fox', '9', 'Clubs'),
+            ('Bear', '10', 'Clubs'),
+            ('Stars', '6', 'Hearts'),
+            ('Stork', 'Queen', 'Hearts'),
+            ('Dog', '10', 'Hearts'),
+            ('Tower', '6', 'Spades'),
+            ('Garden', '8', 'Spades'),
+            ('Mountain', '8', 'Clubs'),
+            ('Crossroads', 'Queen', 'Diamonds'),
+            ('Mice', '7', 'Clubs'),
+            ('Heart', 'Jack', 'Hearts'),
+            ('Ring', 'Ace', 'Clubs'),
+            ('Book', '10', 'Diamonds'),
+            ('Letter', '7', 'Spades'),
+            ('Man', 'Ace', 'Hearts'),
+            ('Woman', 'Ace', 'Spades'),
+            ('Lily', 'King', 'Spades'),
+            ('Sun', 'Ace', 'Diamonds'),
+            ('Moon', '8', 'Hearts'),
+            ('Key', '8', 'Diamonds'),
+            ('Fish', 'King', 'Diamonds'),
+            ('Anchor', '9', 'Spades'),
+            ('Cross', '6', 'Clubs'),
+        ]
+        if 1 <= position <= 36:
+            archetype, rank, suit = lenormand_cards[position - 1]
+            return {
+                'archetype': archetype,
+                'rank': rank,
+                'suit': suit,
+                'sort_order': position
+            }
+        return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': position}
+
+    def _get_kipper_metadata_by_position(self, position: int) -> dict:
+        """Get Kipper metadata by numeric position (1-36)."""
+        kipper_cards = [
+            'Main Male', 'Main Female', 'Marriage', 'Rendezvous', 'Good Gentleman',
+            'Good Lady', 'Pleasant Letter', 'False Person', 'A Change', 'A Journey',
+            'Lots of Money', 'Rich Girl', 'Rich Good Gentleman', 'Sad News',
+            'Success in Love', 'His Thoughts', 'A Gift', 'A Small Child', 'A Funeral',
+            'House', 'Living Room', 'Military Person', 'Court House', 'Theft',
+            'High Honours', 'Great Fortune', 'Unexpected Money', 'Expectations',
+            'Prison', 'Judiciary', 'Illness', 'Grief and Adversity', 'Gloomy Thoughts',
+            'Occupation', 'A Long Way', 'Hope, Great Water'
+        ]
+        if 1 <= position <= 36:
+            card_name = kipper_cards[position - 1]
+            return {
+                'archetype': card_name,
+                'rank': str(position),
+                'suit': None,
+                'sort_order': position
+            }
+        return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': position}
+
+    def _get_playing_card_metadata_by_position(self, position: int) -> dict:
+        """Get Playing Card metadata by numeric position (1-54)."""
+        suits = ['Hearts', 'Diamonds', 'Clubs', 'Spades']
+        ranks = ['Ace', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Jack', 'Queen', 'King']
+
+        if 1 <= position <= 52:
+            suit_idx = (position - 1) // 13
+            rank_idx = (position - 1) % 13
+            suit = suits[suit_idx]
+            rank = ranks[rank_idx]
+            return {
+                'archetype': f"{rank} of {suit}",
+                'rank': str(rank_idx + 1),
+                'suit': suit,
+                'sort_order': position
+            }
+        elif position == 53:
+            return {'archetype': 'Red Joker', 'rank': '53', 'suit': 'Joker', 'sort_order': 53}
+        elif position == 54:
+            return {'archetype': 'Black Joker', 'rank': '54', 'suit': 'Joker', 'sort_order': 54}
+
+        return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': position}
+
+    def _get_iching_metadata_by_position(self, position: int) -> dict:
+        """Get I Ching hexagram metadata by numeric position (1-64).
+
+        Returns metadata with:
+        - archetype: English name (e.g., "The Creative")
+        - rank: Hexagram number
+        - suit: None (not used for I Ching)
+        - custom_fields: dict with 'Hexagram', 'Pinyin', 'Simplified Chinese', 'Traditional Chinese'
+        """
+        # All 64 hexagrams: (unicode, simplified, traditional_if_different, pinyin, English)
+        # Traditional is empty string if same as simplified
+        hexagrams = [
+            ('䷀', '乾', '', 'Qián', 'The Creative'),
+            ('䷁', '坤', '', 'Kūn', 'The Receptive'),
+            ('䷂', '屯', '', 'Zhūn', 'Difficulty at the Beginning'),
+            ('䷃', '蒙', '', 'Méng', 'Youthful Folly'),
+            ('䷄', '需', '', 'Xū', 'Waiting'),
+            ('䷅', '讼', '訟', 'Sòng', 'Conflict'),
+            ('䷆', '师', '師', 'Shī', 'The Army'),
+            ('䷇', '比', '', 'Bǐ', 'Holding Together'),
+            ('䷈', '小畜', '', 'Xiǎo Chù', 'Small Taming'),
+            ('䷉', '履', '', 'Lǚ', 'Treading'),
+            ('䷊', '泰', '', 'Tài', 'Peace'),
+            ('䷋', '否', '', 'Pǐ', 'Standstill'),
+            ('䷌', '同人', '', 'Tóng Rén', 'Fellowship'),
+            ('䷍', '大有', '', 'Dà Yǒu', 'Great Possession'),
+            ('䷎', '谦', '謙', 'Qiān', 'Modesty'),
+            ('䷏', '豫', '', 'Yù', 'Enthusiasm'),
+            ('䷐', '随', '隨', 'Suí', 'Following'),
+            ('䷑', '蛊', '蠱', 'Gǔ', 'Work on the Decayed'),
+            ('䷒', '临', '臨', 'Lín', 'Approach'),
+            ('䷓', '观', '觀', 'Guān', 'Contemplation'),
+            ('䷔', '噬嗑', '', 'Shì Kè', 'Biting Through'),
+            ('䷕', '贲', '賁', 'Bì', 'Grace'),
+            ('䷖', '剥', '剝', 'Bō', 'Splitting Apart'),
+            ('䷗', '复', '復', 'Fù', 'Return'),
+            ('䷘', '无妄', '無妄', 'Wú Wàng', 'Innocence'),
+            ('䷙', '大畜', '', 'Dà Chù', 'Great Taming'),
+            ('䷚', '颐', '頤', 'Yí', 'Nourishment'),
+            ('䷛', '大过', '大過', 'Dà Guò', 'Great Excess'),
+            ('䷜', '坎', '', 'Kǎn', 'The Abysmal'),
+            ('䷝', '离', '離', 'Lí', 'The Clinging'),
+            ('䷞', '咸', '', 'Xián', 'Influence'),
+            ('䷟', '恒', '恆', 'Héng', 'Duration'),
+            ('䷠', '遁', '遯', 'Dùn', 'Retreat'),
+            ('䷡', '大壮', '大壯', 'Dà Zhuàng', 'Great Power'),
+            ('䷢', '晋', '晉', 'Jìn', 'Progress'),
+            ('䷣', '明夷', '', 'Míng Yí', 'Darkening of the Light'),
+            ('䷤', '家人', '', 'Jiā Rén', 'The Family'),
+            ('䷥', '睽', '', 'Kuí', 'Opposition'),
+            ('䷦', '蹇', '', 'Jiǎn', 'Obstruction'),
+            ('䷧', '解', '', 'Xiè', 'Deliverance'),
+            ('䷨', '损', '損', 'Sǔn', 'Decrease'),
+            ('䷩', '益', '', 'Yì', 'Increase'),
+            ('䷪', '夬', '', 'Guài', 'Breakthrough'),
+            ('䷫', '姤', '', 'Gòu', 'Coming to Meet'),
+            ('䷬', '萃', '', 'Cuì', 'Gathering Together'),
+            ('䷭', '升', '', 'Shēng', 'Pushing Upward'),
+            ('䷮', '困', '', 'Kùn', 'Oppression'),
+            ('䷯', '井', '', 'Jǐng', 'The Well'),
+            ('䷰', '革', '', 'Gé', 'Revolution'),
+            ('䷱', '鼎', '', 'Dǐng', 'The Cauldron'),
+            ('䷲', '震', '', 'Zhèn', 'The Arousing'),
+            ('䷳', '艮', '', 'Gèn', 'Keeping Still'),
+            ('䷴', '渐', '漸', 'Jiàn', 'Development'),
+            ('䷵', '归妹', '歸妹', 'Guī Mèi', 'The Marrying Maiden'),
+            ('䷶', '丰', '豐', 'Fēng', 'Abundance'),
+            ('䷷', '旅', '', 'Lǚ', 'The Wanderer'),
+            ('䷸', '巽', '', 'Xùn', 'The Gentle'),
+            ('䷹', '兑', '兌', 'Duì', 'The Joyous'),
+            ('䷺', '涣', '渙', 'Huàn', 'Dispersion'),
+            ('䷻', '节', '節', 'Jié', 'Limitation'),
+            ('䷼', '中孚', '', 'Zhōng Fú', 'Inner Truth'),
+            ('䷽', '小过', '小過', 'Xiǎo Guò', 'Small Excess'),
+            ('䷾', '既济', '既濟', 'Jì Jì', 'After Completion'),
+            ('䷿', '未济', '未濟', 'Wèi Jì', 'Before Completion'),
+        ]
+        if 1 <= position <= 64:
+            unicode_char, simplified, traditional, pinyin, english = hexagrams[position - 1]
+            return {
+                'archetype': english,
+                'rank': str(position),
+                'suit': None,
+                'sort_order': position,
+                'custom_fields': {
+                    'Hexagram': unicode_char,
+                    'Pinyin': pinyin,
+                    'Simplified Chinese': simplified,
+                    'Traditional Chinese': traditional,
+                }
+            }
+        return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': position}
 
     def _get_tarot_metadata(self, card_name: str, sort_order: int, custom_suit_names: dict = None,
                             preset_name: str = None, custom_court_names: dict = None,
@@ -940,6 +1497,11 @@ class ImportPresets:
         archetype_mapping: 'Map to RWS archetypes', 'Map to Thoth archetypes', or 'Create new archetypes'
         """
         name_lower = card_name.lower()
+
+        # Handle Gnostic/Eternal Tarot - unique system with 78 numbered Arcana
+        is_gnostic = preset_name and 'gnostic' in preset_name.lower()
+        if is_gnostic:
+            return self._get_gnostic_tarot_metadata(card_name, sort_order)
 
         # Determine ordering based on preset
         # RWS ordering: Strength=VIII, Justice=XI
@@ -1209,6 +1771,135 @@ class ImportPresets:
 
         return card_name
 
+    def _get_gnostic_tarot_metadata(self, card_name: str, sort_order: int) -> dict:
+        """Get metadata for a Gnostic/Eternal Tarot card.
+
+        The Gnostic system has 78 Arcana numbered 1-78, each with a unique name.
+        - Arcana 1-22: Major Arcana equivalent
+        - Arcana 23-78: Minor Arcana equivalent (no suits, unique names)
+
+        Metadata is assigned by sort_order (1-78).
+        """
+        # All 78 Arcana with their names
+        gnostic_arcana = {
+            1: "Arcanum 1: The Magician",
+            2: "Arcanum 2: The Priestess",
+            3: "Arcanum 3: The Empress",
+            4: "Arcanum 4: The Emperor",
+            5: "Arcanum 5: The Hierarch",
+            6: "Arcanum 6: Indecision",
+            7: "Arcanum 7: Triumph",
+            8: "Arcanum 8: Justice",
+            9: "Arcanum 9: The Hermit",
+            10: "Arcanum 10: Retribution",
+            11: "Arcanum 11: Persuasion",
+            12: "Arcanum 12: The Apostolate",
+            13: "Arcanum 13: Immortality",
+            14: "Arcanum 14: Temperance",
+            15: "Arcanum 15: Passion",
+            16: "Arcanum 16: Fragility",
+            17: "Arcanum 17: Hope",
+            18: "Arcanum 18: Twilight",
+            19: "Arcanum 19: Inspiration",
+            20: "Arcanum 20: Resurrection",
+            21: "Arcanum 21: Transmutation",
+            22: "Arcanum 22: The Return",
+            23: "Arcanum 23: The Plower",
+            24: "Arcanum 24: The Weaver",
+            25: "Arcanum 25: The Argonaut",
+            26: "Arcanum 26: The Prodigy",
+            27: "Arcanum 27: The Unexpected",
+            28: "Arcanum 28: Uncertainty",
+            29: "Arcanum 29: Domesticity",
+            30: "Arcanum 30: Exchange",
+            31: "Arcanum 31: Impediments",
+            32: "Arcanum 32: Magnificence",
+            33: "Arcanum 33: Alliance",
+            34: "Arcanum 34: Innovation",
+            35: "Arcanum 35: Grief",
+            36: "Arcanum 36: Initiation",
+            37: "Arcanum 37: Art and Science",
+            38: "Arcanum 38: Duplicity",
+            39: "Arcanum 39: Testimony",
+            40: "Arcanum 40: Presentiment",
+            41: "Arcanum 41: Uneasiness",
+            42: "Arcanum 42: Preeminence",
+            43: "Arcanum 43: Hallucination",
+            44: "Arcanum 44: Thinking",
+            45: "Arcanum 45: Regeneration",
+            46: "Arcanum 46: Patrimony",
+            47: "Arcanum 47: Conjecturing",
+            48: "Arcanum 48: Consummation",
+            49: "Arcanum 49: Versatility",
+            50: "Arcanum 50: Affinity",
+            51: "Arcanum 51: Counseling",
+            52: "Arcanum 52: Premeditation",
+            53: "Arcanum 53: Resentment",
+            54: "Arcanum 54: Examination",
+            55: "Arcanum 55: Contrition",
+            56: "Arcanum 56: Pilgrimage",
+            57: "Arcanum 57: Rivalry",
+            58: "Arcanum 58: Requalification",
+            59: "Arcanum 59: Revelation",
+            60: "Arcanum 60: Evolution",
+            61: "Arcanum 61: Solitude",
+            62: "Arcanum 62: Proscription",
+            63: "Arcanum 63: Communion",
+            64: "Arcanum 64: Vehemence",
+            65: "Arcanum 65: Learning",
+            66: "Arcanum 66: Perplexity",
+            67: "Arcanum 67: Friendship",
+            68: "Arcanum 68: Speculation",
+            69: "Arcanum 69: Chance",
+            70: "Arcanum 70: Cooperation",
+            71: "Arcanum 71: Avarice",
+            72: "Arcanum 72: Purification",
+            73: "Arcanum 73: Love and Desire",
+            74: "Arcanum 74: Offering",
+            75: "Arcanum 75: Generosity",
+            76: "Arcanum 76: The Dispenser",
+            77: "Arcanum 77: Disorientation",
+            78: "Arcanum 78: Renaissance",
+        }
+
+        # Try to determine arcanum number from sort_order or card name
+        arcanum_num = None
+
+        # If sort_order is valid (1-78), use it
+        if 1 <= sort_order <= 78:
+            arcanum_num = sort_order
+        else:
+            # Try to extract number from card name (e.g., "Arcanum 23: The Plower" or just "23")
+            import re
+            match = re.search(r'(?:arcanum\s*)?(\d+)', card_name.lower())
+            if match:
+                num = int(match.group(1))
+                if 1 <= num <= 78:
+                    arcanum_num = num
+
+        if arcanum_num and arcanum_num in gnostic_arcana:
+            archetype = gnostic_arcana[arcanum_num]
+            # Determine card type
+            if arcanum_num <= 22:
+                card_type = "Major Arcana"
+            else:
+                card_type = "Minor Arcana"
+
+            return {
+                'archetype': archetype,
+                'rank': str(arcanum_num),
+                'suit': card_type,
+                'sort_order': arcanum_num
+            }
+
+        # Fallback - return basic info
+        return {
+            'archetype': card_name,
+            'rank': str(sort_order) if sort_order else None,
+            'suit': None,
+            'sort_order': sort_order
+        }
+
     def _get_lenormand_metadata(self, card_name: str, sort_order: int) -> dict:
         """Get metadata for a Lenormand card.
 
@@ -1401,6 +2092,32 @@ class ImportPresets:
             'sort_order': sort_order
         }
 
+    def _get_iching_metadata(self, card_name: str, sort_order: int) -> dict:
+        """Get metadata for an I Ching hexagram.
+
+        Tries to parse hexagram number from card name, falls back to sort_order.
+        """
+        name_lower = card_name.lower().strip()
+
+        # Try to extract hexagram number from the card name
+        # Match patterns like "Hexagram 1", "1.", "01", "01_the_creative", etc.
+        # First try at the start of the name
+        match = re.match(r'^(?:hexagram\s*)?(\d+)', name_lower)
+        if match:
+            hex_num = int(match.group(1))
+            if 1 <= hex_num <= 64:
+                return self._get_iching_metadata_by_position(hex_num)
+
+        # Try to find any number in the name (e.g., from filename like "hexagram_01.jpg")
+        all_numbers = re.findall(r'(\d+)', name_lower)
+        for num_str in all_numbers:
+            hex_num = int(num_str)
+            if 1 <= hex_num <= 64:
+                return self._get_iching_metadata_by_position(hex_num)
+
+        # Fall back to position-based
+        return self._get_iching_metadata_by_position(sort_order)
+
     def _get_oracle_metadata(self, card_name: str, sort_order: int) -> dict:
         """Get metadata for an Oracle card.
 
@@ -1423,15 +2140,34 @@ class ImportPresets:
                              preset_name: str = None, custom_court_names: dict = None) -> int:
         """Get sort order: Major Arcana (0-21), then Wands, Cups, Swords, Pentacles for Tarot.
         For Playing Cards: Jokers (1-2), then Spades=1xx, Hearts=2xx, Clubs=3xx, Diamonds=4xx.
+        For I Ching: Hexagram number (1-64).
         Respects preset ordering for Strength/Justice swap.
 
         Court cards are always ordered: first court=11, second=12, third=13, fourth=14
         regardless of their display names (Page, Knave, Princess, etc.)"""
         name_lower = card_name.lower()
 
-        # Check if this is a playing cards preset
+        # Check preset type
         preset = self.get_preset(preset_name) if preset_name else None
-        is_playing_cards = preset and preset.get('type') == 'Playing Cards'
+        preset_type = preset.get('type') if preset else None
+
+        # I Ching: extract hexagram number from filename/name
+        if preset_type == 'I Ching':
+            # First try at the start of the name
+            match = re.match(r'^(?:hexagram\s*)?(\d+)', name_lower)
+            if match:
+                hex_num = int(match.group(1))
+                if 1 <= hex_num <= 64:
+                    return hex_num
+            # Try to find any number in the name
+            all_numbers = re.findall(r'(\d+)', name_lower)
+            for num_str in all_numbers:
+                hex_num = int(num_str)
+                if 1 <= hex_num <= 64:
+                    return hex_num
+            return 999  # Unknown
+
+        is_playing_cards = preset_type == 'Playing Cards'
 
         if is_playing_cards:
             return self._get_playing_card_sort_order(name_lower)
