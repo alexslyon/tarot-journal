@@ -119,7 +119,11 @@ class Database:
         # Migration: add allowed_deck_types column for multi-deck-type spreads
         if 'allowed_deck_types' not in columns:
             cursor.execute('ALTER TABLE spreads ADD COLUMN allowed_deck_types TEXT')
-        
+
+        # Migration: add default_deck_id column for spread-specific default deck
+        if 'default_deck_id' not in columns:
+            cursor.execute('ALTER TABLE spreads ADD COLUMN default_deck_id INTEGER REFERENCES decks(id)')
+
         # Journal entries table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS journal_entries (
@@ -706,23 +710,27 @@ class Database:
         return cursor.fetchone()
     
     def add_spread(self, name: str, positions: list, description: str = None,
-                   cartomancy_type: str = None, allowed_deck_types: list = None):
+                   cartomancy_type: str = None, allowed_deck_types: list = None,
+                   default_deck_id: int = None):
         """
         positions is a list of dicts: [{"x": 0, "y": 0, "label": "Past"}, ...]
         cartomancy_type: 'Tarot', 'Lenormand', 'Oracle', etc. (deprecated, for backwards compat)
         allowed_deck_types: list of cartomancy type names allowed for this spread, e.g. ['Tarot', 'Oracle']
+        default_deck_id: ID of the default deck for this spread (overrides global default)
         """
         cursor = self.conn.cursor()
         cursor.execute(
-            'INSERT INTO spreads (name, description, positions, cartomancy_type, allowed_deck_types) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO spreads (name, description, positions, cartomancy_type, allowed_deck_types, default_deck_id) VALUES (?, ?, ?, ?, ?, ?)',
             (name, description, json.dumps(positions), cartomancy_type,
-             json.dumps(allowed_deck_types) if allowed_deck_types else None)
+             json.dumps(allowed_deck_types) if allowed_deck_types else None,
+             default_deck_id)
         )
         self.conn.commit()
         return cursor.lastrowid
-    
+
     def update_spread(self, spread_id: int, name: str = None, positions: list = None,
-                      description: str = None, allowed_deck_types: list = None):
+                      description: str = None, allowed_deck_types: list = None,
+                      default_deck_id: int = None, clear_default_deck: bool = False):
         cursor = self.conn.cursor()
         if name:
             cursor.execute('UPDATE spreads SET name = ? WHERE id = ?', (name, spread_id))
@@ -733,6 +741,9 @@ class Database:
         if allowed_deck_types is not None:
             cursor.execute('UPDATE spreads SET allowed_deck_types = ? WHERE id = ?',
                           (json.dumps(allowed_deck_types) if allowed_deck_types else None, spread_id))
+        if default_deck_id is not None or clear_default_deck:
+            cursor.execute('UPDATE spreads SET default_deck_id = ? WHERE id = ?',
+                          (default_deck_id, spread_id))
         self.conn.commit()
     
     def delete_spread(self, spread_id: int):
@@ -2142,6 +2153,33 @@ class Database:
     def set_default_deck(self, cartomancy_type: str, deck_id: int):
         """Set the default deck for a cartomancy type"""
         self.set_setting(f'default_deck_{cartomancy_type.lower()}', str(deck_id))
+
+    def get_default_querent(self):
+        """Get the default querent profile ID"""
+        profile_id = self.get_setting('default_querent')
+        return int(profile_id) if profile_id else None
+
+    def set_default_querent(self, profile_id: int):
+        """Set the default querent profile ID"""
+        self.set_setting('default_querent', str(profile_id) if profile_id else '')
+
+    def get_default_reader(self):
+        """Get the default reader profile ID"""
+        profile_id = self.get_setting('default_reader')
+        return int(profile_id) if profile_id else None
+
+    def set_default_reader(self, profile_id: int):
+        """Set the default reader profile ID"""
+        self.set_setting('default_reader', str(profile_id) if profile_id else '')
+
+    def get_default_reader_same_as_querent(self):
+        """Get whether default reader should be same as querent"""
+        val = self.get_setting('default_reader_same_as_querent')
+        return val == '1' if val else False
+
+    def set_default_reader_same_as_querent(self, same: bool):
+        """Set whether default reader should be same as querent"""
+        self.set_setting('default_reader_same_as_querent', '1' if same else '0')
 
     # === Deck Export/Import with Metadata ===
     def export_deck_json(self, deck_id: int) -> dict:

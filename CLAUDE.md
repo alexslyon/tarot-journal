@@ -8,24 +8,52 @@ This app uses a custom dark theme. When creating UI elements:
    - Always call `SetForegroundColour(get_wx_color('text_primary'))` on text-displaying widgets
    - For buttons and inputs, also call `SetBackgroundColour(get_wx_color('bg_secondary'))`
 
-2. **CRITICAL: wx.CheckBox labels don't support custom colors on macOS**
-   - **NEVER** use: `wx.CheckBox(parent, label="Some text")` - the label will be BLACK and unreadable on the dark background
-   - `SetForegroundColour()` does NOT work on checkbox labels on macOS
-   - **ALWAYS** use an empty-label checkbox with a separate StaticText:
+2. **CRITICAL: wx.CheckBox and wx.RadioButton labels don't support custom colors on macOS**
+   - **NEVER** use: `wx.CheckBox(parent, label="Some text")` - the label will be BLACK and unreadable
+   - **NEVER** use: `wx.RadioButton(parent, label="Some text")` - the label will be BLACK and unreadable
+   - `SetForegroundColour()` does NOT work on checkbox/radiobutton labels on macOS
+   - **ALWAYS** use an empty-label widget with a separate StaticText:
+
+   For CheckBox:
      ```python
      cb_sizer = wx.BoxSizer(wx.HORIZONTAL)
      cb = wx.CheckBox(parent, label="")  # Empty label!
-     cb_sizer.Add(cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
+     cb_sizer.Add(cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
      cb_label = wx.StaticText(parent, label="Your label text")
      cb_label.SetForegroundColour(get_wx_color('text_primary'))
      cb_sizer.Add(cb_label, 0, wx.ALIGN_CENTER_VERTICAL)
      ```
-   - This applies to ALL checkboxes in the app, including those in dialogs
 
-3. **Common color keys:**
-   - `text_primary` - main text color (white/light)
+   For RadioButton:
+     ```python
+     rb_sizer = wx.BoxSizer(wx.HORIZONTAL)
+     rb = wx.RadioButton(parent, label="", style=wx.RB_GROUP)  # Empty label! Add RB_GROUP for first in group
+     rb_sizer.Add(rb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+     rb_label = wx.StaticText(parent, label="Your label text")
+     rb_label.SetForegroundColour(get_wx_color('text_primary'))
+     rb_sizer.Add(rb_label, 0, wx.ALIGN_CENTER_VERTICAL)
+     ```
+   - This applies to ALL checkboxes and radio buttons in the app, including those in dialogs
+
+3. **EVERY text-displaying widget MUST have SetForegroundColour called**
+   - wx.StaticText - MUST call SetForegroundColour
+   - wx.TextCtrl - MUST call SetForegroundColour AND SetBackgroundColour
+   - wx.Button - MUST call SetForegroundColour (and often SetBackgroundColour)
+   - wx.ListCtrl - Use SetTextColour (not SetForegroundColour)
+   - wx.StaticBox - SetForegroundColour for the label
+   - **If you create ANY widget that displays text, you MUST set its color explicitly**
+
+4. **Common color keys:**
+   - `text_primary` - main text color (white/light) - USE THIS FOR ALL TEXT
    - `text_secondary` - dimmer text
    - `text_dim` - subtle text
    - `bg_primary` - main background
    - `bg_secondary` - slightly lighter background (for inputs, buttons)
    - `bg_input` - input field background
+   - `accent` - accent color for highlights
+
+5. **Before finishing any UI code, mentally check:**
+   - Did I set foreground color on ALL StaticText widgets?
+   - Did I use empty labels for ALL CheckBox and RadioButton widgets?
+   - Did I set colors on ALL buttons?
+   - Will ANY text appear black on the dark background?
