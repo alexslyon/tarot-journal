@@ -642,7 +642,11 @@ class MainFrame(wx.Frame):
         new_btn = wx.Button(left, label="+ New")
         new_btn.Bind(wx.EVT_BUTTON, self._on_new_spread)
         btn_sizer.Add(new_btn, 0, wx.RIGHT, 5)
-        
+
+        clone_btn = wx.Button(left, label="Clone")
+        clone_btn.Bind(wx.EVT_BUTTON, self._on_clone_spread)
+        btn_sizer.Add(clone_btn, 0, wx.RIGHT, 5)
+
         del_btn = wx.Button(left, label="Delete")
         del_btn.Bind(wx.EVT_BUTTON, self._on_delete_spread)
         btn_sizer.Add(del_btn, 0)
@@ -664,16 +668,34 @@ class MainFrame(wx.Frame):
         self.spread_name_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
         self.spread_name_ctrl.SetForegroundColour(get_wx_color('text_primary'))
         meta_sizer.Add(self.spread_name_ctrl, 0, wx.RIGHT, 20)
-        
+
+        right_sizer.Add(meta_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        # Description with rich text editing (collapsible)
+        # Note: CollapsiblePane labels don't support custom colors on macOS, so we add a separate label
+        desc_label_sizer = wx.BoxSizer(wx.HORIZONTAL)
         desc_label = wx.StaticText(right, label="Description:")
         desc_label.SetForegroundColour(get_wx_color('text_primary'))
-        meta_sizer.Add(desc_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
-        self.spread_desc_ctrl = wx.TextCtrl(right)
-        self.spread_desc_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
-        self.spread_desc_ctrl.SetForegroundColour(get_wx_color('text_primary'))
-        meta_sizer.Add(self.spread_desc_ctrl, 1)
-        
-        right_sizer.Add(meta_sizer, 0, wx.EXPAND | wx.ALL, 10)
+        desc_label_sizer.Add(desc_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        desc_collapse_hint = wx.StaticText(right, label="(click to expand/collapse)")
+        desc_collapse_hint.SetForegroundColour(get_wx_color('text_dim'))
+        desc_label_sizer.Add(desc_collapse_hint, 0, wx.ALIGN_CENTER_VERTICAL)
+        right_sizer.Add(desc_label_sizer, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+
+        desc_box = wx.CollapsiblePane(right, label="", style=wx.CP_DEFAULT_STYLE | wx.CP_NO_TLW_RESIZE)
+        desc_pane = desc_box.GetPane()
+        desc_pane.SetBackgroundColour(get_wx_color('bg_primary'))
+        desc_pane_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.spread_desc_ctrl = RichTextPanel(desc_pane, value='', min_height=100)
+        desc_pane_sizer.Add(self.spread_desc_ctrl, 1, wx.EXPAND)
+        desc_pane.SetSizer(desc_pane_sizer)
+
+        def on_desc_collapse(e):
+            right.Layout()
+            right.GetParent().Layout()
+        desc_box.Bind(wx.EVT_COLLAPSIBLEPANE_CHANGED, on_desc_collapse)
+
+        right_sizer.Add(desc_box, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         # Deck types selection
         deck_types_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -701,6 +723,22 @@ class MainFrame(wx.Frame):
 
         right_sizer.Add(deck_types_sizer, 0, wx.LEFT | wx.BOTTOM, 10)
 
+        # Default deck selection
+        default_deck_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        default_deck_label = wx.StaticText(right, label="Default Deck:")
+        default_deck_label.SetForegroundColour(get_wx_color('text_primary'))
+        default_deck_sizer.Add(default_deck_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+        self.spread_default_deck_choice = wx.Choice(right, size=(250, -1))
+        self._refresh_spread_default_deck_choices()
+        default_deck_sizer.Add(self.spread_default_deck_choice, 0, wx.RIGHT, 10)
+
+        default_deck_note = wx.StaticText(right, label="(overrides global default for this spread)")
+        default_deck_note.SetForegroundColour(get_wx_color('text_dim'))
+        default_deck_sizer.Add(default_deck_note, 0, wx.ALIGN_CENTER_VERTICAL)
+
+        right_sizer.Add(default_deck_sizer, 0, wx.LEFT | wx.BOTTOM, 10)
+
         # Instructions
         instr = wx.StaticText(right, label="Drag positions to arrange • Right-click to delete")
         instr.SetForegroundColour(get_wx_color('text_dim'))
@@ -715,6 +753,18 @@ class MainFrame(wx.Frame):
         designer_legend_label = wx.StaticText(right, label="Show Position Legend")
         designer_legend_label.SetForegroundColour(get_wx_color('text_primary'))
         toggle_sizer.Add(designer_legend_label, 0, wx.ALIGN_CENTER_VERTICAL)
+
+        toggle_sizer.AddSpacer(20)
+
+        # Snap to grid toggle
+        self.designer_snap_toggle = wx.CheckBox(right, label="")
+        self.designer_snap_toggle.SetValue(True)  # Default to enabled
+        self.designer_snap_toggle.Bind(wx.EVT_CHECKBOX, lambda e: self.designer_canvas.Refresh())
+        toggle_sizer.Add(self.designer_snap_toggle, 0, wx.RIGHT, 5)
+
+        designer_snap_label = wx.StaticText(right, label="Snap to Grid")
+        designer_snap_label.SetForegroundColour(get_wx_color('text_primary'))
+        toggle_sizer.Add(designer_snap_label, 0, wx.ALIGN_CENTER_VERTICAL)
 
         right_sizer.Add(toggle_sizer, 0, wx.LEFT | wx.TOP, 10)
 
@@ -1452,6 +1502,112 @@ class MainFrame(wx.Frame):
             defaults_sizer.Add(type_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         sizer.Add(defaults_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        # Default Reader/Querent section
+        people_defaults_box = wx.StaticBox(panel, label="Default Reader & Querent")
+        people_defaults_box.SetForegroundColour(get_wx_color('accent'))
+        people_defaults_sizer = wx.StaticBoxSizer(people_defaults_box, wx.VERTICAL)
+
+        people_defaults_desc = wx.StaticText(panel, label="Set default reader and querent for new journal entries.")
+        people_defaults_desc.SetForegroundColour(get_wx_color('text_primary'))
+        people_defaults_sizer.Add(people_defaults_desc, 0, wx.ALL, 10)
+
+        # Get profiles for dropdowns
+        profiles = self.db.get_profiles()
+        profile_names = ["(None)"] + [p['name'] for p in profiles]
+        profile_ids = [None] + [p['id'] for p in profiles]
+
+        # Querent row
+        querent_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        querent_label = wx.StaticText(panel, label="Default Querent:")
+        querent_label.SetForegroundColour(get_wx_color('text_primary'))
+        querent_label.SetMinSize((120, -1))
+        querent_sizer.Add(querent_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+        self.default_querent_choice = wx.Choice(panel, choices=profile_names)
+        self.default_querent_choice.SetSelection(0)
+
+        # Load saved default querent
+        default_querent_id = self.db.get_default_querent()
+        if default_querent_id:
+            for i, pid in enumerate(profile_ids):
+                if pid == default_querent_id:
+                    self.default_querent_choice.SetSelection(i)
+                    break
+
+        def on_querent_change(event):
+            sel = self.default_querent_choice.GetSelection()
+            profile_id = profile_ids[sel] if sel > 0 else None
+            self.db.set_default_querent(profile_id)
+            # If "same as querent" is checked, also update reader
+            if self.default_reader_same_cb.GetValue():
+                self.default_reader_choice.SetSelection(sel)
+                self.db.set_default_reader(profile_id)
+
+        self.default_querent_choice.Bind(wx.EVT_CHOICE, on_querent_change)
+        querent_sizer.Add(self.default_querent_choice, 1, wx.EXPAND | wx.RIGHT, 10)
+        people_defaults_sizer.Add(querent_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # Reader row
+        reader_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        reader_label = wx.StaticText(panel, label="Default Reader:")
+        reader_label.SetForegroundColour(get_wx_color('text_primary'))
+        reader_label.SetMinSize((120, -1))
+        reader_sizer.Add(reader_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+
+        self.default_reader_choice = wx.Choice(panel, choices=profile_names)
+        self.default_reader_choice.SetSelection(0)
+
+        # Load saved default reader
+        default_reader_id = self.db.get_default_reader()
+        if default_reader_id:
+            for i, pid in enumerate(profile_ids):
+                if pid == default_reader_id:
+                    self.default_reader_choice.SetSelection(i)
+                    break
+
+        def on_reader_change(event):
+            sel = self.default_reader_choice.GetSelection()
+            profile_id = profile_ids[sel] if sel > 0 else None
+            self.db.set_default_reader(profile_id)
+
+        self.default_reader_choice.Bind(wx.EVT_CHOICE, on_reader_change)
+        reader_sizer.Add(self.default_reader_choice, 1, wx.EXPAND | wx.RIGHT, 10)
+        people_defaults_sizer.Add(reader_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # "Reader same as Querent" checkbox
+        same_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        same_spacer = wx.StaticText(panel, label="")
+        same_spacer.SetMinSize((120, -1))
+        same_sizer.Add(same_spacer, 0, wx.RIGHT, 10)
+
+        self.default_reader_same_cb = wx.CheckBox(panel, label="")
+        same_sizer.Add(self.default_reader_same_cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 3)
+        same_label = wx.StaticText(panel, label="Reader same as Querent")
+        same_label.SetForegroundColour(get_wx_color('text_primary'))
+        same_sizer.Add(same_label, 0, wx.ALIGN_CENTER_VERTICAL)
+
+        # Load saved "same as querent" setting
+        if self.db.get_default_reader_same_as_querent():
+            self.default_reader_same_cb.SetValue(True)
+            self.default_reader_choice.Enable(False)
+
+        def on_same_change(event):
+            same = self.default_reader_same_cb.GetValue()
+            self.db.set_default_reader_same_as_querent(same)
+            if same:
+                sel = self.default_querent_choice.GetSelection()
+                self.default_reader_choice.SetSelection(sel)
+                self.default_reader_choice.Enable(False)
+                profile_id = profile_ids[sel] if sel > 0 else None
+                self.db.set_default_reader(profile_id)
+            else:
+                self.default_reader_choice.Enable(True)
+
+        self.default_reader_same_cb.Bind(wx.EVT_CHECKBOX, on_same_change)
+        people_defaults_sizer.Add(same_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        sizer.Add(people_defaults_sizer, 0, wx.EXPAND | wx.ALL, 10)
 
         # Cache section
         cache_box = wx.StaticBox(panel, label="Thumbnail Cache")
@@ -3199,14 +3355,31 @@ class MainFrame(wx.Frame):
         same_as_querent_cb.Bind(wx.EVT_CHECKBOX, on_same_as_querent)
         querent_choice.Bind(wx.EVT_CHOICE, on_querent_change)
 
-        # Load existing querent/reader from entry
+        # Load existing querent/reader from entry, or apply defaults for new entries
         existing_querent_id = entry['querent_id'] if 'querent_id' in entry.keys() else None
         existing_reader_id = entry['reader_id'] if 'reader_id' in entry.keys() else None
+
         if existing_querent_id and existing_querent_id in profile_ids:
             querent_choice.SetSelection(profile_ids.index(existing_querent_id))
+        elif is_new:
+            # Apply default querent for new entries
+            default_querent_id = self.db.get_default_querent()
+            if default_querent_id and default_querent_id in profile_ids:
+                querent_choice.SetSelection(profile_ids.index(default_querent_id))
+
         if existing_reader_id and existing_reader_id in profile_ids:
             reader_choice.SetSelection(profile_ids.index(existing_reader_id))
+        elif is_new:
+            # Apply default reader for new entries
+            default_reader_id = self.db.get_default_reader()
+            if default_reader_id and default_reader_id in profile_ids:
+                reader_choice.SetSelection(profile_ids.index(default_reader_id))
+
+        # Check "same as querent" checkbox
         if existing_querent_id and existing_querent_id == existing_reader_id:
+            same_as_querent_cb.SetValue(True)
+            on_same_as_querent(None)
+        elif is_new and self.db.get_default_reader_same_as_querent():
             same_as_querent_cb.SetValue(True)
             on_same_as_querent(None)
 
@@ -3397,8 +3570,18 @@ class MainFrame(wx.Frame):
                     # Filter deck choices based on allowed types
                     update_deck_choices(allowed_types)
 
-                    # Auto-select default deck based on first allowed type
-                    if allowed_types:
+                    # First, check for spread-specific default deck
+                    spread_default_deck_id = spread['default_deck_id'] if 'default_deck_id' in spread.keys() else None
+                    if spread_default_deck_id:
+                        for name, info in dlg._all_decks.items():
+                            if info['id'] == spread_default_deck_id:
+                                idx = deck_choice.FindString(name)
+                                if idx != wx.NOT_FOUND:
+                                    deck_choice.SetSelection(idx)
+                                    dlg._selected_deck_id = spread_default_deck_id
+                                break
+                    # Fall back to global default based on first allowed type
+                    elif allowed_types:
                         default_deck_id = self.db.get_default_deck(allowed_types[0])
                         if default_deck_id:
                             for name, info in dlg._all_decks.items():
@@ -4025,7 +4208,18 @@ class MainFrame(wx.Frame):
 
                     update_deck_choices(allowed_types)
 
-                    if allowed_types:
+                    # First, check for spread-specific default deck
+                    spread_default_deck_id = spread['default_deck_id'] if 'default_deck_id' in spread.keys() else None
+                    if spread_default_deck_id:
+                        for name, info in dlg._all_decks.items():
+                            if info['id'] == spread_default_deck_id:
+                                idx = deck_choice.FindString(name)
+                                if idx != wx.NOT_FOUND:
+                                    deck_choice.SetSelection(idx)
+                                    dlg._selected_deck_id = spread_default_deck_id
+                                break
+                    # Fall back to global default based on first allowed type
+                    elif allowed_types:
                         default_deck_id = self.db.get_default_deck(allowed_types[0])
                         if default_deck_id:
                             for name, info in dlg._all_decks.items():
@@ -6019,28 +6213,109 @@ class MainFrame(wx.Frame):
             wx.MessageBox(f"Imported {len(cards)} cards.", "Success", wx.OK | wx.ICON_INFORMATION)
         dlg.Destroy()
 
+    def _show_fullsize_image(self, image_path, title="Image"):
+        """Show a full-size image in a resizable dialog"""
+        from PIL import ImageOps
+
+        try:
+            pil_img = Image.open(image_path)
+            pil_img = ImageOps.exif_transpose(pil_img)
+            orig_width, orig_height = pil_img.size
+        except Exception as e:
+            wx.MessageBox(f"Could not load image: {e}", "Error", wx.OK | wx.ICON_ERROR)
+            return
+
+        # Get screen size to limit dialog size
+        display = wx.Display(wx.Display.GetFromWindow(self))
+        screen_rect = display.GetClientArea()
+        max_dlg_width = int(screen_rect.width * 0.85)
+        max_dlg_height = int(screen_rect.height * 0.85)
+
+        # Calculate initial size - fit image to screen with some padding
+        padding = 60
+        scale = min((max_dlg_width - padding) / orig_width, (max_dlg_height - padding) / orig_height, 1.0)
+        initial_width = int(orig_width * scale) + padding
+        initial_height = int(orig_height * scale) + padding
+
+        dlg = wx.Dialog(self, title=title, size=(initial_width, initial_height),
+                       style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER | wx.MAXIMIZE_BOX)
+        dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+
+        # Use a scrolled window to allow viewing full image if larger than dialog
+        scroll = wx.ScrolledWindow(dlg)
+        scroll.SetBackgroundColour(get_wx_color('bg_primary'))
+        scroll.SetScrollRate(10, 10)
+
+        # Store original image for resizing
+        dlg._pil_img = pil_img
+        dlg._scroll = scroll
+        dlg._bitmap = None
+
+        def update_image():
+            """Update the displayed image based on dialog size"""
+            dlg_width, dlg_height = dlg.GetClientSize()
+            img_width, img_height = dlg._pil_img.size
+
+            # Scale image to fit dialog while preserving aspect ratio
+            scale = min((dlg_width - 20) / img_width, (dlg_height - 20) / img_height, 1.0)
+            new_width = int(img_width * scale)
+            new_height = int(img_height * scale)
+
+            # Resize and convert
+            scaled_img = dlg._pil_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            if scaled_img.mode != 'RGB':
+                scaled_img = scaled_img.convert('RGB')
+
+            wx_img = wx.Image(new_width, new_height)
+            wx_img.SetData(scaled_img.tobytes())
+
+            # Update or create bitmap
+            if dlg._bitmap:
+                dlg._bitmap.SetBitmap(wx.Bitmap(wx_img))
+            else:
+                dlg._bitmap = wx.StaticBitmap(scroll, bitmap=wx.Bitmap(wx_img))
+
+            scroll.SetVirtualSize((new_width, new_height))
+            scroll.Refresh()
+
+        # Initial display
+        update_image()
+
+        # Update on resize
+        def on_resize(e):
+            update_image()
+            e.Skip()
+        dlg.Bind(wx.EVT_SIZE, on_resize)
+
+        # Layout
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(scroll, 1, wx.EXPAND)
+        dlg.SetSizer(sizer)
+
+        # Close on Escape
+        def on_key(e):
+            if e.GetKeyCode() == wx.WXK_ESCAPE:
+                dlg.Close()
+            else:
+                e.Skip()
+        dlg.Bind(wx.EVT_CHAR_HOOK, on_key)
+
+        dlg.ShowModal()
+        dlg.Destroy()
+
     def _on_view_card(self, event, card_id, return_after_edit=False):
         """Show a card detail view with full-size image and all metadata"""
         if not card_id:
             return
 
-        # Get card with full metadata first (we need it to find deck_id if not selected)
+        # Get card with full metadata first
         card = self.db.get_card_with_metadata(card_id)
         if not card:
             return
 
-        # Get deck_id based on current view mode, or from the card itself
-        deck_id = None
-        if self._deck_view_mode == 'image':
-            deck_id = self._selected_deck_id
-        else:
-            idx = self.deck_list.GetFirstSelected()
-            if idx != -1:
-                deck_id = self.deck_list.GetItemData(idx)
-
-        # Fall back to getting deck_id from the card itself (e.g., when opened from journal entry)
-        if not deck_id:
-            deck_id = card['deck_id']
+        # Always use the card's own deck_id - this ensures correct deck info
+        # regardless of which deck is selected in the Card Library tab
+        deck_id = card['deck_id']
 
         if not deck_id:
             return
@@ -6093,14 +6368,22 @@ class MainFrame(wx.Frame):
                 scale = min(max_width / orig_width, max_height / orig_height)
                 new_width = int(orig_width * scale)
                 new_height = int(orig_height * scale)
-                pil_img = pil_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                pil_img_scaled = pil_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
                 # Convert PIL image to wx.Image
-                if pil_img.mode != 'RGB':
-                    pil_img = pil_img.convert('RGB')
+                if pil_img_scaled.mode != 'RGB':
+                    pil_img_scaled = pil_img_scaled.convert('RGB')
                 wx_img = wx.Image(new_width, new_height)
-                wx_img.SetData(pil_img.tobytes())
+                wx_img.SetData(pil_img_scaled.tobytes())
                 bmp = wx.StaticBitmap(image_panel, bitmap=wx.Bitmap(wx_img))
+                bmp.SetCursor(wx.Cursor(wx.CURSOR_HAND))
+                bmp.SetToolTip("Click to view larger")
+
+                # Click handler to show full-size image
+                def on_image_click(e, img_path=image_path):
+                    self._show_fullsize_image(img_path, card['name'])
+                bmp.Bind(wx.EVT_LEFT_DOWN, on_image_click)
+
                 image_sizer.Add(bmp, 0, wx.ALL | wx.ALIGN_CENTER, 10)
             except Exception as e:
                 no_img = wx.StaticText(image_panel, label="🂠")
@@ -7141,6 +7424,15 @@ class MainFrame(wx.Frame):
     # ═══════════════════════════════════════════
     # EVENT HANDLERS - Spreads
     # ═══════════════════════════════════════════
+    def _refresh_spread_default_deck_choices(self):
+        """Refresh the default deck dropdown in spread editor"""
+        self.spread_default_deck_choice.Clear()
+        self.spread_default_deck_choice.Append("(Use global default)", None)
+        decks = self.db.get_decks()
+        for deck in decks:
+            self.spread_default_deck_choice.Append(deck['name'], deck['id'])
+        self.spread_default_deck_choice.SetSelection(0)
+
     def _on_spread_select(self, event):
         idx = self.spread_list.GetFirstSelected()
         if idx == -1:
@@ -7166,6 +7458,15 @@ class MainFrame(wx.Frame):
                         if deck_type in self.spread_deck_type_checks:
                             self.spread_deck_type_checks[deck_type].SetValue(True)
 
+                # Load default deck
+                self._refresh_spread_default_deck_choices()
+                default_deck_id = spread['default_deck_id'] if 'default_deck_id' in spread.keys() else None
+                if default_deck_id:
+                    for i in range(self.spread_default_deck_choice.GetCount()):
+                        if self.spread_default_deck_choice.GetClientData(i) == default_deck_id:
+                            self.spread_default_deck_choice.SetSelection(i)
+                            break
+
                 self._update_designer_legend()
                 self.designer_canvas.Refresh()
                 break
@@ -7178,9 +7479,67 @@ class MainFrame(wx.Frame):
         # Clear deck type checkboxes
         for cb in self.spread_deck_type_checks.values():
             cb.SetValue(False)
+        # Reset default deck to global default
+        self._refresh_spread_default_deck_choices()
         self._update_designer_legend()
         self.designer_canvas.Refresh()
-    
+
+    def _on_clone_spread(self, event):
+        """Clone an existing spread to create a new one"""
+        spreads = self.db.get_spreads()
+        if not spreads:
+            wx.MessageBox("No spreads available to clone.", "No Spreads", wx.OK | wx.ICON_INFORMATION)
+            return
+
+        # Build list of spread names
+        spread_names = [s['name'] for s in spreads]
+
+        dlg = wx.SingleChoiceDialog(self, "Select a spread to clone:", "Clone Spread", spread_names)
+        dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+
+        if dlg.ShowModal() == wx.ID_OK:
+            selected_idx = dlg.GetSelection()
+            source_spread = spreads[selected_idx]
+
+            # Clear current editing state (new spread)
+            self.editing_spread_id = None
+
+            # Copy name with "Copy of" prefix
+            self.spread_name_ctrl.SetValue(f"Copy of {source_spread['name']}")
+
+            # Copy description
+            desc = source_spread['description'] if source_spread['description'] else ''
+            self.spread_desc_ctrl.SetValue(desc)
+
+            # Copy positions (deep copy to avoid reference issues)
+            import json
+            positions = json.loads(source_spread['positions']) if isinstance(source_spread['positions'], str) else source_spread['positions']
+            self.designer_positions = [dict(p) for p in positions]
+
+            # Copy deck type restrictions
+            for cb in self.spread_deck_type_checks.values():
+                cb.SetValue(False)
+            if 'allowed_deck_types' in source_spread.keys() and source_spread['allowed_deck_types']:
+                allowed_types = json.loads(source_spread['allowed_deck_types']) if isinstance(source_spread['allowed_deck_types'], str) else source_spread['allowed_deck_types']
+                if allowed_types:
+                    for deck_type in allowed_types:
+                        if deck_type in self.spread_deck_type_checks:
+                            self.spread_deck_type_checks[deck_type].SetValue(True)
+
+            # Copy default deck
+            self._refresh_spread_default_deck_choices()
+            default_deck_id = source_spread['default_deck_id'] if 'default_deck_id' in source_spread.keys() else None
+            if default_deck_id:
+                for i in range(self.spread_default_deck_choice.GetCount()):
+                    if self.spread_default_deck_choice.GetClientData(i) == default_deck_id:
+                        self.spread_default_deck_choice.SetSelection(i)
+                        break
+
+            self._update_designer_legend()
+            self.designer_canvas.Refresh()
+
+        dlg.Destroy()
+
     def _on_delete_spread(self, event):
         idx = self.spread_list.GetFirstSelected()
         if idx == -1:
@@ -7215,13 +7574,20 @@ class MainFrame(wx.Frame):
             if cb.GetValue()
         ]
 
+        # Get default deck selection
+        default_deck_sel = self.spread_default_deck_choice.GetSelection()
+        default_deck_id = self.spread_default_deck_choice.GetClientData(default_deck_sel) if default_deck_sel > 0 else None
+
         if self.editing_spread_id:
             self.db.update_spread(self.editing_spread_id, name=name,
                                  positions=self.designer_positions, description=desc,
-                                 allowed_deck_types=allowed_deck_types if allowed_deck_types else None)
+                                 allowed_deck_types=allowed_deck_types if allowed_deck_types else None,
+                                 default_deck_id=default_deck_id,
+                                 clear_default_deck=(default_deck_sel == 0))
         else:
             self.editing_spread_id = self.db.add_spread(name, self.designer_positions, desc,
-                                                        allowed_deck_types=allowed_deck_types if allowed_deck_types else None)
+                                                        allowed_deck_types=allowed_deck_types if allowed_deck_types else None,
+                                                        default_deck_id=default_deck_id)
 
         self._refresh_spreads_list()
         wx.MessageBox("Spread saved!", "Success", wx.OK | wx.ICON_INFORMATION)
@@ -7231,12 +7597,20 @@ class MainFrame(wx.Frame):
         if dlg.ShowModal() == wx.ID_OK:
             label = dlg.GetValue().strip()
             if label:
+                # Snap to grid if enabled
+                grid_size = 20
+                snap_enabled = self.designer_snap_toggle.GetValue()
+                def snap(val):
+                    if snap_enabled:
+                        return round(val / grid_size) * grid_size
+                    return val
+
                 offset = len(self.designer_positions) * 20
                 self.designer_positions.append({
-                    'x': 50 + (offset % 400),
-                    'y': 50 + (offset // 400) * 140,
-                    'width': 80,
-                    'height': 120,
+                    'x': snap(60 + (offset % 400)),
+                    'y': snap(60 + (offset // 400) * 140),
+                    'width': snap(80),
+                    'height': snap(120),
                     'label': label
                 })
                 self._update_designer_legend()
@@ -7265,7 +7639,8 @@ class MainFrame(wx.Frame):
         # Add legend items for each position
         for i, pos in enumerate(self.designer_positions):
             label = pos.get('label', f'Position {i+1}')
-            legend_item = wx.StaticText(self.designer_legend_scroll, label=f"{i + 1}. {label}")
+            key = pos.get('key', str(i + 1))
+            legend_item = wx.StaticText(self.designer_legend_scroll, label=f"{key}. {label}")
             legend_item.SetForegroundColour(get_wx_color('text_primary'))
             legend_item.SetFont(wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
             self.designer_legend_items_sizer.Add(legend_item, 0, wx.ALL, 5)
@@ -7277,7 +7652,19 @@ class MainFrame(wx.Frame):
         dc = wx.PaintDC(self.designer_canvas)
         dc.SetBackground(wx.Brush(get_wx_color('card_slot')))
         dc.Clear()
-        
+
+        # Draw grid if snap is enabled
+        grid_size = 20
+        if self.designer_snap_toggle.GetValue():
+            canvas_w, canvas_h = self.designer_canvas.GetSize()
+            dc.SetPen(wx.Pen(get_wx_color('bg_tertiary'), 1))
+            # Draw vertical lines
+            for x in range(0, canvas_w, grid_size):
+                dc.DrawLine(x, 0, x, canvas_h)
+            # Draw horizontal lines
+            for y in range(0, canvas_h, grid_size):
+                dc.DrawLine(0, y, canvas_w, y)
+
         for i, pos in enumerate(self.designer_positions):
             x, y = pos['x'], pos['y']
             w, h = pos.get('width', 80), pos.get('height', 120)
@@ -7294,14 +7681,17 @@ class MainFrame(wx.Frame):
 
             dc.DrawRectangle(int(x), int(y), int(w), int(h))
 
+            # Get legend key (custom or default to position number)
+            legend_key = pos.get('key', str(i + 1))
+
             # Show position number and label based on legend toggle
             show_legend = self.designer_legend_toggle.GetValue()
 
             if show_legend:
-                # Show only position number when legend is visible
+                # Show only legend key when legend is visible
                 dc.SetTextForeground(get_wx_color('text_secondary'))
                 dc.SetFont(wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
-                dc.DrawText(str(i + 1), int(x - 12), int(y - 12))
+                dc.DrawText(legend_key, int(x - 12), int(y - 12))
             else:
                 # Show label inside card when legend is hidden
                 dc.SetTextForeground(get_wx_color('text_primary'))
@@ -7309,7 +7699,7 @@ class MainFrame(wx.Frame):
                 dc.DrawText(label, int(x + 5), int(y + h//2 - 8))
 
                 dc.SetTextForeground(get_wx_color('text_dim'))
-                dc.DrawText(str(i + 1), int(x + 5), int(y + 5))
+                dc.DrawText(legend_key, int(x + 5), int(y + 5))
 
             # Show rotation indicator
             if is_rotated:
@@ -7378,6 +7768,14 @@ class MainFrame(wx.Frame):
         if self.drag_data['idx'] is not None and event.Dragging():
             idx = self.drag_data['idx']
 
+            # Grid snapping helper
+            grid_size = 20
+            snap_enabled = self.designer_snap_toggle.GetValue()
+            def snap(val):
+                if snap_enabled:
+                    return round(val / grid_size) * grid_size
+                return val
+
             # Handle resizing
             if self.drag_data.get('resize') == 'se':
                 # Calculate new size based on mouse delta
@@ -7386,14 +7784,18 @@ class MainFrame(wx.Frame):
                 new_w = max(40, self.drag_data['start_w'] + delta_x)  # Min width 40
                 new_h = max(60, self.drag_data['start_h'] + delta_y)  # Min height 60
 
-                self.designer_positions[idx]['width'] = int(new_w)
-                self.designer_positions[idx]['height'] = int(new_h)
+                self.designer_positions[idx]['width'] = int(snap(new_w))
+                self.designer_positions[idx]['height'] = int(snap(new_h))
                 self.designer_canvas.Refresh()
                 return
 
             # Handle dragging (moving)
             mx = x - self.drag_data['offset_x']
             my = y - self.drag_data['offset_y']
+
+            # Snap to grid
+            mx = snap(mx)
+            my = snap(my)
 
             # Bounds
             canvas_w, canvas_h = self.designer_canvas.GetSize()
@@ -7416,16 +7818,22 @@ class MainFrame(wx.Frame):
             if px <= x <= px + pw and py <= y <= py + ph:
                 menu = wx.Menu()
 
+                # Edit option
+                edit_item = menu.Append(wx.ID_ANY, "Edit Position...")
+                menu.Bind(wx.EVT_MENU, lambda e, idx=i: self._edit_position(idx), edit_item)
+
+                menu.AppendSeparator()
+
                 # Rotate option
                 is_rotated = pos.get('rotated', False)
                 rotate_item = menu.Append(wx.ID_ANY, "Unrotate Card" if is_rotated else "Rotate Card 90°")
-                menu.Bind(wx.EVT_MENU, lambda e: self._toggle_position_rotation(i), rotate_item)
+                menu.Bind(wx.EVT_MENU, lambda e, idx=i: self._toggle_position_rotation(idx), rotate_item)
 
                 menu.AppendSeparator()
 
                 # Delete option
                 delete_item = menu.Append(wx.ID_ANY, f"Delete '{pos['label']}'")
-                menu.Bind(wx.EVT_MENU, lambda e: self._delete_position(i), delete_item)
+                menu.Bind(wx.EVT_MENU, lambda e, idx=i: self._delete_position(idx), delete_item)
 
                 self.designer_canvas.PopupMenu(menu)
                 menu.Destroy()
@@ -7452,7 +7860,65 @@ class MainFrame(wx.Frame):
             self.designer_positions.pop(idx)
             self._update_designer_legend()
             self.designer_canvas.Refresh()
-    
+
+    def _edit_position(self, idx):
+        """Edit a position's label and legend key"""
+        pos = self.designer_positions[idx]
+        current_label = pos.get('label', f'Position {idx + 1}')
+        current_key = pos.get('key', str(idx + 1))
+
+        dlg = wx.Dialog(self, title="Edit Position", size=(350, 180))
+        dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Label field
+        label_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        label_label = wx.StaticText(dlg, label="Label:")
+        label_label.SetForegroundColour(get_wx_color('text_primary'))
+        label_sizer.Add(label_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        label_ctrl = wx.TextCtrl(dlg, value=current_label, size=(200, -1))
+        label_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        label_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        label_sizer.Add(label_ctrl, 1)
+        sizer.Add(label_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        # Legend key field
+        key_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        key_label = wx.StaticText(dlg, label="Legend Key:")
+        key_label.SetForegroundColour(get_wx_color('text_primary'))
+        key_sizer.Add(key_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        key_ctrl = wx.TextCtrl(dlg, value=current_key, size=(60, -1))
+        key_ctrl.SetBackgroundColour(get_wx_color('bg_input'))
+        key_ctrl.SetForegroundColour(get_wx_color('text_primary'))
+        key_sizer.Add(key_ctrl, 0)
+        key_hint = wx.StaticText(dlg, label="(number or letter shown on card)")
+        key_hint.SetForegroundColour(get_wx_color('text_dim'))
+        key_sizer.Add(key_hint, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 10)
+        sizer.Add(key_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
+        # Buttons
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        btn_sizer.AddStretchSpacer()
+        cancel_btn = wx.Button(dlg, wx.ID_CANCEL, "Cancel")
+        ok_btn = wx.Button(dlg, wx.ID_OK, "OK")
+        btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
+        btn_sizer.Add(ok_btn, 0)
+        sizer.Add(btn_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
+        dlg.SetSizer(sizer)
+
+        if dlg.ShowModal() == wx.ID_OK:
+            new_label = label_ctrl.GetValue().strip()
+            new_key = key_ctrl.GetValue().strip()
+            if new_label:
+                self.designer_positions[idx]['label'] = new_label
+            if new_key:
+                self.designer_positions[idx]['key'] = new_key
+            self._update_designer_legend()
+            self.designer_canvas.Refresh()
+
+        dlg.Destroy()
+
     # ═══════════════════════════════════════════
     # EVENT HANDLERS - Settings
     # ═══════════════════════════════════════════

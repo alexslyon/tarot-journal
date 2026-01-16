@@ -929,6 +929,13 @@ class ImportPresets:
                     card_name = mappings[stem.lower()]
                     return self._apply_custom_suit_names(card_name, custom_suit_names)
 
+                # Try stripping leading numbers (e.g., "22_ace_of_wands" -> "aceofwands")
+                # This handles filenames like "22_ace_of_wands.jpg" where the number is a sort prefix
+                stripped_normalized = re.sub(r'^\d+', '', normalized)
+                if stripped_normalized and stripped_normalized in mappings:
+                    card_name = mappings[stripped_normalized]
+                    return self._apply_custom_suit_names(card_name, custom_suit_names)
+
                 # Try extracting just numbers from filename (for patterns like "PLen-A-01")
                 number_match = re.search(r'(\d+)(?=\D*$)', stem)
                 if number_match:
@@ -1092,20 +1099,27 @@ class ImportPresets:
                 if custom_court_names:
                     mapped_name = self._apply_custom_court_names(mapped_name, custom_court_names)
 
-                # For sort_order, use the original filename stem to extract numbers
-                # This is important for presets like I Ching where the mapped name
-                # loses the number (e.g., "01" -> "The Creative")
-                sort_order = self._get_card_sort_order(filepath.stem, custom_suit_names,
-                                                       preset_name, custom_court_names)
-
-                # Get metadata - for I Ching, use sort_order from filename
+                # Get metadata from the mapped name
                 preset = self.get_preset(preset_name)
                 preset_type = preset.get('type') if preset else None
-                if preset_type == 'I Ching' and sort_order != 999:
-                    metadata = self._get_iching_metadata_by_position(sort_order)
+
+                # For I Ching, extract sort_order from filename since mapped name loses the number
+                # (e.g., "01" -> "The Creative", but we need sort_order=1)
+                if preset_type == 'I Ching':
+                    sort_order = self._get_card_sort_order(filepath.stem, custom_suit_names,
+                                                           preset_name, custom_court_names)
+                    if sort_order != 999:
+                        metadata = self._get_iching_metadata_by_position(sort_order)
+                    else:
+                        metadata = self.get_card_metadata(mapped_name, preset_name, custom_suit_names,
+                                                          custom_court_names, archetype_mapping)
+                        sort_order = metadata.get('sort_order', 999)
                 else:
+                    # For all other presets (Tarot, Lenormand, etc.), use mapped name for metadata
+                    # This ensures proper sort order (0-21 for Major, 1xx-4xx for Minor suits)
                     metadata = self.get_card_metadata(mapped_name, preset_name, custom_suit_names,
                                                       custom_court_names, archetype_mapping)
+                    sort_order = metadata.get('sort_order', 999)
 
                 results.append({
                     'filename': filepath.name,
@@ -2144,21 +2158,53 @@ class ImportPresets:
         Respects preset ordering for Strength/Justice swap.
 
         Court cards are always ordered: first court=11, second=12, third=13, fourth=14
-        regardless of their display names (Page, Knave, Princess, etc.)"""
-        name_lower = card_name.lower()
+        regardless of their display names (Page, Knave, Princess, etc.)
 
+        IMPORTANT: For filenames with numeric prefixes (e.g. "01_the_fool"), the number
+        is extracted and used as the sort order directly."""
         # Check preset type
         preset = self.get_preset(preset_name) if preset_name else None
         preset_type = preset.get('type') if preset else None
 
-        # I Ching: extract hexagram number from filename/name
+        # First, try to extract a numeric prefix from the filename (before normalizing)
+        # This handles filenames like "01_the_fool.png", "08-justice.png", "22 The World.png"
+        # Also handles pure numeric filenames like "01", "64"
+        numeric_prefix_match = re.match(r'^(\d+)(?:[\s_\-\.]|$)', card_name.lower())
+        if numeric_prefix_match:
+            extracted_num = int(numeric_prefix_match.group(1))
+            # For I Ching, validate range 1-64
+            if preset_type == 'I Ching':
+                if 1 <= extracted_num <= 64:
+                    return extracted_num
+            # For Lenormand, validate range 1-36
+            elif preset_type == 'Lenormand':
+                if 1 <= extracted_num <= 36:
+                    return extracted_num
+            # For Kipper, validate range 1-36
+            elif preset_type == 'Kipper':
+                if 1 <= extracted_num <= 36:
+                    return extracted_num
+            # For Playing Cards, use a different scheme
+            elif preset_type == 'Playing Cards':
+                pass  # Fall through to playing card logic
+            # For Tarot: only use numeric prefix for Major Arcana (0-21)
+            # Minor Arcana should fall through to name-based matching for 1xx-4xx sort order
+            elif preset_type == 'Tarot':
+                if 0 <= extracted_num <= 21:
+                    return extracted_num
+                # For 22+, fall through to name-based matching below
+            # For Oracle/other, use the number directly
+            else:
+                if extracted_num >= 0:
+                    return extracted_num
+
+        # Normalize the name: replace underscores/hyphens with spaces for matching
+        # Also strip leading numbers (e.g., "22_ace_of_wands" -> "ace of wands")
+        name_lower = card_name.lower().replace('_', ' ').replace('-', ' ')
+        name_lower = re.sub(r'^\d+\s*', '', name_lower).strip()
+
+        # I Ching: extract hexagram number from filename/name (fallback)
         if preset_type == 'I Ching':
-            # First try at the start of the name
-            match = re.match(r'^(?:hexagram\s*)?(\d+)', name_lower)
-            if match:
-                hex_num = int(match.group(1))
-                if 1 <= hex_num <= 64:
-                    return hex_num
             # Try to find any number in the name
             all_numbers = re.findall(r'(\d+)', name_lower)
             for num_str in all_numbers:
