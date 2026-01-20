@@ -2765,7 +2765,52 @@ class MainFrame(wx.Frame):
         cache_sizer.Add(clear_btn, 0, wx.ALL, 10)
         
         sizer.Add(cache_sizer, 0, wx.EXPAND | wx.ALL, 10)
-        
+
+        # Backup & Restore section
+        backup_box = wx.StaticBox(panel, label="Backup & Restore")
+        backup_box.SetForegroundColour(get_wx_color('accent'))
+        backup_sizer = wx.StaticBoxSizer(backup_box, wx.VERTICAL)
+
+        backup_desc = wx.StaticText(panel, label="Create and restore full backups of your tarot journal.")
+        backup_desc.SetForegroundColour(get_wx_color('text_primary'))
+        backup_sizer.Add(backup_desc, 0, wx.ALL, 10)
+
+        # Include images checkbox (using empty label + StaticText per CLAUDE.md)
+        images_cb_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.backup_include_images_cb = wx.CheckBox(panel, label="")
+        images_cb_sizer.Add(self.backup_include_images_cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        images_cb_label = wx.StaticText(panel, label="Include card images (larger backup size)")
+        images_cb_label.SetForegroundColour(get_wx_color('text_primary'))
+        images_cb_sizer.Add(images_cb_label, 0, wx.ALIGN_CENTER_VERTICAL)
+        backup_sizer.Add(images_cb_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # Buttons row
+        backup_btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        create_backup_btn = wx.Button(panel, label="Create Backup")
+        create_backup_btn.Bind(wx.EVT_BUTTON, self._on_create_backup)
+        backup_btn_sizer.Add(create_backup_btn, 0, wx.RIGHT, 10)
+
+        restore_backup_btn = wx.Button(panel, label="Restore from Backup")
+        restore_backup_btn.Bind(wx.EVT_BUTTON, self._on_restore_backup)
+        backup_btn_sizer.Add(restore_backup_btn, 0)
+        backup_sizer.Add(backup_btn_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        # Last backup time label
+        last_backup_time = self.db.get_setting("last_backup_time")
+        if last_backup_time:
+            try:
+                dt = datetime.fromisoformat(last_backup_time)
+                last_backup_str = dt.strftime("%Y-%m-%d %H:%M")
+            except:
+                last_backup_str = "Unknown"
+        else:
+            last_backup_str = "Never"
+        self.last_backup_label = wx.StaticText(panel, label=f"Last backup: {last_backup_str}")
+        self.last_backup_label.SetForegroundColour(get_wx_color('text_dim'))
+        backup_sizer.Add(self.last_backup_label, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        sizer.Add(backup_sizer, 0, wx.EXPAND | wx.ALL, 10)
+
         # About section
         about_box = wx.StaticBox(panel, label="About")
         about_box.SetForegroundColour(get_wx_color('accent'))
@@ -8574,6 +8619,130 @@ class MainFrame(wx.Frame):
             self.thumb_cache.clear_cache()
             self._update_cache_info()
             wx.MessageBox("Cache cleared.", "Done", wx.OK | wx.ICON_INFORMATION)
+
+    def _on_create_backup(self, event):
+        """Create a full backup of the database and config files."""
+        from pathlib import Path
+
+        # Get default backup directory
+        backup_dir = Path.home() / "Documents" / "TarotJournalBackups"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate timestamped filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_filename = f"tarot_journal_backup_{timestamp}.zip"
+
+        # Show file dialog
+        with wx.FileDialog(
+            self, "Save Backup",
+            defaultDir=str(backup_dir),
+            defaultFile=default_filename,
+            wildcard="Backup files (*.zip)|*.zip",
+            style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT
+        ) as dlg:
+            if dlg.ShowModal() == wx.ID_CANCEL:
+                return
+
+            filepath = dlg.GetPath()
+
+        # Get include images option
+        include_images = self.backup_include_images_cb.GetValue()
+
+        # Show busy cursor for potentially long operation
+        wx.BeginBusyCursor()
+        try:
+            result = self.db.create_full_backup(filepath, include_images)
+
+            # Update last backup label
+            last_backup_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+            self.last_backup_label.SetLabel(f"Last backup: {last_backup_str}")
+
+            # Show success message
+            msg = f"Backup created successfully!\n\n"
+            msg += f"Location: {filepath}\n"
+            msg += f"Entries: {result['entry_count']}\n"
+            msg += f"Decks: {result['deck_count']}\n"
+            if include_images:
+                msg += f"Images: {result['images_included']}\n"
+            if result['presets_included']:
+                msg += "Import presets: included"
+
+            wx.MessageBox(msg, "Backup Complete", wx.OK | wx.ICON_INFORMATION)
+
+        except Exception as e:
+            wx.MessageBox(f"Error creating backup:\n{str(e)}", "Backup Error", wx.OK | wx.ICON_ERROR)
+        finally:
+            wx.EndBusyCursor()
+
+    def _on_restore_backup(self, event):
+        """Restore database and config files from a backup."""
+        # Show warning
+        result = wx.MessageBox(
+            "WARNING: Restoring from a backup will replace ALL current data!\n\n"
+            "This includes:\n"
+            "• All journal entries\n"
+            "• All decks and cards\n"
+            "• All spreads and profiles\n"
+            "• All tags and settings\n\n"
+            "This action cannot be undone. Continue?",
+            "Confirm Restore",
+            wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING
+        )
+
+        if result != wx.YES:
+            return
+
+        # Get default backup directory
+        from pathlib import Path
+        backup_dir = Path.home() / "Documents" / "TarotJournalBackups"
+        if not backup_dir.exists():
+            backup_dir = Path.home() / "Documents"
+
+        # Show file dialog
+        with wx.FileDialog(
+            self, "Select Backup to Restore",
+            defaultDir=str(backup_dir),
+            wildcard="Backup files (*.zip)|*.zip",
+            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
+        ) as dlg:
+            if dlg.ShowModal() == wx.ID_CANCEL:
+                return
+
+            filepath = dlg.GetPath()
+
+        # Show busy cursor
+        wx.BeginBusyCursor()
+        try:
+            result = self.db.restore_from_backup(filepath)
+
+            # Refresh all UI panels
+            self._refresh_all()
+            self._refresh_profiles_list()
+            self._refresh_presets_list()
+            self._update_cache_info()
+
+            # Reload import presets
+            from import_presets import get_presets
+            self.presets = get_presets()
+
+            # Show success message
+            msg = f"Backup restored successfully!\n\n"
+            msg += f"Backup date: {result['backup_date']}\n"
+            msg += f"Entries: {result['entry_count']}\n"
+            msg += f"Decks: {result['deck_count']}\n"
+            if result['images_restored'] > 0:
+                msg += f"Images restored: {result['images_restored']}\n"
+            if result['presets_restored']:
+                msg += "Import presets: restored"
+
+            wx.MessageBox(msg, "Restore Complete", wx.OK | wx.ICON_INFORMATION)
+
+        except ValueError as e:
+            wx.MessageBox(f"Invalid backup file:\n{str(e)}", "Restore Error", wx.OK | wx.ICON_ERROR)
+        except Exception as e:
+            wx.MessageBox(f"Error restoring backup:\n{str(e)}", "Restore Error", wx.OK | wx.ICON_ERROR)
+        finally:
+            wx.EndBusyCursor()
 
     def _on_stats(self, event):
         stats = self.db.get_stats()
