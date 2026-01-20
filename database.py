@@ -2597,7 +2597,7 @@ def _fix_thoth_deck_metadata(db: Database):
 
 def create_default_decks(db: Database):
     """Import default decks if they exist and no decks have been added yet"""
-    from import_presets import get_presets
+    from import_presets import ImportPresets
 
     # Only import if no decks exist yet
     existing_decks = db.get_decks()
@@ -2607,8 +2607,10 @@ def create_default_decks(db: Database):
     # Get the directory where this script is located (for resolving relative paths)
     script_dir = Path(__file__).parent.resolve()
 
-    # Get import presets instance
-    presets = get_presets()
+    # Create a fresh ImportPresets instance that only uses builtin presets
+    # (not the user's custom presets from import_presets.json)
+    # Point to a non-existent file so no custom presets are loaded
+    presets = ImportPresets(presets_file='/dev/null/nonexistent.json')
 
     # Define default decks to import
     default_decks = [
