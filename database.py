@@ -2323,6 +2323,200 @@ class Database:
             data = json.load(f)
         return self.import_deck_from_json(data)
 
+    def create_full_backup(self, filepath: str, include_images: bool = False) -> dict:
+        """
+        Create a complete backup of the database and config files.
+
+        Args:
+            filepath: Path for the output ZIP file
+            include_images: Whether to include card images in the backup
+
+        Returns:
+            dict with backup statistics
+        """
+        script_dir = Path(__file__).parent.resolve()
+
+        # Get counts for manifest
+        entry_count = len(self.get_entries(limit=999999))
+        deck_count = len(self.get_decks())
+
+        # Collect image paths if needed
+        image_paths = []
+        if include_images:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT DISTINCT image_path FROM cards WHERE image_path IS NOT NULL AND image_path != ''")
+            image_paths = [row[0] for row in cursor.fetchall()]
+
+        # Create manifest
+        manifest = {
+            "version": "1.0",
+            "created_at": datetime.now().isoformat(),
+            "includes_images": include_images,
+            "entry_count": entry_count,
+            "deck_count": deck_count,
+            "image_count": len(image_paths) if include_images else 0
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Copy database (flush first to ensure all data is written)
+            self.conn.commit()
+            db_backup_path = temp_path / "tarot_journal.db"
+            shutil.copy2(self.db_path, db_backup_path)
+
+            # Copy import_presets.json if it exists
+            presets_path = script_dir / "import_presets.json"
+            presets_included = False
+            if presets_path.exists():
+                shutil.copy2(presets_path, temp_path / "import_presets.json")
+                presets_included = True
+
+            # Write manifest
+            with open(temp_path / "manifest.json", 'w') as f:
+                json.dump(manifest, f, indent=2)
+
+            # Create ZIP file
+            with zipfile.ZipFile(filepath, 'w', zipfile.ZIP_DEFLATED) as zf:
+                zf.write(temp_path / "manifest.json", "manifest.json")
+                zf.write(db_backup_path, "tarot_journal.db")
+
+                if presets_included:
+                    zf.write(temp_path / "import_presets.json", "import_presets.json")
+
+                # Add images if requested
+                images_added = 0
+                if include_images:
+                    for img_path in image_paths:
+                        img_file = Path(img_path)
+                        if img_file.exists():
+                            # Store with relative path under images/
+                            archive_path = f"images/{img_file.parent.name}/{img_file.name}"
+                            zf.write(img_file, archive_path)
+                            images_added += 1
+
+        # Store last backup time in settings
+        self.set_setting("last_backup_time", datetime.now().isoformat())
+
+        return {
+            "filepath": filepath,
+            "entry_count": entry_count,
+            "deck_count": deck_count,
+            "images_included": images_added if include_images else 0,
+            "presets_included": presets_included
+        }
+
+    def restore_from_backup(self, filepath: str) -> dict:
+        """
+        Restore database and config files from a backup ZIP.
+
+        Args:
+            filepath: Path to the backup ZIP file
+
+        Returns:
+            dict with restore statistics
+        """
+        script_dir = Path(__file__).parent.resolve()
+
+        # Validate ZIP file
+        if not zipfile.is_zipfile(filepath):
+            raise ValueError("Invalid backup file: not a valid ZIP archive")
+
+        with zipfile.ZipFile(filepath, 'r') as zf:
+            # Check for manifest
+            if "manifest.json" not in zf.namelist():
+                raise ValueError("Invalid backup file: missing manifest.json")
+
+            # Check for database
+            if "tarot_journal.db" not in zf.namelist():
+                raise ValueError("Invalid backup file: missing database")
+
+            # Read manifest
+            with zf.open("manifest.json") as f:
+                manifest = json.load(f)
+
+        # Create safety backup before restore
+        safety_backup_path = None
+        try:
+            safety_backup_path = tempfile.mktemp(suffix=".db.safety")
+            shutil.copy2(self.db_path, safety_backup_path)
+
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_path = Path(temp_dir)
+
+                # Extract backup contents
+                with zipfile.ZipFile(filepath, 'r') as zf:
+                    zf.extractall(temp_path)
+
+                # Close current database connection
+                self.conn.close()
+
+                try:
+                    # Replace database
+                    shutil.copy2(temp_path / "tarot_journal.db", self.db_path)
+
+                    # Restore import_presets.json if it was in the backup
+                    presets_restored = False
+                    if (temp_path / "import_presets.json").exists():
+                        shutil.copy2(temp_path / "import_presets.json", script_dir / "import_presets.json")
+                        presets_restored = True
+
+                    # Restore images if they were included
+                    images_restored = 0
+                    images_dir = temp_path / "images"
+                    if images_dir.exists():
+                        # Get image path mapping from database
+                        temp_conn = sqlite3.connect(self.db_path)
+                        cursor = temp_conn.cursor()
+                        cursor.execute("SELECT DISTINCT image_path FROM cards WHERE image_path IS NOT NULL AND image_path != ''")
+                        db_image_paths = {Path(row[0]).name: row[0] for row in cursor.fetchall()}
+                        temp_conn.close()
+
+                        # Copy images to their original locations
+                        for deck_dir in images_dir.iterdir():
+                            if deck_dir.is_dir():
+                                for img_file in deck_dir.iterdir():
+                                    if img_file.name in db_image_paths:
+                                        dest_path = Path(db_image_paths[img_file.name])
+                                        dest_path.parent.mkdir(parents=True, exist_ok=True)
+                                        if not dest_path.exists():
+                                            shutil.copy2(img_file, dest_path)
+                                            images_restored += 1
+
+                    # Reconnect to database
+                    self.conn = sqlite3.connect(self.db_path)
+                    self.conn.row_factory = sqlite3.Row
+
+                    # Delete safety backup on success
+                    if safety_backup_path and Path(safety_backup_path).exists():
+                        Path(safety_backup_path).unlink()
+
+                    return {
+                        "entry_count": manifest.get("entry_count", 0),
+                        "deck_count": manifest.get("deck_count", 0),
+                        "images_restored": images_restored,
+                        "presets_restored": presets_restored,
+                        "backup_date": manifest.get("created_at", "Unknown")
+                    }
+
+                except Exception as e:
+                    # Restore safety backup if something went wrong
+                    if safety_backup_path and Path(safety_backup_path).exists():
+                        shutil.copy2(safety_backup_path, self.db_path)
+                    # Reconnect to database
+                    self.conn = sqlite3.connect(self.db_path)
+                    self.conn.row_factory = sqlite3.Row
+                    raise e
+
+        except Exception as e:
+            # Clean up safety backup on error
+            if safety_backup_path and Path(safety_backup_path).exists():
+                try:
+                    Path(safety_backup_path).unlink()
+                except:
+                    pass
+            raise e
+
     def close(self):
         self.conn.close()
 
