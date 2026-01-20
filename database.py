@@ -2604,6 +2604,9 @@ def create_default_decks(db: Database):
     if len(existing_decks) > 0:
         return
 
+    # Get the directory where this script is located (for resolving relative paths)
+    script_dir = Path(__file__).parent.resolve()
+
     # Get import presets instance
     presets = get_presets()
 
@@ -2642,7 +2645,8 @@ def create_default_decks(db: Database):
     ]
 
     for deck_info in default_decks:
-        folder_path = Path(deck_info['folder'])
+        # Use script directory as base for relative paths
+        folder_path = script_dir / deck_info['folder']
 
         # Skip if folder doesn't exist
         if not folder_path.exists():
