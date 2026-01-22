@@ -1612,7 +1612,7 @@ class MainFrame(wx.Frame):
         self._selected_deck_id = None  # Track selected deck across view switches
 
         # Type filter
-        self.type_filter = wx.Choice(left, choices=['All', 'Tarot', 'Lenormand', 'Kipper', 'Oracle'])
+        self.type_filter = wx.Choice(left, choices=['All', 'Tarot', 'Lenormand', 'I Ching', 'Kipper', 'Playing Cards', 'Oracle'])
         self.type_filter.SetSelection(0)
         self.type_filter.Bind(wx.EVT_CHOICE, self._on_type_filter)
         left_sizer.Add(self.type_filter, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
