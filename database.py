@@ -598,7 +598,120 @@ class Database:
             (deck_id,)
         )
         return cursor.fetchall()
-    
+
+    def search_cards(self, query: str = None, deck_id: int = None, deck_type: str = None,
+                     card_category: str = None, archetype: str = None, rank: str = None,
+                     suit: str = None, has_notes: bool = None, has_image: bool = None,
+                     sort_by: str = 'name', sort_asc: bool = True, limit: int = None):
+        """
+        Search cards with flexible filtering across one or all decks.
+
+        Args:
+            query: Text search across name, archetype, notes, custom_fields
+            deck_id: Filter to specific deck (None = all decks)
+            deck_type: Filter by deck type (Tarot, Lenormand, etc.)
+            card_category: Major Arcana, Minor Arcana, or Court Cards (Tarot only)
+            archetype: Filter by archetype (partial match)
+            rank: Filter by rank (exact match)
+            suit: Filter by suit (exact match)
+            has_notes: True = only cards with notes, False = only without
+            has_image: True = only cards with images, False = only without
+            sort_by: 'name', 'deck', or 'card_order'
+            sort_asc: Sort ascending if True
+            limit: Maximum number of results (None = unlimited)
+
+        Returns:
+            List of card rows with deck_name and cartomancy_type_name included
+        """
+        cursor = self.conn.cursor()
+
+        # Base query with JOINs for deck info
+        sql = '''
+            SELECT c.*, d.name as deck_name, ct.name as cartomancy_type_name
+            FROM cards c
+            JOIN decks d ON c.deck_id = d.id
+            JOIN cartomancy_types ct ON d.cartomancy_type_id = ct.id
+        '''
+
+        conditions = []
+        params = []
+
+        # Deck filter
+        if deck_id is not None:
+            conditions.append('c.deck_id = ?')
+            params.append(deck_id)
+
+        # Deck type filter
+        if deck_type:
+            conditions.append('ct.name = ?')
+            params.append(deck_type)
+
+        # Text search across multiple fields
+        if query:
+            query_like = f'%{query}%'
+            conditions.append('''(
+                c.name LIKE ? OR
+                c.archetype LIKE ? OR
+                c.notes LIKE ? OR
+                c.custom_fields LIKE ?
+            )''')
+            params.extend([query_like, query_like, query_like, query_like])
+
+        # Card category (Major/Minor/Court for Tarot)
+        if card_category:
+            if card_category == 'Major Arcana':
+                conditions.append("(c.suit = 'Major Arcana' OR c.suit IS NULL OR c.suit = '' OR c.suit = 'None')")
+            elif card_category == 'Court Cards':
+                conditions.append("c.rank IN ('Page', 'Knight', 'Queen', 'King', 'Princess', 'Prince', 'Valet')")
+            elif card_category == 'Minor Arcana':
+                conditions.append("(c.suit IS NOT NULL AND c.suit != '' AND c.suit != 'None' AND c.suit != 'Major Arcana')")
+
+        # Specific field filters
+        if archetype:
+            conditions.append('c.archetype LIKE ?')
+            params.append(f'%{archetype}%')
+
+        if rank:
+            conditions.append('c.rank = ?')
+            params.append(rank)
+
+        if suit:
+            conditions.append('c.suit = ?')
+            params.append(suit)
+
+        # Has notes filter
+        if has_notes is True:
+            conditions.append("c.notes IS NOT NULL AND c.notes != ''")
+        elif has_notes is False:
+            conditions.append("(c.notes IS NULL OR c.notes = '')")
+
+        # Has image filter
+        if has_image is True:
+            conditions.append("c.image_path IS NOT NULL AND c.image_path != ''")
+        elif has_image is False:
+            conditions.append("(c.image_path IS NULL OR c.image_path = '')")
+
+        # Build WHERE clause
+        if conditions:
+            sql += ' WHERE ' + ' AND '.join(conditions)
+
+        # Sort order
+        sort_column = {
+            'name': 'c.name',
+            'deck': 'd.name, c.card_order',
+            'card_order': 'c.card_order'
+        }.get(sort_by, 'c.name')
+
+        sort_dir = 'ASC' if sort_asc else 'DESC'
+        sql += f' ORDER BY {sort_column} {sort_dir}'
+
+        # Limit
+        if limit:
+            sql += f' LIMIT {int(limit)}'
+
+        cursor.execute(sql, params)
+        return cursor.fetchall()
+
     def get_card(self, card_id: int):
         cursor = self.conn.cursor()
         cursor.execute('SELECT * FROM cards WHERE id = ?', (card_id,))
