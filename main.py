@@ -4416,9 +4416,21 @@ class MainFrame(wx.Frame):
                         label = pos.get('label', f'Position {i+1}')
                         is_position_rotated = pos.get('rotated', False)
 
-                        if i < len(cards_used):
+                        # Find card for this position - check position_index first, fall back to array index
+                        card_data = None
+                        for cd in cards_used:
+                            if isinstance(cd, dict) and cd.get('position_index') == i:
+                                card_data = cd
+                                break
+                        # Fall back to array index for old entries without position_index
+                        if card_data is None and i < len(cards_used):
+                            cd = cards_used[i]
+                            # Only use array index if no position_index fields exist in any card
+                            if not any(isinstance(c, dict) and 'position_index' in c for c in cards_used):
+                                card_data = cd
+
+                        if card_data is not None:
                             # Handle both old format (string) and new format (dict)
-                            card_data = cards_used[i]
                             if isinstance(card_data, str):
                                 card_name = card_data
                                 is_reversed = False
@@ -4522,6 +4534,14 @@ class MainFrame(wx.Frame):
                             slot_label = wx.StaticText(slot, label=label)
                             slot_label.SetForegroundColour(get_wx_color('text_secondary'))
                             slot_label.SetPosition((5, h//2 - 8))
+
+                            # Add position number for empty slots too
+                            pos_num = wx.StaticText(spread_panel, label=str(i + 1))
+                            pos_num.SetForegroundColour(get_wx_color('text_secondary'))
+                            pos_num.SetFont(wx.Font(8, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+                            pos_num.SetPosition((x - 12, y - 12))
+                            pos_num.Hide()
+                            spread_panel._position_numbers.append(pos_num)
 
                     spread_legend_sizer.Add(spread_panel, 0, wx.ALL, 5)
 
@@ -5688,15 +5708,16 @@ class MainFrame(wx.Frame):
                     if deck:
                         cartomancy_type = deck['cartomancy_type_name']
                 
-                # Save cards with reversed state and deck info (multi-deck support)
+                # Save cards with reversed state, deck info, and position index
                 cards_used = [
                     {
                         'name': c['name'],
                         'reversed': c.get('reversed', False),
                         'deck_id': c.get('deck_id'),
-                        'deck_name': c.get('deck_name')
+                        'deck_name': c.get('deck_name'),
+                        'position_index': pos_idx
                     }
-                    for c in dlg._spread_cards.values()
+                    for pos_idx, c in dlg._spread_cards.items()
                 ]
                 deck_name_clean = deck_name.split(' (')[0] if deck_name else None
                 
@@ -6160,9 +6181,10 @@ class MainFrame(wx.Frame):
                         'name': c['name'],
                         'reversed': c.get('reversed', False),
                         'deck_id': c.get('deck_id'),
-                        'deck_name': c.get('deck_name')
+                        'deck_name': c.get('deck_name'),
+                        'position_index': pos_idx
                     }
-                    for c in dlg._spread_cards.values()
+                    for pos_idx, c in dlg._spread_cards.items()
                 ]
                 deck_name_clean = deck_name.split(' (')[0] if deck_name else None
 
