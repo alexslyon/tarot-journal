@@ -1,5 +1,9 @@
 # Tarot Journal - Development Notes
 
+## Git Workflow
+
+- **Always confirm with the user before pushing to GitHub** - commit changes when asked, but wait for explicit approval before running `git push`
+
 ## wxPython Styling Rules (Dark Theme)
 
 This app uses a custom dark theme. When creating UI elements:
