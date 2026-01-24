@@ -229,6 +229,17 @@ class Database:
             )
         ''')
 
+        # Deck type assignments junction table (allows decks to have multiple types)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS deck_type_assignments (
+                deck_id INTEGER NOT NULL,
+                type_id INTEGER NOT NULL,
+                PRIMARY KEY (deck_id, type_id),
+                FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE,
+                FOREIGN KEY (type_id) REFERENCES cartomancy_types(id) ON DELETE CASCADE
+            )
+        ''')
+
         # Settings table for app preferences
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS settings (
@@ -318,6 +329,16 @@ class Database:
                 'INSERT OR IGNORE INTO cartomancy_types (name) VALUES (?)',
                 (ct,)
             )
+
+        # Migrate existing deck types to junction table
+        cursor.execute('SELECT COUNT(*) FROM deck_type_assignments')
+        if cursor.fetchone()[0] == 0:
+            # Junction table is empty - populate from existing cartomancy_type_id
+            cursor.execute('''
+                INSERT OR IGNORE INTO deck_type_assignments (deck_id, type_id)
+                SELECT id, cartomancy_type_id FROM decks
+                WHERE cartomancy_type_id IS NOT NULL
+            ''')
 
         # Seed card archetypes if table is empty
         cursor.execute('SELECT COUNT(*) FROM card_archetypes')
@@ -468,31 +489,60 @@ class Database:
     def get_decks(self, cartomancy_type_id: Optional[int] = None):
         cursor = self.conn.cursor()
         if cartomancy_type_id:
+            # Filter by type using junction table - find decks with ANY matching type
             cursor.execute('''
-                SELECT d.*, ct.name as cartomancy_type_name 
-                FROM decks d 
+                SELECT DISTINCT d.*, ct.name as cartomancy_type_name
+                FROM decks d
                 JOIN cartomancy_types ct ON d.cartomancy_type_id = ct.id
-                WHERE d.cartomancy_type_id = ?
+                JOIN deck_type_assignments dta ON d.id = dta.deck_id
+                WHERE dta.type_id = ?
                 ORDER BY d.name
             ''', (cartomancy_type_id,))
         else:
             cursor.execute('''
-                SELECT d.*, ct.name as cartomancy_type_name 
-                FROM decks d 
+                SELECT d.*, ct.name as cartomancy_type_name
+                FROM decks d
                 JOIN cartomancy_types ct ON d.cartomancy_type_id = ct.id
                 ORDER BY ct.name, d.name
             ''')
-        return cursor.fetchall()
+        rows = cursor.fetchall()
+        # Add multiple type names to each deck
+        result = []
+        for row in rows:
+            deck = dict(row)
+            types = self.get_types_for_deck(deck['id'])
+            if types:
+                deck['cartomancy_type_names'] = ', '.join(t['name'] for t in types)
+                deck['cartomancy_types'] = types
+            else:
+                deck['cartomancy_type_names'] = deck['cartomancy_type_name']
+                deck['cartomancy_types'] = [{'id': deck['cartomancy_type_id'], 'name': deck['cartomancy_type_name']}]
+            result.append(deck)
+        return result
     
     def get_deck(self, deck_id: int):
         cursor = self.conn.cursor()
+        # Get deck with primary type (for backward compatibility)
         cursor.execute('''
-            SELECT d.*, ct.name as cartomancy_type_name 
-            FROM decks d 
+            SELECT d.*, ct.name as cartomancy_type_name
+            FROM decks d
             JOIN cartomancy_types ct ON d.cartomancy_type_id = ct.id
             WHERE d.id = ?
         ''', (deck_id,))
-        return cursor.fetchone()
+        row = cursor.fetchone()
+        if row:
+            # Get all types from junction table
+            types = self.get_types_for_deck(deck_id)
+            if types:
+                type_names = ', '.join(t['name'] for t in types)
+            else:
+                type_names = row['cartomancy_type_name']
+            # Return as dict so we can add the extra field
+            deck = dict(row)
+            deck['cartomancy_type_names'] = type_names
+            deck['cartomancy_types'] = types
+            return deck
+        return None
     
     def add_deck(self, name: str, cartomancy_type_id: int, image_folder: str = None,
                  suit_names: dict = None, court_names: dict = None):
@@ -532,7 +582,54 @@ class Database:
         if booklet_info is not None:
             cursor.execute('UPDATE decks SET booklet_info = ? WHERE id = ?', (booklet_info, deck_id))
         self.conn.commit()
-    
+
+    # === Deck Type Assignments (multiple types per deck) ===
+    def get_types_for_deck(self, deck_id: int) -> List[dict]:
+        """Get all cartomancy types assigned to a deck."""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT ct.id, ct.name
+            FROM deck_type_assignments dta
+            JOIN cartomancy_types ct ON dta.type_id = ct.id
+            WHERE dta.deck_id = ?
+            ORDER BY ct.name
+        ''', (deck_id,))
+        return [{'id': row[0], 'name': row[1]} for row in cursor.fetchall()]
+
+    def set_deck_types(self, deck_id: int, type_ids: List[int]):
+        """Replace all type assignments for a deck."""
+        cursor = self.conn.cursor()
+        # Remove existing assignments
+        cursor.execute('DELETE FROM deck_type_assignments WHERE deck_id = ?', (deck_id,))
+        # Add new assignments
+        for type_id in type_ids:
+            cursor.execute(
+                'INSERT INTO deck_type_assignments (deck_id, type_id) VALUES (?, ?)',
+                (deck_id, type_id)
+            )
+        # Also update the legacy cartomancy_type_id (use first type for backward compatibility)
+        if type_ids:
+            cursor.execute('UPDATE decks SET cartomancy_type_id = ? WHERE id = ?', (type_ids[0], deck_id))
+        self.conn.commit()
+
+    def add_type_to_deck(self, deck_id: int, type_id: int):
+        """Add a type to a deck."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'INSERT OR IGNORE INTO deck_type_assignments (deck_id, type_id) VALUES (?, ?)',
+            (deck_id, type_id)
+        )
+        self.conn.commit()
+
+    def remove_type_from_deck(self, deck_id: int, type_id: int):
+        """Remove a type from a deck."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'DELETE FROM deck_type_assignments WHERE deck_id = ? AND type_id = ?',
+            (deck_id, type_id)
+        )
+        self.conn.commit()
+
     def get_deck_suit_names(self, deck_id: int) -> dict:
         """Get custom suit names for a deck, or defaults"""
         deck = self.get_deck(deck_id)
