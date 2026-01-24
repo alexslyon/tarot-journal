@@ -3033,7 +3033,7 @@ class MainFrame(wx.Frame):
             self._deck_list_data.append({
                 'id': deck['id'],
                 'name': deck['name'],
-                'type': deck['cartomancy_type_name'],
+                'type': deck.get('cartomancy_type_names', deck['cartomancy_type_name']),
                 'count': len(cards),
                 'card_back_image': card_back
             })
@@ -6635,180 +6635,35 @@ class MainFrame(wx.Frame):
 
             general_sizer.Add(auto_meta_sizer, 0, wx.ALL, 15)
 
-        # Change Deck Type section
-        change_type_box = wx.StaticBox(general_panel, label="Change Deck Type")
-        change_type_box.SetForegroundColour(get_wx_color('accent'))
-        change_type_sizer = wx.StaticBoxSizer(change_type_box, wx.VERTICAL)
+        # Deck Types section - allow multiple types per deck
+        deck_types_box = wx.StaticBox(general_panel, label="Deck Types")
+        deck_types_box.SetForegroundColour(get_wx_color('accent'))
+        deck_types_sizer = wx.StaticBoxSizer(deck_types_box, wx.VERTICAL)
 
-        current_type_label = wx.StaticText(general_panel, label=f"Current type: {deck_type}")
-        current_type_label.SetForegroundColour(get_wx_color('text_primary'))
-        change_type_sizer.Add(current_type_label, 0, wx.ALL, 10)
+        types_info = wx.StaticText(general_panel, label="Select one or more cartomancy types for this deck:")
+        types_info.SetForegroundColour(get_wx_color('text_secondary'))
+        deck_types_sizer.Add(types_info, 0, wx.ALL, 10)
 
-        change_type_btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        change_type_btn = wx.Button(general_panel, label="Change Deck Type...")
+        # Get all cartomancy types and current deck types
+        all_cart_types = self.db.get_cartomancy_types()
+        current_type_ids = {t['id'] for t in deck.get('cartomancy_types', [])}
 
-        def on_change_type(e):
-            # Get all cartomancy types
-            types = self.db.get_cartomancy_types()
-            type_names = [t['name'] for t in types]
-            type_ids = {t['name']: t['id'] for t in types}
+        # Create checkboxes for each type (empty label + StaticText for macOS)
+        dlg._deck_type_checks = {}
+        types_grid = wx.FlexGridSizer(cols=2, hgap=20, vgap=5)
+        for ct in all_cart_types:
+            cb_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            cb = wx.CheckBox(general_panel, label="")
+            cb.SetValue(ct['id'] in current_type_ids)
+            cb_sizer.Add(cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+            cb_label = wx.StaticText(general_panel, label=ct['name'])
+            cb_label.SetForegroundColour(get_wx_color('text_primary'))
+            cb_sizer.Add(cb_label, 0, wx.ALIGN_CENTER_VERTICAL)
+            types_grid.Add(cb_sizer, 0, wx.EXPAND)
+            dlg._deck_type_checks[ct['id']] = cb
 
-            # Show type selection dialog
-            type_dlg = wx.SingleChoiceDialog(
-                dlg,
-                "Select the new deck type.\n\n"
-                "This will change the deck's cartomancy type and\n"
-                "reassign card metadata (archetype, rank, suit)\n"
-                "based on sort order. Custom fields will be preserved.",
-                "Change Deck Type",
-                type_names
-            )
-
-            # Pre-select current type
-            if deck_type in type_names:
-                type_dlg.SetSelection(type_names.index(deck_type))
-
-            if type_dlg.ShowModal() != wx.ID_OK:
-                type_dlg.Destroy()
-                return
-
-            new_type_name = type_dlg.GetStringSelection()
-            type_dlg.Destroy()
-
-            if new_type_name == deck_type:
-                wx.MessageBox("Deck type unchanged.", "No Change", wx.OK | wx.ICON_INFORMATION)
-                return
-
-            new_type_id = type_ids[new_type_name]
-
-            # For certain types, ask for preset selection
-            preset_name = None
-            if new_type_name == 'Tarot':
-                # Build list of Tarot presets
-                tarot_presets = []
-                for name in self.presets.get_preset_names():
-                    preset = self.presets.get_preset(name)
-                    if preset and preset.get('type') == 'Tarot':
-                        tarot_presets.append(name)
-
-                if tarot_presets:
-                    preset_dlg = wx.SingleChoiceDialog(
-                        dlg,
-                        "Select the Tarot system for this deck.\n"
-                        "This affects archetype naming and numbering:\n\n"
-                        "• RWS Ordering: Strength=VIII, Justice=XI\n"
-                        "• Thoth/Pre-Golden Dawn: Strength=XI, Justice=VIII\n"
-                        "• Gnostic/Eternal: 78 numbered Arcana (no suits)",
-                        "Select Tarot System",
-                        tarot_presets
-                    )
-                    if preset_dlg.ShowModal() == wx.ID_OK:
-                        preset_name = preset_dlg.GetStringSelection()
-                    else:
-                        preset_dlg.Destroy()
-                        return
-                    preset_dlg.Destroy()
-            elif new_type_name == 'Lenormand':
-                preset_name = "Lenormand (36 cards)"
-            elif new_type_name == 'Kipper':
-                preset_name = "Kipper (36 cards)"
-            elif new_type_name == 'Playing Cards':
-                preset_name = "Playing Cards with Jokers (54 cards)"
-            elif new_type_name == 'Oracle':
-                preset_name = "Oracle (filename only)"
-
-            # Show options dialog for the type change
-            options_dlg = wx.Dialog(dlg, title="Change Deck Type Options", size=(450, 280))
-            options_dlg.SetBackgroundColour(get_wx_color('bg_primary'))
-            opt_sizer = wx.BoxSizer(wx.VERTICAL)
-
-            opt_msg = wx.StaticText(options_dlg,
-                label=f"Change deck type from '{deck_type}' to '{new_type_name}'.\n\n"
-                      "This will update the deck's cartomancy type and\n"
-                      "reassign metadata for all cards. Custom fields are preserved.")
-            opt_msg.SetForegroundColour(get_wx_color('text_primary'))
-            opt_sizer.Add(opt_msg, 0, wx.ALL, 15)
-
-            # Assignment method radio buttons
-            # NOTE: wx.RadioButton labels don't support custom colors on macOS
-            # Use empty-label radio buttons with separate StaticText labels
-            method_box = wx.StaticBox(options_dlg, label="Metadata Assignment Method")
-            method_box.SetForegroundColour(get_wx_color('accent'))
-            method_sizer = wx.StaticBoxSizer(method_box, wx.VERTICAL)
-
-            method_name_sizer = wx.BoxSizer(wx.HORIZONTAL)
-            method_name_rb = wx.RadioButton(options_dlg, label="", style=wx.RB_GROUP)
-            method_name_sizer.Add(method_name_rb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
-            method_name_label = wx.StaticText(options_dlg, label="By card name (parse names for rank/suit)")
-            method_name_label.SetForegroundColour(get_wx_color('text_primary'))
-            method_name_sizer.Add(method_name_label, 0, wx.ALIGN_CENTER_VERTICAL)
-            method_sizer.Add(method_name_sizer, 0, wx.ALL, 5)
-
-            method_order_sizer = wx.BoxSizer(wx.HORIZONTAL)
-            method_order_rb = wx.RadioButton(options_dlg, label="")
-            method_order_rb.SetValue(True)  # Default to sort order for type changes
-            method_order_sizer.Add(method_order_rb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
-            method_order_label = wx.StaticText(options_dlg, label="By sort order (assign sequentially 1, 2, 3...)")
-            method_order_label.SetForegroundColour(get_wx_color('text_primary'))
-            method_order_sizer.Add(method_order_label, 0, wx.ALIGN_CENTER_VERTICAL)
-            method_sizer.Add(method_order_sizer, 0, wx.ALL, 5)
-
-            opt_sizer.Add(method_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 15)
-
-            opt_btn_sizer = wx.StdDialogButtonSizer()
-            opt_ok_btn = wx.Button(options_dlg, wx.ID_OK, "Change Type")
-            opt_ok_btn.SetForegroundColour(get_wx_color('text_primary'))
-            opt_ok_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
-            opt_cancel_btn = wx.Button(options_dlg, wx.ID_CANCEL, "Cancel")
-            opt_cancel_btn.SetForegroundColour(get_wx_color('text_primary'))
-            opt_cancel_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
-            opt_btn_sizer.AddButton(opt_ok_btn)
-            opt_btn_sizer.AddButton(opt_cancel_btn)
-            opt_btn_sizer.Realize()
-            opt_sizer.Add(opt_btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 15)
-
-            options_dlg.SetSizer(opt_sizer)
-            options_dlg.Fit()
-            options_dlg.CenterOnParent()
-
-            if options_dlg.ShowModal() != wx.ID_OK:
-                options_dlg.Destroy()
-                return
-
-            use_sort_order = method_order_rb.GetValue()
-            options_dlg.Destroy()
-
-            # Update the deck type
-            self.db.update_deck(deck_id, cartomancy_type_id=new_type_id)
-
-            # Reassign metadata using the preset
-            updated = self.db.auto_assign_deck_metadata(deck_id, overwrite=True, preset_name=preset_name,
-                                                         use_sort_order=use_sort_order)
-
-            # Update the current type label
-            current_type_label.SetLabel(f"Current type: {new_type_name}")
-            general_panel.Layout()
-
-            # Refresh the cards display
-            self._refresh_cards_display(deck_id, preserve_scroll=True)
-
-            wx.MessageBox(
-                f"Deck type changed to '{new_type_name}'.\n"
-                f"Updated metadata for {updated} cards.",
-                "Complete",
-                wx.OK | wx.ICON_INFORMATION
-            )
-
-        change_type_btn.Bind(wx.EVT_BUTTON, on_change_type)
-        change_type_btn_sizer.Add(change_type_btn, 0)
-
-        change_type_note = wx.StaticText(general_panel,
-            label="  (Reassigns archetype/rank/suit by sort order)")
-        change_type_note.SetForegroundColour(get_wx_color('text_dim'))
-        change_type_btn_sizer.Add(change_type_note, 0, wx.ALIGN_CENTER_VERTICAL)
-
-        change_type_sizer.Add(change_type_btn_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
-        general_sizer.Add(change_type_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
+        deck_types_sizer.Add(types_grid, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        general_sizer.Add(deck_types_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 15)
 
         general_panel.SetSizer(general_sizer)
         notebook.AddPage(general_panel, "General")
@@ -7261,6 +7116,18 @@ class MainFrame(wx.Frame):
                 if deck_tag_checklist.IsChecked(i):
                     selected_tag_ids.append(all_deck_tags[i]['id'])
             self.db.set_deck_tags(deck_id, selected_tag_ids)
+
+            # Update deck types (multiple types per deck)
+            selected_type_ids = []
+            for type_id, cb in dlg._deck_type_checks.items():
+                if cb.GetValue():
+                    selected_type_ids.append(type_id)
+            if selected_type_ids:
+                self.db.set_deck_types(deck_id, selected_type_ids)
+            else:
+                # At least one type must be selected - keep original
+                wx.MessageBox("At least one deck type must be selected.\nTypes were not changed.",
+                             "Warning", wx.OK | wx.ICON_WARNING)
 
             self._refresh_decks_list()
             # Re-select the deck after refresh
