@@ -3323,7 +3323,7 @@ class MainFrame(wx.Frame):
                           suit_names.get('spades', 'Spades')]
         else:
             # Check if this is a Gnostic/Eternal Tarot deck (cards have "Minor Arcana" as suit)
-            is_gnostic = any(card.get('suit') == 'Minor Arcana' for card in cards)
+            is_gnostic = any(card['suit'] == 'Minor Arcana' for card in cards)
             if is_gnostic:
                 # Gnostic/Eternal Tarot uses Major Arcana + Minor Arcana
                 new_choices = ['All', 'Major Arcana', 'Minor Arcana']
@@ -3737,7 +3737,7 @@ class MainFrame(wx.Frame):
     def _categorize_cards(self, cards, suit_names):
         """Categorize cards into Major Arcana and suits"""
         # Check if this is a Gnostic/Eternal Tarot deck
-        is_gnostic = any(card.get('suit') == 'Minor Arcana' for card in cards)
+        is_gnostic = any(card['suit'] == 'Minor Arcana' for card in cards)
 
         if is_gnostic:
             # Gnostic/Eternal Tarot: categorize by suit field (Major Arcana / Minor Arcana)
@@ -3746,7 +3746,7 @@ class MainFrame(wx.Frame):
                 'Minor Arcana': [],
             }
             for card in cards:
-                suit = card.get('suit', '')
+                suit = card['suit'] or ''
                 if suit == 'Major Arcana':
                     categorized['Major Arcana'].append(card)
                 elif suit == 'Minor Arcana':
@@ -3786,7 +3786,7 @@ class MainFrame(wx.Frame):
 
         for card in cards:
             name_lower = card['name'].lower()
-            card_suit = card.get('suit', '').lower() if card.get('suit') else ''
+            card_suit = card['suit'].lower() if card['suit'] else ''
 
             # First check the suit field directly
             if card_suit == 'major arcana':
