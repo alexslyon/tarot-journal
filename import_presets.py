@@ -2187,10 +2187,16 @@ class ImportPresets:
             # For Playing Cards, use a different scheme
             elif preset_type == 'Playing Cards':
                 pass  # Fall through to playing card logic
-            # For Tarot: only use numeric prefix for Major Arcana (0-21)
-            # Minor Arcana should fall through to name-based matching for 1xx-4xx sort order
+            # For Tarot: check if Gnostic/Eternal first (uses 1-78 numbering)
             elif preset_type == 'Tarot':
-                if 0 <= extracted_num <= 21:
+                is_gnostic = preset_name and 'gnostic' in preset_name.lower()
+                if is_gnostic:
+                    # Gnostic/Eternal Tarot uses 1-78 numbering for all cards
+                    if 1 <= extracted_num <= 78:
+                        return extracted_num
+                # Standard Tarot: only use numeric prefix for Major Arcana (0-21)
+                # Minor Arcana should fall through to name-based matching for 1xx-4xx sort order
+                elif 0 <= extracted_num <= 21:
                     return extracted_num
                 # For 22+, fall through to name-based matching below
             # For Oracle/other, use the number directly
