@@ -2010,6 +2010,10 @@ class Database:
             if metadata.get('archetype') or metadata.get('rank') or metadata.get('suit'):
                 self.update_card_metadata(card_id, archetype=metadata.get('archetype'),
                                          rank=metadata.get('rank'), suit=metadata.get('suit'))
+            # Also update card_order if sort_order is valid
+            sort_order = metadata.get('sort_order')
+            if sort_order is not None and sort_order != 999:
+                self.update_card(card_id, card_order=sort_order)
         else:
             # Fall back to legacy parsing
             archetype, rank, suit = self.parse_card_name_for_archetype(card_name, cartomancy_type)

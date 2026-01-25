@@ -1115,11 +1115,24 @@ class ImportPresets:
                                                           custom_court_names, archetype_mapping)
                         sort_order = metadata.get('sort_order', 999)
                 else:
-                    # For all other presets (Tarot, Lenormand, etc.), use mapped name for metadata
-                    # This ensures proper sort order (0-21 for Major, 1xx-4xx for Minor suits)
-                    metadata = self.get_card_metadata(mapped_name, preset_name, custom_suit_names,
-                                                      custom_court_names, archetype_mapping)
-                    sort_order = metadata.get('sort_order', 999)
+                    # For Gnostic/Eternal Tarot, use filename stem for sort order (like I Ching)
+                    # since card names don't contain numeric prefixes
+                    is_gnostic = preset_name and 'gnostic' in preset_name.lower()
+                    if is_gnostic:
+                        sort_order = self._get_card_sort_order(filepath.stem, custom_suit_names,
+                                                               preset_name, custom_court_names)
+                        if sort_order != 999:
+                            metadata = self._get_gnostic_tarot_metadata(mapped_name, sort_order)
+                        else:
+                            metadata = self.get_card_metadata(mapped_name, preset_name, custom_suit_names,
+                                                              custom_court_names, archetype_mapping)
+                            sort_order = metadata.get('sort_order', 999)
+                    else:
+                        # For all other presets (Tarot, Lenormand, etc.), use mapped name for metadata
+                        # This ensures proper sort order (0-21 for Major, 1xx-4xx for Minor suits)
+                        metadata = self.get_card_metadata(mapped_name, preset_name, custom_suit_names,
+                                                          custom_court_names, archetype_mapping)
+                        sort_order = metadata.get('sort_order', 999)
 
                 results.append({
                     'filename': filepath.name,
