@@ -3301,15 +3301,15 @@ class MainFrame(wx.Frame):
             self.cards_scroll.Layout()
             return
 
-        cards = self.db.get_cards(deck_id)
+        cards = list(self.db.get_cards(deck_id))  # Convert to list immediately to avoid iterator exhaustion
         deck = self.db.get_deck(deck_id)
         suit_names = self.db.get_deck_suit_names(deck_id)
         self._current_suit_names = suit_names
         self._current_deck_type = deck['cartomancy_type_name'] if deck else 'Tarot'
-        
+
         if deck:
             self.deck_title.SetLabel(deck['name'])
-        
+
         # Update filter dropdown based on deck type
         if self._current_deck_type == 'Kipper':
             # Kipper cards have no suits, just show All
@@ -3347,16 +3347,16 @@ class MainFrame(wx.Frame):
         
         # Sort and categorize cards
         if self._current_deck_type == 'Playing Cards':
-            self._current_cards_sorted = self._sort_playing_cards(list(cards), suit_names)
+            self._current_cards_sorted = self._sort_playing_cards(cards, suit_names)
             self._current_cards_categorized = self._categorize_playing_cards(self._current_cards_sorted, suit_names)
         elif self._current_deck_type == 'Lenormand':
-            self._current_cards_sorted = self._sort_lenormand_cards(list(cards))
+            self._current_cards_sorted = self._sort_lenormand_cards(cards)
             self._current_cards_categorized = self._categorize_lenormand_cards(self._current_cards_sorted)
         elif self._current_deck_type == 'Kipper':
-            self._current_cards_sorted = self._sort_kipper_cards(list(cards))
+            self._current_cards_sorted = self._sort_kipper_cards(cards)
             self._current_cards_categorized = {'All': self._current_cards_sorted}
         else:
-            self._current_cards_sorted = self._sort_cards(list(cards), suit_names)
+            self._current_cards_sorted = self._sort_cards(cards, suit_names)
             self._current_cards_categorized = self._categorize_cards(self._current_cards_sorted, suit_names)
         
         # Display cards based on current filter
