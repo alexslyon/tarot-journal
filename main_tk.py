@@ -15,6 +15,9 @@ from database import Database, create_default_spreads, create_default_decks
 from thumbnail_cache import get_cache, ThumbnailCache
 from import_presets import get_presets, ImportPresets, BUILTIN_PRESETS
 from theme_config import get_theme, get_colors, get_fonts, PRESET_THEMES
+from logger_config import get_logger
+
+logger = get_logger('app_tk')
 
 # === Load Theme Configuration ===
 _theme = get_theme()
@@ -50,7 +53,8 @@ class TarotJournalApp:
         create_default_decks(self.db)
         self.thumb_cache = get_cache()
         self.presets = get_presets()
-        
+        logger.info("Database and systems initialized")
+
         # State
         self.current_entry_id = None
         self.current_spread_cards = {}
@@ -1013,8 +1017,8 @@ class TarotJournalApp:
             for widget in old_frame.winfo_children():
                 try:
                     widget.configure(bg=COLORS['bg_tertiary'])
-                except tk.TclError:
-                    pass
+                except tk.TclError as e:
+                    logger.debug("Could not update widget background: %s", e)
         
         # Highlight new selection
         self.selected_card_id = card_id
@@ -1024,8 +1028,8 @@ class TarotJournalApp:
             for widget in new_frame.winfo_children():
                 try:
                     widget.configure(bg=COLORS['accent_dim'])
-                except tk.TclError:
-                    pass
+                except tk.TclError as e:
+                    logger.debug("Could not update widget background: %s", e)
     
     def _create_placeholder(self, parent, card_id=None):
         placeholder = tk.Label(parent,
@@ -1079,7 +1083,8 @@ class TarotJournalApp:
             try:
                 dt = datetime.fromisoformat(entry['created_at'])
                 self.date_label.config(text=dt.strftime('%B %d, %Y'))
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as e:
+                logger.debug("Could not parse entry date: %s", e)
                 self.date_label.config(text=entry['created_at'][:10])
         
         # Load readings
@@ -2426,8 +2431,8 @@ class TarotJournalApp:
                     color = sv.get()
                     if color.startswith('#') and len(color) == 7:
                         sw.configure(bg=color)
-                except (tk.TclError, ValueError):
-                    pass
+                except (tk.TclError, ValueError) as e:
+                    logger.debug("Could not update color swatch: %s", e)
             
             var.trace('w', lambda *args, sv=var, sw=swatch: update_swatch(sv, sw))
             
@@ -2626,9 +2631,11 @@ Most Used Decks:
 
 
 def main():
+    logger.info("Tarot Journal (tkinter) starting")
     root = tk.Tk()
     app = TarotJournalApp(root)
     app.run()
+    logger.info("Tarot Journal (tkinter) shutting down")
 
 
 if __name__ == '__main__':
