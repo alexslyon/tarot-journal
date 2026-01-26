@@ -11,17 +11,22 @@ import threading
 from queue import Queue
 import time
 
+from app_config import get_config
+
+_cfg = get_config()
+
 
 class ThumbnailCache:
     """Manages thumbnail generation and caching for card images"""
-    
-    THUMBNAIL_SIZE = (300, 450)  # Standard card proportions
-    PREVIEW_SIZE = (500, 750)    # Larger preview size
-    
+
+    THUMBNAIL_SIZE = tuple(_cfg.get("images", "thumbnail_size", [300, 450]))
+    PREVIEW_SIZE = tuple(_cfg.get("images", "preview_size", [500, 750]))
+
     def __init__(self, cache_dir: str = None):
         if cache_dir is None:
             # Default to a .cache folder in the app directory
-            self.cache_dir = Path(os.path.dirname(os.path.abspath(__file__))) / '.thumbnail_cache'
+            cache_dir_name = _cfg.get("paths", "thumbnail_cache_dir", ".thumbnail_cache")
+            self.cache_dir = Path(os.path.dirname(os.path.abspath(__file__))) / cache_dir_name
         else:
             self.cache_dir = Path(cache_dir)
         

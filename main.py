@@ -20,8 +20,10 @@ from import_presets import get_presets, BUILTIN_PRESETS, COURT_PRESETS, ARCHETYP
 from theme_config import get_theme, PRESET_THEMES
 from rich_text_panel import RichTextPanel, RichTextViewer
 from logger_config import get_logger
+from app_config import get_config
 
 logger = get_logger('app')
+_cfg = get_config()
 
 # Version
 VERSION = "0.4.0"
@@ -342,7 +344,8 @@ class CardViewDialog(wx.Dialog):
                 pil_img = Image.open(image_path)
                 pil_img = ImageOps.exif_transpose(pil_img)
 
-                max_width, max_height = 300, 450
+                _card_info_sz = _cfg.get('images', 'card_info_max', [300, 450])
+                max_width, max_height = _card_info_sz[0], _card_info_sz[1]
                 orig_width, orig_height = pil_img.size
                 scale = min(max_width / orig_width, max_height / orig_height)
                 new_width = int(orig_width * scale)
@@ -721,7 +724,8 @@ class CardEditDialog(wx.Dialog):
 
     def _build_image_preview(self, card):
         """Build the image preview panel"""
-        max_width, max_height = 300, 450
+        _card_edit_sz = _cfg.get('images', 'card_edit_max', [300, 450])
+        max_width, max_height = _card_edit_sz[0], _card_edit_sz[1]
         image_path = card['image_path']
 
         if image_path and os.path.exists(image_path):
@@ -1378,11 +1382,12 @@ class TarotJournalApp(wx.App):
 
 class MainFrame(wx.Frame):
     def __init__(self):
-        # Get screen size and set window to 85% of it, with max bounds
+        # Get screen size and set window to configured % of it, with max bounds
         display = wx.Display()
         screen_rect = display.GetClientArea()
-        width = min(1200, int(screen_rect.width * 0.85))
-        height = min(800, int(screen_rect.height * 0.85))
+        screen_pct = _cfg.get('window', 'screen_percent', 0.85)
+        width = min(_cfg.get('window', 'max_width', 1200), int(screen_rect.width * screen_pct))
+        height = min(_cfg.get('window', 'max_height', 800), int(screen_rect.height * screen_pct))
         
         super().__init__(None, title="Tarot Journal", size=(width, height))
         
@@ -1571,7 +1576,7 @@ class MainFrame(wx.Frame):
         
         self.viewer_panel.SetSizer(self.viewer_sizer)
         
-        splitter.SplitVertically(left, self.viewer_panel, 300)
+        splitter.SplitVertically(left, self.viewer_panel, _cfg.get('panels', 'journal_splitter', 300))
         
         panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
         panel_sizer.Add(splitter, 1, wx.EXPAND)
@@ -1878,7 +1883,7 @@ class MainFrame(wx.Frame):
         right_sizer.Add(card_btn_sizer, 0, wx.ALL, 10)
         right.SetSizer(right_sizer)
         
-        splitter.SplitVertically(left, right, 280)
+        splitter.SplitVertically(left, right, _cfg.get('panels', 'cards_splitter', 280))
         
         panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
         panel_sizer.Add(splitter, 1, wx.EXPAND)
@@ -2100,7 +2105,7 @@ class MainFrame(wx.Frame):
         right_sizer.Add(btn_sizer, 0, wx.EXPAND | wx.ALL, 10)
         right.SetSizer(right_sizer)
         
-        splitter.SplitVertically(left, right, 250)
+        splitter.SplitVertically(left, right, _cfg.get('panels', 'spreads_splitter', 250))
         
         panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
         panel_sizer.Add(splitter, 1, wx.EXPAND)
@@ -3149,8 +3154,9 @@ class MainFrame(wx.Frame):
 
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # Card back image (100x150 for deck thumbnails)
-        max_width, max_height = 100, 150
+        # Card back image for deck thumbnails
+        _deck_back_sz = _cfg.get('images', 'deck_back_max', [100, 150])
+        max_width, max_height = _deck_back_sz[0], _deck_back_sz[1]
         card_back_path = deck.get('card_back_image')
 
         if card_back_path and os.path.exists(card_back_path):
@@ -3854,7 +3860,8 @@ class MainFrame(wx.Frame):
                 try:
                     img = wx.Image(thumb_path, wx.BITMAP_TYPE_ANY)
                     # Scale to fit while preserving aspect ratio
-                    max_width, max_height = 200, 300
+                    _gallery_sz = _cfg.get('images', 'card_gallery_max', [200, 300])
+                    max_width, max_height = _gallery_sz[0], _gallery_sz[1]
                     orig_width, orig_height = img.GetWidth(), img.GetHeight()
                     scale = min(max_width / orig_width, max_height / orig_height)
                     new_width = int(orig_width * scale)
@@ -6735,7 +6742,8 @@ class MainFrame(wx.Frame):
         card_back_sizer.Add(card_back_label, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
 
         # Image preview (150x225 - half the size of card preview)
-        max_back_width, max_back_height = 150, 225
+        _back_preview_sz = _cfg.get('images', 'deck_back_preview_max', [150, 225])
+        max_back_width, max_back_height = _back_preview_sz[0], _back_preview_sz[1]
         card_back_path = deck['card_back_image'] if 'card_back_image' in deck.keys() else None
 
         def load_card_back_image(path):
@@ -8613,8 +8621,8 @@ class MainFrame(wx.Frame):
                             s.SetBackgroundColour(color)
                             s.Refresh()
                         picker.Destroy()
-                    except Exception as e:
-                        logger.debug("Color picker error: %s", e)
+                    except Exception as exc:
+                        logger.debug("Color picker error: %s", exc)
                 return pick
             
             pick_btn = wx.Button(scroll, label="Pick", size=(50, -1))
@@ -8631,8 +8639,8 @@ class MainFrame(wx.Frame):
                         try:
                             s.SetBackgroundColour(wx.Colour(val))
                             s.Refresh()
-                        except Exception as e:
-                            logger.debug("Could not update color swatch: %s", e)
+                        except Exception as exc:
+                            logger.debug("Could not update color swatch: %s", exc)
                     e.Skip()
                 return update
             
@@ -8657,7 +8665,7 @@ class MainFrame(wx.Frame):
         btn_sizer.Add(apply_btn, 0, wx.RIGHT, 10)
         
         close_btn = wx.Button(dlg, label="Close")
-        close_btn.Bind(wx.EVT_BUTTON, lambda e: dlg.Destroy())
+        close_btn.Bind(wx.EVT_BUTTON, lambda e: dlg.EndModal(wx.ID_CLOSE))
         btn_sizer.Add(close_btn, 0)
         
         sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 15)

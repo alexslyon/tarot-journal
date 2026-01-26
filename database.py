@@ -3,28 +3,65 @@ Database module for Tarot Journal App
 Handles all data persistence using SQLite
 """
 
+import atexit
 import sqlite3
 import json
 import zipfile
 import shutil
 import tempfile
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
 import os
 
 from logger_config import get_logger
+from app_config import get_config
 
 logger = get_logger('database')
+_cfg = get_config()
 
 
 class Database:
-    def __init__(self, db_path: str = "tarot_journal.db"):
+    def __init__(self, db_path: str = None):
+        if db_path is None:
+            db_path = _cfg.get("paths", "database", "tarot_journal.db")
         self.db_path = db_path
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
+        self._in_transaction = False
+
+        # WAL mode: allows reads during writes and protects against
+        # data corruption if the app crashes mid-write
+        self.conn.execute('PRAGMA journal_mode=WAL')
+
         self._create_tables()
-    
+
+        # Ensure the connection is closed if the app exits unexpectedly
+        atexit.register(self.close)
+
+    def _commit(self):
+        """Commit unless inside a managed transaction (which commits at the end)."""
+        if not self._in_transaction:
+            self.conn.commit()
+
+    @contextmanager
+    def transaction(self):
+        """Wrap multiple operations in a single atomic transaction.
+
+        If anything fails, all changes since the start are rolled back
+        so the database never ends up in a half-finished state.
+        """
+        self._in_transaction = True
+        try:
+            yield
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
+        finally:
+            self._in_transaction = False
+
     def _create_tables(self):
         cursor = self.conn.cursor()
         
@@ -359,7 +396,7 @@ class Database:
             if row and row[0] == 'Ace':  # Old schema used 'Ace', new uses '101'
                 self._migrate_tarot_numbering(cursor)
 
-        self.conn.commit()
+        self._commit()
 
     def _seed_card_archetypes(self, cursor):
         """Seed the card_archetypes table with standard archetypes for all types.
@@ -486,7 +523,7 @@ class Database:
     def add_cartomancy_type(self, name: str):
         cursor = self.conn.cursor()
         cursor.execute('INSERT INTO cartomancy_types (name) VALUES (?)', (name,))
-        self.conn.commit()
+        self._commit()
         return cursor.lastrowid
     
     # === Decks ===
@@ -557,7 +594,7 @@ class Database:
             'INSERT INTO decks (name, cartomancy_type_id, image_folder, suit_names, court_names) VALUES (?, ?, ?, ?, ?)',
             (name, cartomancy_type_id, image_folder, suit_names_json, court_names_json)
         )
-        self.conn.commit()
+        self._commit()
         return cursor.lastrowid
     
     def update_deck(self, deck_id: int, name: str = None, image_folder: str = None, suit_names: dict = None,
@@ -585,7 +622,7 @@ class Database:
             cursor.execute('UPDATE decks SET card_back_image = ? WHERE id = ?', (card_back_image, deck_id))
         if booklet_info is not None:
             cursor.execute('UPDATE decks SET booklet_info = ? WHERE id = ?', (booklet_info, deck_id))
-        self.conn.commit()
+        self._commit()
 
     # === Deck Type Assignments (multiple types per deck) ===
     def get_types_for_deck(self, deck_id: int) -> List[dict]:
@@ -614,7 +651,7 @@ class Database:
         # Also update the legacy cartomancy_type_id (use first type for backward compatibility)
         if type_ids:
             cursor.execute('UPDATE decks SET cartomancy_type_id = ? WHERE id = ?', (type_ids[0], deck_id))
-        self.conn.commit()
+        self._commit()
 
     def add_type_to_deck(self, deck_id: int, type_id: int):
         """Add a type to a deck."""
@@ -623,7 +660,7 @@ class Database:
             'INSERT OR IGNORE INTO deck_type_assignments (deck_id, type_id) VALUES (?, ?)',
             (deck_id, type_id)
         )
-        self.conn.commit()
+        self._commit()
 
     def remove_type_from_deck(self, deck_id: int, type_id: int):
         """Remove a type from a deck."""
@@ -632,7 +669,7 @@ class Database:
             'DELETE FROM deck_type_assignments WHERE deck_id = ? AND type_id = ?',
             (deck_id, type_id)
         )
-        self.conn.commit()
+        self._commit()
 
     def get_deck_suit_names(self, deck_id: int) -> dict:
         """Get custom suit names for a deck, or defaults"""
@@ -684,12 +721,12 @@ class Database:
                         WHERE deck_id = ? AND name LIKE ?
                     ''', (f'of {old_name}', f'of {new_name}', deck_id, f'%of {old_name}'))
         
-        self.conn.commit()
+        self._commit()
     
     def delete_deck(self, deck_id: int):
         cursor = self.conn.cursor()
         cursor.execute('DELETE FROM decks WHERE id = ?', (deck_id,))
-        self.conn.commit()
+        self._commit()
     
     # === Cards ===
     def get_cards(self, deck_id: int):
@@ -826,7 +863,7 @@ class Database:
             'INSERT INTO cards (deck_id, name, image_path, card_order) VALUES (?, ?, ?, ?)',
             (deck_id, name, image_path, card_order)
         )
-        self.conn.commit()
+        self._commit()
         card_id = cursor.lastrowid
 
         # Auto-assign metadata based on card name
@@ -854,12 +891,12 @@ class Database:
         if updates:
             params.append(card_id)
             cursor.execute(f'UPDATE cards SET {", ".join(updates)} WHERE id = ?', params)
-            self.conn.commit()
+            self._commit()
 
     def delete_card(self, card_id: int):
         cursor = self.conn.cursor()
         cursor.execute('DELETE FROM cards WHERE id = ?', (card_id,))
-        self.conn.commit()
+        self._commit()
 
     def bulk_add_cards(self, deck_id: int, cards: list, auto_metadata: bool = True):
         """Add multiple cards at once.
@@ -894,7 +931,7 @@ class Database:
                 'INSERT INTO cards (deck_id, name, image_path, card_order) VALUES (?, ?, ?, ?)',
                 [(deck_id, name, path, order) for name, path, order in cards]
             )
-            self.conn.commit()
+            self._commit()
 
             # Auto-assign metadata for all cards
             if auto_metadata:
@@ -910,7 +947,7 @@ class Database:
                             self.auto_assign_card_metadata(card['id'], card['name'], cartomancy_type)
                     return
 
-        self.conn.commit()
+        self._commit()
         logger.info("Bulk added %d cards to deck %d", len(cards), deck_id)
 
     # === Spreads ===
@@ -940,7 +977,7 @@ class Database:
              json.dumps(allowed_deck_types) if allowed_deck_types else None,
              default_deck_id)
         )
-        self.conn.commit()
+        self._commit()
         return cursor.lastrowid
 
     def update_spread(self, spread_id: int, name: str = None, positions: list = None,
@@ -959,12 +996,12 @@ class Database:
         if default_deck_id is not None or clear_default_deck:
             cursor.execute('UPDATE spreads SET default_deck_id = ? WHERE id = ?',
                           (default_deck_id, spread_id))
-        self.conn.commit()
+        self._commit()
     
     def delete_spread(self, spread_id: int):
         cursor = self.conn.cursor()
         cursor.execute('DELETE FROM spreads WHERE id = ?', (spread_id,))
-        self.conn.commit()
+        self._commit()
     
     # === Journal Entries ===
     def get_entries(self, limit: int = 50, offset: int = 0):
@@ -1049,7 +1086,7 @@ class Database:
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
             (title, content, now, now, reading_datetime, location_name, location_lat, location_lon, querent_id, reader_id)
         )
-        self.conn.commit()
+        self._commit()
         return cursor.lastrowid
 
     def update_entry(self, entry_id: int, title: str = None, content: str = None,
@@ -1091,12 +1128,12 @@ class Database:
             params.append(now)
             params.append(entry_id)
             cursor.execute(f'UPDATE journal_entries SET {", ".join(updates)} WHERE id = ?', params)
-            self.conn.commit()
+            self._commit()
     
     def delete_entry(self, entry_id: int):
         cursor = self.conn.cursor()
         cursor.execute('DELETE FROM journal_entries WHERE id = ?', (entry_id,))
-        self.conn.commit()
+        self._commit()
     
     # === Entry Readings ===
     def get_entry_readings(self, entry_id: int):
@@ -1118,13 +1155,13 @@ class Database:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (entry_id, spread_id, spread_name, deck_id, deck_name, 
               cartomancy_type, json.dumps(cards_used) if cards_used else None, position_order))
-        self.conn.commit()
+        self._commit()
         return cursor.lastrowid
     
     def delete_entry_readings(self, entry_id: int):
         cursor = self.conn.cursor()
         cursor.execute('DELETE FROM entry_readings WHERE entry_id = ?', (entry_id,))
-        self.conn.commit()
+        self._commit()
 
     # === Export/Import ===
     def export_entries_json(self, entry_ids: List[int] = None) -> dict:
@@ -1241,7 +1278,8 @@ class Database:
         skipped_count = 0
         tag_map = {}  # old_tag_id -> new_tag_id
 
-        for entry_data in data['entries']:
+        with self.transaction():
+          for entry_data in data['entries']:
             # Look up querent and reader by name
             querent_id = None
             reader_id = None
@@ -1338,7 +1376,7 @@ class Database:
                     INSERT INTO follow_up_notes (entry_id, content, created_at)
                     VALUES (?, ?, ?)
                 ''', (entry_id, note_data.get('content', ''), note_data.get('created_at')))
-                self.conn.commit()
+                self._commit()
 
             imported_count += 1
 
@@ -1403,7 +1441,7 @@ class Database:
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', (name, gender, birth_date, birth_time, birth_place_name,
               birth_place_lat, birth_place_lon))
-        self.conn.commit()
+        self._commit()
         return cursor.lastrowid
 
     def update_profile(self, profile_id: int, name: str = None, gender: str = None,
@@ -1440,7 +1478,7 @@ class Database:
         if updates:
             params.append(profile_id)
             cursor.execute(f'UPDATE profiles SET {", ".join(updates)} WHERE id = ?', params)
-            self.conn.commit()
+            self._commit()
 
     def delete_profile(self, profile_id: int):
         """Delete a profile (will set querent_id/reader_id to NULL in journal entries)"""
@@ -1450,7 +1488,7 @@ class Database:
         cursor.execute('UPDATE journal_entries SET reader_id = NULL WHERE reader_id = ?', (profile_id,))
         # Delete the profile
         cursor.execute('DELETE FROM profiles WHERE id = ?', (profile_id,))
-        self.conn.commit()
+        self._commit()
 
     # === Follow-up Notes ===
     def get_follow_up_notes(self, entry_id: int):
@@ -1470,7 +1508,7 @@ class Database:
             INSERT INTO follow_up_notes (entry_id, content, created_at)
             VALUES (?, ?, ?)
         ''', (entry_id, content, datetime.now().isoformat()))
-        self.conn.commit()
+        self._commit()
         return cursor.lastrowid
 
     def update_follow_up_note(self, note_id: int, content: str):
@@ -1479,13 +1517,13 @@ class Database:
         cursor.execute('''
             UPDATE follow_up_notes SET content = ? WHERE id = ?
         ''', (content, note_id))
-        self.conn.commit()
+        self._commit()
 
     def delete_follow_up_note(self, note_id: int):
         """Delete a follow-up note"""
         cursor = self.conn.cursor()
         cursor.execute('DELETE FROM follow_up_notes WHERE id = ?', (note_id,))
-        self.conn.commit()
+        self._commit()
 
     # === Tags ===
     def get_tags(self):
@@ -1501,7 +1539,7 @@ class Database:
     def add_tag(self, name: str, color: str = '#6B5B95'):
         cursor = self.conn.cursor()
         cursor.execute('INSERT INTO tags (name, color) VALUES (?, ?)', (name, color))
-        self.conn.commit()
+        self._commit()
         return cursor.lastrowid
     
     def update_tag(self, tag_id: int, name: str = None, color: str = None):
@@ -1510,12 +1548,12 @@ class Database:
             cursor.execute('UPDATE tags SET name = ? WHERE id = ?', (name, tag_id))
         if color:
             cursor.execute('UPDATE tags SET color = ? WHERE id = ?', (color, tag_id))
-        self.conn.commit()
+        self._commit()
     
     def delete_tag(self, tag_id: int):
         cursor = self.conn.cursor()
         cursor.execute('DELETE FROM tags WHERE id = ?', (tag_id,))
-        self.conn.commit()
+        self._commit()
     
     def get_entry_tags(self, entry_id: int):
         cursor = self.conn.cursor()
@@ -1533,7 +1571,7 @@ class Database:
             'INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)',
             (entry_id, tag_id)
         )
-        self.conn.commit()
+        self._commit()
     
     def remove_entry_tag(self, entry_id: int, tag_id: int):
         cursor = self.conn.cursor()
@@ -1541,7 +1579,7 @@ class Database:
             'DELETE FROM entry_tags WHERE entry_id = ? AND tag_id = ?',
             (entry_id, tag_id)
         )
-        self.conn.commit()
+        self._commit()
     
     def set_entry_tags(self, entry_id: int, tag_ids: list):
         """Replace all tags for an entry"""
@@ -1552,7 +1590,7 @@ class Database:
                 'INSERT INTO entry_tags (entry_id, tag_id) VALUES (?, ?)',
                 (entry_id, tag_id)
             )
-        self.conn.commit()
+        self._commit()
 
     # === Deck Tags ===
     def get_deck_tags(self):
@@ -1571,7 +1609,7 @@ class Database:
         """Create a new deck tag"""
         cursor = self.conn.cursor()
         cursor.execute('INSERT INTO deck_tags (name, color) VALUES (?, ?)', (name, color))
-        self.conn.commit()
+        self._commit()
         return cursor.lastrowid
 
     def update_deck_tag(self, tag_id: int, name: str = None, color: str = None):
@@ -1581,13 +1619,13 @@ class Database:
             cursor.execute('UPDATE deck_tags SET name = ? WHERE id = ?', (name, tag_id))
         if color:
             cursor.execute('UPDATE deck_tags SET color = ? WHERE id = ?', (color, tag_id))
-        self.conn.commit()
+        self._commit()
 
     def delete_deck_tag(self, tag_id: int):
         """Delete a deck tag (cascades to assignments)"""
         cursor = self.conn.cursor()
         cursor.execute('DELETE FROM deck_tags WHERE id = ?', (tag_id,))
-        self.conn.commit()
+        self._commit()
 
     def get_tags_for_deck(self, deck_id: int):
         """Get all tags assigned to a deck"""
@@ -1607,7 +1645,7 @@ class Database:
             'INSERT OR IGNORE INTO deck_tag_assignments (deck_id, tag_id) VALUES (?, ?)',
             (deck_id, tag_id)
         )
-        self.conn.commit()
+        self._commit()
 
     def remove_tag_from_deck(self, deck_id: int, tag_id: int):
         """Remove a tag from a deck"""
@@ -1616,7 +1654,7 @@ class Database:
             'DELETE FROM deck_tag_assignments WHERE deck_id = ? AND tag_id = ?',
             (deck_id, tag_id)
         )
-        self.conn.commit()
+        self._commit()
 
     def set_deck_tags(self, deck_id: int, tag_ids: list):
         """Replace all tags for a deck"""
@@ -1627,7 +1665,7 @@ class Database:
                 'INSERT INTO deck_tag_assignments (deck_id, tag_id) VALUES (?, ?)',
                 (deck_id, tag_id)
             )
-        self.conn.commit()
+        self._commit()
 
     # === Card Tags ===
     def get_card_tags(self):
@@ -1646,7 +1684,7 @@ class Database:
         """Create a new card tag"""
         cursor = self.conn.cursor()
         cursor.execute('INSERT INTO card_tags (name, color) VALUES (?, ?)', (name, color))
-        self.conn.commit()
+        self._commit()
         return cursor.lastrowid
 
     def update_card_tag(self, tag_id: int, name: str = None, color: str = None):
@@ -1656,13 +1694,13 @@ class Database:
             cursor.execute('UPDATE card_tags SET name = ? WHERE id = ?', (name, tag_id))
         if color:
             cursor.execute('UPDATE card_tags SET color = ? WHERE id = ?', (color, tag_id))
-        self.conn.commit()
+        self._commit()
 
     def delete_card_tag(self, tag_id: int):
         """Delete a card tag (cascades to assignments)"""
         cursor = self.conn.cursor()
         cursor.execute('DELETE FROM card_tags WHERE id = ?', (tag_id,))
-        self.conn.commit()
+        self._commit()
 
     def get_tags_for_card(self, card_id: int):
         """Get all tags directly assigned to a card"""
@@ -1694,7 +1732,7 @@ class Database:
             'INSERT OR IGNORE INTO card_tag_assignments (card_id, tag_id) VALUES (?, ?)',
             (card_id, tag_id)
         )
-        self.conn.commit()
+        self._commit()
 
     def remove_tag_from_card(self, card_id: int, tag_id: int):
         """Remove a tag from a card"""
@@ -1703,7 +1741,7 @@ class Database:
             'DELETE FROM card_tag_assignments WHERE card_id = ? AND tag_id = ?',
             (card_id, tag_id)
         )
-        self.conn.commit()
+        self._commit()
 
     def set_card_tags(self, card_id: int, tag_ids: list):
         """Replace all tags for a card"""
@@ -1714,7 +1752,7 @@ class Database:
                 'INSERT INTO card_tag_assignments (card_id, tag_id) VALUES (?, ?)',
                 (card_id, tag_id)
             )
-        self.conn.commit()
+        self._commit()
 
     # === Card Archetypes ===
     def get_archetypes(self, cartomancy_type: str = None):
@@ -2156,7 +2194,7 @@ class Database:
         if updates:
             params.append(card_id)
             cursor.execute(f'UPDATE cards SET {", ".join(updates)} WHERE id = ?', params)
-            self.conn.commit()
+            self._commit()
 
     def get_card_with_metadata(self, card_id: int):
         """Get a card with all its metadata"""
@@ -2190,7 +2228,7 @@ class Database:
             INSERT INTO deck_custom_fields (deck_id, field_name, field_type, field_options, field_order)
             VALUES (?, ?, ?, ?, ?)
         ''', (deck_id, field_name, field_type, options_json, field_order))
-        self.conn.commit()
+        self._commit()
         return cursor.lastrowid
 
     def update_deck_custom_field(self, field_id: int, field_name: str = None,
@@ -2217,13 +2255,13 @@ class Database:
         if updates:
             params.append(field_id)
             cursor.execute(f'UPDATE deck_custom_fields SET {", ".join(updates)} WHERE id = ?', params)
-            self.conn.commit()
+            self._commit()
 
     def delete_deck_custom_field(self, field_id: int):
         """Delete a deck custom field definition"""
         cursor = self.conn.cursor()
         cursor.execute('DELETE FROM deck_custom_fields WHERE id = ?', (field_id,))
-        self.conn.commit()
+        self._commit()
 
     # === Card Custom Fields ===
     def get_card_custom_fields(self, card_id: int):
@@ -2246,7 +2284,7 @@ class Database:
             INSERT INTO card_custom_fields (card_id, field_name, field_type, field_options, field_value, field_order)
             VALUES (?, ?, ?, ?, ?, ?)
         ''', (card_id, field_name, field_type, options_json, field_value, field_order))
-        self.conn.commit()
+        self._commit()
         return cursor.lastrowid
 
     def update_card_custom_field(self, field_id: int, field_name: str = None,
@@ -2276,13 +2314,13 @@ class Database:
         if updates:
             params.append(field_id)
             cursor.execute(f'UPDATE card_custom_fields SET {", ".join(updates)} WHERE id = ?', params)
-            self.conn.commit()
+            self._commit()
 
     def delete_card_custom_field(self, field_id: int):
         """Delete a card custom field"""
         cursor = self.conn.cursor()
         cursor.execute('DELETE FROM card_custom_fields WHERE id = ?', (field_id,))
-        self.conn.commit()
+        self._commit()
 
     def get_deck_card_custom_field_values(self, deck_id: int, field_name: str):
         """Get all values for a deck-level custom field across all cards in the deck"""
@@ -2311,7 +2349,7 @@ class Database:
         custom_fields[field_name] = value
         cursor.execute('UPDATE cards SET custom_fields = ? WHERE id = ?',
                        (json.dumps(custom_fields), card_id))
-        self.conn.commit()
+        self._commit()
 
     # === Statistics ===
     def get_stats(self):
@@ -2369,7 +2407,7 @@ class Database:
             'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
             (key, value)
         )
-        self.conn.commit()
+        self._commit()
 
     def get_default_deck(self, cartomancy_type: str):
         """Get the default deck ID for a cartomancy type"""
@@ -2487,59 +2525,60 @@ class Database:
 
         deck_data = data['deck']
 
-        # Find or create the cartomancy type
-        cart_type_name = deck_data.get('cartomancy_type_name', 'Tarot')
-        cart_types = self.get_cartomancy_types()
-        cart_type_id = None
-        for ct in cart_types:
-            if ct['name'] == cart_type_name:
-                cart_type_id = ct['id']
-                break
-        if not cart_type_id:
-            cart_type_id = 1  # Default to Tarot
+        with self.transaction():
+            # Find or create the cartomancy type
+            cart_type_name = deck_data.get('cartomancy_type_name', 'Tarot')
+            cart_types = self.get_cartomancy_types()
+            cart_type_id = None
+            for ct in cart_types:
+                if ct['name'] == cart_type_name:
+                    cart_type_id = ct['id']
+                    break
+            if not cart_type_id:
+                cart_type_id = 1  # Default to Tarot
 
-        # Create the deck
-        deck_id = self.add_deck(
-            name=deck_data.get('name', 'Imported Deck'),
-            cartomancy_type_id=cart_type_id,
-            image_folder=deck_data.get('image_folder'),
-            suit_names=deck_data.get('suit_names')
-        )
-
-        # Import custom field definitions
-        custom_field_map = {}  # Maps field_name to field_id for reference
-        for cf_def in deck_data.get('custom_field_definitions', []):
-            field_id = self.add_deck_custom_field(
-                deck_id=deck_id,
-                field_name=cf_def['field_name'],
-                field_type=cf_def['field_type'],
-                field_options=cf_def.get('field_options'),
-                field_order=cf_def.get('field_order', 0)
-            )
-            custom_field_map[cf_def['field_name']] = field_id
-
-        # Import cards
-        cards_imported = 0
-        for card_data in deck_data.get('cards', []):
-            # Add the card
-            card_id = self.add_card(
-                deck_id=deck_id,
-                name=card_data['name'],
-                image_path=card_data.get('image_path'),
-                card_order=card_data.get('card_order', 0)
+            # Create the deck
+            deck_id = self.add_deck(
+                name=deck_data.get('name', 'Imported Deck'),
+                cartomancy_type_id=cart_type_id,
+                image_folder=deck_data.get('image_folder'),
+                suit_names=deck_data.get('suit_names')
             )
 
-            # Update metadata
-            self.update_card_metadata(
-                card_id=card_id,
-                archetype=card_data.get('archetype'),
-                rank=card_data.get('rank'),
-                suit=card_data.get('suit'),
-                notes=card_data.get('notes'),
-                custom_fields=card_data.get('custom_fields')
-            )
+            # Import custom field definitions
+            custom_field_map = {}  # Maps field_name to field_id for reference
+            for cf_def in deck_data.get('custom_field_definitions', []):
+                field_id = self.add_deck_custom_field(
+                    deck_id=deck_id,
+                    field_name=cf_def['field_name'],
+                    field_type=cf_def['field_type'],
+                    field_options=cf_def.get('field_options'),
+                    field_order=cf_def.get('field_order', 0)
+                )
+                custom_field_map[cf_def['field_name']] = field_id
 
-            cards_imported += 1
+            # Import cards
+            cards_imported = 0
+            for card_data in deck_data.get('cards', []):
+                # Add the card
+                card_id = self.add_card(
+                    deck_id=deck_id,
+                    name=card_data['name'],
+                    image_path=card_data.get('image_path'),
+                    card_order=card_data.get('card_order', 0)
+                )
+
+                # Update metadata
+                self.update_card_metadata(
+                    card_id=card_id,
+                    archetype=card_data.get('archetype'),
+                    rank=card_data.get('rank'),
+                    suit=card_data.get('suit'),
+                    notes=card_data.get('notes'),
+                    custom_fields=card_data.get('custom_fields')
+                )
+
+                cards_imported += 1
 
         return {
             'deck_id': deck_id,
@@ -2593,7 +2632,7 @@ class Database:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
-            # Copy database (flush first to ensure all data is written)
+            # Copy database (always flush, even inside a transaction)
             self.conn.commit()
             db_backup_path = temp_path / "tarot_journal.db"
             shutil.copy2(self.db_path, db_backup_path)
@@ -2757,7 +2796,13 @@ class Database:
             raise e
 
     def close(self):
-        self.conn.close()
+        """Close the database connection (safe to call more than once)."""
+        if self.conn:
+            try:
+                self.conn.close()
+            except Exception:
+                pass
+            self.conn = None
 
 
 # Create default spreads
