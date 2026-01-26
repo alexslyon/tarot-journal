@@ -1,5 +1,11 @@
 # Tarot Journal - Development Notes
 
+## User Context
+
+- **The user is not a programmer** - explain technical choices and concepts in simple, plain language
+- When making changes, briefly explain *why* a particular approach was chosen, not just *what* was done
+- Avoid jargon where possible; when technical terms are necessary, provide a brief explanation
+
 ## Git Workflow
 
 - **Always confirm with the user before pushing to GitHub** - commit changes when asked, but wait for explicit approval before running `git push`

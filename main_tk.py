@@ -1013,7 +1013,7 @@ class TarotJournalApp:
             for widget in old_frame.winfo_children():
                 try:
                     widget.configure(bg=COLORS['bg_tertiary'])
-                except:
+                except tk.TclError:
                     pass
         
         # Highlight new selection
@@ -1024,7 +1024,7 @@ class TarotJournalApp:
             for widget in new_frame.winfo_children():
                 try:
                     widget.configure(bg=COLORS['accent_dim'])
-                except:
+                except tk.TclError:
                     pass
     
     def _create_placeholder(self, parent, card_id=None):
@@ -1079,7 +1079,7 @@ class TarotJournalApp:
             try:
                 dt = datetime.fromisoformat(entry['created_at'])
                 self.date_label.config(text=dt.strftime('%B %d, %Y'))
-            except:
+            except (ValueError, TypeError):
                 self.date_label.config(text=entry['created_at'][:10])
         
         # Load readings
@@ -2426,7 +2426,7 @@ class TarotJournalApp:
                     color = sv.get()
                     if color.startswith('#') and len(color) == 7:
                         sw.configure(bg=color)
-                except:
+                except (tk.TclError, ValueError):
                     pass
             
             var.trace('w', lambda *args, sv=var, sw=swatch: update_swatch(sv, sw))
