@@ -2043,7 +2043,7 @@ class Database:
         if deck['suit_names']:
             try:
                 custom_suit_names = json.loads(deck['suit_names'])
-            except:
+            except (json.JSONDecodeError, ValueError):
                 pass
 
         # Get custom court names from deck if available
@@ -2051,7 +2051,7 @@ class Database:
         if deck['court_names']:
             try:
                 custom_court_names = json.loads(deck['court_names'])
-            except:
+            except (json.JSONDecodeError, ValueError):
                 pass
 
         # Use import_presets if preset_name is provided
@@ -2419,7 +2419,7 @@ class Database:
             if cf['field_options']:
                 try:
                     cf_dict['field_options'] = json.loads(cf['field_options'])
-                except:
+                except (json.JSONDecodeError, ValueError):
                     cf_dict['field_options'] = None
             deck_dict['custom_field_definitions'].append(cf_dict)
 
@@ -2441,7 +2441,7 @@ class Database:
             if custom_fields_json:
                 try:
                     card_dict['custom_fields'] = json.loads(custom_fields_json)
-                except:
+                except (json.JSONDecodeError, ValueError):
                     card_dict['custom_fields'] = None
             else:
                 card_dict['custom_fields'] = None
@@ -2727,7 +2727,7 @@ class Database:
             if safety_backup_path and Path(safety_backup_path).exists():
                 try:
                     Path(safety_backup_path).unlink()
-                except:
+                except OSError:
                     pass
             raise e
 

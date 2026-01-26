@@ -325,7 +325,7 @@ class CardViewDialog(wx.Dialog):
             try:
                 if field_name in card.keys():
                     return card[field_name] if card[field_name] is not None else default
-            except:
+            except (KeyError, TypeError):
                 pass
             return default
 
@@ -420,7 +420,7 @@ class CardViewDialog(wx.Dialog):
                     simp = iching_custom.get('simplified_chinese', '')
                     if simp:
                         self._add_info_row("Simplified Chinese", simp, font_size=12)
-                except:
+                except (json.JSONDecodeError, ValueError, KeyError):
                     pass
 
         # Sort order
@@ -469,7 +469,7 @@ class CardViewDialog(wx.Dialog):
                         cf_val.SetForegroundColour(get_wx_color('text_primary'))
                         cf_val.Wrap(280)
                         self.info_sizer.Add(cf_val, 0, wx.BOTTOM, 10)
-            except:
+            except (json.JSONDecodeError, ValueError, KeyError):
                 pass
 
         # Tags section
@@ -684,7 +684,7 @@ class CardEditDialog(wx.Dialog):
             try:
                 if field_name in card.keys():
                     return card[field_name] if card[field_name] is not None else default
-            except:
+            except (KeyError, TypeError):
                 pass
             return default
 
@@ -694,7 +694,7 @@ class CardEditDialog(wx.Dialog):
             custom_fields_json = get_field('custom_fields', None)
             if custom_fields_json:
                 existing_custom_values = json.loads(custom_fields_json)
-        except:
+        except (json.JSONDecodeError, ValueError):
             pass
 
         # Clear and rebuild image panel
@@ -1008,7 +1008,7 @@ class CardEditDialog(wx.Dialog):
             cf_json = card.get('custom_fields') if hasattr(card, 'get') else (card['custom_fields'] if 'custom_fields' in card.keys() else None)
             if cf_json:
                 custom_fields = json.loads(cf_json) if isinstance(cf_json, str) else cf_json
-        except:
+        except (json.JSONDecodeError, ValueError, KeyError, TypeError):
             pass
 
         # Traditional Chinese
@@ -1130,7 +1130,7 @@ class CardEditDialog(wx.Dialog):
                 if field['field_options']:
                     try:
                         field_options = json.loads(field['field_options'])
-                    except:
+                    except (json.JSONDecodeError, ValueError):
                         pass
 
                 current_value = existing_custom_values.get(field_name, '')
@@ -1156,7 +1156,7 @@ class CardEditDialog(wx.Dialog):
                     elif field_type == 'number':
                         try:
                             num_val = int(current_value) if current_value else 0
-                        except:
+                        except (ValueError, TypeError):
                             num_val = 0
                         ctrl = wx.SpinCtrl(panel, min=-9999, max=9999, initial=num_val)
                         ctrl.SetBackgroundColour(get_wx_color('bg_input'))
@@ -2287,7 +2287,7 @@ class MainFrame(wx.Frame):
                 wx_date = wx.DateTime()
                 wx_date.Set(dt.day, dt.month - 1, dt.year)
                 birth_date_ctrl.SetValue(wx_date)
-            except:
+            except (ValueError, TypeError):
                 pass
         birth_date_sizer.Add(birth_date_ctrl, 1)
         sizer.Add(birth_date_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
@@ -2934,7 +2934,7 @@ class MainFrame(wx.Frame):
             try:
                 dt = datetime.fromisoformat(last_backup_time)
                 last_backup_str = dt.strftime("%Y-%m-%d %H:%M")
-            except:
+            except (ValueError, TypeError):
                 last_backup_str = "Unknown"
         else:
             last_backup_str = "Never"
@@ -2998,7 +2998,7 @@ class MainFrame(wx.Frame):
                 try:
                     dt = datetime.fromisoformat(reading_dt)
                     date_str = dt.strftime('%Y-%m-%d %H:%M')
-                except:
+                except (ValueError, TypeError):
                     date_str = reading_dt[:16] if reading_dt else ''
             elif entry['created_at']:
                 date_str = entry['created_at'][:10]
@@ -4282,13 +4282,13 @@ class MainFrame(wx.Frame):
             try:
                 dt = datetime.fromisoformat(reading_dt)
                 date_str = dt.strftime('%B %d, %Y at %I:%M %p')
-            except:
+            except (ValueError, TypeError):
                 date_str = reading_dt[:16] if reading_dt else ''
         elif entry['created_at']:
             try:
                 dt = datetime.fromisoformat(entry['created_at'])
                 date_str = dt.strftime('%B %d, %Y at %I:%M %p')
-            except:
+            except (ValueError, TypeError):
                 date_str = entry['created_at'][:16]
         else:
             date_str = None
@@ -4664,7 +4664,7 @@ class MainFrame(wx.Frame):
                                 # Bind double-click on image too
                                 if card_id:
                                     bmp.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
-                            except:
+                            except Exception:
                                 pass
 
                         name_label = wx.StaticText(card_panel, label=card_name[:15])
@@ -4720,7 +4720,7 @@ class MainFrame(wx.Frame):
                 try:
                     dt = datetime.fromisoformat(note['created_at'])
                     date_str = dt.strftime('%B %d, %Y at %I:%M %p')
-                except:
+                except (ValueError, TypeError):
                     date_str = note['created_at'][:16] if note['created_at'] else 'Unknown date'
 
                 date_label = wx.StaticText(note_panel, label=date_str)
@@ -4824,7 +4824,7 @@ class MainFrame(wx.Frame):
         try:
             dt = datetime.fromisoformat(note['created_at'])
             date_str = dt.strftime('%B %d, %Y at %I:%M %p')
-        except:
+        except (ValueError, TypeError):
             date_str = note['created_at'][:16] if note['created_at'] else 'Unknown date'
 
         date_label = wx.StaticText(dlg, label=f"Note from: {date_str}")
@@ -4954,7 +4954,7 @@ class MainFrame(wx.Frame):
                 wx_date.Set(dt.day, dt.month - 1, dt.year)
                 date_picker.SetValue(wx_date)
                 time_ctrl.SetValue(dt.strftime("%H:%M"))
-            except:
+            except (ValueError, TypeError):
                 use_now_radio.SetValue(True)
         else:
             use_now_radio.SetValue(True)
@@ -5396,7 +5396,7 @@ class MainFrame(wx.Frame):
                                     dc.DrawText("(R)", img_x + 2, img_y + 2)
 
                                 image_drawn = True
-                        except:
+                        except Exception:
                             pass
                     
                     if not image_drawn:
@@ -5695,7 +5695,7 @@ class MainFrame(wx.Frame):
                 time_str = time_ctrl.GetValue().strip()
                 try:
                     hour, minute = map(int, time_str.split(':'))
-                except:
+                except (ValueError, TypeError):
                     hour, minute = 12, 0
                 reading_datetime = datetime(
                     wx_date.GetYear(),
@@ -6742,7 +6742,7 @@ class MainFrame(wx.Frame):
                     wx_img = wx.Image(new_width, new_height)
                     wx_img.SetData(pil_img.tobytes())
                     return wx.Bitmap(wx_img)
-                except:
+                except Exception:
                     pass
             return None
 
@@ -6945,7 +6945,7 @@ class MainFrame(wx.Frame):
                         options_str = ', '.join(opts[:3])
                         if len(opts) > 3:
                             options_str += '...'
-                    except:
+                    except (json.JSONDecodeError, ValueError):
                         pass
                 cf_list.SetItem(idx, 2, options_str)
                 cf_list.SetItemData(idx, field['id'])
@@ -6996,7 +6996,7 @@ class MainFrame(wx.Frame):
             if field['field_options']:
                 try:
                     existing_options = json.loads(field['field_options'])
-                except:
+                except (json.JSONDecodeError, ValueError):
                     pass
 
             field_data = self._show_custom_field_dialog(
@@ -8600,7 +8600,7 @@ class MainFrame(wx.Frame):
                             s.SetBackgroundColour(color)
                             s.Refresh()
                         picker.Destroy()
-                    except:
+                    except Exception:
                         pass
                 return pick
             
@@ -8618,7 +8618,7 @@ class MainFrame(wx.Frame):
                         try:
                             s.SetBackgroundColour(wx.Colour(val))
                             s.Refresh()
-                        except:
+                        except Exception:
                             pass
                     e.Skip()
                 return update
