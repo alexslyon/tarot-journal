@@ -13,6 +13,10 @@ from pathlib import Path
 from typing import Optional, List
 import os
 
+from logger_config import get_logger
+
+logger = get_logger('database')
+
 
 class Database:
     def __init__(self, db_path: str = "tarot_journal.db"):
@@ -907,7 +911,8 @@ class Database:
                     return
 
         self.conn.commit()
-    
+        logger.info("Bulk added %d cards to deck %d", len(cards), deck_id)
+
     # === Spreads ===
     def get_spreads(self):
         cursor = self.conn.cursor()
@@ -1188,6 +1193,7 @@ class Database:
         data = self.export_entries_json(entry_ids)
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
+        logger.info("Exported %d entries to %s", len(data.get('entries', [])), filepath)
 
     def export_entries_to_zip(self, filepath: str, entry_ids: List[int] = None):
         """
@@ -1221,6 +1227,7 @@ class Database:
 
             # Add image mapping file
             zf.writestr('image_mapping.json', json.dumps(image_mapping, indent=2))
+        logger.info("Exported entries to ZIP %s (%d images)", filepath, len(image_mapping))
 
     def import_entries_from_json(self, data: dict, merge_tags: bool = True) -> dict:
         """
@@ -1335,14 +1342,18 @@ class Database:
 
             imported_count += 1
 
-        return {
+        result = {
             'imported': imported_count,
             'skipped': skipped_count,
             'tags_created': len([v for k, v in tag_map.items() if k != v])
         }
+        logger.info("Imported entries: %d imported, %d skipped, %d tags created",
+                     imported_count, skipped_count, result['tags_created'])
+        return result
 
     def import_entries_from_file(self, filepath: str, merge_tags: bool = True) -> dict:
         """Import entries from a JSON file."""
+        logger.info("Importing entries from file: %s", filepath)
         with open(filepath, 'r', encoding='utf-8') as f:
             data = json.load(f)
         return self.import_entries_from_json(data, merge_tags)
@@ -1353,6 +1364,7 @@ class Database:
         Note: Images are extracted but deck/card image paths are not automatically updated.
         The import matches cards by name within existing decks.
         """
+        logger.info("Importing entries from ZIP: %s", filepath)
         with tempfile.TemporaryDirectory() as temp_dir:
             with zipfile.ZipFile(filepath, 'r') as zf:
                 zf.extractall(temp_dir)
@@ -2043,16 +2055,16 @@ class Database:
         if deck['suit_names']:
             try:
                 custom_suit_names = json.loads(deck['suit_names'])
-            except (json.JSONDecodeError, ValueError):
-                pass
+            except (json.JSONDecodeError, ValueError) as e:
+                logger.warning("Failed to parse suit_names for deck %s: %s", deck['id'], e)
 
         # Get custom court names from deck if available
         custom_court_names = None
         if deck['court_names']:
             try:
                 custom_court_names = json.loads(deck['court_names'])
-            except (json.JSONDecodeError, ValueError):
-                pass
+            except (json.JSONDecodeError, ValueError) as e:
+                logger.warning("Failed to parse court_names for deck %s: %s", deck['id'], e)
 
         # Use import_presets if preset_name is provided
         if preset_name:
@@ -2419,7 +2431,8 @@ class Database:
             if cf['field_options']:
                 try:
                     cf_dict['field_options'] = json.loads(cf['field_options'])
-                except (json.JSONDecodeError, ValueError):
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.warning("Failed to parse field_options for custom field: %s", e)
                     cf_dict['field_options'] = None
             deck_dict['custom_field_definitions'].append(cf_dict)
 
@@ -2441,7 +2454,8 @@ class Database:
             if custom_fields_json:
                 try:
                     card_dict['custom_fields'] = json.loads(custom_fields_json)
-                except (json.JSONDecodeError, ValueError):
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.warning("Failed to parse custom_fields for card '%s': %s", card_dict.get('name', '?'), e)
                     card_dict['custom_fields'] = None
             else:
                 card_dict['custom_fields'] = None
@@ -2459,12 +2473,15 @@ class Database:
         data = self.export_deck_json(deck_id)
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
+        logger.info("Exported deck '%s' (%d cards) to %s",
+                     data.get('deck', {}).get('name', '?'), len(data.get('cards', [])), filepath)
 
     def import_deck_from_json(self, data: dict) -> dict:
         """
         Import a deck from a JSON dictionary.
         Returns a summary of what was imported.
         """
+        logger.info("Importing deck from JSON: '%s'", data.get('deck', {}).get('name', '?'))
         if not isinstance(data, dict) or 'deck' not in data:
             raise ValueError("Invalid deck import data format")
 
@@ -2533,6 +2550,7 @@ class Database:
 
     def import_deck_from_file(self, filepath: str) -> dict:
         """Import a deck from a JSON file."""
+        logger.info("Importing deck from file: %s", filepath)
         with open(filepath, 'r', encoding='utf-8') as f:
             data = json.load(f)
         return self.import_deck_from_json(data)
@@ -2548,6 +2566,7 @@ class Database:
         Returns:
             dict with backup statistics
         """
+        logger.info("Creating full backup: %s (include_images=%s)", filepath, include_images)
         script_dir = Path(__file__).parent.resolve()
 
         # Get counts for manifest
@@ -2612,6 +2631,8 @@ class Database:
         # Store last backup time in settings
         self.set_setting("last_backup_time", datetime.now().isoformat())
 
+        logger.info("Backup complete: %d entries, %d decks, %d images",
+                     entry_count, deck_count, images_added if include_images else 0)
         return {
             "filepath": filepath,
             "entry_count": entry_count,
@@ -2630,6 +2651,7 @@ class Database:
         Returns:
             dict with restore statistics
         """
+        logger.info("Restoring from backup: %s", filepath)
         script_dir = Path(__file__).parent.resolve()
 
         # Validate ZIP file
@@ -2705,6 +2727,8 @@ class Database:
                     if safety_backup_path and Path(safety_backup_path).exists():
                         Path(safety_backup_path).unlink()
 
+                    logger.info("Restore complete: %d entries, %d decks, %d images restored",
+                                manifest.get("entry_count", 0), manifest.get("deck_count", 0), images_restored)
                     return {
                         "entry_count": manifest.get("entry_count", 0),
                         "deck_count": manifest.get("deck_count", 0),
@@ -2715,6 +2739,7 @@ class Database:
 
                 except Exception as e:
                     # Restore safety backup if something went wrong
+                    logger.error("Restore failed, rolling back to safety backup: %s", e)
                     if safety_backup_path and Path(safety_backup_path).exists():
                         shutil.copy2(safety_backup_path, self.db_path)
                     # Reconnect to database
@@ -2727,8 +2752,8 @@ class Database:
             if safety_backup_path and Path(safety_backup_path).exists():
                 try:
                     Path(safety_backup_path).unlink()
-                except OSError:
-                    pass
+                except OSError as e:
+                    logger.warning("Failed to clean up safety backup %s: %s", safety_backup_path, e)
             raise e
 
     def close(self):

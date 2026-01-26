@@ -19,6 +19,9 @@ from thumbnail_cache import get_cache
 from import_presets import get_presets, BUILTIN_PRESETS, COURT_PRESETS, ARCHETYPE_MAPPING_OPTIONS, DEFAULT_CARD_BACK_PATTERNS
 from theme_config import get_theme, PRESET_THEMES
 from rich_text_panel import RichTextPanel, RichTextViewer
+from logger_config import get_logger
+
+logger = get_logger('app')
 
 # Version
 VERSION = "0.4.0"
@@ -420,8 +423,8 @@ class CardViewDialog(wx.Dialog):
                     simp = iching_custom.get('simplified_chinese', '')
                     if simp:
                         self._add_info_row("Simplified Chinese", simp, font_size=12)
-                except (json.JSONDecodeError, ValueError, KeyError):
-                    pass
+                except (json.JSONDecodeError, ValueError, KeyError) as e:
+                    logger.warning("Failed to parse I Ching custom fields for card %s: %s", card_id, e)
 
         # Sort order
         sort_order = get_field('card_order', 0)
@@ -469,8 +472,8 @@ class CardViewDialog(wx.Dialog):
                         cf_val.SetForegroundColour(get_wx_color('text_primary'))
                         cf_val.Wrap(280)
                         self.info_sizer.Add(cf_val, 0, wx.BOTTOM, 10)
-            except (json.JSONDecodeError, ValueError, KeyError):
-                pass
+            except (json.JSONDecodeError, ValueError, KeyError) as e:
+                logger.warning("Failed to display custom fields for card %s: %s", card_id, e)
 
         # Tags section
         inherited_tags = self.db.get_inherited_tags_for_card(card_id)
@@ -694,8 +697,8 @@ class CardEditDialog(wx.Dialog):
             custom_fields_json = get_field('custom_fields', None)
             if custom_fields_json:
                 existing_custom_values = json.loads(custom_fields_json)
-        except (json.JSONDecodeError, ValueError):
-            pass
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning("Failed to parse custom fields JSON: %s", e)
 
         # Clear and rebuild image panel
         self.image_sizer.Clear(True)
@@ -1008,8 +1011,8 @@ class CardEditDialog(wx.Dialog):
             cf_json = card.get('custom_fields') if hasattr(card, 'get') else (card['custom_fields'] if 'custom_fields' in card.keys() else None)
             if cf_json:
                 custom_fields = json.loads(cf_json) if isinstance(cf_json, str) else cf_json
-        except (json.JSONDecodeError, ValueError, KeyError, TypeError):
-            pass
+        except (json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
+            logger.warning("Failed to parse custom fields for card edit: %s", e)
 
         # Traditional Chinese
         trad_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -1130,8 +1133,8 @@ class CardEditDialog(wx.Dialog):
                 if field['field_options']:
                     try:
                         field_options = json.loads(field['field_options'])
-                    except (json.JSONDecodeError, ValueError):
-                        pass
+                    except (json.JSONDecodeError, ValueError) as e:
+                        logger.warning("Failed to parse field_options for '%s': %s", field.get('field_name', '?'), e)
 
                 current_value = existing_custom_values.get(field_name, '')
 
@@ -1156,7 +1159,8 @@ class CardEditDialog(wx.Dialog):
                     elif field_type == 'number':
                         try:
                             num_val = int(current_value) if current_value else 0
-                        except (ValueError, TypeError):
+                        except (ValueError, TypeError) as e:
+                            logger.debug("Could not convert '%s' to number: %s", current_value, e)
                             num_val = 0
                         ctrl = wx.SpinCtrl(panel, min=-9999, max=9999, initial=num_val)
                         ctrl.SetBackgroundColour(get_wx_color('bg_input'))
@@ -1388,6 +1392,7 @@ class MainFrame(wx.Frame):
         create_default_decks(self.db)
         self.thumb_cache = get_cache()
         self.presets = get_presets()
+        logger.info("Database and systems initialized")
         
         # State
         self.current_entry_id = None
@@ -2287,8 +2292,8 @@ class MainFrame(wx.Frame):
                 wx_date = wx.DateTime()
                 wx_date.Set(dt.day, dt.month - 1, dt.year)
                 birth_date_ctrl.SetValue(wx_date)
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Could not parse birth date: %s", e)
         birth_date_sizer.Add(birth_date_ctrl, 1)
         sizer.Add(birth_date_sizer, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
@@ -2934,7 +2939,8 @@ class MainFrame(wx.Frame):
             try:
                 dt = datetime.fromisoformat(last_backup_time)
                 last_backup_str = dt.strftime("%Y-%m-%d %H:%M")
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as e:
+                logger.debug("Could not parse backup time: %s", e)
                 last_backup_str = "Unknown"
         else:
             last_backup_str = "Never"
@@ -2998,7 +3004,8 @@ class MainFrame(wx.Frame):
                 try:
                     dt = datetime.fromisoformat(reading_dt)
                     date_str = dt.strftime('%Y-%m-%d %H:%M')
-                except (ValueError, TypeError):
+                except (ValueError, TypeError) as e:
+                    logger.debug("Could not parse reading datetime: %s", e)
                     date_str = reading_dt[:16] if reading_dt else ''
             elif entry['created_at']:
                 date_str = entry['created_at'][:10]
@@ -4282,13 +4289,15 @@ class MainFrame(wx.Frame):
             try:
                 dt = datetime.fromisoformat(reading_dt)
                 date_str = dt.strftime('%B %d, %Y at %I:%M %p')
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as e:
+                logger.debug("Could not parse reading datetime: %s", e)
                 date_str = reading_dt[:16] if reading_dt else ''
         elif entry['created_at']:
             try:
                 dt = datetime.fromisoformat(entry['created_at'])
                 date_str = dt.strftime('%B %d, %Y at %I:%M %p')
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as e:
+                logger.debug("Could not parse entry created_at: %s", e)
                 date_str = entry['created_at'][:16]
         else:
             date_str = None
@@ -4664,8 +4673,8 @@ class MainFrame(wx.Frame):
                                 # Bind double-click on image too
                                 if card_id:
                                     bmp.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logger.debug("Could not load card thumbnail: %s", e)
 
                         name_label = wx.StaticText(card_panel, label=card_name[:15])
                         name_label.SetForegroundColour(get_wx_color('text_primary'))
@@ -4720,7 +4729,8 @@ class MainFrame(wx.Frame):
                 try:
                     dt = datetime.fromisoformat(note['created_at'])
                     date_str = dt.strftime('%B %d, %Y at %I:%M %p')
-                except (ValueError, TypeError):
+                except (ValueError, TypeError) as e:
+                    logger.debug("Could not parse note date: %s", e)
                     date_str = note['created_at'][:16] if note['created_at'] else 'Unknown date'
 
                 date_label = wx.StaticText(note_panel, label=date_str)
@@ -4824,7 +4834,8 @@ class MainFrame(wx.Frame):
         try:
             dt = datetime.fromisoformat(note['created_at'])
             date_str = dt.strftime('%B %d, %Y at %I:%M %p')
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as e:
+            logger.debug("Could not parse note date: %s", e)
             date_str = note['created_at'][:16] if note['created_at'] else 'Unknown date'
 
         date_label = wx.StaticText(dlg, label=f"Note from: {date_str}")
@@ -4954,7 +4965,8 @@ class MainFrame(wx.Frame):
                 wx_date.Set(dt.day, dt.month - 1, dt.year)
                 date_picker.SetValue(wx_date)
                 time_ctrl.SetValue(dt.strftime("%H:%M"))
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as e:
+                logger.debug("Could not parse existing reading datetime: %s", e)
                 use_now_radio.SetValue(True)
         else:
             use_now_radio.SetValue(True)
@@ -5396,8 +5408,8 @@ class MainFrame(wx.Frame):
                                     dc.DrawText("(R)", img_x + 2, img_y + 2)
 
                                 image_drawn = True
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.debug("Could not draw card image on spread: %s", e)
                     
                     if not image_drawn:
                         dc.SetBrush(wx.Brush(get_wx_color('accent_dim')))
@@ -5695,7 +5707,8 @@ class MainFrame(wx.Frame):
                 time_str = time_ctrl.GetValue().strip()
                 try:
                     hour, minute = map(int, time_str.split(':'))
-                except (ValueError, TypeError):
+                except (ValueError, TypeError) as e:
+                    logger.debug("Could not parse time '%s': %s", time_str, e)
                     hour, minute = 12, 0
                 reading_datetime = datetime(
                     wx_date.GetYear(),
@@ -6742,8 +6755,8 @@ class MainFrame(wx.Frame):
                     wx_img = wx.Image(new_width, new_height)
                     wx_img.SetData(pil_img.tobytes())
                     return wx.Bitmap(wx_img)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Could not convert image to bitmap: %s", e)
             return None
 
         card_back_bitmap = load_card_back_image(card_back_path)
@@ -6945,8 +6958,8 @@ class MainFrame(wx.Frame):
                         options_str = ', '.join(opts[:3])
                         if len(opts) > 3:
                             options_str += '...'
-                    except (json.JSONDecodeError, ValueError):
-                        pass
+                    except (json.JSONDecodeError, ValueError) as e:
+                        logger.warning("Failed to parse field_options in list: %s", e)
                 cf_list.SetItem(idx, 2, options_str)
                 cf_list.SetItemData(idx, field['id'])
 
@@ -6996,8 +7009,8 @@ class MainFrame(wx.Frame):
             if field['field_options']:
                 try:
                     existing_options = json.loads(field['field_options'])
-                except (json.JSONDecodeError, ValueError):
-                    pass
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.warning("Failed to parse existing field_options: %s", e)
 
             field_data = self._show_custom_field_dialog(
                 dlg,
@@ -8600,8 +8613,8 @@ class MainFrame(wx.Frame):
                             s.SetBackgroundColour(color)
                             s.Refresh()
                         picker.Destroy()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Color picker error: %s", e)
                 return pick
             
             pick_btn = wx.Button(scroll, label="Pick", size=(50, -1))
@@ -8618,8 +8631,8 @@ class MainFrame(wx.Frame):
                         try:
                             s.SetBackgroundColour(wx.Colour(val))
                             s.Refresh()
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.debug("Could not update color swatch: %s", e)
                     e.Skip()
                 return update
             
@@ -9133,8 +9146,10 @@ Most Used Decks:
 
 
 def main():
+    logger.info("Tarot Journal v%s starting", VERSION)
     app = TarotJournalApp()
     app.MainLoop()
+    logger.info("Tarot Journal shutting down")
 
 
 if __name__ == '__main__':
