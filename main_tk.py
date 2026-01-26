@@ -16,8 +16,10 @@ from thumbnail_cache import get_cache, ThumbnailCache
 from import_presets import get_presets, ImportPresets, BUILTIN_PRESETS
 from theme_config import get_theme, get_colors, get_fonts, PRESET_THEMES
 from logger_config import get_logger
+from app_config import get_config
 
 logger = get_logger('app_tk')
+_cfg = get_config()
 
 # === Load Theme Configuration ===
 _theme = get_theme()
@@ -44,7 +46,9 @@ class TarotJournalApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Tarot Journal")
-        self.root.geometry("1400x900")
+        _win_w = _cfg.get('window', 'max_width', 1200)
+        _win_h = _cfg.get('window', 'max_height', 800)
+        self.root.geometry(f"{_win_w}x{_win_h}")
         self.root.configure(bg=COLORS['bg_primary'])
         
         # Initialize systems
