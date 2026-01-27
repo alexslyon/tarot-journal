@@ -293,6 +293,23 @@ class Database:
             )
         ''')
 
+        # Migration: add sort_order to card_groups
+        cursor.execute('PRAGMA table_info(card_groups)')
+        columns = [col[1] for col in cursor.fetchall()]
+        if 'sort_order' not in columns:
+            cursor.execute('ALTER TABLE card_groups ADD COLUMN sort_order INTEGER DEFAULT 0')
+            # Initialize sort_order for existing groups based on name order
+            cursor.execute('SELECT id, deck_id FROM card_groups ORDER BY deck_id, name')
+            rows = cursor.fetchall()
+            current_deck = None
+            pos = 0
+            for row in rows:
+                if row[1] != current_deck:
+                    current_deck = row[1]
+                    pos = 0
+                cursor.execute('UPDATE card_groups SET sort_order = ? WHERE id = ?', (pos, row[0]))
+                pos += 1
+
         # Deck type assignments junction table (allows decks to have multiple types)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS deck_type_assignments (
@@ -1779,9 +1796,9 @@ class Database:
 
     # === Card Groups (per-deck custom groupings) ===
     def get_card_groups(self, deck_id: int):
-        """Get all card groups for a deck"""
+        """Get all card groups for a deck, ordered by sort_order"""
         cursor = self.conn.cursor()
-        cursor.execute('SELECT * FROM card_groups WHERE deck_id = ? ORDER BY name', (deck_id,))
+        cursor.execute('SELECT * FROM card_groups WHERE deck_id = ? ORDER BY sort_order, name', (deck_id,))
         return cursor.fetchall()
 
     def get_card_group(self, group_id: int):
@@ -1791,11 +1808,13 @@ class Database:
         return cursor.fetchone()
 
     def add_card_group(self, deck_id: int, name: str, color: str = '#6B5B95'):
-        """Create a new card group for a deck"""
+        """Create a new card group for a deck, placed at the end"""
         cursor = self.conn.cursor()
+        cursor.execute('SELECT COALESCE(MAX(sort_order), -1) + 1 FROM card_groups WHERE deck_id = ?', (deck_id,))
+        next_order = cursor.fetchone()[0]
         cursor.execute(
-            'INSERT INTO card_groups (deck_id, name, color) VALUES (?, ?, ?)',
-            (deck_id, name, color)
+            'INSERT INTO card_groups (deck_id, name, color, sort_order) VALUES (?, ?, ?, ?)',
+            (deck_id, name, color, next_order)
         )
         self._commit()
         return cursor.lastrowid
@@ -1815,6 +1834,18 @@ class Database:
         cursor.execute('DELETE FROM card_groups WHERE id = ?', (group_id,))
         self._commit()
 
+    def swap_card_group_order(self, group_id_a: int, group_id_b: int):
+        """Swap the sort_order of two card groups"""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT sort_order FROM card_groups WHERE id = ?', (group_id_a,))
+        row_a = cursor.fetchone()
+        cursor.execute('SELECT sort_order FROM card_groups WHERE id = ?', (group_id_b,))
+        row_b = cursor.fetchone()
+        if row_a and row_b:
+            cursor.execute('UPDATE card_groups SET sort_order = ? WHERE id = ?', (row_b['sort_order'], group_id_a))
+            cursor.execute('UPDATE card_groups SET sort_order = ? WHERE id = ?', (row_a['sort_order'], group_id_b))
+            self._commit()
+
     def get_groups_for_card(self, card_id: int):
         """Get all groups a card belongs to"""
         cursor = self.conn.cursor()
@@ -1822,7 +1853,7 @@ class Database:
             SELECT g.* FROM card_groups g
             JOIN card_group_assignments cga ON g.id = cga.group_id
             WHERE cga.card_id = ?
-            ORDER BY g.name
+            ORDER BY g.sort_order, g.name
         ''', (card_id,))
         return cursor.fetchall()
 
