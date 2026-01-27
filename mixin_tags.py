@@ -135,7 +135,11 @@ class TagsMixin:
         # Buttons
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         cancel_btn = wx.Button(dlg, wx.ID_CANCEL, "Cancel")
+        cancel_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
+        cancel_btn.SetForegroundColour(get_wx_color('text_primary'))
         save_btn = wx.Button(dlg, wx.ID_OK, "Save")
+        save_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
+        save_btn.SetForegroundColour(get_wx_color('text_primary'))
         btn_sizer.Add(cancel_btn, 0, wx.RIGHT, 10)
         btn_sizer.Add(save_btn, 0)
         sizer.Add(btn_sizer, 0, wx.ALIGN_RIGHT | wx.ALL, 15)

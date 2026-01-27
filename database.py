@@ -270,6 +270,29 @@ class Database:
             )
         ''')
 
+        # Card groups (per-deck custom groupings)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS card_groups (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                deck_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                color TEXT DEFAULT '#6B5B95',
+                FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE,
+                UNIQUE(deck_id, name)
+            )
+        ''')
+
+        # Card group assignments junction table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS card_group_assignments (
+                card_id INTEGER NOT NULL,
+                group_id INTEGER NOT NULL,
+                PRIMARY KEY (card_id, group_id),
+                FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
+                FOREIGN KEY (group_id) REFERENCES card_groups(id) ON DELETE CASCADE
+            )
+        ''')
+
         # Deck type assignments junction table (allows decks to have multiple types)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS deck_type_assignments (
@@ -1753,6 +1776,75 @@ class Database:
                 (card_id, tag_id)
             )
         self._commit()
+
+    # === Card Groups (per-deck custom groupings) ===
+    def get_card_groups(self, deck_id: int):
+        """Get all card groups for a deck"""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT * FROM card_groups WHERE deck_id = ? ORDER BY name', (deck_id,))
+        return cursor.fetchall()
+
+    def get_card_group(self, group_id: int):
+        """Get a single card group by ID"""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT * FROM card_groups WHERE id = ?', (group_id,))
+        return cursor.fetchone()
+
+    def add_card_group(self, deck_id: int, name: str, color: str = '#6B5B95'):
+        """Create a new card group for a deck"""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'INSERT INTO card_groups (deck_id, name, color) VALUES (?, ?, ?)',
+            (deck_id, name, color)
+        )
+        self._commit()
+        return cursor.lastrowid
+
+    def update_card_group(self, group_id: int, name: str = None, color: str = None):
+        """Update a card group's name and/or color"""
+        cursor = self.conn.cursor()
+        if name:
+            cursor.execute('UPDATE card_groups SET name = ? WHERE id = ?', (name, group_id))
+        if color:
+            cursor.execute('UPDATE card_groups SET color = ? WHERE id = ?', (color, group_id))
+        self._commit()
+
+    def delete_card_group(self, group_id: int):
+        """Delete a card group (cascades to assignments)"""
+        cursor = self.conn.cursor()
+        cursor.execute('DELETE FROM card_groups WHERE id = ?', (group_id,))
+        self._commit()
+
+    def get_groups_for_card(self, card_id: int):
+        """Get all groups a card belongs to"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT g.* FROM card_groups g
+            JOIN card_group_assignments cga ON g.id = cga.group_id
+            WHERE cga.card_id = ?
+            ORDER BY g.name
+        ''', (card_id,))
+        return cursor.fetchall()
+
+    def set_card_groups(self, card_id: int, group_ids: list):
+        """Replace all group memberships for a card"""
+        cursor = self.conn.cursor()
+        cursor.execute('DELETE FROM card_group_assignments WHERE card_id = ?', (card_id,))
+        for group_id in group_ids:
+            cursor.execute(
+                'INSERT INTO card_group_assignments (card_id, group_id) VALUES (?, ?)',
+                (card_id, group_id)
+            )
+        self._commit()
+
+    def get_cards_in_group(self, group_id: int):
+        """Get all card IDs in a specific group"""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'SELECT card_id FROM card_group_assignments WHERE group_id = ?',
+            (group_id,)
+        )
+        return [row['card_id'] for row in cursor.fetchall()]
 
     # === Card Archetypes ===
     def get_archetypes(self, cartomancy_type: str = None):

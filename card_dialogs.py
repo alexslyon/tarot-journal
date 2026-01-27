@@ -276,6 +276,19 @@ class CardViewDialog(wx.Dialog):
             if card_tags:
                 self._add_info_row("Card Tags", ", ".join([t['name'] for t in card_tags]))
 
+        # Groups section
+        card_groups = self.db.get_groups_for_card(card_id)
+        if card_groups:
+            sep5 = wx.StaticLine(self.info_panel)
+            self.info_sizer.Add(sep5, 0, wx.EXPAND | wx.TOP | wx.BOTTOM, 15)
+
+            groups_title = wx.StaticText(self.info_panel, label="Groups")
+            groups_title.SetFont(wx.Font(11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+            groups_title.SetForegroundColour(get_wx_color('accent'))
+            self.info_sizer.Add(groups_title, 0, wx.BOTTOM, 8)
+
+            self._add_info_row("Member of", ", ".join([g['name'] for g in card_groups]))
+
         self.info_panel.Layout()
         self.info_panel.FitInside()
         self.info_panel.Scroll(0, 0)  # Reset scroll position
@@ -563,6 +576,7 @@ class CardEditDialog(wx.Dialog):
         self._build_classification_tab(card, cartomancy_type, get_field)
         self._build_notes_tab(get_field)
         self._build_tags_tab(card['id'])
+        self._build_groups_tab(card['id'], deck['id'])
         self._build_custom_fields_tab(deck_custom_fields, existing_custom_values)
 
         self.form_sizer.Add(self.notebook, 1, wx.EXPAND)
@@ -895,6 +909,45 @@ class CardEditDialog(wx.Dialog):
         panel.SetSizer(sizer)
         self.notebook.AddPage(panel, "Tags")
 
+    def _build_groups_tab(self, card_id, deck_id):
+        """Build the Groups tab"""
+        panel = scrolled.ScrolledPanel(self.notebook)
+        panel.SetBackgroundColour(get_wx_color('bg_primary'))
+        panel.SetupScrolling(scroll_x=False)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        groups_label = wx.StaticText(panel, label="Card Groups:")
+        groups_label.SetForegroundColour(get_wx_color('text_primary'))
+        sizer.Add(groups_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+
+        # Get current card groups and all available groups for this deck
+        current_card_groups = {g['id'] for g in self.db.get_groups_for_card(card_id)}
+        all_groups = list(self.db.get_card_groups(deck_id))
+        self._form_controls['all_card_groups'] = all_groups
+
+        if all_groups:
+            # Individual checkboxes with separate labels (macOS color fix)
+            group_checkboxes = []
+            for group in all_groups:
+                cb_sizer = wx.BoxSizer(wx.HORIZONTAL)
+                cb = wx.CheckBox(panel, label="")
+                if group['id'] in current_card_groups:
+                    cb.SetValue(True)
+                cb_sizer.Add(cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+                cb_label = wx.StaticText(panel, label=group['name'])
+                cb_label.SetForegroundColour(get_wx_color('text_primary'))
+                cb_sizer.Add(cb_label, 0, wx.ALIGN_CENTER_VERTICAL)
+                sizer.Add(cb_sizer, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+                group_checkboxes.append(cb)
+            self._form_controls['group_checkboxes'] = group_checkboxes
+        else:
+            no_groups = wx.StaticText(panel, label="No groups created for this deck yet.\nUse the \"Groups...\" button in the Card Library to create groups.")
+            no_groups.SetForegroundColour(get_wx_color('text_dim'))
+            sizer.Add(no_groups, 0, wx.ALL, 10)
+
+        panel.SetSizer(sizer)
+        self.notebook.AddPage(panel, "Groups")
+
     def _build_custom_fields_tab(self, deck_custom_fields, existing_custom_values):
         """Build the Custom Fields tab"""
         panel = scrolled.ScrolledPanel(self.notebook)
@@ -1105,6 +1158,16 @@ class CardEditDialog(wx.Dialog):
                     if checklist.IsChecked(i):
                         selected_card_tag_ids.append(all_card_tags[i]['id'])
                 self.db.set_card_tags(card_id, selected_card_tag_ids)
+
+            # Update card groups
+            all_card_groups = self._form_controls.get('all_card_groups', [])
+            group_checkboxes = self._form_controls.get('group_checkboxes')
+            if group_checkboxes:
+                selected_group_ids = []
+                for i, cb in enumerate(group_checkboxes):
+                    if cb.GetValue():
+                        selected_group_ids.append(all_card_groups[i]['id'])
+                self.db.set_card_groups(card_id, selected_group_ids)
 
             if new_image and new_image != card['image_path']:
                 self.thumb_cache.get_thumbnail(new_image)
