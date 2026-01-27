@@ -1211,7 +1211,7 @@ class LibraryMixin:
         deck = self.db.get_deck(deck_id)
         deck_name = deck['name'] if deck else "Deck"
 
-        dlg = wx.Dialog(self, title=f"Manage Groups — {deck_name}", size=(400, 350))
+        dlg = wx.Dialog(self, title=f"Manage Groups — {deck_name}", size=(500, 350))
         dlg.SetBackgroundColour(get_wx_color('bg_primary'))
         sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -1296,6 +1296,40 @@ class LibraryMixin:
                 refresh_list()
         delete_btn.Bind(wx.EVT_BUTTON, on_delete)
         btn_sizer.Add(delete_btn, 0)
+
+        btn_sizer.AddSpacer(20)
+
+        up_btn = wx.Button(dlg, label="\u25B2 Up")
+        up_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
+        up_btn.SetForegroundColour(get_wx_color('text_primary'))
+        def on_move_up(evt):
+            sel = groups_list.GetFirstSelected()
+            if sel <= 0:
+                return
+            id_sel = groups_list.GetItemData(sel)
+            id_above = groups_list.GetItemData(sel - 1)
+            self.db.swap_card_group_order(id_sel, id_above)
+            refresh_list()
+            groups_list.Select(sel - 1)
+            groups_list.EnsureVisible(sel - 1)
+        up_btn.Bind(wx.EVT_BUTTON, on_move_up)
+        btn_sizer.Add(up_btn, 0, wx.RIGHT, 5)
+
+        down_btn = wx.Button(dlg, label="\u25BC Down")
+        down_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
+        down_btn.SetForegroundColour(get_wx_color('text_primary'))
+        def on_move_down(evt):
+            sel = groups_list.GetFirstSelected()
+            if sel == -1 or sel >= groups_list.GetItemCount() - 1:
+                return
+            id_sel = groups_list.GetItemData(sel)
+            id_below = groups_list.GetItemData(sel + 1)
+            self.db.swap_card_group_order(id_sel, id_below)
+            refresh_list()
+            groups_list.Select(sel + 1)
+            groups_list.EnsureVisible(sel + 1)
+        down_btn.Bind(wx.EVT_BUTTON, on_move_down)
+        btn_sizer.Add(down_btn, 0)
 
         sizer.Add(btn_sizer, 0, wx.ALL, 10)
 
