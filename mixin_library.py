@@ -278,11 +278,18 @@ class LibraryMixin:
         header_row.Add(filter_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
         
         self.card_filter_names = ['All', 'Major Arcana', 'Wands', 'Cups', 'Swords', 'Pentacles']
+        self._filter_group_map = {}  # Map filter index -> group_id
         self.card_filter_choice = wx.Choice(right, choices=self.card_filter_names)
         self.card_filter_choice.SetSelection(0)
         self.card_filter_choice.Bind(wx.EVT_CHOICE, self._on_card_filter_change)
         header_row.Add(self.card_filter_choice, 0, wx.ALIGN_CENTER_VERTICAL)
-        
+
+        self.groups_btn = wx.Button(right, label="Groups...")
+        self.groups_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
+        self.groups_btn.SetForegroundColour(get_wx_color('text_primary'))
+        self.groups_btn.Bind(wx.EVT_BUTTON, self._on_manage_groups)
+        header_row.Add(self.groups_btn, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 5)
+
         right_sizer.Add(header_row, 0, wx.EXPAND | wx.ALL, 10)
         
         # Single scrolled panel for cards (filtered dynamically)
@@ -618,7 +625,16 @@ class LibraryMixin:
                               suit_names.get('cups', 'Cups'),
                               suit_names.get('swords', 'Swords'),
                               suit_names.get('pentacles', 'Pentacles')]
-        
+
+        # Append custom groups for this deck
+        self._filter_group_map = {}
+        groups = self.db.get_card_groups(deck_id)
+        if groups:
+            new_choices.append("───────────")
+            for group in groups:
+                self._filter_group_map[len(new_choices)] = group['id']
+                new_choices.append(group['name'])
+
         # Update dropdown if choices changed
         current_choices = [self.card_filter_choice.GetString(i) for i in range(self.card_filter_choice.GetCount())]
         if current_choices != new_choices:
@@ -659,6 +675,14 @@ class LibraryMixin:
 
         if filter_name == 'All':
             cards_to_show = self._current_cards_sorted
+        elif filter_name == "───────────":
+            # Separator line — treat as "All"
+            cards_to_show = self._current_cards_sorted
+        elif hasattr(self, '_filter_group_map') and filter_idx in self._filter_group_map:
+            # Custom group filter
+            group_id = self._filter_group_map[filter_idx]
+            group_card_ids = set(self.db.get_cards_in_group(group_id))
+            cards_to_show = [c for c in self._current_cards_sorted if c['id'] in group_card_ids]
         elif self._current_deck_type in ('Lenormand', 'Playing Cards'):
             # Lenormand and Playing Cards filtering by playing card suit
             # Map custom suit names back to standard suit keys
@@ -1165,8 +1189,129 @@ class LibraryMixin:
     def _on_card_filter_change(self, event):
         """Handle card filter dropdown change"""
         if hasattr(self, '_current_cards_sorted') and self._current_cards_sorted:
+            # Skip separator selection — reset to "All"
+            filter_idx = self.card_filter_choice.GetSelection()
+            if 0 <= filter_idx < len(self.card_filter_names):
+                if self.card_filter_names[filter_idx] == "───────────":
+                    self.card_filter_choice.SetSelection(0)
             self._display_filtered_cards()
         event.Skip()
+
+    # ═══════════════════════════════════════════
+    # CARD GROUP MANAGEMENT
+    # ═══════════════════════════════════════════
+
+    def _on_manage_groups(self, event):
+        """Open the group management dialog for the current deck"""
+        deck_id = self._current_deck_id_for_cards
+        if not deck_id:
+            wx.MessageBox("Select a deck first.", "No Deck", wx.OK | wx.ICON_INFORMATION)
+            return
+
+        deck = self.db.get_deck(deck_id)
+        deck_name = deck['name'] if deck else "Deck"
+
+        dlg = wx.Dialog(self, title=f"Manage Groups — {deck_name}", size=(400, 350))
+        dlg.SetBackgroundColour(get_wx_color('bg_primary'))
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        info = wx.StaticText(dlg, label="Custom card groupings for this deck.\nCards can belong to multiple groups.")
+        info.SetForegroundColour(get_wx_color('text_secondary'))
+        sizer.Add(info, 0, wx.ALL, 10)
+
+        groups_list = wx.ListCtrl(dlg, style=wx.LC_REPORT | wx.LC_SINGLE_SEL)
+        groups_list.SetBackgroundColour(get_wx_color('bg_secondary'))
+        groups_list.SetTextColour(get_wx_color('text_primary'))
+        groups_list.InsertColumn(0, "Name", width=200)
+        groups_list.InsertColumn(1, "Color", width=80)
+        groups_list.InsertColumn(2, "Cards", width=60)
+        sizer.Add(groups_list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
+        def refresh_list():
+            groups_list.DeleteAllItems()
+            groups = self.db.get_card_groups(deck_id)
+            for i, group in enumerate(groups):
+                idx = groups_list.InsertItem(i, group['name'])
+                groups_list.SetItem(idx, 1, group['color'])
+                count = len(self.db.get_cards_in_group(group['id']))
+                groups_list.SetItem(idx, 2, str(count))
+                groups_list.SetItemData(idx, group['id'])
+
+        refresh_list()
+
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        add_btn = wx.Button(dlg, label="+ Add Group")
+        add_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
+        add_btn.SetForegroundColour(get_wx_color('text_primary'))
+        def on_add(evt):
+            result = self._show_tag_dialog(dlg, "Add Group")
+            if result:
+                try:
+                    self.db.add_card_group(deck_id, result['name'], result['color'])
+                    refresh_list()
+                except Exception as e:
+                    wx.MessageBox(f"Could not add group: {e}", "Error", wx.OK | wx.ICON_ERROR)
+        add_btn.Bind(wx.EVT_BUTTON, on_add)
+        btn_sizer.Add(add_btn, 0, wx.RIGHT, 5)
+
+        edit_btn = wx.Button(dlg, label="Edit")
+        edit_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
+        edit_btn.SetForegroundColour(get_wx_color('text_primary'))
+        def on_edit(evt):
+            sel = groups_list.GetFirstSelected()
+            if sel == -1:
+                wx.MessageBox("Select a group to edit.", "No Selection", wx.OK | wx.ICON_INFORMATION)
+                return
+            group_id = groups_list.GetItemData(sel)
+            group = self.db.get_card_group(group_id)
+            if not group:
+                return
+            result = self._show_tag_dialog(dlg, "Edit Group", group['name'], group['color'])
+            if result:
+                try:
+                    self.db.update_card_group(group_id, result['name'], result['color'])
+                    refresh_list()
+                except Exception as e:
+                    wx.MessageBox(f"Could not update group: {e}", "Error", wx.OK | wx.ICON_ERROR)
+        edit_btn.Bind(wx.EVT_BUTTON, on_edit)
+        groups_list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, on_edit)
+        btn_sizer.Add(edit_btn, 0, wx.RIGHT, 5)
+
+        delete_btn = wx.Button(dlg, label="Delete")
+        delete_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
+        delete_btn.SetForegroundColour(get_wx_color('text_primary'))
+        def on_delete(evt):
+            sel = groups_list.GetFirstSelected()
+            if sel == -1:
+                wx.MessageBox("Select a group to delete.", "No Selection", wx.OK | wx.ICON_INFORMATION)
+                return
+            group_id = groups_list.GetItemData(sel)
+            if wx.MessageBox(
+                "Delete this group? Cards will be removed from it but not deleted.",
+                "Confirm Delete",
+                wx.YES_NO | wx.ICON_WARNING
+            ) == wx.YES:
+                self.db.delete_card_group(group_id)
+                refresh_list()
+        delete_btn.Bind(wx.EVT_BUTTON, on_delete)
+        btn_sizer.Add(delete_btn, 0)
+
+        sizer.Add(btn_sizer, 0, wx.ALL, 10)
+
+        close_btn = wx.Button(dlg, wx.ID_CLOSE, "Close")
+        close_btn.SetBackgroundColour(get_wx_color('bg_secondary'))
+        close_btn.SetForegroundColour(get_wx_color('text_primary'))
+        close_btn.Bind(wx.EVT_BUTTON, lambda evt: dlg.EndModal(wx.ID_CLOSE))
+        sizer.Add(close_btn, 0, wx.ALIGN_RIGHT | wx.RIGHT | wx.BOTTOM, 10)
+
+        dlg.SetSizer(sizer)
+        dlg.ShowModal()
+        dlg.Destroy()
+
+        # Refresh the filter dropdown to reflect group changes
+        if self._current_deck_id_for_cards:
+            self._refresh_cards_display(self._current_deck_id_for_cards)
 
     # ═══════════════════════════════════════════
     # CARD SEARCH METHODS
