@@ -11,7 +11,7 @@ from pathlib import Path
 
 from ui_helpers import logger, _cfg, get_wx_color
 from import_presets import COURT_PRESETS, ARCHETYPE_MAPPING_OPTIONS
-from card_dialogs import CardViewDialog, CardEditDialog
+from card_dialogs import CardViewDialog, CardEditDialog, BatchEditDialog
 from rich_text_panel import RichTextPanel
 
 
@@ -3117,7 +3117,29 @@ class LibraryMixin:
             self._on_edit_card(None, final_card_id, return_to_view=True)
 
     def _on_edit_card(self, event, card_id=None, return_to_view=False, selected_tab=0, dialog_pos=None, dialog_size=None):
-        """Edit a card using the CardEditDialog"""
+        """Edit a card using the CardEditDialog, or BatchEditDialog for multiple cards"""
+        # Batch edit: multiple cards selected and no specific card_id passed
+        if card_id is None and len(self.selected_card_ids) > 1:
+            # Sort selected cards in deck order so thumbnails appear consistently
+            card_list = self._current_cards_sorted if hasattr(self, '_current_cards_sorted') else []
+            deck_order = [c['id'] for c in card_list]
+            sorted_ids = sorted(self.selected_card_ids, key=lambda cid: deck_order.index(cid) if cid in deck_order else cid)
+
+            # Get deck_id from the first selected card
+            first_card = self.db.get_card_with_metadata(sorted_ids[0])
+            if not first_card:
+                return
+            deck_id = first_card['deck_id']
+
+            dlg = BatchEditDialog(self, self.db, self.thumb_cache, sorted_ids, deck_id)
+            result = dlg.ShowModal()
+            applied = dlg.applied
+            dlg.Destroy()
+
+            if applied:
+                self._refresh_cards_display(deck_id, preserve_scroll=True)
+            return
+
         if card_id is None:
             # Get first selected card
             if self.selected_card_ids:
