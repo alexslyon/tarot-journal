@@ -1,0 +1,82 @@
+.card-search {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-search__bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.card-search__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-search__btn {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: var(--font-size-small);
+}
+
+.card-search__btn--clear {
+  background: var(--danger);
+  color: var(--text-primary);
+}
+
+.card-search__btn--clear:hover {
+  opacity: 0.9;
+}
+
+.card-search__btn--toggle.active {
+  background: var(--accent);
+  color: var(--text-primary);
+}
+
+.card-search__filters {
+  margin-top: 8px;
+  padding: 10px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card-search__filter-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.card-search__filter-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  flex: 1;
+  min-width: 120px;
+}
+
+.card-search__filter-label select,
+.card-search__filter-label input[type="text"] {
+  width: 100%;
+}
+
+.card-search__filter-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  cursor: pointer;
+  min-width: 100px;
+}
+
+.card-search__filter-check input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+}

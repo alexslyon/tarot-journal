@@ -1,0 +1,99 @@
+.follow-up-notes {
+  margin-top: 16px;
+}
+
+.follow-up-notes__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.follow-up-notes__title {
+  font-size: var(--font-size-heading);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-right: auto;
+}
+
+.follow-up-notes__add-btn {
+  padding: 3px 10px;
+  font-size: var(--font-size-small);
+}
+
+/* ── Editor (inline) ── */
+
+.follow-up-notes__editor {
+  margin-bottom: 12px;
+}
+
+.follow-up-notes__editor-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.follow-up-notes__editor-actions button {
+  padding: 4px 12px;
+  font-size: var(--font-size-small);
+}
+
+/* ── Note items ── */
+
+.follow-up-notes__note {
+  padding: 10px 12px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.follow-up-notes__note-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.follow-up-notes__note-date {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+}
+
+.follow-up-notes__note-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.follow-up-notes__action-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.follow-up-notes__action-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.follow-up-notes__action-btn--danger:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* ── Empty ── */
+
+.follow-up-notes__empty {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  font-style: italic;
+  padding: 8px 0;
+}

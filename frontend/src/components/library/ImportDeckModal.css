@@ -1,0 +1,108 @@
+.import-deck__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.import-deck__error {
+  background: var(--danger);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: var(--font-size-small);
+}
+
+.import-deck__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.import-deck__field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.import-deck__label {
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+}
+
+.import-deck__row {
+  display: flex;
+  gap: 12px;
+}
+
+.import-deck__preview {
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.import-deck__preview-count {
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-size: var(--font-size-body);
+}
+
+.import-deck__preview-list {
+  font-size: var(--font-size-small);
+}
+
+.import-deck__preview-header {
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr;
+  gap: 8px;
+  padding: 4px 0;
+  color: var(--text-dim);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+
+.import-deck__preview-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr;
+  gap: 8px;
+  padding: 3px 0;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--bg-secondary);
+}
+
+.import-deck__preview-filename {
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-deck__status {
+  text-align: center;
+  padding: 32px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-heading);
+}
+
+.import-deck__status--success {
+  color: var(--success);
+}
+
+.import-deck__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+}
+
+.import-deck__primary-btn {
+  background: var(--accent) !important;
+  color: var(--text-primary) !important;
+}
+
+.import-deck__primary-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

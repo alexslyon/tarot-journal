@@ -1,0 +1,127 @@
+.reading-editor {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background-color: var(--bg-primary);
+}
+
+.reading-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.reading-editor__label {
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.reading-editor__remove-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.reading-editor__remove-btn:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* ── Dropdowns row ── */
+
+.reading-editor__row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.reading-editor__field {
+  flex: 1;
+}
+
+.reading-editor__field-label {
+  display: block;
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  margin-bottom: 3px;
+}
+
+.reading-editor__field select {
+  width: 100%;
+}
+
+/* ── Card slots ── */
+
+.reading-editor__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reading-editor__card-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reading-editor__position-label {
+  width: 100px;
+  flex-shrink: 0;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reading-editor__card-select,
+.reading-editor__card-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.reading-editor__reversed {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.reading-editor__card-remove {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.reading-editor__card-remove:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.reading-editor__add-card {
+  align-self: flex-start;
+  padding: 3px 10px;
+  font-size: var(--font-size-small);
+  margin-top: 4px;
+}

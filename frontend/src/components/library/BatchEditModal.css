@@ -1,0 +1,104 @@
+.batch-edit__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.batch-edit__form {
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.batch-edit__section {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.batch-edit__field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.batch-edit__label {
+  color: var(--text-secondary);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+}
+
+.batch-edit__field-header select {
+  width: 120px;
+}
+
+.batch-edit__notes {
+  width: 100%;
+  resize: vertical;
+}
+
+.batch-edit__checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.batch-edit__check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: var(--font-size-small);
+}
+
+.batch-edit__check input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+}
+
+.batch-edit__tag-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: var(--font-size-small);
+}
+
+.batch-edit__group-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 2px solid;
+  color: var(--text-primary);
+  font-size: var(--font-size-small);
+}
+
+.batch-edit__footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+.batch-edit__progress {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  margin-right: auto;
+}
+
+.batch-edit__save-btn {
+  background: var(--accent) !important;
+  color: var(--text-primary) !important;
+}
+
+.batch-edit__save-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

@@ -1,0 +1,27 @@
+.export-modal__options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.export-modal__radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: var(--font-size-body);
+  color: var(--text-primary);
+}
+
+.export-modal__info {
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  margin-bottom: 16px;
+}
+
+.export-modal__footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}

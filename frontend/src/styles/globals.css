@@ -1,0 +1,126 @@
+/* CSS reset and base styles using theme variables */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Fallback values -- overridden by ThemeContext at runtime */
+  --bg-primary: #1e2024;
+  --bg-secondary: #2a2d32;
+  --bg-tertiary: #35393f;
+  --bg-input: #3d4148;
+  --accent: #5294e2;
+  --accent-hover: #6ba3eb;
+  --accent-dim: #3d6a99;
+  --text-primary: #e8e9eb;
+  --text-secondary: #9ba0a8;
+  --text-dim: #6b7280;
+  --border: #404552;
+  --success: #5cb85c;
+  --warning: #f0ad4e;
+  --danger: #d9534f;
+  --card-slot: #292c31;
+
+  --font-display: 'SF Pro Display', -apple-system, sans-serif;
+  --font-text: 'SF Pro Text', -apple-system, sans-serif;
+  --font-mono: 'SF Mono', monospace;
+  --font-size-title: 22px;
+  --font-size-heading: 14px;
+  --font-size-body: 12px;
+  --font-size-small: 10px;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-text);
+  font-size: var(--font-size-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar styling for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border);
+}
+
+/* Form elements */
+input, textarea, select {
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-family: var(--font-text);
+  font-size: var(--font-size-body);
+  outline: none;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent);
+}
+
+button {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-family: var(--font-text);
+  font-size: var(--font-size-body);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+button:hover {
+  background-color: var(--bg-tertiary);
+}
+
+button.primary {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+button.primary:hover {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+button.danger {
+  background-color: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+/* Utility classes */
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-dim {
+  color: var(--text-dim);
+}

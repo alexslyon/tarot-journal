@@ -1,0 +1,111 @@
+.entry-viewer {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.entry-viewer__scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* ── Header ── */
+
+.entry-viewer__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.entry-viewer__title {
+  font-size: var(--font-size-title);
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 0;
+}
+
+.entry-viewer__actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.entry-viewer__actions button {
+  padding: 4px 12px;
+  font-size: var(--font-size-small);
+}
+
+/* ── Metadata ── */
+
+.entry-viewer__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.entry-viewer__meta-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--font-size-body);
+}
+
+.entry-viewer__meta-label {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ── Tags ── */
+
+.entry-viewer__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.entry-viewer__tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: var(--font-size-small);
+  color: #fff;
+  font-weight: 500;
+}
+
+/* ── Sections ── */
+
+.entry-viewer__section {
+  margin-bottom: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.entry-viewer__section-title {
+  font-size: var(--font-size-heading);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+/* ── Loading / Error ── */
+
+.entry-viewer__loading,
+.entry-viewer__error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-dim);
+  font-size: var(--font-size-heading);
+}

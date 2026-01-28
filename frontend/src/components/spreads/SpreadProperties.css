@@ -1,0 +1,43 @@
+.spread-props {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.spread-props__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.spread-props__label {
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+}
+
+.spread-props__hint {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  font-style: italic;
+}
+
+.spread-props__checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.spread-props__check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: var(--font-size-small);
+  color: var(--text-primary);
+}
+
+.spread-props__check input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+}

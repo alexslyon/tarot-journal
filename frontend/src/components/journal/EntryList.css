@@ -1,0 +1,128 @@
+.entry-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.entry-list__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  flex-shrink: 0;
+}
+
+.entry-list__title {
+  font-size: var(--font-size-heading);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-right: auto;
+}
+
+.entry-list__btn {
+  padding: 4px 10px;
+  font-size: var(--font-size-small);
+}
+
+.entry-list__btn--sm {
+  padding: 3px 8px;
+}
+
+.entry-list__btn--clear {
+  color: var(--text-dim);
+}
+
+/* ── Search ── */
+
+.entry-list__search {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px 8px;
+  flex-shrink: 0;
+}
+
+.entry-list__search-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Filters ── */
+
+.entry-list__filters {
+  padding: 0 12px 8px;
+  flex-shrink: 0;
+}
+
+.entry-list__tag-filter {
+  width: 100%;
+}
+
+/* ── Rows ── */
+
+.entry-list__rows {
+  flex: 1;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+
+.entry-list__row {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--bg-tertiary);
+  transition: background-color 0.1s;
+}
+
+.entry-list__row:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.entry-list__row--selected {
+  background-color: var(--accent-dim);
+}
+
+.entry-list__row--selected:hover {
+  background-color: var(--accent-dim);
+}
+
+.entry-list__row-date {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+
+.entry-list__row-title {
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entry-list__row-location {
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Footer ── */
+
+.entry-list__footer {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* ── Empty / Loading ── */
+
+.entry-list__loading,
+.entry-list__empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-dim);
+}

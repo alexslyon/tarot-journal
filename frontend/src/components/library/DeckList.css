@@ -1,0 +1,140 @@
+.deck-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.deck-list__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  flex-shrink: 0;
+}
+
+.deck-list__title {
+  font-size: var(--font-size-heading);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-right: auto;
+}
+
+.deck-list__import-btn {
+  padding: 4px 10px;
+  font-size: var(--font-size-small);
+}
+
+.deck-list__filter {
+  width: 140px;
+}
+
+.deck-list__table-header {
+  display: flex;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.deck-list__table-header .deck-list__col {
+  cursor: pointer;
+}
+
+.deck-list__table-header .deck-list__col:hover {
+  color: var(--text-secondary);
+}
+
+.deck-list__col--name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deck-list__col--type {
+  width: 90px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.deck-list__col--cards {
+  width: 50px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.deck-list__rows {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.deck-list__row {
+  display: flex;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--bg-tertiary);
+  transition: background-color 0.1s;
+}
+
+.deck-list__row:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.deck-list__row--selected {
+  background-color: var(--accent-dim);
+}
+
+.deck-list__row--selected:hover {
+  background-color: var(--accent-dim);
+}
+
+.deck-list__tags {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.deck-list__tag-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.deck-list__edit-btn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.deck-list__row:hover .deck-list__edit-btn {
+  opacity: 1;
+}
+
+.deck-list__edit-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.deck-list__loading {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-dim);
+}

@@ -1,0 +1,216 @@
+.deck-edit__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--text-dim);
+}
+
+.deck-edit__header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.deck-edit__back-img {
+  width: 60px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--card-slot);
+}
+
+.deck-edit__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.deck-edit__form {
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.deck-edit__section {
+  margin-bottom: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.deck-edit__section:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.deck-edit__section-title {
+  font-size: var(--font-size-heading);
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.deck-edit__field {
+  margin-bottom: 10px;
+}
+
+.deck-edit__label {
+  display: block;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  margin-bottom: 3px;
+}
+
+.deck-edit__row {
+  display: flex;
+  gap: 12px;
+}
+
+.deck-edit__row--wrap {
+  flex-wrap: wrap;
+}
+
+.deck-edit__field--quarter {
+  flex: 0 0 calc(25% - 9px);
+  min-width: 100px;
+}
+
+.deck-edit__notes {
+  width: 100%;
+  resize: vertical;
+}
+
+.deck-edit__checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.deck-edit__check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: var(--font-size-small);
+}
+
+.deck-edit__check input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+}
+
+.deck-edit__tag-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: var(--font-size-small);
+}
+
+.deck-edit__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+}
+
+.deck-edit__export-link {
+  margin-right: auto;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.deck-edit__export-link:hover {
+  color: var(--text-primary);
+}
+
+.deck-edit__save-btn {
+  background: var(--accent) !important;
+  color: var(--text-primary) !important;
+}
+
+.deck-edit__save-btn:hover {
+  background: var(--accent-hover) !important;
+}
+
+.deck-edit__save-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── Custom Fields ── */
+
+.deck-edit__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.deck-edit__section-header .deck-edit__section-title {
+  margin-bottom: 0;
+}
+
+.deck-edit__add-field-btn {
+  padding: 2px 8px;
+  font-size: var(--font-size-small);
+}
+
+.deck-edit__section-hint {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  margin-bottom: 10px;
+}
+
+.deck-edit__custom-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.deck-edit__custom-field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.deck-edit__custom-field-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.deck-edit__custom-field-type {
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.deck-edit__custom-field-delete {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.deck-edit__custom-field-delete:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.deck-edit__custom-fields-empty {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  font-style: italic;
+}
