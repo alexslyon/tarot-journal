@@ -1,0 +1,125 @@
+.card-view {
+  display: flex;
+  gap: 24px;
+  min-height: 400px;
+}
+
+.card-view__image-panel {
+  flex-shrink: 0;
+  width: 280px;
+}
+
+.card-view__image {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 6px;
+  background-color: var(--card-slot);
+}
+
+.card-view__no-image {
+  width: 280px;
+  height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--card-slot);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: var(--font-size-heading);
+}
+
+.card-view__info-panel {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  max-height: 420px;
+}
+
+.card-view__name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.card-view__deck {
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  font-size: var(--font-size-body);
+}
+
+.card-view__section {
+  margin-bottom: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.card-view__section-title {
+  font-size: var(--font-size-heading);
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.card-view__row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+  line-height: 1.6;
+}
+
+.card-view__label {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.card-view__value {
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.card-view__notes {
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+}
+
+.card-view__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+}
+
+.card-view__nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-view__nav button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.card-view__position {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+}
+
+.card-view__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.card-view__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: var(--text-dim);
+}

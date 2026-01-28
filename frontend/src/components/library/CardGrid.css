@@ -1,0 +1,155 @@
+.card-grid {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.card-grid__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  flex-shrink: 0;
+}
+
+.card-grid__title {
+  font-size: var(--font-size-heading);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.card-grid__count {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+}
+
+.card-grid__items {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-content: flex-start;
+}
+
+.card-grid__sel-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.card-grid__sel-btn {
+  padding: 3px 8px;
+  font-size: var(--font-size-small);
+}
+
+.card-grid__sel-btn--edit {
+  background: var(--accent) !important;
+  color: var(--text-primary) !important;
+}
+
+.card-grid__sel-count {
+  font-size: var(--font-size-small);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.card-grid__card {
+  width: 120px;
+  cursor: pointer;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.card-grid__card--selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.card-grid__checkbox {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 3px;
+  padding: 2px;
+  display: flex;
+}
+
+.card-grid__checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.card-grid__card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.card-grid__image {
+  width: 120px;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+  background-color: var(--card-slot);
+  border-radius: 4px;
+}
+
+.card-grid__placeholder {
+  width: 120px;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px;
+  background-color: var(--card-slot);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+}
+
+.card-grid__label {
+  padding: 4px 2px;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-grid__deck-label {
+  padding: 0 2px 2px;
+  font-size: 10px;
+  color: var(--text-dim);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-grid__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-dim);
+  font-size: var(--font-size-heading);
+}
+
+.card-grid__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-dim);
+}

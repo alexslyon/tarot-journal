@@ -1,0 +1,43 @@
+.rtv {
+  color: var(--text-primary);
+  font-family: var(--font-text);
+  font-size: var(--font-size-body);
+  line-height: 1.6;
+  word-wrap: break-word;
+}
+
+.rtv p {
+  margin: 0 0 6px;
+}
+
+.rtv p:last-child {
+  margin-bottom: 0;
+}
+
+.rtv strong {
+  font-weight: 600;
+}
+
+.rtv em {
+  font-style: italic;
+}
+
+.rtv u {
+  text-decoration: underline;
+}
+
+.rtv ul,
+.rtv ol {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+
+.rtv li {
+  margin-bottom: 2px;
+}
+
+.rtv br {
+  display: block;
+  content: '';
+  margin-top: 4px;
+}

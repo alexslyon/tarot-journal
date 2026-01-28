@@ -27,7 +27,7 @@ class Database:
         if db_path is None:
             db_path = _cfg.get("paths", "database", "tarot_journal.db")
         self.db_path = db_path
-        self.conn = sqlite3.connect(db_path)
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self._in_transaction = False
 
@@ -638,8 +638,9 @@ class Database:
         return cursor.lastrowid
     
     def update_deck(self, deck_id: int, name: str = None, image_folder: str = None, suit_names: dict = None,
-                    date_published: str = None, publisher: str = None, credits: str = None, notes: str = None,
-                    card_back_image: str = None, booklet_info: str = None, cartomancy_type_id: int = None):
+                    court_names: dict = None, date_published: str = None, publisher: str = None,
+                    credits: str = None, notes: str = None, card_back_image: str = None,
+                    booklet_info: str = None, cartomancy_type_id: int = None):
         cursor = self.conn.cursor()
         if name:
             cursor.execute('UPDATE decks SET name = ? WHERE id = ?', (name, deck_id))
@@ -650,6 +651,9 @@ class Database:
         if suit_names is not None:
             suit_names_json = json.dumps(suit_names) if suit_names else None
             cursor.execute('UPDATE decks SET suit_names = ? WHERE id = ?', (suit_names_json, deck_id))
+        if court_names is not None:
+            court_names_json = json.dumps(court_names) if court_names else None
+            cursor.execute('UPDATE decks SET court_names = ? WHERE id = ?', (court_names_json, deck_id))
         if date_published is not None:
             cursor.execute('UPDATE decks SET date_published = ? WHERE id = ?', (date_published, deck_id))
         if publisher is not None:
@@ -2312,7 +2316,12 @@ class Database:
             params.append(notes)
         if custom_fields is not None:
             updates.append('custom_fields = ?')
-            params.append(json.dumps(custom_fields) if custom_fields else None)
+            if not custom_fields:
+                params.append(None)
+            elif isinstance(custom_fields, str):
+                params.append(custom_fields)
+            else:
+                params.append(json.dumps(custom_fields))
 
         if updates:
             params.append(card_id)

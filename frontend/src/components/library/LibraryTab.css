@@ -1,0 +1,23 @@
+.library-tab {
+  position: absolute;
+  inset: 0;
+}
+
+.library-tab__right-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Shared resize handle style */
+.resize-handle {
+  width: 4px;
+  background-color: var(--border);
+  transition: background-color 0.15s;
+}
+
+.resize-handle:hover,
+.resize-handle[data-resize-handle-active] {
+  background-color: var(--accent);
+}

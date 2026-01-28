@@ -1,0 +1,137 @@
+.entry-editor__title {
+  font-size: var(--font-size-title);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.entry-editor__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Fields ── */
+
+.entry-editor__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.entry-editor__label {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.entry-editor__field input[type="text"],
+.entry-editor__field select {
+  width: 100%;
+}
+
+.entry-editor__row {
+  display: flex;
+  gap: 12px;
+}
+
+.entry-editor__row .entry-editor__field {
+  flex: 1;
+}
+
+/* ── Date row ── */
+
+.entry-editor__date-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.entry-editor__radio {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: var(--font-size-body);
+  color: var(--text-primary);
+}
+
+.entry-editor__datetime-input {
+  flex: 1;
+  max-width: 250px;
+}
+
+/* ── Sections ── */
+
+.entry-editor__section {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.entry-editor__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.entry-editor__section-title {
+  font-size: var(--font-size-heading);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.entry-editor__section-header .entry-editor__section-title {
+  margin-bottom: 0;
+}
+
+.entry-editor__add-btn {
+  padding: 3px 10px;
+  font-size: var(--font-size-small);
+}
+
+.entry-editor__empty {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  font-style: italic;
+  padding: 8px 0;
+}
+
+/* ── Tags ── */
+
+.entry-editor__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.entry-editor__tag-check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.entry-editor__tag-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: var(--font-size-small);
+  color: #fff;
+  font-weight: 500;
+}
+
+/* ── Footer ── */
+
+.entry-editor__footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+}

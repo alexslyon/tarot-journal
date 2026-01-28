@@ -1,0 +1,87 @@
+/* ── File upload ── */
+
+.import-modal__file-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.import-modal__file-input {
+  display: none;
+}
+
+.import-modal__file-btn {
+  padding: 6px 14px;
+}
+
+.import-modal__file-name {
+  color: var(--text-secondary);
+  font-size: var(--font-size-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Checkbox ── */
+
+.import-modal__check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: var(--font-size-body);
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+/* ── Error ── */
+
+.import-modal__error {
+  color: var(--danger);
+  font-size: var(--font-size-small);
+  margin-bottom: 12px;
+}
+
+/* ── Status ── */
+
+.import-modal__status {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 24px 0;
+}
+
+/* ── Result ── */
+
+.import-modal__result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.import-modal__result-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.import-modal__result-label {
+  color: var(--text-secondary);
+}
+
+.import-modal__result-value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ── Footer ── */
+
+.import-modal__footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}

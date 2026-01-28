@@ -1,0 +1,114 @@
+.spread-display {
+  margin-bottom: 16px;
+}
+
+.spread-display__header-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.spread-display__name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--font-size-body);
+  margin-bottom: 6px;
+}
+
+.spread-display__deck {
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+}
+
+/* ── Positioned canvas ── */
+
+.spread-display__canvas {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.spread-display__slot {
+  overflow: hidden;
+}
+
+.spread-display__empty-slot {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--card-slot);
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+}
+
+.spread-display__slot-label {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+}
+
+/* ── Simple card row ── */
+
+.spread-display__card-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.spread-display__card-item {
+  width: 80px;
+}
+
+.spread-display__no-cards {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  font-style: italic;
+}
+
+/* ── Card slot content ── */
+
+.spread-display__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.spread-display__card-img {
+  width: 100%;
+  max-height: 100px;
+  object-fit: contain;
+  border-radius: 3px;
+}
+
+.spread-display__card-placeholder {
+  width: 100%;
+  height: 80px;
+  background-color: var(--card-slot);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.spread-display__card-name {
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  text-align: center;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.spread-display__card--reversed .spread-display__card-name {
+  color: var(--warning);
+}
+
+.spread-display__reversed-badge {
+  font-weight: 700;
+  color: var(--warning);
+}

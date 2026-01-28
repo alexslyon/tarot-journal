@@ -1,0 +1,224 @@
+"""
+Deck endpoints -- CRUD for card decks.
+"""
+
+import json
+from flask import Blueprint, jsonify, request, current_app
+
+decks_bp = Blueprint('decks', __name__)
+
+
+def _row_to_dict(row):
+    return dict(row) if row else None
+
+
+@decks_bp.route('/api/decks')
+def get_decks():
+    db = current_app.config['DB']
+    type_id = request.args.get('type_id', type=int)
+    decks = db.get_decks(cartomancy_type_id=type_id)
+    # get_decks already returns dicts; add card_count and normalize field names
+    result = []
+    for d in decks:
+        deck = dict(d) if not isinstance(d, dict) else d
+        cards = db.get_cards(deck['id'])
+        deck['card_count'] = len(cards)
+        deck['cartomancy_type'] = deck.get('cartomancy_type_names') or deck.get('cartomancy_type_name', '')
+        # Include deck tags
+        tags = db.get_tags_for_deck(deck['id'])
+        deck['tags'] = [_row_to_dict(t) for t in tags]
+        result.append(deck)
+    return jsonify(result)
+
+
+@decks_bp.route('/api/decks/<int:deck_id>')
+def get_deck(deck_id):
+    db = current_app.config['DB']
+    row = db.get_deck(deck_id)
+    if not row:
+        return jsonify({'error': 'Deck not found'}), 404
+    return jsonify(_row_to_dict(row))
+
+
+@decks_bp.route('/api/decks', methods=['POST'])
+def add_deck():
+    db = current_app.config['DB']
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    cartomancy_type_id = data.get('cartomancy_type_id')
+    if not name or not cartomancy_type_id:
+        return jsonify({'error': 'name and cartomancy_type_id are required'}), 400
+
+    deck_id = db.add_deck(
+        name=name,
+        cartomancy_type_id=cartomancy_type_id,
+        image_folder=data.get('image_folder'),
+        suit_names=data.get('suit_names'),
+        court_names=data.get('court_names'),
+    )
+    return jsonify({'id': deck_id}), 201
+
+
+@decks_bp.route('/api/decks/<int:deck_id>', methods=['PUT'])
+def update_deck(deck_id):
+    db = current_app.config['DB']
+    data = request.get_json()
+    db.update_deck(
+        deck_id,
+        name=data.get('name'),
+        image_folder=data.get('image_folder'),
+        suit_names=data.get('suit_names'),
+        court_names=data.get('court_names'),
+        date_published=data.get('date_published'),
+        publisher=data.get('publisher'),
+        credits=data.get('credits'),
+        notes=data.get('notes'),
+        card_back_image=data.get('card_back_image'),
+        booklet_info=data.get('booklet_info'),
+        cartomancy_type_id=data.get('cartomancy_type_id'),
+    )
+    return jsonify({'ok': True})
+
+
+@decks_bp.route('/api/decks/<int:deck_id>', methods=['DELETE'])
+def delete_deck(deck_id):
+    db = current_app.config['DB']
+    db.delete_deck(deck_id)
+    return jsonify({'ok': True})
+
+
+@decks_bp.route('/api/decks/<int:deck_id>/types')
+def get_deck_types(deck_id):
+    db = current_app.config['DB']
+    rows = db.get_types_for_deck(deck_id)
+    return jsonify([_row_to_dict(r) for r in rows])
+
+
+@decks_bp.route('/api/decks/<int:deck_id>/types', methods=['PUT'])
+def set_deck_types(deck_id):
+    db = current_app.config['DB']
+    data = request.get_json()
+    type_ids = data.get('type_ids', [])
+    db.set_deck_types(deck_id, type_ids)
+    return jsonify({'ok': True})
+
+
+@decks_bp.route('/api/decks/<int:deck_id>/suit-names')
+def get_suit_names(deck_id):
+    db = current_app.config['DB']
+    names = db.get_deck_suit_names(deck_id)
+    return jsonify(names or {})
+
+
+@decks_bp.route('/api/decks/<int:deck_id>/suit-names', methods=['PUT'])
+def update_suit_names(deck_id):
+    db = current_app.config['DB']
+    data = request.get_json()
+    suit_names = data.get('suit_names')
+    old_suit_names = data.get('old_suit_names')
+    db.update_deck_suit_names(deck_id, suit_names, old_suit_names)
+    return jsonify({'ok': True})
+
+
+@decks_bp.route('/api/decks/<int:deck_id>/court-names')
+def get_court_names(deck_id):
+    db = current_app.config['DB']
+    names = db.get_deck_court_names(deck_id)
+    return jsonify(names or {})
+
+
+@decks_bp.route('/api/decks/<int:deck_id>/tags')
+def get_deck_tags(deck_id):
+    db = current_app.config['DB']
+    rows = db.get_tags_for_deck(deck_id)
+    return jsonify([_row_to_dict(r) for r in rows])
+
+
+@decks_bp.route('/api/decks/<int:deck_id>/tags', methods=['PUT'])
+def set_deck_tag_assignments(deck_id):
+    db = current_app.config['DB']
+    data = request.get_json()
+    tag_ids = data.get('tag_ids', [])
+    db.set_deck_tags(deck_id, tag_ids)
+    return jsonify({'ok': True})
+
+
+# ── Deck Custom Fields ────────────────────────────────────────
+
+@decks_bp.route('/api/decks/<int:deck_id>/custom-fields')
+def get_deck_custom_fields(deck_id):
+    db = current_app.config['DB']
+    rows = db.get_deck_custom_fields(deck_id)
+    return jsonify([_row_to_dict(r) for r in rows])
+
+
+@decks_bp.route('/api/decks/<int:deck_id>/custom-fields', methods=['POST'])
+def add_deck_custom_field(deck_id):
+    db = current_app.config['DB']
+    data = request.get_json()
+    field_name = data.get('field_name', '').strip()
+    if not field_name:
+        return jsonify({'error': 'field_name is required'}), 400
+    field_id = db.add_deck_custom_field(
+        deck_id,
+        field_name=field_name,
+        field_type=data.get('field_type', 'text'),
+        field_options=data.get('field_options'),
+        field_order=data.get('field_order', 0),
+    )
+    return jsonify({'id': field_id}), 201
+
+
+@decks_bp.route('/api/decks/custom-fields/<int:field_id>', methods=['PUT'])
+def update_deck_custom_field(field_id):
+    db = current_app.config['DB']
+    data = request.get_json()
+    db.update_deck_custom_field(
+        field_id,
+        field_name=data.get('field_name'),
+        field_type=data.get('field_type'),
+        field_options=data.get('field_options'),
+        field_order=data.get('field_order'),
+    )
+    return jsonify({'ok': True})
+
+
+@decks_bp.route('/api/decks/custom-fields/<int:field_id>', methods=['DELETE'])
+def delete_deck_custom_field(field_id):
+    db = current_app.config['DB']
+    db.delete_deck_custom_field(field_id)
+    return jsonify({'ok': True})
+
+
+@decks_bp.route('/api/decks/<int:deck_id>/groups')
+def get_deck_groups(deck_id):
+    db = current_app.config['DB']
+    rows = db.get_card_groups(deck_id)
+    return jsonify([_row_to_dict(r) for r in rows])
+
+
+@decks_bp.route('/api/decks/<int:deck_id>/groups', methods=['POST'])
+def add_deck_group(deck_id):
+    db = current_app.config['DB']
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    color = data.get('color', '#6B5B95')
+    if not name:
+        return jsonify({'error': 'Name is required'}), 400
+    group_id = db.add_card_group(deck_id, name, color)
+    return jsonify({'id': group_id}), 201
+
+
+@decks_bp.route('/api/groups/<int:group_id>', methods=['PUT'])
+def update_deck_group(group_id):
+    db = current_app.config['DB']
+    data = request.get_json()
+    db.update_card_group(group_id, name=data.get('name'), color=data.get('color'))
+    return jsonify({'ok': True})
+
+
+@decks_bp.route('/api/groups/<int:group_id>', methods=['DELETE'])
+def delete_deck_group(group_id):
+    db = current_app.config['DB']
+    db.delete_card_group(group_id)
+    return jsonify({'ok': True})

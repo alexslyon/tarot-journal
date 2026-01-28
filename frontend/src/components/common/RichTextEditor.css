@@ -1,0 +1,111 @@
+.rte {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background-color: var(--bg-input);
+  overflow: hidden;
+}
+
+/* ── Toolbar ── */
+
+.rte__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg-secondary);
+}
+
+.rte__group {
+  display: flex;
+  gap: 1px;
+}
+
+.rte__separator {
+  width: 1px;
+  height: 18px;
+  background-color: var(--border);
+  margin: 0 4px;
+}
+
+.rte__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.rte__btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-tertiary);
+  border-color: var(--border);
+}
+
+.rte__btn--active {
+  color: var(--accent);
+  background-color: var(--bg-tertiary);
+  border-color: var(--accent-dim);
+}
+
+/* ── Editor content area ── */
+
+.rte__content {
+  padding: 8px 10px;
+  cursor: text;
+}
+
+.rte__content .tiptap {
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-text);
+  font-size: var(--font-size-body);
+  line-height: 1.6;
+}
+
+.rte__content .tiptap p {
+  margin: 0 0 4px;
+}
+
+.rte__content .tiptap p:last-child {
+  margin-bottom: 0;
+}
+
+.rte__content .tiptap ul,
+.rte__content .tiptap ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.rte__content .tiptap li {
+  margin-bottom: 2px;
+}
+
+.rte__content .tiptap strong {
+  font-weight: 600;
+}
+
+.rte__content .tiptap em {
+  font-style: italic;
+}
+
+.rte__content .tiptap u {
+  text-decoration: underline;
+}
+
+/* Placeholder */
+.rte__content .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--text-dim);
+  pointer-events: none;
+  height: 0;
+}

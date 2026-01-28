@@ -1,0 +1,71 @@
+.spreads-tab {
+  position: absolute;
+  inset: 0;
+}
+
+.spreads-tab__editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.spreads-tab__editor-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.spreads-tab__props-section {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.spreads-tab__designer-section {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.spreads-tab__section-title {
+  font-size: var(--font-size-heading);
+  color: var(--accent);
+  margin: 0 0 10px;
+}
+
+.spreads-tab__legend-section {
+  margin-bottom: 16px;
+}
+
+.spreads-tab__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-primary);
+}
+
+.spreads-tab__save-btn {
+  background: var(--accent) !important;
+  color: var(--text-primary) !important;
+  padding: 6px 20px;
+  font-size: var(--font-size-body);
+}
+
+.spreads-tab__save-btn:hover {
+  background: var(--accent-hover) !important;
+}
+
+.spreads-tab__save-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.spreads-tab__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-dim);
+  font-size: var(--font-size-heading);
+}

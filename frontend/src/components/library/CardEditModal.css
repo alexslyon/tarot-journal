@@ -1,0 +1,205 @@
+.card-edit__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--text-dim);
+}
+
+.card-edit__header {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.card-edit__thumb {
+  width: 80px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--card-slot);
+}
+
+.card-edit__header-info {
+  flex: 1;
+}
+
+.card-edit__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.card-edit__deck {
+  color: var(--text-secondary);
+  font-size: var(--font-size-body);
+}
+
+.card-edit__form {
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.card-edit__section {
+  margin-bottom: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.card-edit__section-title {
+  font-size: var(--font-size-heading);
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.card-edit__field {
+  margin-bottom: 10px;
+}
+
+.card-edit__label {
+  display: block;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  margin-bottom: 3px;
+}
+
+.card-edit__row {
+  display: flex;
+  gap: 12px;
+}
+
+.card-edit__notes {
+  width: 100%;
+  resize: vertical;
+}
+
+.card-edit__checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.card-edit__check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: var(--font-size-small);
+}
+
+.card-edit__check input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+}
+
+.card-edit__tag-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: var(--font-size-small);
+}
+
+.card-edit__group-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 2px solid;
+  color: var(--text-primary);
+  font-size: var(--font-size-small);
+}
+
+.card-edit__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+}
+
+.card-edit__save-btn {
+  background: var(--accent) !important;
+  color: var(--text-primary) !important;
+}
+
+.card-edit__save-btn:hover {
+  background: var(--accent-hover) !important;
+}
+
+.card-edit__save-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Custom Fields */
+
+.card-edit__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.card-edit__section-header .card-edit__section-title {
+  margin-bottom: 0;
+}
+
+.card-edit__add-btn {
+  padding: 2px 10px;
+  font-size: var(--font-size-small);
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.card-edit__add-btn:hover {
+  background: var(--accent-dim);
+}
+
+.card-edit__empty-hint {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  font-style: italic;
+}
+
+.card-edit__custom-field {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.card-edit__cf-name {
+  flex: 0 0 35%;
+}
+
+.card-edit__cf-value {
+  flex: 1;
+}
+
+.card-edit__cf-delete {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.card-edit__cf-delete:hover {
+  color: var(--danger, #e74c3c);
+  border-color: var(--danger, #e74c3c);
+}
