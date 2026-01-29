@@ -97,7 +97,7 @@
 .card-grid__image {
   width: 120px;
   height: 180px;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
   background-color: var(--card-slot);
   border-radius: 4px;

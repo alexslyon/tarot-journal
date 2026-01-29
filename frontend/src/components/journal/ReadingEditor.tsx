@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { getDecks } from '../../api/decks';
 import { getCards } from '../../api/cards';
 import { getSpreads, getSpread } from '../../api/spreads';
-import type { Spread, SpreadPosition } from '../../types';
+import { cardThumbnailUrl } from '../../api/images';
+import type { Card, Spread, SpreadPosition } from '../../types';
 import './ReadingEditor.css';
 
 export interface ReadingData {
@@ -162,32 +163,13 @@ export default function ReadingEditor({ value, onChange, onRemove, index }: Read
       {/* Card slots */}
       <div className="reading-editor__cards">
         {positions.length > 0 ? (
-          // Spread with positions: show labeled slots
-          positions.map((pos, idx) => (
-            <div key={idx} className="reading-editor__card-slot">
-              <span className="reading-editor__position-label">
-                {pos.label || `Position ${idx + 1}`}
-              </span>
-              <select
-                className="reading-editor__card-select"
-                value={value.cards[idx]?.name || ''}
-                onChange={(e) => updateCard(idx, 'name', e.target.value)}
-              >
-                <option value="">— select card —</option>
-                {deckCards.map((c) => (
-                  <option key={c.id} value={c.name}>{c.name}</option>
-                ))}
-              </select>
-              <label className="reading-editor__reversed">
-                <input
-                  type="checkbox"
-                  checked={value.cards[idx]?.reversed || false}
-                  onChange={(e) => updateCard(idx, 'reversed', e.target.checked)}
-                />
-                <span>R</span>
-              </label>
-            </div>
-          ))
+          // Spread with positions: show visual canvas layout
+          <VisualSpreadEditor
+            positions={positions}
+            cards={value.cards}
+            deckCards={deckCards}
+            onUpdateCard={updateCard}
+          />
         ) : (
           // No spread: free-form card list
           <>
@@ -235,6 +217,113 @@ export default function ReadingEditor({ value, onChange, onRemove, index }: Read
             </button>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Visual canvas editor for spread positions */
+function VisualSpreadEditor({
+  positions,
+  cards,
+  deckCards,
+  onUpdateCard,
+}: {
+  positions: SpreadPosition[];
+  cards: ReadingData['cards'];
+  deckCards: Card[];
+  onUpdateCard: (idx: number, field: string, val: string | boolean) => void;
+}) {
+  // Calculate bounding box and scale to fit within a reasonable size
+  const maxX = Math.max(...positions.map(p => (p.x || 0) + (p.width || 80)));
+  const maxY = Math.max(...positions.map(p => (p.y || 0) + (p.height || 120)));
+  // Scale to fit in ~450x350 area
+  const scale = Math.min(1, 450 / maxX, 350 / maxY);
+
+  // Find card_id for a given card name
+  const getCardId = (name: string): number | undefined => {
+    const found = deckCards.find(c => c.name === name);
+    return found?.id;
+  };
+
+  return (
+    <div className="reading-editor__visual">
+      {/* Visual canvas showing card layout */}
+      <div
+        className="reading-editor__canvas"
+        style={{
+          width: maxX * scale + 16,
+          height: maxY * scale + 16,
+          position: 'relative',
+        }}
+      >
+        {positions.map((pos, idx) => {
+          const card = cards[idx];
+          const cardId = card?.name ? getCardId(card.name) : undefined;
+          const slotWidth = (pos.width || 80) * scale;
+          const slotHeight = (pos.height || 120) * scale;
+
+          return (
+            <div
+              key={idx}
+              className={`reading-editor__visual-slot ${card?.reversed ? 'reading-editor__visual-slot--reversed' : ''}`}
+              style={{
+                position: 'absolute',
+                left: (pos.x || 0) * scale + 8,
+                top: (pos.y || 0) * scale + 8,
+                width: slotWidth,
+                height: slotHeight,
+              }}
+              title={`${pos.label || `Position ${idx + 1}`}${card?.name ? `: ${card.name}` : ''}`}
+            >
+              {cardId ? (
+                <img
+                  className="reading-editor__visual-img"
+                  src={cardThumbnailUrl(cardId)}
+                  alt={card.name}
+                  style={card.reversed ? { transform: 'rotate(180deg)' } : undefined}
+                />
+              ) : (
+                <div className="reading-editor__visual-placeholder">
+                  <span className="reading-editor__visual-idx">{pos.key || idx + 1}</span>
+                </div>
+              )}
+              {/* Small badge showing position key */}
+              <span className="reading-editor__visual-badge">{pos.key || idx + 1}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Card selection list below canvas */}
+      <div className="reading-editor__position-list">
+        {positions.map((pos, idx) => {
+          const card = cards[idx];
+          return (
+            <div key={idx} className="reading-editor__position-row">
+              <span className="reading-editor__position-key">{pos.key || idx + 1}</span>
+              <span className="reading-editor__position-label">{pos.label || `Position ${idx + 1}`}</span>
+              <select
+                className="reading-editor__card-select"
+                value={card?.name || ''}
+                onChange={(e) => onUpdateCard(idx, 'name', e.target.value)}
+              >
+                <option value="">— select card —</option>
+                {deckCards.map((c) => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+              <label className="reading-editor__reversed">
+                <input
+                  type="checkbox"
+                  checked={card?.reversed || false}
+                  onChange={(e) => onUpdateCard(idx, 'reversed', e.target.checked)}
+                />
+                <span>R</span>
+              </label>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

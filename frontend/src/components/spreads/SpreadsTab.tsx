@@ -144,7 +144,7 @@ export default function SpreadsTab() {
   return (
     <div className="spreads-tab">
       <Group orientation="horizontal" style={{ width: '100%', height: '100%' }}>
-        <Panel defaultSize={30} minSize={25}>
+        <Panel defaultSize="30%" minSize="20%">
           <SpreadList
             selectedSpreadId={selectedSpread?.id ?? null}
             onSelect={handleSelect}
@@ -154,7 +154,7 @@ export default function SpreadsTab() {
           />
         </Panel>
         <Separator className="resize-handle" />
-        <Panel minSize={40}>
+        <Panel minSize="30%">
           {hasSelection ? (
             <div className="spreads-tab__editor">
               <div className="spreads-tab__editor-scroll">
