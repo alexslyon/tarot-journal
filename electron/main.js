@@ -5,7 +5,7 @@ const http = require('http');
 
 const PROJECT_ROOT = path.dirname(__dirname);
 const FLASK_PORT = parseInt(process.env.FLASK_PORT || '5678', 10);
-const IS_DEV = process.env.NODE_ENV === 'development' || !app.isPackaged;
+const IS_DEV = process.env.NODE_ENV === 'development';
 const VITE_PORT = 5173;
 
 let flaskProcess = null;
@@ -13,7 +13,9 @@ let mainWindow = null;
 
 function startFlask() {
   const runScript = path.join(PROJECT_ROOT, 'backend', 'run.py');
-  const pythonCmd = process.platform === 'darwin' ? 'python3' : 'python';
+  // Use the venv's Python if it exists, otherwise fall back to system Python
+  const venvPython = path.join(PROJECT_ROOT, '.venv', 'bin', 'python3');
+  const pythonCmd = require('fs').existsSync(venvPython) ? venvPython : 'python3';
 
   flaskProcess = spawn(pythonCmd, [runScript], {
     cwd: PROJECT_ROOT,
@@ -100,7 +102,7 @@ function createWindow() {
   // In development, load Vite dev server; in production, load Flask
   const url = IS_DEV
     ? `http://localhost:${VITE_PORT}`
-    : `http://127.0.0.1:${FLASK_PORT}`;
+    : `http://localhost:${FLASK_PORT}`;
 
   mainWindow.loadURL(url);
 

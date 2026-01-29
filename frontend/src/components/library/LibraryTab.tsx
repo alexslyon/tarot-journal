@@ -55,7 +55,7 @@ export default function LibraryTab() {
   return (
     <div className="library-tab">
       <Group orientation="horizontal" style={{ width: '100%', height: '100%' }}>
-        <Panel defaultSize={33} minSize={20}>
+        <Panel defaultSize={30} minSize={25}>
           <DeckList
             selectedDeckId={deckId}
             onSelectDeck={setSelectedDeck}

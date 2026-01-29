@@ -46,15 +46,21 @@ def create_app():
 
     # Serve the built React frontend (production mode)
     if os.path.isdir(FRONTEND_DIST):
-        @app.route('/', defaults={'path': ''})
-        @app.route('/<path:path>')
-        def serve_frontend(path):
-            # Don't intercept API routes
-            if path.startswith('api/'):
-                return app.send_static_file(path)
-            file_path = os.path.join(FRONTEND_DIST, path)
-            if path and os.path.isfile(file_path):
-                return send_from_directory(FRONTEND_DIST, path)
+        @app.route('/')
+        def serve_index():
+            return send_from_directory(FRONTEND_DIST, 'index.html')
+
+        @app.route('/assets/<path:filename>')
+        def serve_assets(filename):
+            return send_from_directory(os.path.join(FRONTEND_DIST, 'assets'), filename)
+
+        # SPA fallback: serve index.html for any non-API, non-file routes
+        @app.errorhandler(404)
+        def spa_fallback(e):
+            # Only serve SPA for non-API routes
+            from flask import request
+            if request.path.startswith('/api/'):
+                return {'error': 'Not found'}, 404
             return send_from_directory(FRONTEND_DIST, 'index.html')
 
     return app

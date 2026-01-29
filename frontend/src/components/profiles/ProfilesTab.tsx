@@ -102,7 +102,7 @@ export default function ProfilesTab() {
   return (
     <div className="profiles-tab">
       <Group orientation="horizontal" style={{ width: '100%', height: '100%' }}>
-        <Panel defaultSize={33} minSize={20}>
+        <Panel defaultSize={30} minSize={25}>
           <div className="profiles-tab__list">
             <div className="profiles-tab__list-header">
               <h2 className="profiles-tab__list-title">Profiles</h2>
