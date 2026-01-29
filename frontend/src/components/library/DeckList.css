@@ -7,6 +7,7 @@
 
 .deck-list__header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 12px;
@@ -17,7 +18,7 @@
   font-size: var(--font-size-heading);
   font-weight: 600;
   color: var(--text-primary);
-  margin-right: auto;
+  margin-right: 12px;
 }
 
 .deck-list__import-btn {
@@ -26,7 +27,9 @@
 }
 
 .deck-list__filter {
-  width: 140px;
+  width: 110px;
+  flex-shrink: 1;
+  min-width: 80px;
 }
 
 .deck-list__table-header {

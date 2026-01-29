@@ -102,7 +102,7 @@ export default function ProfilesTab() {
   return (
     <div className="profiles-tab">
       <Group orientation="horizontal" style={{ width: '100%', height: '100%' }}>
-        <Panel defaultSize={30} minSize={25}>
+        <Panel defaultSize="30%" minSize="20%">
           <div className="profiles-tab__list">
             <div className="profiles-tab__list-header">
               <h2 className="profiles-tab__list-title">Profiles</h2>
@@ -129,7 +129,7 @@ export default function ProfilesTab() {
           </div>
         </Panel>
         <Separator className="resize-handle" />
-        <Panel minSize={40}>
+        <Panel minSize="30%">
           {hasSelection ? (
             <div className="profiles-tab__form-panel">
               <div className="profiles-tab__form-scroll">

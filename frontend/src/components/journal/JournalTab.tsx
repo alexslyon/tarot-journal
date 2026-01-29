@@ -31,7 +31,7 @@ export default function JournalTab() {
   return (
     <div className="journal-tab">
       <Group orientation="horizontal" style={{ width: '100%', height: '100%' }}>
-        <Panel defaultSize={30} minSize={25}>
+        <Panel defaultSize="30%" minSize="20%">
           <EntryList
             selectedEntryId={selectedEntryId}
             onSelectEntry={setSelectedEntryId}
@@ -41,7 +41,7 @@ export default function JournalTab() {
           />
         </Panel>
         <Separator className="resize-handle" />
-        <Panel minSize={30}>
+        <Panel minSize="20%">
           <div className="journal-tab__content">
             {selectedEntryId ? (
               <EntryViewer

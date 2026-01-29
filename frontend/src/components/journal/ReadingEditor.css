@@ -125,3 +125,94 @@
   font-size: var(--font-size-small);
   margin-top: 4px;
 }
+
+/* ── Visual spread editor ── */
+
+.reading-editor__visual {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.reading-editor__canvas {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.reading-editor__visual-slot {
+  overflow: hidden;
+  border-radius: 4px;
+  background-color: var(--card-slot);
+  border: 1px solid var(--border);
+}
+
+.reading-editor__visual-slot--reversed {
+  border-color: var(--warning);
+}
+
+.reading-editor__visual-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.reading-editor__visual-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reading-editor__visual-idx {
+  font-size: 16px;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.reading-editor__visual-badge {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--accent);
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Position list below canvas ── */
+
+.reading-editor__position-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reading-editor__position-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reading-editor__position-key {
+  width: 20px;
+  height: 20px;
+  background: var(--accent);
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}

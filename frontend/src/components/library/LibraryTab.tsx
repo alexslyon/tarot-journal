@@ -55,7 +55,7 @@ export default function LibraryTab() {
   return (
     <div className="library-tab">
       <Group orientation="horizontal" style={{ width: '100%', height: '100%' }}>
-        <Panel defaultSize={30} minSize={25}>
+        <Panel defaultSize="30%" minSize="20%">
           <DeckList
             selectedDeckId={deckId}
             onSelectDeck={setSelectedDeck}
@@ -64,7 +64,7 @@ export default function LibraryTab() {
           />
         </Panel>
         <Separator className="resize-handle" />
-        <Panel minSize={30}>
+        <Panel minSize="20%">
           <div className="library-tab__right-panel">
             <CardSearchBar deckId={deckId} onSearch={handleSearch} />
             <CardGrid
