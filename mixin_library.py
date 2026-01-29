@@ -15,6 +15,14 @@ from import_presets import COURT_PRESETS, ARCHETYPE_MAPPING_OPTIONS
 from card_dialogs import CardViewDialog, CardEditDialog, BatchEditDialog
 from rich_text_panel import RichTextPanel
 from image_utils import load_and_scale_image
+from card_metadata import (
+    LENORMAND_SUIT_MAP,
+    MAJOR_ARCANA_ORDER,
+    TAROT_SUIT_BASES,
+    TAROT_SUIT_ALIASES,
+    TAROT_RANK_ORDER,
+    get_playing_card_sort_key,
+)
 
 
 class LibraryMixin:
@@ -817,25 +825,6 @@ class LibraryMixin:
 
     def _categorize_lenormand_cards(self, cards):
         """Categorize Lenormand cards by their traditional playing card suit associations"""
-        # Map card names to suits
-        lenormand_suits_by_name = {
-            'rider': 'Hearts', 'clover': 'Diamonds', 'ship': 'Spades',
-            'house': 'Hearts', 'tree': 'Hearts', 'clouds': 'Clubs',
-            'snake': 'Clubs', 'coffin': 'Diamonds', 'bouquet': 'Spades',
-            'flowers': 'Spades', 'scythe': 'Diamonds', 'whip': 'Clubs',
-            'broom': 'Clubs', 'birds': 'Diamonds', 'owls': 'Diamonds',
-            'child': 'Spades', 'fox': 'Clubs', 'bear': 'Clubs',
-            'stars': 'Hearts', 'stork': 'Hearts', 'dog': 'Hearts',
-            'tower': 'Spades', 'garden': 'Spades', 'mountain': 'Clubs',
-            'crossroads': 'Diamonds', 'paths': 'Diamonds', 'mice': 'Clubs',
-            'heart': 'Hearts', 'ring': 'Clubs', 'book': 'Diamonds',
-            'letter': 'Spades', 'man': 'Hearts', 'gentleman': 'Hearts',
-            'woman': 'Spades', 'lady': 'Spades', 'lily': 'Spades',
-            'lilies': 'Spades', 'sun': 'Diamonds', 'moon': 'Hearts',
-            'key': 'Diamonds', 'fish': 'Diamonds', 'anchor': 'Spades',
-            'cross': 'Clubs',
-        }
-
         categorized = {
             'Hearts': [],
             'Diamonds': [],
@@ -845,7 +834,7 @@ class LibraryMixin:
 
         for card in cards:
             name = card['name'].lower().strip()
-            suit = lenormand_suits_by_name.get(name)
+            suit = LENORMAND_SUIT_MAP.get(name)
             if suit:
                 categorized[suit].append(card)
 
@@ -864,53 +853,8 @@ class LibraryMixin:
             if card_order != 999:
                 return card_order
 
-            # Fallback: parse card name
-            name_lower = card['name'].lower()
-
-            # Jokers come first
-            if 'joker' in name_lower:
-                if 'red' in name_lower:
-                    return 1
-                elif 'black' in name_lower:
-                    return 2
-                else:
-                    return 1
-
-            # Suit base values: Spades=100, Hearts=200, Clubs=300, Diamonds=400
-            suit_bases = {
-                'spades': 100, 'spade': 100,
-                'hearts': 200, 'heart': 200,
-                'clubs': 300, 'club': 300,
-                'diamonds': 400, 'diamond': 400,
-            }
-
-            # Rank values: 2=1, 3=2, ..., K=12, A=13
-            rank_values = {
-                'two': 1, '2': 1,
-                'three': 2, '3': 2,
-                'four': 3, '4': 3,
-                'five': 4, '5': 4,
-                'six': 5, '6': 5,
-                'seven': 6, '7': 6,
-                'eight': 7, '8': 7,
-                'nine': 8, '9': 8,
-                'ten': 9, '10': 9,
-                'jack': 10, 'j': 10,
-                'queen': 11, 'q': 11,
-                'king': 12, 'k': 12,
-                'ace': 13, 'a': 13,
-            }
-
-            # Find suit
-            for suit_name, suit_val in suit_bases.items():
-                if suit_name in name_lower:
-                    # Find rank
-                    for rank_name, rank_val in rank_values.items():
-                        if f'{rank_name} of' in name_lower or name_lower.startswith(rank_name + ' '):
-                            return suit_val + rank_val
-                    return suit_val + 50  # Unknown rank
-
-            return 999  # Unknown cards at end
+            # Fallback: use shared parsing function
+            return get_playing_card_sort_key(card['name'].lower())
 
         return sorted(cards, key=get_sort_key)
 
@@ -950,50 +894,16 @@ class LibraryMixin:
         """Sort cards by card_order field (set during import/auto-assign).
         Fallback: Major Arcana first (Fool-World), then Wands, Cups, Swords, Pentacles (Ace-King)"""
 
-        # Define sort order for name-based fallback
-        major_arcana_order = {
-            'the fool': 0, 'fool': 0,
-            'the magician': 1, 'magician': 1, 'the magus': 1, 'magus': 1,
-            'the high priestess': 2, 'high priestess': 2, 'the priestess': 2, 'priestess': 2,
-            'the empress': 3, 'empress': 3,
-            'the emperor': 4, 'emperor': 4,
-            'the hierophant': 5, 'hierophant': 5,
-            'the lovers': 6, 'lovers': 6,
-            'the chariot': 7, 'chariot': 7,
-            'strength': 8, 'lust': 8,  # Thoth: Lust
-            'the hermit': 9, 'hermit': 9,
-            'wheel of fortune': 10, 'the wheel': 10, 'wheel': 10, 'fortune': 10,
-            'justice': 11, 'adjustment': 11,  # Thoth: Adjustment
-            'the hanged man': 12, 'hanged man': 12,
-            'death': 13,
-            'temperance': 14, 'art': 14,  # Thoth: Art
-            'the devil': 15, 'devil': 15,
-            'the tower': 16, 'tower': 16,
-            'the star': 17, 'star': 17,
-            'the moon': 18, 'moon': 18,
-            'the sun': 19, 'sun': 19,
-            'judgement': 20, 'judgment': 20, 'the aeon': 20, 'aeon': 20,  # Thoth: The Aeon
-            'the world': 21, 'world': 21, 'the universe': 21, 'universe': 21,  # Thoth: The Universe
-        }
-
-        rank_order = {
-            'ace': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
-            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-            'page': 11, 'jack': 11, 'princess': 11,
-            'knight': 12, 'prince': 12,
-            'queen': 13,
-            'king': 14
-        }
-
-        # Suit order (Wands, Cups, Swords, Pentacles)
-        suit_order = {
-            suit_names.get('wands', 'Wands').lower(): 100,
-            suit_names.get('cups', 'Cups').lower(): 200,
-            suit_names.get('swords', 'Swords').lower(): 300,
-            suit_names.get('pentacles', 'Pentacles').lower(): 400,
-            'wands': 100, 'cups': 200, 'swords': 300, 'pentacles': 400,
-            'coins': 400, 'disks': 400,
-        }
+        # Build suit order including custom suit names
+        suit_order = dict(TAROT_SUIT_BASES)  # Start with canonical bases
+        # Add custom suit names if provided
+        for key, base in [('wands', 100), ('cups', 200), ('swords', 300), ('pentacles', 400)]:
+            custom = suit_names.get(key, '').lower()
+            if custom:
+                suit_order[custom] = base
+        # Add lowercase canonical names and common aliases
+        for alias, canonical in TAROT_SUIT_ALIASES.items():
+            suit_order[alias] = TAROT_SUIT_BASES[canonical]
 
         def get_sort_key(card):
             # Primary: use card_order if set (not 0 or None)
@@ -1008,14 +918,14 @@ class LibraryMixin:
             name_lower = card['name'].lower()
 
             # Check if it's a major arcana
-            if name_lower in major_arcana_order:
-                return (0, major_arcana_order[name_lower], 0)
+            if name_lower in MAJOR_ARCANA_ORDER:
+                return (0, MAJOR_ARCANA_ORDER[name_lower], 0)
 
             # Check for suit cards
             for suit_name, suit_val in suit_order.items():
                 if f'of {suit_name}' in name_lower:
                     # Find rank
-                    for rank, rank_val in rank_order.items():
+                    for rank, rank_val in TAROT_RANK_ORDER.items():
                         if name_lower.startswith(rank):
                             return (1, suit_val, rank_val)
                     return (1, suit_val, 50)  # Unknown rank

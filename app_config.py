@@ -18,13 +18,10 @@ Example app_config.json:
 }
 """
 
-import json
-import logging
 import os
 from pathlib import Path
-from typing import Any
 
-logger = logging.getLogger(__name__)
+from config_base import JsonConfig
 
 
 DEFAULTS = {
@@ -69,56 +66,13 @@ DEFAULTS = {
 _CONFIG_FILE = Path(os.path.dirname(os.path.abspath(__file__))) / "app_config.json"
 
 
-class AppConfig:
+class AppConfig(JsonConfig):
     """Loads and provides access to app configuration."""
 
+    DEFAULTS = DEFAULTS
+
     def __init__(self, config_file: Path = None):
-        self.config_file = config_file or _CONFIG_FILE
-        self.config = self._load()
-
-    def _load(self) -> dict:
-        """Load config from JSON file, merged with defaults."""
-        config = _deep_copy(DEFAULTS)
-        if self.config_file.exists():
-            try:
-                with open(self.config_file, "r") as f:
-                    saved = json.load(f)
-                _deep_merge(config, saved)
-            except (json.JSONDecodeError, IOError, OSError) as e:
-                # Fall back to defaults, but log the issue
-                logger.warning(f"Failed to load config from {self.config_file}: {e}")
-        return config
-
-    def get(self, section: str, key: str, fallback: Any = None) -> Any:
-        """Get a config value. Example: config.get('window', 'max_width')"""
-        return self.config.get(section, {}).get(key, fallback)
-
-    def save(self):
-        """Save current config to JSON file."""
-        with open(self.config_file, "w") as f:
-            json.dump(self.config, f, indent=2)
-
-
-def _deep_copy(d: dict) -> dict:
-    """Deep copy a nested dict (lists are copied too)."""
-    result = {}
-    for k, v in d.items():
-        if isinstance(v, dict):
-            result[k] = _deep_copy(v)
-        elif isinstance(v, list):
-            result[k] = v[:]
-        else:
-            result[k] = v
-    return result
-
-
-def _deep_merge(base: dict, override: dict):
-    """Merge override values into base, recursively for nested dicts."""
-    for k, v in override.items():
-        if k in base and isinstance(base[k], dict) and isinstance(v, dict):
-            _deep_merge(base[k], v)
-        else:
-            base[k] = v
+        super().__init__(config_file or _CONFIG_FILE, merge_mode='deep')
 
 
 # Global singleton
