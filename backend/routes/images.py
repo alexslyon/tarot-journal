@@ -3,11 +3,18 @@ Image serving endpoints -- serves card images and thumbnails over HTTP.
 
 Card images are stored as local file paths in the database.
 This module reads those paths and streams the files to the browser.
+
+Security: All paths are validated before serving to prevent path traversal
+attacks. Only image files with recognized extensions are served.
 """
 
 import os
 from flask import Blueprint, current_app, send_file, abort
+import logging
 
+from backend.security import is_valid_image_path, is_safe_path
+
+logger = logging.getLogger(__name__)
 images_bp = Blueprint('images', __name__)
 
 # Map common extensions to MIME types
@@ -33,8 +40,12 @@ def card_image(card_id):
     if not card or not card['image_path']:
         abort(404)
     path = card['image_path']
-    if not os.path.isfile(path):
+
+    # Security: Validate the path is a real image file
+    if not is_valid_image_path(path):
+        logger.warning(f"Invalid image path requested for card {card_id}: {path}")
         abort(404)
+
     resp = send_file(path, mimetype=_mime_for(path))
     resp.cache_control.max_age = 86400  # 24 hours
     return resp
@@ -48,9 +59,22 @@ def card_thumbnail(card_id):
     card = db.get_card(card_id)
     if not card or not card['image_path']:
         abort(404)
-    thumb_path = cache.get_thumbnail_path(card['image_path'])
-    if not thumb_path or not os.path.isfile(thumb_path):
+
+    # Security: Validate source image path before generating thumbnail
+    if not is_valid_image_path(card['image_path']):
+        logger.warning(f"Invalid source image for thumbnail, card {card_id}")
         abort(404)
+
+    thumb_path = cache.get_thumbnail_path(card['image_path'])
+    if not thumb_path:
+        abort(404)
+
+    # Security: Ensure thumbnail is within the cache directory
+    cache_dir = str(cache.cache_dir)
+    if not is_safe_path(thumb_path, [cache_dir]):
+        logger.warning(f"Thumbnail path outside cache dir for card {card_id}")
+        abort(404)
+
     resp = send_file(thumb_path, mimetype='image/png')
     resp.cache_control.max_age = 86400
     return resp
@@ -64,12 +88,25 @@ def card_preview(card_id):
     card = db.get_card(card_id)
     if not card or not card['image_path']:
         abort(404)
+
+    # Security: Validate source image path before generating preview
+    if not is_valid_image_path(card['image_path']):
+        logger.warning(f"Invalid source image for preview, card {card_id}")
+        abort(404)
+
     thumb_path = cache.get_thumbnail_path(
         card['image_path'],
         size=cache.PREVIEW_SIZE,
     )
-    if not thumb_path or not os.path.isfile(thumb_path):
+    if not thumb_path:
         abort(404)
+
+    # Security: Ensure preview is within the cache directory
+    cache_dir = str(cache.cache_dir)
+    if not is_safe_path(thumb_path, [cache_dir]):
+        logger.warning(f"Preview path outside cache dir for card {card_id}")
+        abort(404)
+
     resp = send_file(thumb_path, mimetype='image/png')
     resp.cache_control.max_age = 86400
     return resp
@@ -83,8 +120,12 @@ def deck_back_image(deck_id):
     if not deck or not deck['card_back_image']:
         abort(404)
     path = deck['card_back_image']
-    if not os.path.isfile(path):
+
+    # Security: Validate the path is a real image file
+    if not is_valid_image_path(path):
+        logger.warning(f"Invalid card-back path for deck {deck_id}: {path}")
         abort(404)
+
     resp = send_file(path, mimetype=_mime_for(path))
     resp.cache_control.max_age = 86400
     return resp

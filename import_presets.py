@@ -3,10 +3,13 @@ Import presets for automatic card naming during deck imports
 """
 
 import json
+import logging
 import os
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 # Court card preset definitions
@@ -830,7 +833,8 @@ class ImportPresets:
             try:
                 with open(self.presets_file, 'r') as f:
                     self.custom_presets = json.load(f)
-            except Exception:
+            except (json.JSONDecodeError, IOError, OSError) as e:
+                logger.warning(f"Failed to load custom presets: {e}")
                 self.custom_presets = {}
     
     def _save_presets(self):
@@ -838,8 +842,8 @@ class ImportPresets:
         try:
             with open(self.presets_file, 'w') as f:
                 json.dump(self.custom_presets, f, indent=2)
-        except Exception as e:
-            print(f"Error saving presets: {e}")
+        except (IOError, OSError) as e:
+            logger.error(f"Error saving presets: {e}")
     
     def get_all_presets(self) -> Dict:
         """Get all presets (builtin + custom, with custom overriding builtin if same name)"""

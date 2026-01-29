@@ -3,9 +3,12 @@ Theme configuration for customizable colors and fonts
 """
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Dict, Any
+
+logger = logging.getLogger(__name__)
 
 # Default theme (Anki-style dark)
 DEFAULT_THEME = {
@@ -150,8 +153,8 @@ class ThemeConfig:
                         'fonts': {**DEFAULT_THEME['fonts'], **saved.get('fonts', {})}
                     }
                     return theme
-            except Exception as e:
-                print(f"Error loading theme: {e}")
+            except (json.JSONDecodeError, IOError, OSError) as e:
+                logger.warning(f"Error loading theme: {e}")
         return DEFAULT_THEME.copy()
     
     def save_theme(self):
@@ -159,8 +162,8 @@ class ThemeConfig:
         try:
             with open(self.config_file, 'w') as f:
                 json.dump(self.theme, f, indent=2)
-        except Exception as e:
-            print(f"Error saving theme: {e}")
+        except (IOError, OSError) as e:
+            logger.error(f"Error saving theme: {e}")
     
     def get_colors(self) -> Dict[str, str]:
         """Get current color scheme"""
