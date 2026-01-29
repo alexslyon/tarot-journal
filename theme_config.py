@@ -2,11 +2,12 @@
 Theme configuration for customizable colors and fonts
 """
 
-import json
 import logging
 import os
 from pathlib import Path
 from typing import Dict, Any
+
+from config_base import load_json_file, save_json_file, shallow_merge, deep_copy
 
 logger = logging.getLogger(__name__)
 
@@ -143,25 +144,15 @@ class ThemeConfig:
     
     def _load_theme(self) -> Dict[str, Any]:
         """Load theme from file or return default"""
-        if self.config_file.exists():
-            try:
-                with open(self.config_file, 'r') as f:
-                    saved = json.load(f)
-                    # Merge with defaults to ensure all keys exist
-                    theme = {
-                        'colors': {**DEFAULT_THEME['colors'], **saved.get('colors', {})},
-                        'fonts': {**DEFAULT_THEME['fonts'], **saved.get('fonts', {})}
-                    }
-                    return theme
-            except (json.JSONDecodeError, IOError, OSError) as e:
-                logger.warning(f"Error loading theme: {e}")
-        return DEFAULT_THEME.copy()
+        saved = load_json_file(self.config_file)
+        if saved:
+            return shallow_merge(DEFAULT_THEME, saved)
+        return deep_copy(DEFAULT_THEME)
     
     def save_theme(self):
         """Save current theme to file"""
         try:
-            with open(self.config_file, 'w') as f:
-                json.dump(self.theme, f, indent=2)
+            save_json_file(self.config_file, self.theme)
         except (IOError, OSError) as e:
             logger.error(f"Error saving theme: {e}")
     

@@ -17,6 +17,15 @@ import os
 
 from logger_config import get_logger
 from app_config import get_config
+from card_metadata import (
+    MAJOR_ARCANA_ALIASES,
+    TAROT_SUIT_ALIASES,
+    TAROT_RANK_ALIASES,
+    TAROT_SUIT_BASES,
+    LENORMAND_ALIASES,
+    PLAYING_CARD_SUIT_ALIASES,
+    PLAYING_CARD_RANK_ALIASES,
+)
 
 logger = get_logger('database')
 _cfg = get_config()
@@ -1956,110 +1965,21 @@ class Database:
 
     def _parse_tarot_card_name(self, card_name: str, card_name_lower: str):
         """Parse Tarot card names and return (archetype, rank, suit)"""
-        # Major Arcana mappings (various naming conventions)
-        major_arcana = {
-            'fool': ('The Fool', '0', 'Major Arcana'),
-            'the fool': ('The Fool', '0', 'Major Arcana'),
-            'magician': ('The Magician', '1', 'Major Arcana'),
-            'the magician': ('The Magician', '1', 'Major Arcana'),
-            'magus': ('The Magician', '1', 'Major Arcana'),
-            'the magus': ('The Magician', '1', 'Major Arcana'),
-            'high priestess': ('The High Priestess', '2', 'Major Arcana'),
-            'the high priestess': ('The High Priestess', '2', 'Major Arcana'),
-            'priestess': ('The High Priestess', '2', 'Major Arcana'),
-            'the priestess': ('The High Priestess', '2', 'Major Arcana'),
-            'empress': ('The Empress', '3', 'Major Arcana'),
-            'the empress': ('The Empress', '3', 'Major Arcana'),
-            'emperor': ('The Emperor', '4', 'Major Arcana'),
-            'the emperor': ('The Emperor', '4', 'Major Arcana'),
-            'hierophant': ('The Hierophant', '5', 'Major Arcana'),
-            'the hierophant': ('The Hierophant', '5', 'Major Arcana'),
-            'high priest': ('The Hierophant', '5', 'Major Arcana'),
-            'the high priest': ('The Hierophant', '5', 'Major Arcana'),
-            'lovers': ('The Lovers', '6', 'Major Arcana'),
-            'the lovers': ('The Lovers', '6', 'Major Arcana'),
-            'chariot': ('The Chariot', '7', 'Major Arcana'),
-            'the chariot': ('The Chariot', '7', 'Major Arcana'),
-            'strength': ('Strength', '8', 'Major Arcana'),
-            'lust': ('Strength', '8', 'Major Arcana'),
-            'hermit': ('The Hermit', '9', 'Major Arcana'),
-            'the hermit': ('The Hermit', '9', 'Major Arcana'),
-            'wheel of fortune': ('Wheel of Fortune', '10', 'Major Arcana'),
-            'the wheel of fortune': ('Wheel of Fortune', '10', 'Major Arcana'),
-            'wheel': ('Wheel of Fortune', '10', 'Major Arcana'),
-            'fortune': ('Wheel of Fortune', '10', 'Major Arcana'),
-            'justice': ('Justice', '11', 'Major Arcana'),
-            'adjustment': ('Justice', '11', 'Major Arcana'),
-            'hanged man': ('The Hanged Man', '12', 'Major Arcana'),
-            'the hanged man': ('The Hanged Man', '12', 'Major Arcana'),
-            'death': ('Death', '13', 'Major Arcana'),
-            'temperance': ('Temperance', '14', 'Major Arcana'),
-            'art': ('Temperance', '14', 'Major Arcana'),
-            'devil': ('The Devil', '15', 'Major Arcana'),
-            'the devil': ('The Devil', '15', 'Major Arcana'),
-            'tower': ('The Tower', '16', 'Major Arcana'),
-            'the tower': ('The Tower', '16', 'Major Arcana'),
-            'star': ('The Star', '17', 'Major Arcana'),
-            'the star': ('The Star', '17', 'Major Arcana'),
-            'moon': ('The Moon', '18', 'Major Arcana'),
-            'the moon': ('The Moon', '18', 'Major Arcana'),
-            'sun': ('The Sun', '19', 'Major Arcana'),
-            'the sun': ('The Sun', '19', 'Major Arcana'),
-            'judgement': ('Judgement', '20', 'Major Arcana'),
-            'judgment': ('Judgement', '20', 'Major Arcana'),
-            'the aeon': ('Judgement', '20', 'Major Arcana'),
-            'aeon': ('Judgement', '20', 'Major Arcana'),
-            'world': ('The World', '21', 'Major Arcana'),
-            'the world': ('The World', '21', 'Major Arcana'),
-            'universe': ('The World', '21', 'Major Arcana'),
-            'the universe': ('The World', '21', 'Major Arcana'),
-        }
-
         # Check for exact major arcana match
-        if card_name_lower in major_arcana:
-            return major_arcana[card_name_lower]
+        if card_name_lower in MAJOR_ARCANA_ALIASES:
+            return MAJOR_ARCANA_ALIASES[card_name_lower]
 
-        # Minor Arcana parsing
-        # Suit name variations
-        suit_mappings = {
-            'wands': 'Wands', 'wand': 'Wands', 'rods': 'Wands', 'staves': 'Wands', 'batons': 'Wands',
-            'cups': 'Cups', 'cup': 'Cups', 'chalices': 'Cups', 'chalice': 'Cups',
-            'swords': 'Swords', 'sword': 'Swords',
-            'pentacles': 'Pentacles', 'pentacle': 'Pentacles', 'coins': 'Pentacles',
-            'disks': 'Pentacles', 'discs': 'Pentacles', 'disk': 'Pentacles', 'disc': 'Pentacles',
-        }
-
-        # Rank name variations
-        rank_mappings = {
-            'ace': ('Ace', 1), 'one': ('Ace', 1), '1': ('Ace', 1), 'i': ('Ace', 1),
-            'two': ('Two', 2), '2': ('Two', 2), 'ii': ('Two', 2),
-            'three': ('Three', 3), '3': ('Three', 3), 'iii': ('Three', 3),
-            'four': ('Four', 4), '4': ('Four', 4), 'iv': ('Four', 4),
-            'five': ('Five', 5), '5': ('Five', 5), 'v': ('Five', 5),
-            'six': ('Six', 6), '6': ('Six', 6), 'vi': ('Six', 6),
-            'seven': ('Seven', 7), '7': ('Seven', 7), 'vii': ('Seven', 7),
-            'eight': ('Eight', 8), '8': ('Eight', 8), 'viii': ('Eight', 8),
-            'nine': ('Nine', 9), '9': ('Nine', 9), 'ix': ('Nine', 9),
-            'ten': ('Ten', 10), '10': ('Ten', 10), 'x': ('Ten', 10),
-            'page': ('Page', 11), 'princess': ('Page', 11),
-            'knight': ('Knight', 12), 'prince': ('Knight', 12),
-            'queen': ('Queen', 13),
-            'king': ('King', 14),
-        }
-
-        suit_bases = {'Wands': 100, 'Cups': 200, 'Swords': 300, 'Pentacles': 400}
-
-        # Try to find suit and rank in the name
+        # Minor Arcana parsing - find suit and rank
         found_suit = None
         found_rank = None
         found_rank_num = None
 
-        for suit_key, suit_name in suit_mappings.items():
+        for suit_key, suit_name in TAROT_SUIT_ALIASES.items():
             if suit_key in card_name_lower:
                 found_suit = suit_name
                 break
 
-        for rank_key, (rank_name, rank_num) in rank_mappings.items():
+        for rank_key, (rank_name, rank_num) in TAROT_RANK_ALIASES.items():
             if rank_key in card_name_lower.split() or card_name_lower.startswith(rank_key + ' '):
                 found_rank = rank_name
                 found_rank_num = rank_num
@@ -2067,66 +1987,27 @@ class Database:
 
         if found_suit and found_rank:
             archetype = f"{found_rank} of {found_suit}"
-            rank = str(suit_bases[found_suit] + found_rank_num)
+            rank = str(TAROT_SUIT_BASES[found_suit] + found_rank_num)
             return archetype, rank, found_suit
 
         return None, None, None
 
     def _parse_lenormand_card_name(self, card_name: str, card_name_lower: str):
         """Parse Lenormand card names and return (archetype, rank, suit)"""
-        lenormand_cards = {
-            'rider': ('Rider', '1'), 'cavalier': ('Rider', '1'),
-            'clover': ('Clover', '2'),
-            'ship': ('Ship', '3'),
-            'house': ('House', '4'),
-            'tree': ('Tree', '5'),
-            'clouds': ('Clouds', '6'), 'cloud': ('Clouds', '6'),
-            'snake': ('Snake', '7'),
-            'coffin': ('Coffin', '8'),
-            'bouquet': ('Bouquet', '9'), 'flowers': ('Bouquet', '9'),
-            'scythe': ('Scythe', '10'),
-            'whip': ('Whip', '11'), 'broom': ('Whip', '11'), 'birch': ('Whip', '11'),
-            'birds': ('Birds', '12'), 'owls': ('Birds', '12'),
-            'child': ('Child', '13'),
-            'fox': ('Fox', '14'),
-            'bear': ('Bear', '15'),
-            'stars': ('Stars', '16'), 'star': ('Stars', '16'),
-            'stork': ('Stork', '17'),
-            'dog': ('Dog', '18'),
-            'tower': ('Tower', '19'),
-            'garden': ('Garden', '20'),
-            'mountain': ('Mountain', '21'),
-            'crossroads': ('Crossroads', '22'), 'crossroad': ('Crossroads', '22'),
-            'paths': ('Crossroads', '22'), 'path': ('Crossroads', '22'),
-            'mice': ('Mice', '23'), 'mouse': ('Mice', '23'),
-            'heart': ('Heart', '24'),
-            'ring': ('Ring', '25'),
-            'book': ('Book', '26'),
-            'letter': ('Letter', '27'),
-            'man': ('Man', '28'), 'gentleman': ('Man', '28'),
-            'woman': ('Woman', '29'), 'lady': ('Woman', '29'),
-            'lily': ('Lily', '30'), 'lilies': ('Lily', '30'),
-            'sun': ('Sun', '31'),
-            'moon': ('Moon', '32'),
-            'key': ('Key', '33'),
-            'fish': ('Fish', '34'),
-            'anchor': ('Anchor', '35'),
-            'cross': ('Cross', '36'),
-        }
+        import re
 
-        # Try exact match first
-        for key, (name, rank) in lenormand_cards.items():
+        # Try alias match first
+        for key, (name, rank) in LENORMAND_ALIASES.items():
             if key in card_name_lower:
                 return name, rank, None
 
         # Try matching by number prefix (e.g., "01 Rider", "1. Rider")
-        import re
         num_match = re.match(r'^(\d+)\D', card_name)
         if num_match:
             num = int(num_match.group(1))
             if 1 <= num <= 36:
                 # Find the card with this number
-                for key, (name, rank) in lenormand_cards.items():
+                for key, (name, rank) in LENORMAND_ALIASES.items():
                     if rank == str(num):
                         return name, rank, None
 
@@ -2134,29 +2015,6 @@ class Database:
 
     def _parse_playing_card_name(self, card_name: str, card_name_lower: str):
         """Parse Playing Card names and return (archetype, rank, suit)"""
-        suit_mappings = {
-            'hearts': 'Hearts', 'heart': 'Hearts', '♥': 'Hearts',
-            'diamonds': 'Diamonds', 'diamond': 'Diamonds', '♦': 'Diamonds',
-            'clubs': 'Clubs', 'club': 'Clubs', '♣': 'Clubs',
-            'spades': 'Spades', 'spade': 'Spades', '♠': 'Spades',
-        }
-
-        rank_mappings = {
-            'ace': ('Ace', 1), 'a': ('Ace', 1), '1': ('Ace', 1),
-            'two': ('Two', 2), '2': ('Two', 2),
-            'three': ('Three', 3), '3': ('Three', 3),
-            'four': ('Four', 4), '4': ('Four', 4),
-            'five': ('Five', 5), '5': ('Five', 5),
-            'six': ('Six', 6), '6': ('Six', 6),
-            'seven': ('Seven', 7), '7': ('Seven', 7),
-            'eight': ('Eight', 8), '8': ('Eight', 8),
-            'nine': ('Nine', 9), '9': ('Nine', 9),
-            'ten': ('Ten', 10), '10': ('Ten', 10),
-            'jack': ('Jack', 11), 'j': ('Jack', 11), 'knave': ('Jack', 11),
-            'queen': ('Queen', 12), 'q': ('Queen', 12),
-            'king': ('King', 13), 'k': ('King', 13),
-        }
-
         # Check for joker
         if 'joker' in card_name_lower:
             if 'red' in card_name_lower:
@@ -2169,12 +2027,12 @@ class Database:
         found_suit = None
         found_rank = None
 
-        for suit_key, suit_name in suit_mappings.items():
+        for suit_key, suit_name in PLAYING_CARD_SUIT_ALIASES.items():
             if suit_key in card_name_lower:
                 found_suit = suit_name
                 break
 
-        for rank_key, (rank_name, _) in rank_mappings.items():
+        for rank_key, (rank_name, _) in PLAYING_CARD_RANK_ALIASES.items():
             if rank_key in card_name_lower.split() or card_name_lower.startswith(rank_key + ' '):
                 found_rank = rank_name
                 break
