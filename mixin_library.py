@@ -1061,9 +1061,6 @@ class LibraryMixin:
         else:
             self._add_placeholder(card_panel, card_sizer, card['id'])
         
-        # Name display is not currently working - disabled for now
-        # TODO: Fix card name display feature
-
         card_panel.SetSizer(card_sizer)
 
         card_panel.Bind(wx.EVT_LEFT_DOWN, lambda e, cid=card['id']: self._on_card_click(e, cid))

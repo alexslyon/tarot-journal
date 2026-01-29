@@ -7,7 +7,7 @@ import logging
 import os
 import threading
 from pathlib import Path
-from queue import Queue
+from queue import Empty, Queue
 from typing import Optional, Tuple
 
 from PIL import Image
@@ -78,8 +78,9 @@ class ThumbnailCache:
         if cache_path.exists():
             try:
                 return Image.open(cache_path)
-            except Exception:
+            except Exception as e:
                 # Corrupted cache file, regenerate
+                logger.debug("Corrupted cache file %s, regenerating: %s", cache_path, e)
                 cache_path.unlink(missing_ok=True)
         
         # Generate thumbnail using shared utility
@@ -154,13 +155,17 @@ class ThumbnailCache:
                 item = self._queue.get(timeout=1)
                 if item is None:
                     break
-                
+
                 image_path, size, callback = item
                 thumb = self.get_thumbnail(image_path, size)
                 if callback:
                     callback(image_path, thumb)
-                
-            except Exception:
+
+            except Empty:
+                # Queue timeout - expected, just continue polling
+                continue
+            except Exception as e:
+                logger.debug("Background thumbnail worker error: %s", e)
                 continue
     
     def queue_thumbnail(self, image_path: str, size: Tuple[int, int] = None, callback=None):
@@ -176,8 +181,8 @@ class ThumbnailCache:
         for file in self.cache_dir.glob('*.png'):
             try:
                 file.unlink()
-            except Exception:
-                pass
+            except OSError as e:
+                logger.debug("Failed to delete cache file %s: %s", file, e)
     
     def get_cache_size(self) -> int:
         """Get the total size of the cache in bytes"""
@@ -185,7 +190,8 @@ class ThumbnailCache:
         for file in self.cache_dir.glob('*.png'):
             try:
                 total += file.stat().st_size
-            except Exception:
+            except OSError:
+                # File may have been deleted between glob and stat
                 pass
         return total
     

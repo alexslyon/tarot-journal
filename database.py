@@ -2800,8 +2800,8 @@ class Database:
         if self.conn:
             try:
                 self.conn.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Error closing database connection: %s", e)
             self.conn = None
 
 
