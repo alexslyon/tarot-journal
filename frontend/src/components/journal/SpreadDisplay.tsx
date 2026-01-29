@@ -38,45 +38,80 @@ function PositionedLayout({
   positions: SpreadPosition[];
   spreadName: string | null;
 }) {
-  // Calculate bounding box from positions to set container size
+  // Calculate the actual bounding box of content (trimming empty space)
+  const minX = Math.min(...positions.map(p => p.x || 0));
+  const minY = Math.min(...positions.map(p => p.y || 0));
   const maxX = Math.max(...positions.map(p => (p.x || 0) + (p.width || 80)));
   const maxY = Math.max(...positions.map(p => (p.y || 0) + (p.height || 120)));
-  // Scale down to fit a reasonable display area
-  const scale = Math.min(1, 400 / maxX, 350 / maxY);
+
+  // Content dimensions after trimming empty space
+  const contentWidth = maxX - minX;
+  const contentHeight = maxY - minY;
+
+  // Use CSS to scale - we'll set a max-width and let the container handle sizing
+  // The aspect ratio is maintained via the height calculation
+  const aspectRatio = contentHeight / contentWidth;
 
   return (
-    <div className="spread-display">
+    <div className="spread-display spread-display--positioned">
       {spreadName && <div className="spread-display__name">{spreadName}</div>}
       <div
         className="spread-display__canvas"
         style={{
-          width: maxX * scale,
-          height: maxY * scale,
+          width: '100%',
+          paddingBottom: `${aspectRatio * 100}%`,
           position: 'relative',
         }}
       >
+        <div className="spread-display__canvas-inner">
+          {positions.map((pos, idx) => {
+            const card = cards.find(c => c.position_index === idx) || cards[idx];
+            // Calculate position as percentage of content area (offset by minX/minY)
+            const leftPct = ((pos.x || 0) - minX) / contentWidth * 100;
+            const topPct = ((pos.y || 0) - minY) / contentHeight * 100;
+            const widthPct = (pos.width || 80) / contentWidth * 100;
+            const heightPct = (pos.height || 120) / contentHeight * 100;
+
+            return (
+              <div
+                key={idx}
+                className={`spread-display__slot ${card?.reversed ? 'spread-display__slot--reversed' : ''}`}
+                style={{
+                  position: 'absolute',
+                  left: `${leftPct}%`,
+                  top: `${topPct}%`,
+                  width: `${widthPct}%`,
+                  height: `${heightPct}%`,
+                }}
+                title={`${pos.label || `Position ${idx + 1}`}${card ? `: ${card.name}${card.reversed ? ' (R)' : ''}` : ''}`}
+              >
+                {/* Position badge */}
+                <span className="spread-display__slot-badge">{pos.key || idx + 1}</span>
+                {card ? (
+                  <CardSlot card={card} hideLabel />
+                ) : (
+                  <div className="spread-display__empty-slot">
+                    <span className="spread-display__slot-label">{pos.label || idx + 1}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Legend showing position labels and card names */}
+      <div className="spread-display__legend">
         {positions.map((pos, idx) => {
           const card = cards.find(c => c.position_index === idx) || cards[idx];
           return (
-            <div
-              key={idx}
-              className="spread-display__slot"
-              style={{
-                position: 'absolute',
-                left: (pos.x || 0) * scale,
-                top: (pos.y || 0) * scale,
-                width: (pos.width || 80) * scale,
-                height: (pos.height || 120) * scale,
-              }}
-              title={pos.label || `Position ${idx + 1}`}
-            >
-              {card ? (
-                <CardSlot card={card} />
-              ) : (
-                <div className="spread-display__empty-slot">
-                  <span className="spread-display__slot-label">{pos.label || idx + 1}</span>
-                </div>
-              )}
+            <div key={idx} className="spread-display__legend-item">
+              <span className="spread-display__legend-key">{pos.key || idx + 1}</span>
+              <span className="spread-display__legend-label">{pos.label || `Position ${idx + 1}`}:</span>
+              <span className={`spread-display__legend-card ${card?.reversed ? 'spread-display__legend-card--reversed' : ''}`}>
+                {card?.name || '—'}
+                {card?.reversed && <span className="spread-display__reversed-badge"> R</span>}
+              </span>
             </div>
           );
         })}
@@ -115,7 +150,7 @@ function SimpleCardRow({
   );
 }
 
-function CardSlot({ card }: { card: { name: string; reversed?: boolean; card_id?: number } }) {
+function CardSlot({ card, hideLabel }: { card: { name: string; reversed?: boolean; card_id?: number }; hideLabel?: boolean }) {
   return (
     <div className={`spread-display__card ${card.reversed ? 'spread-display__card--reversed' : ''}`}>
       {card.card_id ? (
@@ -128,10 +163,12 @@ function CardSlot({ card }: { card: { name: string; reversed?: boolean; card_id?
       ) : (
         <div className="spread-display__card-placeholder" />
       )}
-      <div className="spread-display__card-name">
-        {card.name}
-        {card.reversed && <span className="spread-display__reversed-badge"> R</span>}
-      </div>
+      {!hideLabel && (
+        <div className="spread-display__card-name">
+          {card.name}
+          {card.reversed && <span className="spread-display__reversed-badge"> R</span>}
+        </div>
+      )}
     </div>
   );
 }
