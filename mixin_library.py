@@ -1,18 +1,20 @@
 """Library panel mixin for MainFrame (decks, cards, search)."""
 
-import wx
-import wx.lib.scrolledpanel as scrolled
-import wx.lib.agw.flatnotebook as fnb
-from PIL import Image
 import json
 import os
 import re
 from pathlib import Path
 
+import wx
+import wx.lib.scrolledpanel as scrolled
+import wx.lib.agw.flatnotebook as fnb
+from PIL import Image
+
 from ui_helpers import logger, _cfg, get_wx_color
 from import_presets import COURT_PRESETS, ARCHETYPE_MAPPING_OPTIONS
 from card_dialogs import CardViewDialog, CardEditDialog, BatchEditDialog
 from rich_text_panel import RichTextPanel
+from image_utils import load_and_scale_image
 
 
 class LibraryMixin:
@@ -468,28 +470,9 @@ class LibraryMixin:
         max_width, max_height = _deck_back_sz[0], _deck_back_sz[1]
         card_back_path = deck.get('card_back_image')
 
-        if card_back_path and os.path.exists(card_back_path):
-            try:
-                # Load with PIL to handle EXIF orientation properly
-                from PIL import ImageOps
-                pil_img = Image.open(card_back_path)
-                pil_img = ImageOps.exif_transpose(pil_img)
-
-                # Scale to fit
-                w, h = pil_img.size
-                scale = min(max_width / w, max_height / h)
-                new_w, new_h = int(w * scale), int(h * scale)
-                pil_img = pil_img.resize((new_w, new_h), Image.LANCZOS)
-
-                # Convert to wx.Image
-                if pil_img.mode != 'RGB':
-                    pil_img = pil_img.convert('RGB')
-                wx_img = wx.Image(new_w, new_h)
-                wx_img.SetData(pil_img.tobytes())
-                bitmap = wx.Bitmap(wx_img)
-                img_ctrl = wx.StaticBitmap(panel, bitmap=bitmap)
-            except Exception:
-                img_ctrl = self._create_deck_placeholder(panel, max_width, max_height)
+        wx_bitmap = load_and_scale_image(card_back_path, (max_width, max_height), as_wx_bitmap=True)
+        if wx_bitmap:
+            img_ctrl = wx.StaticBitmap(panel, bitmap=wx_bitmap)
         else:
             img_ctrl = self._create_deck_placeholder(panel, max_width, max_height)
 
@@ -1146,33 +1129,23 @@ class LibraryMixin:
         
         # Thumbnail
         if card['image_path']:
+            # Get cached thumbnail path (thumbnail will be generated if needed)
             thumb_path = self.thumb_cache.get_thumbnail_path(card['image_path'])
             if not thumb_path:
                 logger.warning(
                     f"Failed to generate thumbnail for: {card.get('name', 'unknown')} "
                     f"(path: {card['image_path']}, exists: {os.path.exists(card['image_path'])})"
                 )
-            if thumb_path:
-                try:
-                    img = wx.Image(thumb_path, wx.BITMAP_TYPE_ANY)
-                    # Scale to fit while preserving aspect ratio
-                    _gallery_sz = _cfg.get('images', 'card_gallery_max', [200, 300])
-                    max_width, max_height = _gallery_sz[0], _gallery_sz[1]
-                    orig_width, orig_height = img.GetWidth(), img.GetHeight()
-                    scale = min(max_width / orig_width, max_height / orig_height)
-                    new_width = int(orig_width * scale)
-                    new_height = int(orig_height * scale)
-                    img = img.Scale(new_width, new_height, wx.IMAGE_QUALITY_HIGH)
-                    bmp = wx.StaticBitmap(card_panel, bitmap=wx.Bitmap(img))
-                    card_sizer.Add(bmp, 0, wx.ALL | wx.ALIGN_CENTER, 4)
-                    bmp.Bind(wx.EVT_LEFT_DOWN, lambda e, cid=card['id']: self._on_card_click(e, cid))
-                    bmp.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card['id']: self._on_view_card(None, cid))
-                except Exception as e:
-                    logger.warning(
-                        f"Error loading thumbnail for card {card.get('name', 'unknown')}: {e} "
-                        f"(image: {card['image_path']}, thumb: {thumb_path})"
-                    )
-                    self._add_placeholder(card_panel, card_sizer, card['id'])
+
+            # Scale thumbnail to gallery size
+            _gallery_sz = _cfg.get('images', 'card_gallery_max', [200, 300])
+            wx_bitmap = load_and_scale_image(thumb_path, tuple(_gallery_sz), as_wx_bitmap=True) if thumb_path else None
+
+            if wx_bitmap:
+                bmp = wx.StaticBitmap(card_panel, bitmap=wx_bitmap)
+                card_sizer.Add(bmp, 0, wx.ALL | wx.ALIGN_CENTER, 4)
+                bmp.Bind(wx.EVT_LEFT_DOWN, lambda e, cid=card['id']: self._on_card_click(e, cid))
+                bmp.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card['id']: self._on_view_card(None, cid))
             else:
                 self._add_placeholder(card_panel, card_sizer, card['id'])
         else:
@@ -1997,31 +1970,10 @@ class LibraryMixin:
 
         # Image preview (150x225 - half the size of card preview)
         _back_preview_sz = _cfg.get('images', 'deck_back_preview_max', [150, 225])
-        max_back_width, max_back_height = _back_preview_sz[0], _back_preview_sz[1]
+        back_preview_size = tuple(_back_preview_sz)
         card_back_path = deck['card_back_image'] if 'card_back_image' in deck.keys() else None
 
-        def load_card_back_image(path):
-            """Load and scale card back image"""
-            if path and os.path.exists(path):
-                try:
-                    from PIL import ImageOps
-                    pil_img = Image.open(path)
-                    pil_img = ImageOps.exif_transpose(pil_img)
-                    orig_width, orig_height = pil_img.size
-                    scale = min(max_back_width / orig_width, max_back_height / orig_height)
-                    new_width = int(orig_width * scale)
-                    new_height = int(orig_height * scale)
-                    pil_img = pil_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                    if pil_img.mode != 'RGB':
-                        pil_img = pil_img.convert('RGB')
-                    wx_img = wx.Image(new_width, new_height)
-                    wx_img.SetData(pil_img.tobytes())
-                    return wx.Bitmap(wx_img)
-                except Exception as e:
-                    logger.debug("Could not convert image to bitmap: %s", e)
-            return None
-
-        card_back_bitmap = load_card_back_image(card_back_path)
+        card_back_bitmap = load_and_scale_image(card_back_path, back_preview_size, as_wx_bitmap=True)
         if card_back_bitmap:
             card_back_display = wx.StaticBitmap(card_back_panel, bitmap=card_back_bitmap)
         else:
@@ -2043,7 +1995,7 @@ class LibraryMixin:
                     dlg._card_back_path = new_path
                     # Update preview
                     nonlocal card_back_display
-                    new_bitmap = load_card_back_image(new_path)
+                    new_bitmap = load_and_scale_image(new_path, back_preview_size, as_wx_bitmap=True)
                     if new_bitmap:
                         if isinstance(card_back_display, wx.StaticText):
                             card_back_display.Destroy()
@@ -3039,15 +2991,14 @@ class LibraryMixin:
 
     def _show_fullsize_image(self, image_path, title="Image"):
         """Show a full-size image in a resizable dialog"""
-        from PIL import ImageOps
+        from image_utils import load_pil_image
 
-        try:
-            pil_img = Image.open(image_path)
-            pil_img = ImageOps.exif_transpose(pil_img)
-            orig_width, orig_height = pil_img.size
-        except Exception as e:
-            wx.MessageBox(f"Could not load image: {e}", "Error", wx.OK | wx.ICON_ERROR)
+        pil_img = load_pil_image(image_path)
+        if pil_img is None:
+            wx.MessageBox("Could not load image", "Error", wx.OK | wx.ICON_ERROR)
             return
+
+        orig_width, orig_height = pil_img.size
 
         # Get screen size to limit dialog size
         display = wx.Display(wx.Display.GetFromWindow(self))
