@@ -1,13 +1,14 @@
 """Card view and edit dialog windows for Tarot Journal."""
 
-import wx
-import wx.lib.scrolledpanel as scrolled
-import wx.lib.agw.flatnotebook as fnb
-from PIL import Image
 import json
 import os
 
+import wx
+import wx.lib.scrolledpanel as scrolled
+import wx.lib.agw.flatnotebook as fnb
+
 from ui_helpers import logger, _cfg, get_wx_color
+from image_utils import load_and_scale_image
 from widgets import ArchetypeAutocomplete
 from rich_text_panel import RichTextPanel
 
@@ -118,36 +119,20 @@ class CardViewDialog(wx.Dialog):
         self.image_sizer.Clear(True)
 
         image_path = card['image_path']
-        if image_path and os.path.exists(image_path):
-            try:
-                from PIL import ImageOps
-                pil_img = Image.open(image_path)
-                pil_img = ImageOps.exif_transpose(pil_img)
+        _card_info_sz = _cfg.get('images', 'card_info_max', [300, 450])
+        wx_bitmap = load_and_scale_image(image_path, tuple(_card_info_sz), as_wx_bitmap=True)
 
-                _card_info_sz = _cfg.get('images', 'card_info_max', [300, 450])
-                max_width, max_height = _card_info_sz[0], _card_info_sz[1]
-                orig_width, orig_height = pil_img.size
-                scale = min(max_width / orig_width, max_height / orig_height)
-                new_width = int(orig_width * scale)
-                new_height = int(orig_height * scale)
-                pil_img_scaled = pil_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        if wx_bitmap:
+            bmp = wx.StaticBitmap(self.image_panel, bitmap=wx_bitmap)
+            bmp.SetCursor(wx.Cursor(wx.CURSOR_HAND))
+            bmp.SetToolTip("Click to view larger")
 
-                if pil_img_scaled.mode != 'RGB':
-                    pil_img_scaled = pil_img_scaled.convert('RGB')
-                wx_img = wx.Image(new_width, new_height)
-                wx_img.SetData(pil_img_scaled.tobytes())
-                bmp = wx.StaticBitmap(self.image_panel, bitmap=wx.Bitmap(wx_img))
-                bmp.SetCursor(wx.Cursor(wx.CURSOR_HAND))
-                bmp.SetToolTip("Click to view larger")
+            def on_image_click(e, img_path=image_path, name=card['name']):
+                if self.on_fullsize_callback:
+                    self.on_fullsize_callback(img_path, name)
+            bmp.Bind(wx.EVT_LEFT_DOWN, on_image_click)
 
-                def on_image_click(e, img_path=image_path, name=card['name']):
-                    if self.on_fullsize_callback:
-                        self.on_fullsize_callback(img_path, name)
-                bmp.Bind(wx.EVT_LEFT_DOWN, on_image_click)
-
-                self.image_sizer.Add(bmp, 0, wx.ALL | wx.ALIGN_CENTER, 10)
-            except Exception:
-                self._add_placeholder_image()
+            self.image_sizer.Add(bmp, 0, wx.ALL | wx.ALIGN_CENTER, 10)
         else:
             self._add_placeholder_image()
 
@@ -518,29 +503,13 @@ class CardEditDialog(wx.Dialog):
     def _build_image_preview(self, card):
         """Build the image preview panel"""
         _card_edit_sz = _cfg.get('images', 'card_edit_max', [300, 450])
-        max_width, max_height = _card_edit_sz[0], _card_edit_sz[1]
         image_path = card['image_path']
 
-        if image_path and os.path.exists(image_path):
-            try:
-                from PIL import ImageOps
-                pil_img = Image.open(image_path)
-                pil_img = ImageOps.exif_transpose(pil_img)
+        wx_bitmap = load_and_scale_image(image_path, tuple(_card_edit_sz), as_wx_bitmap=True)
 
-                orig_width, orig_height = pil_img.size
-                scale = min(max_width / orig_width, max_height / orig_height)
-                new_width = int(orig_width * scale)
-                new_height = int(orig_height * scale)
-                pil_img = pil_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-
-                if pil_img.mode != 'RGB':
-                    pil_img = pil_img.convert('RGB')
-                wx_img = wx.Image(new_width, new_height)
-                wx_img.SetData(pil_img.tobytes())
-                bmp = wx.StaticBitmap(self.image_panel, bitmap=wx.Bitmap(wx_img))
-                self.image_sizer.Add(bmp, 0, wx.ALL | wx.ALIGN_CENTER, 10)
-            except Exception:
-                self._add_placeholder_image()
+        if wx_bitmap:
+            bmp = wx.StaticBitmap(self.image_panel, bitmap=wx_bitmap)
+            self.image_sizer.Add(bmp, 0, wx.ALL | wx.ALIGN_CENTER, 10)
         else:
             self._add_placeholder_image()
 

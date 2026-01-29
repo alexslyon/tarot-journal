@@ -10,9 +10,10 @@ from pathlib import Path
 from queue import Queue
 from typing import Optional, Tuple
 
-from PIL import Image, ImageOps
+from PIL import Image
 
 from app_config import get_config
+from image_utils import load_and_scale_for_thumbnail
 
 logger = logging.getLogger(__name__)
 
@@ -81,31 +82,16 @@ class ThumbnailCache:
                 # Corrupted cache file, regenerate
                 cache_path.unlink(missing_ok=True)
         
-        # Generate thumbnail
+        # Generate thumbnail using shared utility
+        img = load_and_scale_for_thumbnail(image_path, size)
+        if img is None:
+            return None
+
         try:
-            img = Image.open(image_path)
-            
-            # Apply EXIF orientation (fixes rotated photos from phones/cameras)
-            img = ImageOps.exif_transpose(img)
-            
-            img.thumbnail(size, Image.Resampling.LANCZOS)
-            
-            # Convert to RGB if necessary (for PNG with transparency)
-            if img.mode in ('RGBA', 'P'):
-                background = Image.new('RGB', img.size, (30, 32, 36))
-                if img.mode == 'P':
-                    img = img.convert('RGBA')
-                background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
-                img = background
-            elif img.mode != 'RGB':
-                img = img.convert('RGB')
-            
-            # Save to cache
             img.save(cache_path, 'PNG', optimize=True)
-            
             return img
         except Exception as e:
-            logger.warning(f"Error creating thumbnail for {image_path}: {e}")
+            logger.warning(f"Error saving thumbnail for {image_path}: {e}")
             return None
     
     def get_thumbnail_path(self, image_path: str, size: Tuple[int, int] = None) -> Optional[str]:

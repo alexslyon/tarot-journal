@@ -1,13 +1,15 @@
 """Journal panel and event handlers mixin for MainFrame."""
 
-import wx
-import wx.lib.scrolledpanel as scrolled
 import json
 import os
 from datetime import datetime
 
+import wx
+import wx.lib.scrolledpanel as scrolled
+
 from ui_helpers import logger, _cfg, get_wx_color
 from rich_text_panel import RichTextPanel, RichTextViewer
+from image_utils import load_and_scale_image, load_for_spread_display
 
 
 class JournalMixin:
@@ -400,64 +402,38 @@ class JournalMixin:
                             image_path, card_id = get_card_info(card_data, card_name)
                             image_placed = False
 
-                            if image_path and os.path.exists(image_path):
-                                try:
-                                    from PIL import Image as PILImage, ImageOps
-                                    pil_img = PILImage.open(image_path)
-                                    # Handle EXIF orientation before any other transforms
-                                    pil_img = ImageOps.exif_transpose(pil_img)
-                                    pil_img = pil_img.convert('RGB')
+                            wx_img = load_for_spread_display(
+                                image_path, (w, h),
+                                is_reversed=is_reversed,
+                                is_position_rotated=is_position_rotated
+                            )
+                            if wx_img:
+                                target_w, target_h = wx_img.GetWidth(), wx_img.GetHeight()
+                                bmp = wx.StaticBitmap(spread_panel, bitmap=wx.Bitmap(wx_img))
+                                img_x = x + (w - target_w) // 2
+                                img_y = y + (h - target_h) // 2
+                                bmp.SetPosition((img_x, img_y))
 
-                                    # Rotate if position is rotated (for horizontal cards like Celtic Cross challenge)
-                                    if is_position_rotated:
-                                        pil_img = pil_img.rotate(90, expand=True)
+                                # Add tooltip with card name and position
+                                tooltip_text = f"{card_name} - {label}"
+                                if is_reversed:
+                                    tooltip_text += " (Reversed)"
+                                bmp.SetToolTip(tooltip_text)
 
-                                    # Rotate if reversed
-                                    if is_reversed:
-                                        pil_img = pil_img.rotate(180)
+                                # Add double-click to open card info
+                                if card_id:
+                                    bmp.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
 
-                                    orig_w, orig_h = pil_img.size
-                                    if orig_h > 0 and orig_w > 0:
-                                        # For rotated positions, scale to fit width; for normal, scale to fit height
-                                        if is_position_rotated:
-                                            target_w = w - 4
-                                            scale_factor = target_w / orig_w
-                                            target_h = int(orig_h * scale_factor)
-                                        else:
-                                            target_h = h - 4
-                                            scale_factor = target_h / orig_h
-                                            target_w = int(orig_w * scale_factor)
-                                        pil_img = pil_img.resize((target_w, target_h), PILImage.LANCZOS)
+                                # Add (R) indicator for reversed cards
+                                if is_reversed:
+                                    r_label = wx.StaticText(spread_panel, label="(R)")
+                                    r_label.SetForegroundColour(get_wx_color('accent'))
+                                    r_label.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+                                    r_label.SetPosition((img_x + 2, y + 4))
+                                    if card_id:
+                                        r_label.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
 
-                                        wx_img = wx.Image(target_w, target_h)
-                                        wx_img.SetData(pil_img.tobytes())
-                                        bmp = wx.StaticBitmap(spread_panel, bitmap=wx.Bitmap(wx_img))
-                                        img_x = x + (w - target_w) // 2
-                                        img_y = y + (h - target_h) // 2
-                                        bmp.SetPosition((img_x, img_y))
-
-                                        # Add tooltip with card name and position
-                                        tooltip_text = f"{card_name} - {label}"
-                                        if is_reversed:
-                                            tooltip_text += " (Reversed)"
-                                        bmp.SetToolTip(tooltip_text)
-
-                                        # Add double-click to open card info
-                                        if card_id:
-                                            bmp.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
-
-                                        # Add (R) indicator for reversed cards
-                                        if is_reversed:
-                                            r_label = wx.StaticText(spread_panel, label="(R)")
-                                            r_label.SetForegroundColour(get_wx_color('accent'))
-                                            r_label.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-                                            r_label.SetPosition((img_x + 2, y + 4))
-                                            if card_id:
-                                                r_label.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
-
-                                        image_placed = True
-                                except Exception:
-                                    pass
+                                image_placed = True
 
                             if not image_placed:
                                 slot = wx.Panel(spread_panel, size=(w, h))
@@ -569,23 +545,13 @@ class JournalMixin:
                         if card_id:
                             card_panel.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
 
-                        if image_path and os.path.exists(image_path):
-                            try:
-                                from PIL import Image as PILImage, ImageOps
-                                pil_img = PILImage.open(image_path)
-                                pil_img = ImageOps.exif_transpose(pil_img)
-                                pil_img = pil_img.convert('RGB')
-                                pil_img = pil_img.resize((80, 110), PILImage.LANCZOS)
-
-                                wx_img = wx.Image(80, 110)
-                                wx_img.SetData(pil_img.tobytes())
-                                bmp = wx.StaticBitmap(card_panel, bitmap=wx.Bitmap(wx_img))
-                                card_sizer_inner.Add(bmp, 0, wx.ALL | wx.ALIGN_CENTER, 2)
-                                # Bind double-click on image too
-                                if card_id:
-                                    bmp.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
-                            except Exception as e:
-                                logger.debug("Could not load card thumbnail: %s", e)
+                        wx_bitmap = load_and_scale_image(image_path, (80, 110), as_wx_bitmap=True)
+                        if wx_bitmap:
+                            bmp = wx.StaticBitmap(card_panel, bitmap=wx_bitmap)
+                            card_sizer_inner.Add(bmp, 0, wx.ALL | wx.ALIGN_CENTER, 2)
+                            # Bind double-click on image too
+                            if card_id:
+                                bmp.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card_id: self._on_view_card(None, cid))
 
                         name_label = wx.StaticText(card_panel, label=card_name[:15])
                         name_label.SetForegroundColour(get_wx_color('text_primary'))
@@ -1273,54 +1239,29 @@ class JournalMixin:
                     image_path = card_data.get('image_path')
                     image_drawn = False
 
-                    if image_path and os.path.exists(image_path):
-                        try:
-                            from PIL import Image as PILImage, ImageOps
-                            pil_img = PILImage.open(image_path)
-                            # Handle EXIF orientation before any other transforms
-                            pil_img = ImageOps.exif_transpose(pil_img)
-                            pil_img = pil_img.convert('RGB')
+                    is_reversed = card_data.get('reversed', False)
+                    wx_img = load_for_spread_display(
+                        image_path, (w, h),
+                        is_reversed=is_reversed,
+                        is_position_rotated=is_position_rotated
+                    )
+                    if wx_img:
+                        target_w, target_h = wx_img.GetWidth(), wx_img.GetHeight()
+                        bmp = wx.Bitmap(wx_img)
+                        img_x = x + (w - target_w) // 2
+                        img_y = y + (h - target_h) // 2
+                        dc.DrawBitmap(bmp, img_x, img_y)
+                        dc.SetBrush(wx.TRANSPARENT_BRUSH)
+                        dc.SetPen(wx.Pen(get_wx_color('accent'), 2))
+                        dc.DrawRectangle(img_x - 1, img_y - 1, target_w + 2, target_h + 2)
 
-                            # Rotate if position is rotated (for horizontal cards like Celtic Cross challenge)
-                            if is_position_rotated:
-                                pil_img = pil_img.rotate(90, expand=True)
+                        # Add (R) indicator for reversed cards
+                        if is_reversed:
+                            dc.SetTextForeground(get_wx_color('accent'))
+                            dc.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+                            dc.DrawText("(R)", img_x + 2, img_y + 2)
 
-                            # Rotate if card is reversed
-                            if card_data.get('reversed', False):
-                                pil_img = pil_img.rotate(180)
-
-                            orig_w, orig_h = pil_img.size
-                            if orig_h > 0 and orig_w > 0:
-                                # For rotated positions, scale to fit width; for normal, scale to fit height
-                                if is_position_rotated:
-                                    target_w = w - 4
-                                    scale_factor = target_w / orig_w
-                                    target_h = int(orig_h * scale_factor)
-                                else:
-                                    target_h = h - 4
-                                    scale_factor = target_h / orig_h
-                                    target_w = int(orig_w * scale_factor)
-                                pil_img = pil_img.resize((target_w, target_h), PILImage.LANCZOS)
-
-                                wx_img = wx.Image(target_w, target_h)
-                                wx_img.SetData(pil_img.tobytes())
-                                bmp = wx.Bitmap(wx_img)
-                                img_x = x + (w - target_w) // 2
-                                img_y = y + (h - target_h) // 2
-                                dc.DrawBitmap(bmp, img_x, img_y)
-                                dc.SetBrush(wx.TRANSPARENT_BRUSH)
-                                dc.SetPen(wx.Pen(get_wx_color('accent'), 2))
-                                dc.DrawRectangle(img_x - 1, img_y - 1, target_w + 2, target_h + 2)
-
-                                # Add (R) indicator for reversed cards
-                                if card_data.get('reversed', False):
-                                    dc.SetTextForeground(get_wx_color('accent'))
-                                    dc.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-                                    dc.DrawText("(R)", img_x + 2, img_y + 2)
-
-                                image_drawn = True
-                        except Exception as e:
-                            logger.debug("Could not draw card image on spread: %s", e)
+                        image_drawn = True
 
                     if not image_drawn:
                         dc.SetBrush(wx.Brush(get_wx_color('accent_dim')))
