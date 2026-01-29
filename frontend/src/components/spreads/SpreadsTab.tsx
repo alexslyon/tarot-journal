@@ -144,7 +144,7 @@ export default function SpreadsTab() {
   return (
     <div className="spreads-tab">
       <Group orientation="horizontal" style={{ width: '100%', height: '100%' }}>
-        <Panel defaultSize={33} minSize={18}>
+        <Panel defaultSize={30} minSize={25}>
           <SpreadList
             selectedSpreadId={selectedSpread?.id ?? null}
             onSelect={handleSelect}
