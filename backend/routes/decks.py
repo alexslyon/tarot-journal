@@ -7,9 +7,23 @@ from flask import Blueprint, jsonify, request, current_app
 
 decks_bp = Blueprint('decks', __name__)
 
+# Preferred display order for cartomancy types
+TYPE_ORDER = ['Tarot', 'Lenormand', 'Oracle', 'Playing Cards', 'Kipper', 'I Ching']
+
 
 def _row_to_dict(row):
     return dict(row) if row else None
+
+
+def _sort_types(types):
+    """Sort types by preferred display order, with unknown types at the end."""
+    def sort_key(t):
+        name = t.get('name', '') if isinstance(t, dict) else t['name']
+        try:
+            return TYPE_ORDER.index(name)
+        except ValueError:
+            return len(TYPE_ORDER)
+    return sorted(types, key=sort_key)
 
 
 @decks_bp.route('/api/decks')
@@ -27,9 +41,9 @@ def get_decks():
         # Include deck tags
         tags = db.get_tags_for_deck(deck['id'])
         deck['tags'] = [_row_to_dict(t) for t in tags]
-        # Include all cartomancy types for multi-type support
+        # Include all cartomancy types for multi-type support (sorted)
         types = db.get_types_for_deck(deck['id'])
-        deck['cartomancy_types'] = [_row_to_dict(t) for t in types]
+        deck['cartomancy_types'] = _sort_types([_row_to_dict(t) for t in types])
         result.append(deck)
     return jsonify(result)
 
@@ -94,7 +108,8 @@ def delete_deck(deck_id):
 def get_deck_types(deck_id):
     db = current_app.config['DB']
     rows = db.get_types_for_deck(deck_id)
-    return jsonify([_row_to_dict(r) for r in rows])
+    types = [_row_to_dict(r) for r in rows]
+    return jsonify(_sort_types(types))
 
 
 @decks_bp.route('/api/decks/<int:deck_id>/types', methods=['PUT'])
