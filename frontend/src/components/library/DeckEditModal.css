@@ -87,6 +87,17 @@
   gap: 8px;
 }
 
+.deck-edit__checkboxes--types {
+  gap: 12px;
+}
+
+.deck-edit__type-hint {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+
 .deck-edit__check {
   display: flex;
   align-items: center;

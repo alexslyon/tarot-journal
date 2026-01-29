@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getDeck, updateDeck, getDeckTagAssignments, setDeckTags, getCartomancyTypes,
   getDeckCustomFields, addDeckCustomField, updateDeckCustomField, deleteDeckCustomField,
+  getDeckTypes, setDeckTypes,
 } from '../../api/decks';
 import { getDeckTags } from '../../api/tags';
 import { deckBackUrl } from '../../api/images';
@@ -50,9 +51,15 @@ export default function DeckEditModal({ deckId, onClose, onSaved }: DeckEditModa
     enabled: deckId !== null,
   });
 
+  const { data: deckTypeAssignments = [] } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ['deck-types', deckId],
+    queryFn: () => getDeckTypes(deckId!),
+    enabled: deckId !== null,
+  });
+
   // Form state
   const [name, setName] = useState('');
-  const [cartomancyTypeId, setCartomancyTypeId] = useState<number>(0);
+  const [selectedTypeIds, setSelectedTypeIds] = useState<number[]>([]);
   const [datePublished, setDatePublished] = useState('');
   const [publisher, setPublisher] = useState('');
   const [credits, setCredits] = useState('');
@@ -66,7 +73,6 @@ export default function DeckEditModal({ deckId, onClose, onSaved }: DeckEditModa
   useEffect(() => {
     if (deck) {
       setName(deck.name);
-      setCartomancyTypeId(deck.cartomancy_type_id);
       setDatePublished(deck.date_published || '');
       setPublisher(deck.publisher || '');
       setCredits(deck.credits || '');
@@ -87,12 +93,27 @@ export default function DeckEditModal({ deckId, onClose, onSaved }: DeckEditModa
     setSelectedTagIds(deckTagAssignments.map(t => t.id));
   }, [deckTagAssignments]);
 
+  useEffect(() => {
+    setSelectedTypeIds(deckTypeAssignments.map(t => t.id));
+  }, [deckTypeAssignments]);
+
   if (deckId === null) return null;
 
   const toggleTag = (tagId: number) => {
     setSelectedTagIds(prev =>
       prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
     );
+  };
+
+  const toggleType = (typeId: number) => {
+    setSelectedTypeIds(prev => {
+      if (prev.includes(typeId)) {
+        // Don't allow removing the last type
+        if (prev.length === 1) return prev;
+        return prev.filter(id => id !== typeId);
+      }
+      return [...prev, typeId];
+    });
   };
 
   const handleAddCustomField = async () => {
@@ -120,9 +141,12 @@ export default function DeckEditModal({ deckId, onClose, onSaved }: DeckEditModa
     if (!deck) return;
     setSaving(true);
     try {
+      // Use the first selected type as the primary cartomancy_type_id
+      const primaryTypeId = selectedTypeIds[0] || deck.cartomancy_type_id;
+
       await updateDeck(deck.id, {
         name,
-        cartomancy_type_id: cartomancyTypeId,
+        cartomancy_type_id: primaryTypeId,
         date_published: datePublished || null,
         publisher: publisher || null,
         credits: credits || null,
@@ -133,10 +157,12 @@ export default function DeckEditModal({ deckId, onClose, onSaved }: DeckEditModa
       });
 
       await setDeckTags(deck.id, selectedTagIds);
+      await setDeckTypes(deck.id, selectedTypeIds);
 
       queryClient.invalidateQueries({ queryKey: ['deck-detail', deckId] });
       queryClient.invalidateQueries({ queryKey: ['decks'] });
       queryClient.invalidateQueries({ queryKey: ['deck-tag-assignments', deckId] });
+      queryClient.invalidateQueries({ queryKey: ['deck-types', deckId] });
 
       onSaved();
       onClose();
@@ -168,15 +194,22 @@ export default function DeckEditModal({ deckId, onClose, onSaved }: DeckEditModa
               </div>
 
               <div className="deck-edit__field">
-                <label className="deck-edit__label">Cartomancy Type</label>
-                <select
-                  value={cartomancyTypeId}
-                  onChange={e => setCartomancyTypeId(parseInt(e.target.value))}
-                >
+                <label className="deck-edit__label">Cartomancy Types</label>
+                <div className="deck-edit__checkboxes deck-edit__checkboxes--types">
                   {types.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
+                    <label key={t.id} className="deck-edit__check">
+                      <input
+                        type="checkbox"
+                        checked={selectedTypeIds.includes(t.id)}
+                        onChange={() => toggleType(t.id)}
+                      />
+                      <span>{t.name}</span>
+                    </label>
                   ))}
-                </select>
+                </div>
+                <p className="deck-edit__type-hint">
+                  Select all types that apply to this deck.
+                </p>
               </div>
             </div>
 

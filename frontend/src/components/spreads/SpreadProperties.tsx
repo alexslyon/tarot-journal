@@ -1,45 +1,62 @@
 import { useQuery } from '@tanstack/react-query';
 import { getCartomancyTypes } from '../../api/decks';
-import { getDecks } from '../../api/decks';
+import type { DeckSlot } from '../../types';
 import './SpreadProperties.css';
 
 interface SpreadPropertiesProps {
   name: string;
   description: string;
-  allowedDeckTypes: string[];
-  defaultDeckId: number | null;
+  deckSlots: DeckSlot[];
   onNameChange: (name: string) => void;
   onDescriptionChange: (desc: string) => void;
-  onAllowedTypesChange: (types: string[]) => void;
-  onDefaultDeckChange: (deckId: number | null) => void;
+  onDeckSlotsChange: (slots: DeckSlot[]) => void;
 }
 
 export default function SpreadProperties({
   name,
   description,
-  allowedDeckTypes,
-  defaultDeckId,
+  deckSlots,
   onNameChange,
   onDescriptionChange,
-  onAllowedTypesChange,
-  onDefaultDeckChange,
+  onDeckSlotsChange,
 }: SpreadPropertiesProps) {
   const { data: types = [] } = useQuery({
     queryKey: ['cartomancy-types'],
     queryFn: getCartomancyTypes,
   });
 
-  const { data: decks = [] } = useQuery({
-    queryKey: ['decks'],
-    queryFn: () => getDecks(),
-  });
-
-  const toggleType = (typeName: string) => {
-    if (allowedDeckTypes.includes(typeName)) {
-      onAllowedTypesChange(allowedDeckTypes.filter((t) => t !== typeName));
-    } else {
-      onAllowedTypesChange([...allowedDeckTypes, typeName]);
+  // Generate next available slot key (A, B, C, ...)
+  const getNextSlotKey = (): string => {
+    const usedKeys = new Set(deckSlots.map(s => s.key));
+    for (let i = 0; i < 26; i++) {
+      const key = String.fromCharCode(65 + i); // A-Z
+      if (!usedKeys.has(key)) return key;
     }
+    return String(deckSlots.length + 1);
+  };
+
+  const addDeckSlot = () => {
+    const defaultType = types[0]?.name || 'Tarot';
+    onDeckSlotsChange([
+      ...deckSlots,
+      { key: getNextSlotKey(), cartomancy_type: defaultType },
+    ]);
+  };
+
+  const removeDeckSlot = (idx: number) => {
+    onDeckSlotsChange(deckSlots.filter((_, i) => i !== idx));
+  };
+
+  const updateSlotType = (idx: number, typeName: string) => {
+    const updated = [...deckSlots];
+    updated[idx] = { ...updated[idx], cartomancy_type: typeName };
+    onDeckSlotsChange(updated);
+  };
+
+  const updateSlotLabel = (idx: number, label: string) => {
+    const updated = [...deckSlots];
+    updated[idx] = { ...updated[idx], label: label || undefined };
+    onDeckSlotsChange(updated);
   };
 
   return (
@@ -65,35 +82,45 @@ export default function SpreadProperties({
       </div>
 
       <div className="spread-props__field">
-        <label className="spread-props__label">Allowed Deck Types</label>
+        <label className="spread-props__label">Deck Slots</label>
         <div className="spread-props__hint">
-          Leave all unchecked to allow any type.
+          Define the deck types used in this spread. Assign positions to slots in the designer.
         </div>
-        <div className="spread-props__checks">
-          {types.map((type) => (
-            <label key={type.id} className="spread-props__check">
+        <div className="spread-props__slots">
+          {deckSlots.map((slot, idx) => (
+            <div key={slot.key} className="spread-props__slot">
+              <span className="spread-props__slot-key">{slot.key}</span>
               <input
-                type="checkbox"
-                checked={allowedDeckTypes.includes(type.name)}
-                onChange={() => toggleType(type.name)}
+                type="text"
+                className="spread-props__slot-label"
+                value={slot.label || ''}
+                onChange={(e) => updateSlotLabel(idx, e.target.value)}
+                placeholder="Label (optional)"
               />
-              <span>{type.name}</span>
-            </label>
+              <select
+                className="spread-props__slot-type"
+                value={slot.cartomancy_type}
+                onChange={(e) => updateSlotType(idx, e.target.value)}
+              >
+                {types.map((t) => (
+                  <option key={t.id} value={t.name}>{t.name}</option>
+                ))}
+              </select>
+              {deckSlots.length > 1 && (
+                <button
+                  className="spread-props__slot-remove"
+                  onClick={() => removeDeckSlot(idx)}
+                  title="Remove slot"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           ))}
+          <button className="spread-props__add-slot" onClick={addDeckSlot}>
+            + Add Deck Slot
+          </button>
         </div>
-      </div>
-
-      <div className="spread-props__field">
-        <label className="spread-props__label">Default Deck</label>
-        <select
-          value={defaultDeckId ?? ''}
-          onChange={(e) => onDefaultDeckChange(e.target.value ? Number(e.target.value) : null)}
-        >
-          <option value="">None</option>
-          {decks.map((d) => (
-            <option key={d.id} value={d.id}>{d.name}</option>
-          ))}
-        </select>
       </div>
     </div>
   );

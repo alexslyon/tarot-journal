@@ -27,6 +27,9 @@ def get_decks():
         # Include deck tags
         tags = db.get_tags_for_deck(deck['id'])
         deck['tags'] = [_row_to_dict(t) for t in tags]
+        # Include all cartomancy types for multi-type support
+        types = db.get_types_for_deck(deck['id'])
+        deck['cartomancy_types'] = [_row_to_dict(t) for t in types]
         result.append(deck)
     return jsonify(result)
 
