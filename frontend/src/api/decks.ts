@@ -64,3 +64,14 @@ export async function updateDeckCustomField(
 export async function deleteDeckCustomField(fieldId: number) {
   await api.delete(`/api/decks/custom-fields/${fieldId}`);
 }
+
+// ── Deck Type Assignments (multi-type support) ──
+
+export async function getDeckTypes(deckId: number): Promise<{ id: number; name: string }[]> {
+  const res = await api.get(`/api/decks/${deckId}/types`);
+  return res.data;
+}
+
+export async function setDeckTypes(deckId: number, typeIds: number[]) {
+  await api.put(`/api/decks/${deckId}/types`, { type_ids: typeIds });
+}

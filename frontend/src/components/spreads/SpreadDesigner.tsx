@@ -1,19 +1,22 @@
-import { useState, useRef, useCallback } from 'react';
-import type { SpreadPosition } from '../../types';
+import { useState, useRef, useCallback, useMemo } from 'react';
+import type { SpreadPosition, DeckSlot } from '../../types';
 import './SpreadDesigner.css';
 
-const CANVAS_W = 620;
-const CANVAS_H = 460;
+// Minimum canvas dimensions (used when empty or for small spreads)
+const MIN_CANVAS_W = 620;
+const MIN_CANVAS_H = 460;
 const GRID_SIZE = 20;
 const DEFAULT_W = 80;
 const DEFAULT_H = 120;
 const HANDLE_SIZE = 10;
+const CANVAS_PADDING = 20; // Padding around content
 
 interface SpreadDesignerProps {
   positions: SpreadPosition[];
   onChange: (positions: SpreadPosition[]) => void;
   selectedIndex: number | null;
   onSelectIndex: (index: number | null) => void;
+  deckSlots: DeckSlot[];
 }
 
 export default function SpreadDesigner({
@@ -21,6 +24,7 @@ export default function SpreadDesigner({
   onChange,
   selectedIndex,
   onSelectIndex,
+  deckSlots,
 }: SpreadDesignerProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [gridEnabled, setGridEnabled] = useState(true);
@@ -43,30 +47,50 @@ export default function SpreadDesigner({
     y: number;
     index: number;
   } | null>(null);
+  const [showSlotMenu, setShowSlotMenu] = useState(false);
+
+  // Calculate dynamic canvas dimensions based on position bounding box
+  const canvasDimensions = useMemo(() => {
+    if (positions.length === 0) {
+      return { width: MIN_CANVAS_W, height: MIN_CANVAS_H };
+    }
+    // Find the bounding box of all positions
+    const maxX = Math.max(...positions.map(p => (p.x || 0) + (p.width || DEFAULT_W)));
+    const maxY = Math.max(...positions.map(p => (p.y || 0) + (p.height || DEFAULT_H)));
+    // Use the larger of content bounds + padding or minimum dimensions
+    return {
+      width: Math.max(MIN_CANVAS_W, maxX + CANVAS_PADDING),
+      height: Math.max(MIN_CANVAS_H, maxY + CANVAS_PADDING),
+    };
+  }, [positions]);
 
   const snap = useCallback(
     (val: number) => (gridEnabled ? Math.round(val / GRID_SIZE) * GRID_SIZE : Math.round(val)),
     [gridEnabled],
   );
 
+  // Convert screen coordinates to viewBox (logical) coordinates
   const getSVGPoint = useCallback(
     (e: React.MouseEvent) => {
       const svg = svgRef.current;
       if (!svg) return { x: 0, y: 0 };
       const rect = svg.getBoundingClientRect();
+      // Calculate scale factor from rendered size to viewBox size
+      const scaleX = canvasDimensions.width / rect.width;
+      const scaleY = canvasDimensions.height / rect.height;
       return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY,
       };
     },
-    [],
+    [canvasDimensions],
   );
 
   const handleAddPosition = () => {
     const label = window.prompt('Position label:', `Position ${positions.length + 1}`);
     if (!label) return;
-    const cx = snap(CANVAS_W / 2 - DEFAULT_W / 2);
-    const cy = snap(CANVAS_H / 2 - DEFAULT_H / 2);
+    const cx = snap(canvasDimensions.width / 2 - DEFAULT_W / 2);
+    const cy = snap(canvasDimensions.height / 2 - DEFAULT_H / 2);
     onChange([
       ...positions,
       { x: cx, y: cy, width: DEFAULT_W, height: DEFAULT_H, label, key: String(positions.length + 1) },
@@ -122,10 +146,9 @@ export default function SpreadDesigner({
         const dy = pt.y - dragging.startMouseY;
         let newX = snap(dragging.startPosX + dx);
         let newY = snap(dragging.startPosY + dy);
-        // Clamp within canvas
-        const pos = positions[dragging.index];
-        newX = Math.max(0, Math.min(CANVAS_W - pos.width, newX));
-        newY = Math.max(0, Math.min(CANVAS_H - pos.height, newY));
+        // Only prevent negative coordinates; canvas will grow to fit
+        newX = Math.max(0, newX);
+        newY = Math.max(0, newY);
         const updated = [...positions];
         updated[dragging.index] = { ...updated[dragging.index], x: newX, y: newY };
         onChange(updated);
@@ -134,12 +157,9 @@ export default function SpreadDesigner({
       if (resizing) {
         const dx = pt.x - resizing.startMouseX;
         const dy = pt.y - resizing.startMouseY;
-        let newW = snap(Math.max(40, resizing.startW + dx));
-        let newH = snap(Math.max(40, resizing.startH + dy));
-        const pos = positions[resizing.index];
-        // Clamp within canvas
-        newW = Math.min(newW, CANVAS_W - pos.x);
-        newH = Math.min(newH, CANVAS_H - pos.y);
+        const newW = snap(Math.max(40, resizing.startW + dx));
+        const newH = snap(Math.max(40, resizing.startH + dy));
+        // No upper limit on size; canvas will grow to fit
         const updated = [...positions];
         updated[resizing.index] = { ...updated[resizing.index], width: newW, height: newH };
         onChange(updated);
@@ -201,18 +221,30 @@ export default function SpreadDesigner({
     setContextMenu(null);
   };
 
+  const handleSetDeckSlot = (slotKey: string | null) => {
+    if (contextMenu === null) return;
+    const updated = [...positions];
+    updated[contextMenu.index] = {
+      ...updated[contextMenu.index],
+      deck_slot: slotKey || undefined,
+    };
+    onChange(updated);
+    setShowSlotMenu(false);
+    setContextMenu(null);
+  };
+
   // ── Grid lines ──
 
   const gridLines = [];
   if (gridEnabled) {
-    for (let x = GRID_SIZE; x < CANVAS_W; x += GRID_SIZE) {
+    for (let x = GRID_SIZE; x < canvasDimensions.width; x += GRID_SIZE) {
       gridLines.push(
-        <line key={`gx-${x}`} x1={x} y1={0} x2={x} y2={CANVAS_H} className="designer__grid-line" />,
+        <line key={`gx-${x}`} x1={x} y1={0} x2={x} y2={canvasDimensions.height} className="designer__grid-line" />,
       );
     }
-    for (let y = GRID_SIZE; y < CANVAS_H; y += GRID_SIZE) {
+    for (let y = GRID_SIZE; y < canvasDimensions.height; y += GRID_SIZE) {
       gridLines.push(
-        <line key={`gy-${y}`} x1={0} y1={y} x2={CANVAS_W} y2={y} className="designer__grid-line" />,
+        <line key={`gy-${y}`} x1={0} y1={y} x2={canvasDimensions.width} y2={y} className="designer__grid-line" />,
       );
     }
   }
@@ -236,15 +268,15 @@ export default function SpreadDesigner({
         <svg
           ref={svgRef}
           className="designer__canvas"
-          width={CANVAS_W}
-          height={CANVAS_H}
+          viewBox={`0 0 ${canvasDimensions.width} ${canvasDimensions.height}`}
+          style={{ aspectRatio: `${canvasDimensions.width} / ${canvasDimensions.height}` }}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
           onClick={handleCanvasClick}
         >
           {/* Background */}
-          <rect width={CANVAS_W} height={CANVAS_H} className="designer__bg" />
+          <rect width={canvasDimensions.width} height={canvasDimensions.height} className="designer__bg" />
 
           {/* Grid */}
           {gridLines}
@@ -305,6 +337,18 @@ export default function SpreadDesigner({
                   </text>
                 )}
 
+                {/* Deck slot indicator (bottom) - only show if multiple slots */}
+                {deckSlots.length > 1 && (
+                  <text
+                    x={pos.x + pos.width / 2}
+                    y={pos.y + pos.height - 6}
+                    className="designer__slot-text"
+                    onMouseDown={(e) => handlePositionMouseDown(e, idx)}
+                  >
+                    {pos.deck_slot || deckSlots[0]?.key || 'A'}
+                  </text>
+                )}
+
                 {/* Resize handle (bottom-right, shown when selected) */}
                 {isSelected && (
                   <rect
@@ -326,7 +370,7 @@ export default function SpreadDesigner({
       {/* Context menu */}
       {contextMenu && (
         <>
-          <div className="designer__menu-overlay" onClick={() => setContextMenu(null)} />
+          <div className="designer__menu-overlay" onClick={() => { setContextMenu(null); setShowSlotMenu(false); }} />
           <div
             className="designer__context-menu"
             style={{ left: contextMenu.x, top: contextMenu.y }}
@@ -335,6 +379,23 @@ export default function SpreadDesigner({
             <button onClick={handleRotatePosition}>
               {positions[contextMenu.index]?.rotated ? 'Unrotate' : 'Rotate 90°'}
             </button>
+            {/* Only show deck slot option if there are multiple slots */}
+            {deckSlots.length > 1 && (
+              <>
+                <button onClick={() => setShowSlotMenu(!showSlotMenu)}>
+                  Deck Slot: {positions[contextMenu.index]?.deck_slot || deckSlots[0]?.key || 'A'} ▸
+                </button>
+                {showSlotMenu && (
+                  <div className="designer__submenu">
+                    {deckSlots.map((slot) => (
+                      <button key={slot.key} onClick={() => handleSetDeckSlot(slot.key)}>
+                        {slot.key}: {slot.label || slot.cartomancy_type}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
             <button onClick={handleDeletePosition} className="designer__menu-danger">Delete</button>
           </div>
         </>

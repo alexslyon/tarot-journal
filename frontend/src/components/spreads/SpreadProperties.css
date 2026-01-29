@@ -41,3 +41,67 @@
   height: 14px;
   accent-color: var(--accent);
 }
+
+/* ── Deck slots ── */
+
+.spread-props__slots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.spread-props__slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spread-props__slot-key {
+  width: 22px;
+  height: 22px;
+  background: var(--accent);
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.spread-props__slot-label {
+  width: 120px;
+  flex-shrink: 0;
+}
+
+.spread-props__slot-type {
+  flex: 1;
+  min-width: 100px;
+}
+
+.spread-props__slot-remove {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.spread-props__slot-remove:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.spread-props__add-slot {
+  align-self: flex-start;
+  padding: 4px 10px;
+  font-size: var(--font-size-small);
+  margin-top: 4px;
+}

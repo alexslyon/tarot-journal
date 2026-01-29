@@ -1,11 +1,24 @@
-import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { getDecks } from '../../api/decks';
 import { getCards } from '../../api/cards';
 import { getSpreads, getSpread } from '../../api/spreads';
 import { cardThumbnailUrl } from '../../api/images';
-import type { Card, Spread, SpreadPosition } from '../../types';
+import type { Card, Deck, Spread, SpreadPosition, DeckSlot } from '../../types';
 import './ReadingEditor.css';
+
+/**
+ * Check if a deck matches a required cartomancy type.
+ * Supports both multi-type decks (cartomancy_types array) and legacy single-type (cartomancy_type string).
+ */
+function deckMatchesType(deck: Deck, requiredType: string): boolean {
+  // Check multi-type array first
+  if (deck.cartomancy_types && deck.cartomancy_types.length > 0) {
+    return deck.cartomancy_types.some(t => t.name === requiredType);
+  }
+  // Fall back to legacy single-type field
+  return deck.cartomancy_type === requiredType;
+}
 
 export interface ReadingData {
   spread_id: number | null;
@@ -21,6 +34,9 @@ export interface ReadingData {
     position_index?: number;
   }>;
 }
+
+/** Maps deck slot keys to selected deck IDs */
+type SlotDeckMap = Record<string, number>;
 
 interface ReadingEditorProps {
   value: ReadingData;
@@ -55,11 +71,54 @@ export default function ReadingEditor({ value, onChange, onRemove, index }: Read
   const positions: SpreadPosition[] =
     spread?.positions && Array.isArray(spread.positions) ? spread.positions : [];
 
+  // Parse deck slots from spread
+  const deckSlots: DeckSlot[] = useMemo(() => {
+    if (!spread?.deck_slots) return [];
+    if (Array.isArray(spread.deck_slots)) return spread.deck_slots;
+    if (typeof spread.deck_slots === 'string') {
+      try {
+        return JSON.parse(spread.deck_slots);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }, [spread?.deck_slots]);
+
+  // Track deck assignments for each slot (derive from cards or use local state)
+  const [slotDecks, setSlotDecks] = useState<SlotDeckMap>({});
+
+  // When spread changes, reset slot deck assignments
+  useEffect(() => {
+    if (value.spread_id) {
+      // Try to derive slot assignments from existing cards
+      const derived: SlotDeckMap = {};
+      value.cards.forEach((card, idx) => {
+        const pos = positions[idx];
+        const slotKey = pos?.deck_slot || deckSlots[0]?.key;
+        if (slotKey && card?.deck_id && !derived[slotKey]) {
+          derived[slotKey] = card.deck_id;
+        }
+      });
+      setSlotDecks(derived);
+    }
+  }, [value.spread_id]);
+
   // When spread changes, resize cards array to match positions
   useEffect(() => {
     if (positions.length > 0 && value.cards.length !== positions.length) {
-      const newCards = positions.map((_, idx) => {
-        return value.cards[idx] || { name: '', reversed: false, position_index: idx };
+      const newCards = positions.map((pos, idx) => {
+        const existing = value.cards[idx];
+        const slotKey = pos.deck_slot || deckSlots[0]?.key;
+        const slotDeckId = slotKey ? slotDecks[slotKey] : undefined;
+        const deck = decks.find(d => d.id === slotDeckId);
+        return existing || {
+          name: '',
+          reversed: false,
+          position_index: idx,
+          deck_id: slotDeckId,
+          deck_name: deck?.name,
+        };
       });
       onChange({ ...value, cards: newCards });
     }
@@ -67,6 +126,7 @@ export default function ReadingEditor({ value, onChange, onRemove, index }: Read
 
   const handleSpreadChange = (spreadId: number | null) => {
     const selectedSpread = spreads.find(s => s.id === spreadId);
+    setSlotDecks({});
     onChange({
       ...value,
       spread_id: spreadId,
@@ -85,13 +145,46 @@ export default function ReadingEditor({ value, onChange, onRemove, index }: Read
     });
   };
 
+  // Handle changing the deck for a slot - updates all cards in that slot
+  const handleSlotDeckChange = (slotKey: string, deckId: number | null) => {
+    const deck = decks.find(d => d.id === deckId);
+    const newSlotDecks = { ...slotDecks };
+    if (deckId) {
+      newSlotDecks[slotKey] = deckId;
+    } else {
+      delete newSlotDecks[slotKey];
+    }
+    setSlotDecks(newSlotDecks);
+
+    // Update all cards that use this slot
+    const newCards = value.cards.map((card, idx) => {
+      const pos = positions[idx];
+      const cardSlotKey = pos?.deck_slot || deckSlots[0]?.key;
+      if (cardSlotKey === slotKey) {
+        return {
+          ...card,
+          deck_id: deckId || undefined,
+          deck_name: deck?.name,
+          name: '', // Clear card when deck changes
+        };
+      }
+      return card;
+    });
+    onChange({ ...value, cards: newCards });
+  };
+
   const updateCard = (idx: number, field: string, val: string | boolean) => {
     const newCards = [...value.cards];
+    const pos = positions[idx];
+    const slotKey = pos?.deck_slot || deckSlots[0]?.key;
+    const slotDeckId = slotKey ? slotDecks[slotKey] : value.deck_id;
+    const deck = decks.find(d => d.id === slotDeckId);
+
     newCards[idx] = { ...newCards[idx], [field]: val, position_index: idx };
     // When selecting a card by name, also store deck info
-    if (field === 'name' && value.deck_id) {
-      newCards[idx].deck_id = value.deck_id;
-      newCards[idx].deck_name = value.deck_name || undefined;
+    if (field === 'name' && slotDeckId) {
+      newCards[idx].deck_id = slotDeckId;
+      newCards[idx].deck_name = deck?.name;
     }
     onChange({ ...value, cards: newCards });
   };
@@ -118,6 +211,9 @@ export default function ReadingEditor({ value, onChange, onRemove, index }: Read
       cards: value.cards.filter((_, i) => i !== idx),
     });
   };
+
+  // Check if spread uses multi-deck slots
+  const hasMultipleSlots = deckSlots.length > 1;
 
   return (
     <div className="reading-editor">
@@ -146,19 +242,59 @@ export default function ReadingEditor({ value, onChange, onRemove, index }: Read
           </select>
         </div>
 
-        <div className="reading-editor__field">
-          <label className="reading-editor__field-label">Deck</label>
-          <select
-            value={value.deck_id ?? ''}
-            onChange={(e) => handleDeckChange(e.target.value ? Number(e.target.value) : null)}
-          >
-            <option value="">No Deck</option>
-            {decks.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
-        </div>
+        {/* Show single deck selector if no slots or single slot */}
+        {!hasMultipleSlots && (
+          <div className="reading-editor__field">
+            <label className="reading-editor__field-label">
+              {deckSlots[0] ? `Deck (${deckSlots[0].cartomancy_type})` : 'Deck'}
+            </label>
+            <select
+              value={deckSlots[0] ? (slotDecks[deckSlots[0].key] ?? '') : (value.deck_id ?? '')}
+              onChange={(e) => {
+                const deckId = e.target.value ? Number(e.target.value) : null;
+                if (deckSlots[0]) {
+                  handleSlotDeckChange(deckSlots[0].key, deckId);
+                } else {
+                  handleDeckChange(deckId);
+                }
+              }}
+            >
+              <option value="">Select Deck</option>
+              {decks
+                .filter(d => !deckSlots[0] || deckMatchesType(d, deckSlots[0].cartomancy_type))
+                .map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+            </select>
+          </div>
+        )}
       </div>
+
+      {/* Deck slot selectors for multi-deck spreads */}
+      {hasMultipleSlots && (
+        <div className="reading-editor__slots">
+          {deckSlots.map((slot) => (
+            <div key={slot.key} className="reading-editor__slot-row">
+              <span className="reading-editor__slot-key">{slot.key}</span>
+              <span className="reading-editor__slot-label">
+                {slot.label || slot.cartomancy_type}
+              </span>
+              <select
+                className="reading-editor__slot-deck"
+                value={slotDecks[slot.key] ?? ''}
+                onChange={(e) => handleSlotDeckChange(slot.key, e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Select {slot.cartomancy_type} Deck</option>
+                {decks
+                  .filter(d => deckMatchesType(d, slot.cartomancy_type))
+                  .map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Card slots */}
       <div className="reading-editor__cards">
@@ -167,8 +303,24 @@ export default function ReadingEditor({ value, onChange, onRemove, index }: Read
           <VisualSpreadEditor
             positions={positions}
             cards={value.cards}
-            deckCards={deckCards}
-            onUpdateCard={updateCard}
+            deckSlots={deckSlots}
+            slotDecks={slotDecks}
+            onUpdateCard={(idx, updates) => {
+              const pos = positions[idx];
+              const slotKey = pos?.deck_slot || deckSlots[0]?.key;
+              const slotDeckId = slotKey ? slotDecks[slotKey] : undefined;
+              const deck = decks.find(d => d.id === slotDeckId);
+
+              const newCards = [...value.cards];
+              newCards[idx] = {
+                ...newCards[idx],
+                ...updates,
+                position_index: idx,
+                deck_id: updates.deck_id ?? slotDeckId,
+                deck_name: updates.deck_name ?? deck?.name,
+              };
+              onChange({ ...value, cards: newCards });
+            }}
           />
         ) : (
           // No spread: free-form card list
@@ -222,17 +374,19 @@ export default function ReadingEditor({ value, onChange, onRemove, index }: Read
   );
 }
 
-/** Visual canvas editor for spread positions */
+/** Visual canvas editor for spread positions using deck slots */
 function VisualSpreadEditor({
   positions,
   cards,
-  deckCards,
+  deckSlots,
+  slotDecks,
   onUpdateCard,
 }: {
   positions: SpreadPosition[];
   cards: ReadingData['cards'];
-  deckCards: Card[];
-  onUpdateCard: (idx: number, field: string, val: string | boolean) => void;
+  deckSlots: DeckSlot[];
+  slotDecks: SlotDeckMap;
+  onUpdateCard: (idx: number, updates: Partial<ReadingData['cards'][0]>) => void;
 }) {
   // Calculate bounding box and scale to fit within a reasonable size
   const maxX = Math.max(...positions.map(p => (p.x || 0) + (p.width || 80)));
@@ -240,10 +394,52 @@ function VisualSpreadEditor({
   // Scale to fit in ~450x350 area
   const scale = Math.min(1, 450 / maxX, 350 / maxY);
 
-  // Find card_id for a given card name
-  const getCardId = (name: string): number | undefined => {
+  // Get deck ID for a position based on its slot assignment
+  const getDeckIdForPosition = (pos: SpreadPosition): number | undefined => {
+    const slotKey = pos.deck_slot || deckSlots[0]?.key;
+    return slotKey ? slotDecks[slotKey] : undefined;
+  };
+
+  // Get unique deck IDs from slot assignments
+  const usedDeckIds = useMemo(() => {
+    return Object.values(slotDecks).filter((id): id is number => id !== undefined);
+  }, [slotDecks]);
+
+  // Fetch cards for all used decks
+  const deckCardQueries = useQueries({
+    queries: usedDeckIds.map(deckId => ({
+      queryKey: ['cards', deckId],
+      queryFn: () => getCards(deckId),
+    })),
+  });
+
+  // Build a map of deckId -> cards
+  const deckCardsMap = useMemo(() => {
+    const map = new Map<number, Card[]>();
+    usedDeckIds.forEach((deckId, i) => {
+      const data = deckCardQueries[i]?.data;
+      if (data) map.set(deckId, data);
+    });
+    return map;
+  }, [usedDeckIds, deckCardQueries]);
+
+  // Get cards for a specific deck (or empty array)
+  const getCardsForDeck = (deckId: number | undefined): Card[] => {
+    if (!deckId) return [];
+    return deckCardsMap.get(deckId) || [];
+  };
+
+  // Find card_id for a given card name within a deck
+  const getCardId = (name: string, deckId: number | undefined): number | undefined => {
+    const deckCards = getCardsForDeck(deckId);
     const found = deckCards.find(c => c.name === name);
     return found?.id;
+  };
+
+  // Get the slot for a position
+  const getSlotForPosition = (pos: SpreadPosition): DeckSlot | undefined => {
+    const slotKey = pos.deck_slot || deckSlots[0]?.key;
+    return deckSlots.find(s => s.key === slotKey);
   };
 
   return (
@@ -259,9 +455,11 @@ function VisualSpreadEditor({
       >
         {positions.map((pos, idx) => {
           const card = cards[idx];
-          const cardId = card?.name ? getCardId(card.name) : undefined;
+          const posDeckId = getDeckIdForPosition(pos);
+          const cardId = card?.name ? getCardId(card.name, posDeckId) : undefined;
           const slotWidth = (pos.width || 80) * scale;
           const slotHeight = (pos.height || 120) * scale;
+          const slot = getSlotForPosition(pos);
 
           return (
             <div
@@ -274,7 +472,7 @@ function VisualSpreadEditor({
                 width: slotWidth,
                 height: slotHeight,
               }}
-              title={`${pos.label || `Position ${idx + 1}`}${card?.name ? `: ${card.name}` : ''}`}
+              title={`${pos.label || `Position ${idx + 1}`}${card?.name ? `: ${card.name}` : ''}${slot ? ` [${slot.key}]` : ''}`}
             >
               {cardId ? (
                 <img
@@ -299,17 +497,28 @@ function VisualSpreadEditor({
       <div className="reading-editor__position-list">
         {positions.map((pos, idx) => {
           const card = cards[idx];
+          const posDeckId = getDeckIdForPosition(pos);
+          const currentDeckCards = getCardsForDeck(posDeckId);
+          const slot = getSlotForPosition(pos);
+
           return (
             <div key={idx} className="reading-editor__position-row">
               <span className="reading-editor__position-key">{pos.key || idx + 1}</span>
-              <span className="reading-editor__position-label">{pos.label || `Position ${idx + 1}`}</span>
+              <span className="reading-editor__position-label">
+                {pos.label || `Position ${idx + 1}`}
+                {deckSlots.length > 1 && slot && (
+                  <span className="reading-editor__slot-badge">{slot.key}</span>
+                )}
+              </span>
+              {/* Card selector for this position */}
               <select
                 className="reading-editor__card-select"
                 value={card?.name || ''}
-                onChange={(e) => onUpdateCard(idx, 'name', e.target.value)}
+                onChange={(e) => onUpdateCard(idx, { name: e.target.value })}
+                disabled={!posDeckId}
               >
-                <option value="">— select card —</option>
-                {deckCards.map((c) => (
+                <option value="">{posDeckId ? '— select card —' : '— select deck above —'}</option>
+                {currentDeckCards.map((c) => (
                   <option key={c.id} value={c.name}>{c.name}</option>
                 ))}
               </select>
@@ -317,7 +526,7 @@ function VisualSpreadEditor({
                 <input
                   type="checkbox"
                   checked={card?.reversed || false}
-                  onChange={(e) => onUpdateCard(idx, 'reversed', e.target.checked)}
+                  onChange={(e) => onUpdateCard(idx, { reversed: e.target.checked })}
                 />
                 <span>R</span>
               </label>

@@ -21,6 +21,8 @@ export interface Deck {
   created_at: string;
   // Joined fields from get_deck():
   cartomancy_type?: string;
+  /** Array of all cartomancy types this deck belongs to */
+  cartomancy_types?: { id: number; name: string }[];
   card_count?: number;
   tags?: Tag[];
 }
@@ -41,6 +43,16 @@ export interface Card {
   cartomancy_type?: string;
 }
 
+/** A deck slot defines one deck type used in a spread */
+export interface DeckSlot {
+  /** Unique key for this slot (e.g., "A", "B", "1", "2") */
+  key: string;
+  /** The cartomancy type required for this slot */
+  cartomancy_type: string;
+  /** Optional display label (e.g., "Main Deck", "Oracle") */
+  label?: string;
+}
+
 export interface Spread {
   id: number;
   name: string;
@@ -49,6 +61,8 @@ export interface Spread {
   cartomancy_type: string | null;
   allowed_deck_types: string[] | string | null;
   default_deck_id: number | null;
+  /** Deck slots for multi-deck spreads */
+  deck_slots?: DeckSlot[] | string;
   created_at: string;
 }
 
@@ -60,6 +74,8 @@ export interface SpreadPosition {
   label: string;
   key?: string;
   rotated?: boolean;
+  /** Which deck slot this position uses (references DeckSlot.key) */
+  deck_slot?: string;
 }
 
 export interface JournalEntry {

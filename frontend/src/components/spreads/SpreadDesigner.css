@@ -37,12 +37,14 @@
   border: 1px solid var(--border);
   border-radius: 4px;
   overflow: hidden;
-  display: inline-block;
   background: var(--bg-primary);
+  width: 100%;
 }
 
 .designer__canvas {
   display: block;
+  width: 100%;
+  height: auto;
 }
 
 .designer__bg {
@@ -151,4 +153,26 @@
 .designer__menu-danger:hover {
   background: var(--danger) !important;
   color: #fff !important;
+}
+
+/* Submenu for deck type selection */
+.designer__submenu {
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.designer__submenu button {
+  padding-left: 20px;
+  font-size: var(--font-size-small);
+}
+
+/* Deck slot indicator on position */
+.designer__slot-text {
+  fill: var(--accent);
+  font-size: 10px;
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+  font-weight: 700;
 }

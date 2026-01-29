@@ -165,6 +165,10 @@ class Database:
         if 'default_deck_id' not in columns:
             cursor.execute('ALTER TABLE spreads ADD COLUMN default_deck_id INTEGER REFERENCES decks(id)')
 
+        # Migration: add deck_slots column for multi-deck spreads
+        if 'deck_slots' not in columns:
+            cursor.execute('ALTER TABLE spreads ADD COLUMN deck_slots TEXT')
+
         # Journal entries table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS journal_entries (
@@ -1007,26 +1011,29 @@ class Database:
     
     def add_spread(self, name: str, positions: list, description: str = None,
                    cartomancy_type: str = None, allowed_deck_types: list = None,
-                   default_deck_id: int = None):
+                   default_deck_id: int = None, deck_slots: list = None):
         """
         positions is a list of dicts: [{"x": 0, "y": 0, "label": "Past"}, ...]
         cartomancy_type: 'Tarot', 'Lenormand', 'Oracle', etc. (deprecated, for backwards compat)
         allowed_deck_types: list of cartomancy type names allowed for this spread, e.g. ['Tarot', 'Oracle']
         default_deck_id: ID of the default deck for this spread (overrides global default)
+        deck_slots: list of deck slots for multi-deck spreads, e.g. [{"key": "A", "cartomancy_type": "Tarot"}]
         """
         cursor = self.conn.cursor()
         cursor.execute(
-            'INSERT INTO spreads (name, description, positions, cartomancy_type, allowed_deck_types, default_deck_id) VALUES (?, ?, ?, ?, ?, ?)',
+            'INSERT INTO spreads (name, description, positions, cartomancy_type, allowed_deck_types, default_deck_id, deck_slots) VALUES (?, ?, ?, ?, ?, ?, ?)',
             (name, description, json.dumps(positions), cartomancy_type,
              json.dumps(allowed_deck_types) if allowed_deck_types else None,
-             default_deck_id)
+             default_deck_id,
+             json.dumps(deck_slots) if deck_slots else None)
         )
         self._commit()
         return cursor.lastrowid
 
     def update_spread(self, spread_id: int, name: str = None, positions: list = None,
                       description: str = None, allowed_deck_types: list = None,
-                      default_deck_id: int = None, clear_default_deck: bool = False):
+                      default_deck_id: int = None, clear_default_deck: bool = False,
+                      deck_slots: list = None):
         cursor = self.conn.cursor()
         if name:
             cursor.execute('UPDATE spreads SET name = ? WHERE id = ?', (name, spread_id))
@@ -1040,6 +1047,9 @@ class Database:
         if default_deck_id is not None or clear_default_deck:
             cursor.execute('UPDATE spreads SET default_deck_id = ? WHERE id = ?',
                           (default_deck_id, spread_id))
+        if deck_slots is not None:
+            cursor.execute('UPDATE spreads SET deck_slots = ? WHERE id = ?',
+                          (json.dumps(deck_slots) if deck_slots else None, spread_id))
         self._commit()
     
     def delete_spread(self, spread_id: int):

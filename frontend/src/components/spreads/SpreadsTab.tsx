@@ -6,7 +6,7 @@ import SpreadList from './SpreadList';
 import SpreadDesigner from './SpreadDesigner';
 import SpreadProperties from './SpreadProperties';
 import PositionLegend from './PositionLegend';
-import type { Spread, SpreadPosition } from '../../types';
+import type { Spread, SpreadPosition, DeckSlot } from '../../types';
 import './SpreadsTab.css';
 
 export default function SpreadsTab() {
@@ -22,6 +22,7 @@ export default function SpreadsTab() {
   const [positions, setPositions] = useState<SpreadPosition[]>([]);
   const [allowedDeckTypes, setAllowedDeckTypes] = useState<string[]>([]);
   const [defaultDeckId, setDefaultDeckId] = useState<number | null>(null);
+  const [deckSlots, setDeckSlots] = useState<DeckSlot[]>([]);
 
   // Populate form when a spread is selected
   useEffect(() => {
@@ -37,6 +38,19 @@ export default function SpreadsTab() {
           : [],
       );
       setDefaultDeckId(selectedSpread.default_deck_id);
+      // Parse deck_slots from spread
+      const slots = selectedSpread.deck_slots;
+      if (Array.isArray(slots)) {
+        setDeckSlots(slots);
+      } else if (typeof slots === 'string') {
+        try {
+          setDeckSlots(JSON.parse(slots));
+        } catch {
+          setDeckSlots([]);
+        }
+      } else {
+        setDeckSlots([]);
+      }
       setSelectedIndex(null);
     }
   }, [selectedSpread, isNew]);
@@ -54,6 +68,8 @@ export default function SpreadsTab() {
     setPositions([]);
     setAllowedDeckTypes([]);
     setDefaultDeckId(null);
+    // Default to one deck slot with Tarot type
+    setDeckSlots([{ key: 'A', cartomancy_type: 'Tarot', label: 'Main Deck' }]);
     setSelectedIndex(null);
   };
 
@@ -100,6 +116,7 @@ export default function SpreadsTab() {
           description: description || undefined,
           allowed_deck_types: allowedDeckTypes.length > 0 ? allowedDeckTypes : undefined,
           default_deck_id: defaultDeckId,
+          deck_slots: deckSlots.length > 0 ? deckSlots : undefined,
         });
         setIsNew(false);
         // Re-select the newly created spread
@@ -111,6 +128,7 @@ export default function SpreadsTab() {
           cartomancy_type: null,
           allowed_deck_types: allowedDeckTypes,
           default_deck_id: defaultDeckId,
+          deck_slots: deckSlots,
           created_at: new Date().toISOString(),
         });
       } else if (selectedSpread) {
@@ -121,6 +139,7 @@ export default function SpreadsTab() {
           allowed_deck_types: allowedDeckTypes.length > 0 ? allowedDeckTypes : null,
           default_deck_id: defaultDeckId,
           clear_default_deck: defaultDeckId === null && selectedSpread.default_deck_id !== null,
+          deck_slots: deckSlots.length > 0 ? deckSlots : null,
         });
         setSelectedSpread({
           ...selectedSpread,
@@ -129,6 +148,7 @@ export default function SpreadsTab() {
           positions,
           allowed_deck_types: allowedDeckTypes,
           default_deck_id: defaultDeckId,
+          deck_slots: deckSlots,
         });
       }
       queryClient.invalidateQueries({ queryKey: ['spreads'] });
@@ -162,12 +182,10 @@ export default function SpreadsTab() {
                   <SpreadProperties
                     name={name}
                     description={description}
-                    allowedDeckTypes={allowedDeckTypes}
-                    defaultDeckId={defaultDeckId}
+                    deckSlots={deckSlots}
                     onNameChange={setName}
                     onDescriptionChange={setDescription}
-                    onAllowedTypesChange={setAllowedDeckTypes}
-                    onDefaultDeckChange={setDefaultDeckId}
+                    onDeckSlotsChange={setDeckSlots}
                   />
                 </div>
 
@@ -178,6 +196,7 @@ export default function SpreadsTab() {
                     onChange={setPositions}
                     selectedIndex={selectedIndex}
                     onSelectIndex={setSelectedIndex}
+                    deckSlots={deckSlots}
                   />
                 </div>
 

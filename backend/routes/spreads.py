@@ -24,6 +24,11 @@ def _parse_spread(d):
             d['allowed_deck_types'] = json.loads(d['allowed_deck_types'])
         except json.JSONDecodeError:
             d['allowed_deck_types'] = None
+    if d.get('deck_slots') and isinstance(d['deck_slots'], str):
+        try:
+            d['deck_slots'] = json.loads(d['deck_slots'])
+        except json.JSONDecodeError:
+            d['deck_slots'] = None
     return d
 
 
@@ -58,6 +63,7 @@ def add_spread():
         cartomancy_type=data.get('cartomancy_type'),
         allowed_deck_types=data.get('allowed_deck_types'),
         default_deck_id=data.get('default_deck_id'),
+        deck_slots=data.get('deck_slots'),
     )
     return jsonify({'id': spread_id}), 201
 
@@ -74,6 +80,7 @@ def update_spread(spread_id):
         allowed_deck_types=data.get('allowed_deck_types'),
         default_deck_id=data.get('default_deck_id'),
         clear_default_deck=data.get('clear_default_deck', False),
+        deck_slots=data.get('deck_slots'),
     )
     return jsonify({'ok': True})
 
@@ -104,5 +111,6 @@ def clone_spread(spread_id):
         cartomancy_type=original.get('cartomancy_type'),
         allowed_deck_types=original.get('allowed_deck_types'),
         default_deck_id=original.get('default_deck_id'),
+        deck_slots=original.get('deck_slots'),
     )
     return jsonify({'id': new_id}), 201

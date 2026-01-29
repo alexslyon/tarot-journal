@@ -75,13 +75,30 @@
 }
 
 .reading-editor__position-label {
-  width: 100px;
+  width: 120px;
   flex-shrink: 0;
   font-size: var(--font-size-small);
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.reading-editor__type-badge {
+  font-size: 9px;
+  padding: 1px 4px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.reading-editor__deck-select {
+  width: 120px;
+  flex-shrink: 0;
 }
 
 .reading-editor__card-select,
@@ -215,4 +232,59 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+/* ── Deck slots section ── */
+
+.reading-editor__slots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.reading-editor__slot-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reading-editor__slot-key {
+  width: 22px;
+  height: 22px;
+  background: var(--accent);
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.reading-editor__slot-label {
+  width: 80px;
+  flex-shrink: 0;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+}
+
+.reading-editor__slot-deck {
+  flex: 1;
+  min-width: 0;
+}
+
+.reading-editor__slot-badge {
+  font-size: 9px;
+  padding: 1px 4px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 3px;
+  margin-left: 4px;
+  font-weight: 700;
 }

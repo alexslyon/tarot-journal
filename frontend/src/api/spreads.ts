@@ -1,5 +1,5 @@
 import api from './client';
-import type { Spread, SpreadPosition } from '../types';
+import type { Spread, SpreadPosition, DeckSlot } from '../types';
 
 export async function getSpreads(): Promise<Spread[]> {
   const res = await api.get('/api/spreads');
@@ -18,6 +18,7 @@ export async function createSpread(data: {
   cartomancy_type?: string;
   allowed_deck_types?: string[];
   default_deck_id?: number | null;
+  deck_slots?: DeckSlot[];
 }): Promise<{ id: number }> {
   const res = await api.post('/api/spreads', data);
   return res.data;
@@ -30,6 +31,7 @@ export async function updateSpread(spreadId: number, data: {
   allowed_deck_types?: string[] | null;
   default_deck_id?: number | null;
   clear_default_deck?: boolean;
+  deck_slots?: DeckSlot[] | null;
 }): Promise<void> {
   await api.put(`/api/spreads/${spreadId}`, data);
 }
