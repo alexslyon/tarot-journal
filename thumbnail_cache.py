@@ -2,16 +2,19 @@
 Thumbnail caching system for fast image loading
 """
 
-import os
 import hashlib
-from pathlib import Path
-from PIL import Image, ImageOps
-from typing import Optional, Tuple
+import logging
+import os
 import threading
+from pathlib import Path
 from queue import Queue
-import time
+from typing import Optional, Tuple
+
+from PIL import Image, ImageOps
 
 from app_config import get_config
+
+logger = logging.getLogger(__name__)
 
 _cfg = get_config()
 
@@ -102,7 +105,7 @@ class ThumbnailCache:
             
             return img
         except Exception as e:
-            print(f"Error creating thumbnail for {image_path}: {e}")
+            logger.warning(f"Error creating thumbnail for {image_path}: {e}")
             return None
     
     def get_thumbnail_path(self, image_path: str, size: Tuple[int, int] = None) -> Optional[str]:

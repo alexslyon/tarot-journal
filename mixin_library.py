@@ -1148,9 +1148,10 @@ class LibraryMixin:
         if card['image_path']:
             thumb_path = self.thumb_cache.get_thumbnail_path(card['image_path'])
             if not thumb_path:
-                print(f"Failed to generate thumbnail for: {card['name'] if 'name' in card.keys() else 'unknown'}")
-                print(f"  Image path: {card['image_path']}")
-                print(f"  Path exists: {os.path.exists(card['image_path'])}")
+                logger.warning(
+                    f"Failed to generate thumbnail for: {card.get('name', 'unknown')} "
+                    f"(path: {card['image_path']}, exists: {os.path.exists(card['image_path'])})"
+                )
             if thumb_path:
                 try:
                     img = wx.Image(thumb_path, wx.BITMAP_TYPE_ANY)
@@ -1167,9 +1168,10 @@ class LibraryMixin:
                     bmp.Bind(wx.EVT_LEFT_DOWN, lambda e, cid=card['id']: self._on_card_click(e, cid))
                     bmp.Bind(wx.EVT_LEFT_DCLICK, lambda e, cid=card['id']: self._on_view_card(None, cid))
                 except Exception as e:
-                    print(f"Error loading thumbnail for card {card['name'] if 'name' in card.keys() else 'unknown'}: {e}")
-                    print(f"  Image path: {card['image_path']}")
-                    print(f"  Thumbnail path: {thumb_path}")
+                    logger.warning(
+                        f"Error loading thumbnail for card {card.get('name', 'unknown')}: {e} "
+                        f"(image: {card['image_path']}, thumb: {thumb_path})"
+                    )
                     self._add_placeholder(card_panel, card_sizer, card['id'])
             else:
                 self._add_placeholder(card_panel, card_sizer, card['id'])

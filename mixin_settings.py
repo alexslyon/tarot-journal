@@ -433,8 +433,9 @@ class SettingsMixin:
                 widget.SetBackgroundColour(get_wx_color('bg_primary'))
 
             widget.Refresh()
-        except Exception:
-            pass
+        except Exception as e:
+            # Some widgets may fail to update colors; log and continue
+            logger.debug(f"Failed to update colors for widget {type(widget).__name__}: {e}")
 
         # Recurse into children
         if hasattr(widget, 'GetChildren'):

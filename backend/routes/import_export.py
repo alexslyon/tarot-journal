@@ -1,12 +1,19 @@
 """
 Import/export endpoints -- deck import from folder, JSON export/import.
+
+Security: Folder paths are validated before scanning/importing to prevent
+path traversal attacks.
 """
 
 import os
 import json
 import tempfile
+import logging
 from flask import Blueprint, jsonify, request, current_app, send_file
 
+from backend.security import is_valid_directory
+
+logger = logging.getLogger(__name__)
 import_export_bp = Blueprint('import_export', __name__)
 
 
@@ -22,7 +29,9 @@ def scan_folder():
     preset_name = data.get('preset_name', '')
     custom_suit_names = data.get('custom_suit_names')
 
-    if not folder or not os.path.isdir(folder):
+    # Security: Validate the folder path
+    if not folder or not is_valid_directory(folder):
+        logger.warning(f"Invalid folder path for scan: {folder}")
         return jsonify({'error': 'Invalid folder path'}), 400
 
     from import_presets import ImportPresets
@@ -58,7 +67,9 @@ def import_from_folder():
     preset_name = data.get('preset_name', '')
     custom_suit_names = data.get('custom_suit_names')
 
-    if not folder or not os.path.isdir(folder):
+    # Security: Validate the folder path
+    if not folder or not is_valid_directory(folder):
+        logger.warning(f"Invalid folder path for import: {folder}")
         return jsonify({'error': 'Invalid folder path'}), 400
     if not deck_name:
         return jsonify({'error': 'Deck name is required'}), 400
@@ -112,8 +123,10 @@ def import_from_folder():
             if card.get('image_path'):
                 try:
                     thumb_cache.get_thumbnail(card['image_path'], (300, 450))
-                except Exception:
-                    pass
+                except Exception as e:
+                    # Log but continue - thumbnail generation failure shouldn't
+                    # block the import
+                    logger.warning(f"Failed to generate thumbnail for {card['image_path']}: {e}")
 
         return jsonify({
             'deck_id': deck_id,

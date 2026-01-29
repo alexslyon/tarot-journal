@@ -19,9 +19,12 @@ Example app_config.json:
 """
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULTS = {
@@ -81,8 +84,9 @@ class AppConfig:
                 with open(self.config_file, "r") as f:
                     saved = json.load(f)
                 _deep_merge(config, saved)
-            except Exception:
-                pass  # Fall back to defaults on any error
+            except (json.JSONDecodeError, IOError, OSError) as e:
+                # Fall back to defaults, but log the issue
+                logger.warning(f"Failed to load config from {self.config_file}: {e}")
         return config
 
     def get(self, section: str, key: str, fallback: Any = None) -> Any:
