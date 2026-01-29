@@ -1400,8 +1400,8 @@ class JournalMixin:
                                                               ((thumb_size - new_w) // 2, (thumb_size - new_h) // 2),
                                                               40, 40, 40)
                                                     img_idx = card_dlg._image_list.Add(wx.Bitmap(img))
-                                        except Exception:
-                                            pass
+                                        except Exception as e:
+                                            logger.debug("Failed to load card thumbnail: %s", e)
                                 idx = card_listctrl.InsertItem(card_listctrl.GetItemCount(), card['name'], img_idx)
                                 card_listctrl.SetItemData(idx, len(card_dlg._card_data) - 1)
 
@@ -1978,8 +1978,8 @@ class JournalMixin:
                                                               ((thumb_size - new_w) // 2, (thumb_size - new_h) // 2),
                                                               40, 40, 40)
                                                     img_idx = card_dlg._image_list.Add(wx.Bitmap(img))
-                                        except Exception:
-                                            pass
+                                        except Exception as e:
+                                            logger.debug("Failed to load card thumbnail: %s", e)
                                 idx = card_listctrl.InsertItem(card_listctrl.GetItemCount(), card['name'], img_idx)
                                 card_listctrl.SetItemData(idx, len(card_dlg._card_data) - 1)
 
