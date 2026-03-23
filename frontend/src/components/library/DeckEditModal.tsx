@@ -10,22 +10,11 @@ import { getDeckTags } from '../../api/tags';
 import { deckBackUrl } from '../../api/images';
 import { exportDeckUrl } from '../../api/importExport';
 import type { Deck, Tag, DeckCustomField, CardGroup } from '../../types';
+import { ensureHtml } from '../../utils/formatting';
 import { useToast } from '../../context/ToastContext';
 import Modal from '../common/Modal';
 import RichTextEditor from '../common/RichTextEditor';
 import './DeckEditModal.css';
-
-/** Convert plain text (with newlines) to HTML paragraphs if it doesn't already contain HTML tags. */
-function ensureHtml(text: string): string {
-  if (!text) return '';
-  // If it already contains HTML tags, return as-is
-  if (/<[a-z][\s\S]*>/i.test(text)) return text;
-  // Convert plain text: split on newlines, wrap each line in <p>
-  return text
-    .split('\n')
-    .map((line) => `<p>${line || '<br>'}</p>`)
-    .join('');
-}
 
 interface InitialDeckFormState {
   name: string;

@@ -51,19 +51,9 @@ def search_cards():
 @cards_bp.route('/api/cards/<int:card_id>')
 def get_card(card_id):
     db = current_app.config['DB']
-    row = db.get_card_with_metadata(card_id)
-    if not row:
+    card = db.get_card_full(card_id)
+    if not card:
         return jsonify({'error': 'Card not found'}), 404
-    card = row_to_dict(row)
-    # Add deck name
-    deck = db.get_deck(card['deck_id'])
-    card['deck_name'] = deck['name'] if deck else ''
-    # Add tags and groups
-    card['own_tags'] = [row_to_dict(t) for t in db.get_tags_for_card(card_id)]
-    card['inherited_tags'] = [row_to_dict(t) for t in db.get_inherited_tags_for_card(card_id)]
-    card['groups'] = [row_to_dict(g) for g in db.get_groups_for_card(card_id)]
-    # Add custom fields
-    card['card_custom_fields'] = [row_to_dict(f) for f in db.get_card_custom_fields(card_id)]
     return jsonify(card)
 
 

@@ -17,15 +17,7 @@ function hasDescriptionContent(desc: string | null | undefined): boolean {
   return desc.replace(/<[^>]*>/g, '').trim().length > 0;
 }
 
-/** Convert plain text (with newlines) to HTML paragraphs if needed. */
-function ensureHtml(text: string): string {
-  if (!text) return '';
-  if (/<[a-z][\s\S]*>/i.test(text)) return text;
-  return text
-    .split('\n')
-    .map((line) => `<p>${line || '<br>'}</p>`)
-    .join('');
-}
+import { ensureHtml } from '../../utils/formatting';
 import './SpreadsTab.css';
 
 export default function SpreadsTab() {

@@ -1,20 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { getCartomancyTypes } from '../../api/decks';
 import RichTextEditor from '../common/RichTextEditor';
+import { ensureHtml } from '../../utils/formatting';
 import type { DeckSlot } from '../../types';
 import './SpreadProperties.css';
-
-/** Convert plain text (with newlines) to HTML paragraphs if it doesn't already contain HTML tags. */
-function ensureHtml(text: string): string {
-  if (!text) return '';
-  // If it already contains HTML tags, return as-is
-  if (/<[a-z][\s\S]*>/i.test(text)) return text;
-  // Convert plain text: split on newlines, wrap each line in <p>
-  return text
-    .split('\n')
-    .map((line) => `<p>${line || '<br>'}</p>`)
-    .join('');
-}
 
 interface SpreadPropertiesProps {
   name: string;
