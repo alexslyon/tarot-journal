@@ -564,6 +564,66 @@ class CardsMixin:
         ''', (card_id,))
         return cursor.fetchone()
 
+    def get_card_full(self, card_id: int):
+        """Get a card with deck name, tags, groups, and custom fields in 4 queries.
+
+        Returns a dict with all the data the card detail endpoint needs,
+        instead of requiring 6 separate method calls from the route.
+        """
+        cursor = self.conn.cursor()
+
+        # 1. Card + deck name in one query via JOIN
+        cursor.execute('''
+            SELECT c.*, d.name as deck_name
+            FROM cards c
+            JOIN decks d ON d.id = c.deck_id
+            WHERE c.id = ?
+        ''', (card_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        card = dict(row)
+
+        # 2. Own tags (card-level)
+        cursor.execute('''
+            SELECT t.* FROM card_tags t
+            JOIN card_tag_assignments cta ON t.id = cta.tag_id
+            WHERE cta.card_id = ?
+            ORDER BY t.name
+        ''', (card_id,))
+        card['own_tags'] = [dict(r) for r in cursor.fetchall()]
+
+        # 3. Inherited tags (from parent deck)
+        cursor.execute('''
+            SELECT dt.* FROM deck_tags dt
+            JOIN deck_tag_assignments dta ON dt.id = dta.tag_id
+            WHERE dta.deck_id = ?
+            ORDER BY dt.name
+        ''', (card['deck_id'],))
+        card['inherited_tags'] = [dict(r) for r in cursor.fetchall()]
+
+        # 4. Groups
+        cursor.execute('''
+            SELECT g.* FROM card_groups g
+            JOIN card_group_assignments cga ON g.id = cga.group_id
+            WHERE cga.card_id = ?
+            ORDER BY g.sort_order, g.name
+        ''', (card_id,))
+        card['groups'] = [dict(r) for r in cursor.fetchall()]
+
+        # 5. Custom fields (ordered by deck definition)
+        cursor.execute('''
+            SELECT ccf.* FROM card_custom_fields ccf
+            JOIN cards c ON c.id = ccf.card_id
+            LEFT JOIN deck_custom_fields dcf
+                ON dcf.deck_id = c.deck_id AND dcf.field_name = ccf.field_name
+            WHERE ccf.card_id = ?
+            ORDER BY COALESCE(dcf.field_order, ccf.field_order, 9999), ccf.id
+        ''', (card_id,))
+        card['card_custom_fields'] = [dict(r) for r in cursor.fetchall()]
+
+        return card
+
     # === Deck Custom Fields ===
     def get_deck_custom_fields(self, deck_id: int):
         """Get custom field definitions for a deck"""

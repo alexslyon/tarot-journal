@@ -4,25 +4,9 @@ import { getDecks } from '../../api/decks';
 import { getCards } from '../../api/cards';
 import { getSpreads, getSpread } from '../../api/spreads';
 import { cardThumbnailUrl } from '../../api/images';
+import { deckMatchesType } from '../../utils/formatting';
 import type { Card, Deck, Spread, SpreadPosition, DeckSlot } from '../../types';
 import './ReadingEditor.css';
-
-/**
- * Check if a deck matches a required cartomancy type.
- * Supports both multi-type decks (cartomancy_types array) and legacy single-type (cartomancy_type string).
- */
-function deckMatchesType(deck: Deck, requiredType: string): boolean {
-  // "Any" matches all decks
-  if (requiredType === 'Any') {
-    return true;
-  }
-  // Check multi-type array first
-  if (deck.cartomancy_types && deck.cartomancy_types.length > 0) {
-    return deck.cartomancy_types.some(t => t.name === requiredType);
-  }
-  // Fall back to legacy single-type field
-  return deck.cartomancy_type === requiredType;
-}
 
 export interface ReadingData {
   spread_id: number | null;

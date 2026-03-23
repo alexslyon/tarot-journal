@@ -16,21 +16,7 @@ interface EntryViewerProps {
   onDeleted: () => void;
 }
 
-function formatDateTime(dateStr: string | null): string {
-  if (!dateStr) return '';
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleString(undefined, {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return dateStr;
-  }
-}
+import { formatDateTime } from '../../utils/formatting';
 
 export default function EntryViewer({ entryId, onEdit, onDeleted }: EntryViewerProps) {
   const queryClient = useQueryClient();
