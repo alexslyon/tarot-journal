@@ -496,6 +496,26 @@ class CoreMixin:
             self.conn.commit()
             self.conn.execute('PRAGMA foreign_keys = ON')
 
+        # Indexes for commonly queried foreign keys and search columns.
+        # These speed up filtering, joining, and sorting as data grows.
+        # "IF NOT EXISTS" means they're safe to run every startup.
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_cards_deck_id ON cards(deck_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_cards_card_order ON cards(deck_id, card_order)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_entry_readings_entry_id ON entry_readings(entry_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_entry_tags_entry_id ON entry_tags(entry_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_entry_tags_tag_id ON entry_tags(tag_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_deck_tag_assignments_deck_id ON deck_tag_assignments(deck_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_card_tag_assignments_card_id ON card_tag_assignments(card_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_card_group_assignments_card_id ON card_group_assignments(card_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_card_group_assignments_group_id ON card_group_assignments(group_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_card_groups_deck_id ON card_groups(deck_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_deck_type_assignments_deck_id ON deck_type_assignments(deck_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_follow_up_notes_entry_id ON follow_up_notes(entry_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_entry_querents_entry_id ON entry_querents(entry_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_journal_entries_created_at ON journal_entries(created_at DESC)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_card_custom_fields_card_id ON card_custom_fields(card_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_deck_custom_fields_deck_id ON deck_custom_fields(deck_id)')
+
         # Seed card archetypes if table is empty
         cursor.execute('SELECT COUNT(*) FROM card_archetypes')
         if cursor.fetchone()[0] == 0:

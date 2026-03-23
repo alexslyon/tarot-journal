@@ -20,4 +20,4 @@ app = create_app()
 
 if __name__ == '__main__':
     print(f"Starting Tarot Journal API on http://localhost:{PORT}")
-    app.run(host='127.0.0.1', port=PORT, debug=True)
+    app.run(host='127.0.0.1', port=PORT, debug=os.environ.get('FLASK_DEBUG', '0') == '1')
