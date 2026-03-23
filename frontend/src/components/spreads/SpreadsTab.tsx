@@ -292,6 +292,25 @@ export default function SpreadsTab() {
             positions={positions}
             selectedIndex={selectedIndex}
             onSelectIndex={setSelectedIndex}
+            onReorder={(from, to) => {
+              setPositions(prev => {
+                const next = [...prev];
+                const [moved] = next.splice(from, 1);
+                next.splice(to, 0, moved);
+                return next;
+              });
+              // Keep selection following the moved item
+              if (selectedIndex === from) {
+                setSelectedIndex(to);
+              } else if (selectedIndex !== null) {
+                // Adjust selection if it was between from and to
+                if (from < to && selectedIndex > from && selectedIndex <= to) {
+                  setSelectedIndex(selectedIndex - 1);
+                } else if (from > to && selectedIndex >= to && selectedIndex < from) {
+                  setSelectedIndex(selectedIndex + 1);
+                }
+              }
+            }}
           />
         </div>
       </div>

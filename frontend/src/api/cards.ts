@@ -16,6 +16,15 @@ export async function searchCards(params: Record<string, string | number | boole
   return res.data;
 }
 
+export async function addCard(data: { deck_id: number; name: string; card_order?: number }): Promise<{ id: number }> {
+  const res = await api.post('/api/cards', data);
+  return res.data;
+}
+
+export async function deleteCard(cardId: number) {
+  await api.delete(`/api/cards/${cardId}`);
+}
+
 export async function updateCard(cardId: number, data: Partial<Pick<Card, 'name' | 'card_order'>>) {
   await api.put(`/api/cards/${cardId}`, data);
 }
