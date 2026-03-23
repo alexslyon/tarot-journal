@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getEntry, deleteEntry } from '../../api/entries';
+import { useToast } from '../../context/ToastContext';
 import RichTextViewer from '../common/RichTextViewer';
 import SpreadDisplay from './SpreadDisplay';
 import FollowUpNotes from './FollowUpNotes';
@@ -33,6 +34,7 @@ function formatDateTime(dateStr: string | null): string {
 
 export default function EntryViewer({ entryId, onEdit, onDeleted }: EntryViewerProps) {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [viewingCardId, setViewingCardId] = useState<number | null>(null);
   const [editingCardId, setEditingCardId] = useState<number | null>(null);
 
@@ -68,6 +70,7 @@ export default function EntryViewer({ entryId, onEdit, onDeleted }: EntryViewerP
       onDeleted();
     } catch (err) {
       console.error('Failed to delete entry:', err);
+      showToast('Failed to delete entry.');
     }
   };
 

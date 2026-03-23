@@ -16,6 +16,7 @@ import {
   TAROT_SUITS,
   PLAYING_SUITS,
 } from '../../constants/importPresets';
+import { useToast } from '../../context/ToastContext';
 import Modal from '../common/Modal';
 import './ImportDeckModal.css';
 
@@ -38,6 +39,7 @@ type Step = 'configure' | 'preview' | 'importing' | 'done';
 
 export default function ImportDeckModal({ onClose, onImported }: ImportDeckModalProps) {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   const { data: types = [] } = useQuery({
     queryKey: ['cartomancy-types'],
@@ -136,6 +138,7 @@ export default function ImportDeckModal({ onClose, onImported }: ImportDeckModal
       })
       .catch((err) => {
         console.error('Failed to load preset info:', err);
+        showToast('Failed to load preset info, using defaults.', 'warning');
         // Fall back to Oracle defaults
         setDeckType('Oracle');
         setSuitNames(DEFAULT_SUIT_NAMES['Oracle']);

@@ -7,11 +7,13 @@ import {
   updateProfile,
   deleteProfile,
 } from '../../api/profiles';
+import { useToast } from '../../context/ToastContext';
 import type { Profile } from '../../types';
 import './ProfilesTab.css';
 
 export default function ProfilesTab() {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -76,7 +78,7 @@ export default function ProfilesTab() {
       setSaveStatus('saved');
     } catch (err) {
       console.error('Failed to save profile:', err);
-      setError('Failed to save profile.');
+      showToast('Failed to save profile.');
       setSaveStatus('idle');
     }
   }, [selectedId, isNew, name, gender, birthDate, birthTime, birthPlaceName, querentOnly, hidden, queryClient]);
@@ -144,7 +146,7 @@ export default function ProfilesTab() {
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
     } catch (err) {
       console.error('Failed to create profile:', err);
-      setError('Failed to create profile. Please try again.');
+      showToast('Failed to create profile.');
     } finally {
       setSaving(false);
     }
@@ -165,7 +167,7 @@ export default function ProfilesTab() {
       setIsNew(false);
     } catch (err) {
       console.error('Failed to delete profile:', err);
-      setError('Failed to delete profile. Please try again.');
+      showToast('Failed to delete profile.');
     }
   };
 

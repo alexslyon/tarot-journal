@@ -288,6 +288,9 @@ class DecksMixin:
 
     def delete_deck(self, deck_id: int):
         cursor = self.conn.cursor()
+        # Clear spread default_deck_id references (SQLite can't enforce
+        # ON DELETE SET NULL for columns added via ALTER TABLE)
+        cursor.execute('UPDATE spreads SET default_deck_id = NULL WHERE default_deck_id = ?', (deck_id,))
         cursor.execute('DELETE FROM decks WHERE id = ?', (deck_id,))
         self._commit()
 

@@ -10,6 +10,7 @@ import { getDeckGroups, getDeckCustomFields } from '../../api/decks';
 import type { DeckCustomField } from '../../types';
 import { cardPreviewUrl } from '../../api/images';
 import type { Tag, CardGroup } from '../../types';
+import { useToast } from '../../context/ToastContext';
 import Modal from '../common/Modal';
 import RichTextEditor from '../common/RichTextEditor';
 import './CardEditModal.css';
@@ -69,6 +70,7 @@ interface InitialCardFormState {
 
 export default function CardEditModal({ cardId, deckId, cardIds = [], onClose, onSaved, onNavigate }: CardEditModalProps) {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   const { data: card, isLoading } = useQuery<CardDetail>({
     queryKey: ['card-detail', cardId],
@@ -451,8 +453,7 @@ export default function CardEditModal({ cardId, deckId, cardIds = [], onClose, o
       }
     } catch (err) {
       console.error('Failed to save card:', err);
-      const message = err instanceof Error ? err.message : 'An unexpected error occurred';
-      setError(`Failed to save card: ${message}`);
+      showToast('Failed to save card.');
     } finally {
       setSaving(false);
     }

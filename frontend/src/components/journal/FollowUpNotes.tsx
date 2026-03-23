@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { addFollowUpNote, updateFollowUpNote, deleteFollowUpNote } from '../../api/entries';
+import { useToast } from '../../context/ToastContext';
 import RichTextEditor from '../common/RichTextEditor';
 import RichTextViewer from '../common/RichTextViewer';
 import type { FollowUpNote } from '../../types';
@@ -13,6 +14,7 @@ interface FollowUpNotesProps {
 
 export default function FollowUpNotes({ entryId, notes }: FollowUpNotesProps) {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [showAdd, setShowAdd] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editorContent, setEditorContent] = useState('');
@@ -46,7 +48,7 @@ export default function FollowUpNotes({ entryId, notes }: FollowUpNotesProps) {
       setEditorContent('');
     } catch (err) {
       console.error('Failed to save note:', err);
-      setError('Failed to save note. Please try again.');
+      showToast('Failed to save note.');
     } finally {
       setSaving(false);
     }
@@ -60,7 +62,7 @@ export default function FollowUpNotes({ entryId, notes }: FollowUpNotesProps) {
       queryClient.invalidateQueries({ queryKey: ['entry', entryId] });
     } catch (err) {
       console.error('Failed to delete note:', err);
-      setError('Failed to delete note. Please try again.');
+      showToast('Failed to delete note.');
     }
   };
 

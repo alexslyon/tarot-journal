@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './context/ThemeContext';
+import { ToastProvider } from './context/ToastContext';
 import TabNav, { type TabId } from './components/layout/TabNav';
 import LibraryTab from './components/library/LibraryTab';
 import JournalTab from './components/journal/JournalTab';
@@ -26,18 +27,20 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-          <TabNav activeTab={activeTab} onTabChange={setActiveTab} />
-          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            {activeTab === 'library' && <LibraryTab />}
-            {activeTab === 'journal' && <JournalTab />}
-            {activeTab === 'spreads' && <SpreadsTab />}
-            {activeTab === 'profiles' && <ProfilesTab />}
-            {activeTab === 'tags' && <TagsTab />}
-            {activeTab === 'stats' && <StatsTab />}
-            {activeTab === 'settings' && <SettingsTab />}
+        <ToastProvider>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+            <TabNav activeTab={activeTab} onTabChange={setActiveTab} />
+            <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+              {activeTab === 'library' && <LibraryTab />}
+              {activeTab === 'journal' && <JournalTab />}
+              {activeTab === 'spreads' && <SpreadsTab />}
+              {activeTab === 'profiles' && <ProfilesTab />}
+              {activeTab === 'tags' && <TagsTab />}
+              {activeTab === 'stats' && <StatsTab />}
+              {activeTab === 'settings' && <SettingsTab />}
+            </div>
           </div>
-        </div>
+        </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

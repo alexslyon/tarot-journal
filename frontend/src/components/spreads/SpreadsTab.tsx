@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { createSpread, updateSpread, deleteSpread, cloneSpread } from '../../api/spreads';
+import { useToast } from '../../context/ToastContext';
 import SpreadList from './SpreadList';
 import SpreadDesigner from './SpreadDesigner';
 import SpreadProperties from './SpreadProperties';
@@ -29,6 +30,7 @@ import './SpreadsTab.css';
 
 export default function SpreadsTab() {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [selectedSpread, setSelectedSpread] = useState<Spread | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -113,7 +115,7 @@ export default function SpreadsTab() {
       setEditing(false);
     } catch (err) {
       console.error('Failed to clone spread:', err);
-      setError('Failed to clone spread. Please try again.');
+      showToast('Failed to clone spread.');
     }
   };
 
@@ -129,7 +131,7 @@ export default function SpreadsTab() {
       setEditing(false);
     } catch (err) {
       console.error('Failed to delete spread:', err);
-      setError('Failed to delete spread. Please try again.');
+      showToast('Failed to delete spread.');
     }
   };
 
@@ -185,7 +187,7 @@ export default function SpreadsTab() {
       setEditing(false);
     } catch (err) {
       console.error('Failed to save spread:', err);
-      setError('Failed to save spread. Please try again.');
+      showToast('Failed to save spread.');
     } finally {
       setSaving(false);
     }
