@@ -2,127 +2,81 @@
 Tag endpoints -- CRUD for entry tags, deck tags, and card tags.
 """
 
-from flask import Blueprint, jsonify, request, current_app
-from backend.utils import row_to_dict
+from flask import Blueprint, jsonify, current_app
+from backend.utils import row_to_dict, require_json, validate_length
 
 tags_bp = Blueprint('tags', __name__)
 
 
-# ── Entry Tags ───────────────────────────────────────────────
+def _tag_crud(tag_type, get_all, get_one, add, update, delete):
+    """Register CRUD routes for a tag type (entry-tags, deck-tags, card-tags)."""
 
-@tags_bp.route('/api/entry-tags')
-def get_entry_tags():
-    """Get all available entry tags."""
-    db = current_app.config['DB']
-    rows = db.get_tags()
-    return jsonify([row_to_dict(r) for r in rows])
+    @tags_bp.route(f'/api/{tag_type}', endpoint=f'get_{tag_type}')
+    def get_tags():
+        db = current_app.config['DB']
+        rows = get_all(db)
+        return jsonify([row_to_dict(r) for r in rows])
 
+    @tags_bp.route(f'/api/{tag_type}', methods=['POST'], endpoint=f'add_{tag_type}')
+    @require_json
+    def add_tag(data):
+        db = current_app.config['DB']
+        name = data.get('name', '').strip()
+        if not name:
+            return jsonify({'error': 'name is required'}), 400
+        err = validate_length(name, field_name='name')
+        if err:
+            return jsonify({'error': err}), 400
+        tag_id = add(db, name=name, color=data.get('color', '#6B5B95'))
+        return jsonify({'id': tag_id}), 201
 
-@tags_bp.route('/api/entry-tags', methods=['POST'])
-def add_entry_tag():
-    db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
-    name = data.get('name', '').strip()
-    if not name:
-        return jsonify({'error': 'name is required'}), 400
-    tag_id = db.add_tag(name=name, color=data.get('color', '#6B5B95'))
-    return jsonify({'id': tag_id}), 201
+    @tags_bp.route(f'/api/{tag_type}/<int:tag_id>', methods=['PUT'], endpoint=f'update_{tag_type}')
+    @require_json
+    def update_tag(tag_id, data):
+        db = current_app.config['DB']
+        if not get_one(db, tag_id):
+            return jsonify({'error': 'Tag not found'}), 404
+        name = data.get('name')
+        if name:
+            err = validate_length(name, field_name='name')
+            if err:
+                return jsonify({'error': err}), 400
+        update(db, tag_id, name=name, color=data.get('color'))
+        return jsonify({'ok': True})
 
-
-@tags_bp.route('/api/entry-tags/<int:tag_id>', methods=['PUT'])
-def update_entry_tag(tag_id):
-    db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
-    db.update_tag(tag_id, name=data.get('name'), color=data.get('color'))
-    return jsonify({'ok': True})
-
-
-@tags_bp.route('/api/entry-tags/<int:tag_id>', methods=['DELETE'])
-def delete_entry_tag(tag_id):
-    db = current_app.config['DB']
-    db.delete_tag(tag_id)
-    return jsonify({'ok': True})
-
-
-# ── Deck Tags ────────────────────────────────────────────────
-
-@tags_bp.route('/api/deck-tags')
-def get_deck_tags():
-    """Get all available deck tags."""
-    db = current_app.config['DB']
-    rows = db.get_deck_tags()
-    return jsonify([row_to_dict(r) for r in rows])
+    @tags_bp.route(f'/api/{tag_type}/<int:tag_id>', methods=['DELETE'], endpoint=f'delete_{tag_type}')
+    def delete_tag(tag_id):
+        db = current_app.config['DB']
+        if not get_one(db, tag_id):
+            return jsonify({'error': 'Tag not found'}), 404
+        delete(db, tag_id)
+        return jsonify({'ok': True})
 
 
-@tags_bp.route('/api/deck-tags', methods=['POST'])
-def add_deck_tag():
-    db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
-    name = data.get('name', '').strip()
-    if not name:
-        return jsonify({'error': 'name is required'}), 400
-    tag_id = db.add_deck_tag(name=name, color=data.get('color', '#6B5B95'))
-    return jsonify({'id': tag_id}), 201
+# Register all three tag types
+_tag_crud(
+    'entry-tags',
+    get_all=lambda db: db.get_tags(),
+    get_one=lambda db, tid: db.get_tag(tid),
+    add=lambda db, **kw: db.add_tag(**kw),
+    update=lambda db, tid, **kw: db.update_tag(tid, **kw),
+    delete=lambda db, tid: db.delete_tag(tid),
+)
 
+_tag_crud(
+    'deck-tags',
+    get_all=lambda db: db.get_deck_tags(),
+    get_one=lambda db, tid: db.get_deck_tag(tid),
+    add=lambda db, **kw: db.add_deck_tag(**kw),
+    update=lambda db, tid, **kw: db.update_deck_tag(tid, **kw),
+    delete=lambda db, tid: db.delete_deck_tag(tid),
+)
 
-@tags_bp.route('/api/deck-tags/<int:tag_id>', methods=['PUT'])
-def update_deck_tag(tag_id):
-    db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
-    db.update_deck_tag(tag_id, name=data.get('name'), color=data.get('color'))
-    return jsonify({'ok': True})
-
-
-@tags_bp.route('/api/deck-tags/<int:tag_id>', methods=['DELETE'])
-def delete_deck_tag(tag_id):
-    db = current_app.config['DB']
-    db.delete_deck_tag(tag_id)
-    return jsonify({'ok': True})
-
-
-# ── Card Tags ────────────────────────────────────────────────
-
-@tags_bp.route('/api/card-tags')
-def get_card_tags():
-    """Get all available card tags."""
-    db = current_app.config['DB']
-    rows = db.get_card_tags()
-    return jsonify([row_to_dict(r) for r in rows])
-
-
-@tags_bp.route('/api/card-tags', methods=['POST'])
-def add_card_tag():
-    db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
-    name = data.get('name', '').strip()
-    if not name:
-        return jsonify({'error': 'name is required'}), 400
-    tag_id = db.add_card_tag(name=name, color=data.get('color', '#6B5B95'))
-    return jsonify({'id': tag_id}), 201
-
-
-@tags_bp.route('/api/card-tags/<int:tag_id>', methods=['PUT'])
-def update_card_tag(tag_id):
-    db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
-    db.update_card_tag(tag_id, name=data.get('name'), color=data.get('color'))
-    return jsonify({'ok': True})
-
-
-@tags_bp.route('/api/card-tags/<int:tag_id>', methods=['DELETE'])
-def delete_card_tag(tag_id):
-    db = current_app.config['DB']
-    db.delete_card_tag(tag_id)
-    return jsonify({'ok': True})
+_tag_crud(
+    'card-tags',
+    get_all=lambda db: db.get_card_tags(),
+    get_one=lambda db, tid: db.get_card_tag(tid),
+    add=lambda db, **kw: db.add_card_tag(**kw),
+    update=lambda db, tid, **kw: db.update_card_tag(tid, **kw),
+    delete=lambda db, tid: db.delete_card_tag(tid),
+)

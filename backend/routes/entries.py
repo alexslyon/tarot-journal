@@ -6,7 +6,7 @@ Also serves profiles and spreads needed by the journal editor.
 import json
 from flask import Blueprint, jsonify, request, current_app
 from backend.services.richtext import convert_content_to_html
-from backend.utils import row_to_dict
+from backend.utils import row_to_dict, require_json, validate_length
 
 entries_bp = Blueprint('entries', __name__)
 
@@ -186,11 +186,9 @@ def get_entry(entry_id):
 
 
 @entries_bp.route('/api/entries', methods=['POST'])
-def create_entry():
+@require_json
+def create_entry(data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     entry_id = db.add_entry(
         title=data.get('title'),
         content=data.get('content'),
@@ -205,11 +203,9 @@ def create_entry():
 
 
 @entries_bp.route('/api/entries/<int:entry_id>', methods=['PUT'])
-def update_entry(entry_id):
+@require_json
+def update_entry(entry_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     db.update_entry(
         entry_id,
         title=data.get('title'),
@@ -227,6 +223,8 @@ def update_entry(entry_id):
 @entries_bp.route('/api/entries/<int:entry_id>', methods=['DELETE'])
 def delete_entry(entry_id):
     db = current_app.config['DB']
+    if not db.get_entry(entry_id):
+        return jsonify({'error': 'Entry not found'}), 404
     db.delete_entry(entry_id)
     return jsonify({'ok': True})
 
@@ -246,11 +244,9 @@ def get_entry_readings(entry_id):
 
 
 @entries_bp.route('/api/entries/<int:entry_id>/readings', methods=['POST'])
-def add_entry_reading(entry_id):
+@require_json
+def add_entry_reading(entry_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     reading_id = db.add_entry_reading(
         entry_id,
         spread_id=data.get('spread_id'),
@@ -286,22 +282,18 @@ def get_follow_up_notes(entry_id):
 
 
 @entries_bp.route('/api/entries/<int:entry_id>/follow-up-notes', methods=['POST'])
-def add_follow_up_note(entry_id):
+@require_json
+def add_follow_up_note(entry_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     content = data.get('content', '')
     note_id = db.add_follow_up_note(entry_id, content)
     return jsonify({'id': note_id}), 201
 
 
 @entries_bp.route('/api/follow-up-notes/<int:note_id>', methods=['PUT'])
-def update_follow_up_note(note_id):
+@require_json
+def update_follow_up_note(note_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     db.update_follow_up_note(note_id, data.get('content', ''))
     return jsonify({'ok': True})
 
@@ -323,11 +315,9 @@ def get_entry_tags(entry_id):
 
 
 @entries_bp.route('/api/entries/<int:entry_id>/tags', methods=['PUT'])
-def set_entry_tags(entry_id):
+@require_json
+def set_entry_tags(entry_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     tag_ids = data.get('tag_ids', [])
     db.set_entry_tags(entry_id, tag_ids)
     return jsonify({'ok': True})
@@ -343,11 +333,9 @@ def get_entry_querents(entry_id):
 
 
 @entries_bp.route('/api/entries/<int:entry_id>/querents', methods=['PUT'])
-def set_entry_querents(entry_id):
+@require_json
+def set_entry_querents(entry_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     profile_ids = data.get('profile_ids', [])
     db.set_entry_querents(entry_id, profile_ids)
     return jsonify({'ok': True})
@@ -372,14 +360,15 @@ def get_profile(profile_id):
 
 
 @entries_bp.route('/api/profiles', methods=['POST'])
-def add_profile():
+@require_json
+def add_profile(data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     name = data.get('name', '').strip()
     if not name:
         return jsonify({'error': 'name is required'}), 400
+    err = validate_length(name, field_name='name')
+    if err:
+        return jsonify({'error': err}), 400
     profile_id = db.add_profile(
         name=name,
         gender=data.get('gender'),
@@ -395,11 +384,9 @@ def add_profile():
 
 
 @entries_bp.route('/api/profiles/<int:profile_id>', methods=['PUT'])
-def update_profile(profile_id):
+@require_json
+def update_profile(profile_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     db.update_profile(
         profile_id,
         name=data.get('name'),
@@ -418,6 +405,8 @@ def update_profile(profile_id):
 @entries_bp.route('/api/profiles/<int:profile_id>', methods=['DELETE'])
 def delete_profile(profile_id):
     db = current_app.config['DB']
+    if not db.get_profile(profile_id):
+        return jsonify({'error': 'Profile not found'}), 404
     db.delete_profile(profile_id)
     return jsonify({'ok': True})
 
@@ -440,12 +429,10 @@ def export_entries():
 
 
 @entries_bp.route('/api/entries/import', methods=['POST'])
-def import_entries():
+@require_json
+def import_entries(data):
     """Import entries from JSON data."""
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     merge_tags = data.get('merge_tags', True)
     entries_data = data.get('data', data)
     result = db.import_entries_from_json(entries_data, merge_tags=merge_tags)

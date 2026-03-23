@@ -4,7 +4,7 @@ Deck endpoints -- CRUD for card decks.
 
 import json
 from flask import Blueprint, jsonify, request, current_app
-from backend.utils import row_to_dict, sort_types
+from backend.utils import row_to_dict, sort_types, require_json, validate_length
 
 decks_bp = Blueprint('decks', __name__)
 
@@ -54,11 +54,9 @@ def get_deck(deck_id):
 
 
 @decks_bp.route('/api/decks', methods=['POST'])
-def add_deck():
+@require_json
+def add_deck(data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     name = data.get('name', '').strip()
     # Accept type_ids list or single cartomancy_type_id for backward compatibility
     type_ids = data.get('type_ids')
@@ -67,6 +65,9 @@ def add_deck():
         type_ids = [cartomancy_type_id] if cartomancy_type_id else []
     if not name or not type_ids:
         return jsonify({'error': 'name and type_ids (or cartomancy_type_id) are required'}), 400
+    err = validate_length(name, field_name='name')
+    if err:
+        return jsonify({'error': err}), 400
 
     deck_id = db.add_deck(
         name=name,
@@ -79,11 +80,9 @@ def add_deck():
 
 
 @decks_bp.route('/api/decks/<int:deck_id>', methods=['PUT'])
-def update_deck(deck_id):
+@require_json
+def update_deck(deck_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     db.update_deck(
         deck_id,
         name=data.get('name'),
@@ -103,6 +102,8 @@ def update_deck(deck_id):
 @decks_bp.route('/api/decks/<int:deck_id>', methods=['DELETE'])
 def delete_deck(deck_id):
     db = current_app.config['DB']
+    if not db.get_deck(deck_id):
+        return jsonify({'error': 'Deck not found'}), 404
     db.delete_deck(deck_id)
     return jsonify({'ok': True})
 
@@ -116,11 +117,9 @@ def get_deck_types(deck_id):
 
 
 @decks_bp.route('/api/decks/<int:deck_id>/types', methods=['PUT'])
-def set_deck_types(deck_id):
+@require_json
+def set_deck_types(deck_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     type_ids = data.get('type_ids', [])
     db.set_deck_types(deck_id, type_ids)
     return jsonify({'ok': True})
@@ -134,11 +133,9 @@ def get_suit_names(deck_id):
 
 
 @decks_bp.route('/api/decks/<int:deck_id>/suit-names', methods=['PUT'])
-def update_suit_names(deck_id):
+@require_json
+def update_suit_names(deck_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     suit_names = data.get('suit_names')
     old_suit_names = data.get('old_suit_names')
     db.update_deck_suit_names(deck_id, suit_names, old_suit_names)
@@ -153,11 +150,9 @@ def get_court_names(deck_id):
 
 
 @decks_bp.route('/api/decks/<int:deck_id>/court-names', methods=['PUT'])
-def update_court_names(deck_id):
+@require_json
+def update_court_names(deck_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     court_names = data.get('court_names')
     old_court_names = data.get('old_court_names')
     db.update_deck_court_names(deck_id, court_names, old_court_names)
@@ -172,11 +167,9 @@ def get_deck_tags(deck_id):
 
 
 @decks_bp.route('/api/decks/<int:deck_id>/tags', methods=['PUT'])
-def set_deck_tag_assignments(deck_id):
+@require_json
+def set_deck_tag_assignments(deck_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     tag_ids = data.get('tag_ids', [])
     db.set_deck_tags(deck_id, tag_ids)
     return jsonify({'ok': True})
@@ -192,11 +185,9 @@ def get_deck_custom_fields(deck_id):
 
 
 @decks_bp.route('/api/decks/<int:deck_id>/custom-fields', methods=['POST'])
-def add_deck_custom_field(deck_id):
+@require_json
+def add_deck_custom_field(deck_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     field_name = data.get('field_name', '').strip()
     if not field_name:
         return jsonify({'error': 'field_name is required'}), 400
@@ -211,11 +202,9 @@ def add_deck_custom_field(deck_id):
 
 
 @decks_bp.route('/api/decks/custom-fields/<int:field_id>', methods=['PUT'])
-def update_deck_custom_field(field_id):
+@require_json
+def update_deck_custom_field(field_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     db.update_deck_custom_field(
         field_id,
         field_name=data.get('field_name'),
@@ -241,11 +230,9 @@ def get_deck_groups(deck_id):
 
 
 @decks_bp.route('/api/decks/<int:deck_id>/groups', methods=['POST'])
-def add_deck_group(deck_id):
+@require_json
+def add_deck_group(deck_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     name = data.get('name', '').strip()
     color = data.get('color', '#6B5B95')
     if not name:
@@ -255,11 +242,9 @@ def add_deck_group(deck_id):
 
 
 @decks_bp.route('/api/groups/<int:group_id>', methods=['PUT'])
-def update_deck_group(group_id):
+@require_json
+def update_deck_group(group_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     db.update_card_group(group_id, name=data.get('name'), color=data.get('color'))
     return jsonify({'ok': True})
 
@@ -267,5 +252,7 @@ def update_deck_group(group_id):
 @decks_bp.route('/api/groups/<int:group_id>', methods=['DELETE'])
 def delete_deck_group(group_id):
     db = current_app.config['DB']
+    if not db.get_card_group(group_id):
+        return jsonify({'error': 'Group not found'}), 404
     db.delete_card_group(group_id)
     return jsonify({'ok': True})
