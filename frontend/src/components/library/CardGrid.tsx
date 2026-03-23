@@ -15,9 +15,10 @@ interface CardGridProps {
   selectedIds?: Set<number>;
   onSelectionChange?: (ids: Set<number>) => void;
   onBatchEdit?: () => void;
+  onAddCard?: () => void;
 }
 
-export default function CardGrid({ deckId, deckName, onCardClick, searchResults, searchLoading, selectedIds, onSelectionChange, onBatchEdit }: CardGridProps) {
+export default function CardGrid({ deckId, deckName, onCardClick, searchResults, searchLoading, selectedIds, onSelectionChange, onBatchEdit, onAddCard }: CardGridProps) {
   const { data: deckCards = [], isLoading: deckLoading } = useQuery({
     queryKey: ['cards', deckId],
     queryFn: () => getCards(deckId!),
@@ -64,6 +65,9 @@ export default function CardGrid({ deckId, deckName, onCardClick, searchResults,
       <div className="card-grid__header">
         <h2 className="card-grid__title">{title}</h2>
         <span className="card-grid__count">{cards.length} cards</span>
+        {onAddCard && !isSearchMode && (
+          <button className="card-grid__add-btn" onClick={onAddCard}>+ Add Cards</button>
+        )}
         {selectable && cards.length > 0 && (
           <div className="card-grid__sel-controls">
             <button className="card-grid__sel-btn" onClick={selCount === cards.length ? deselectAll : selectAll}>

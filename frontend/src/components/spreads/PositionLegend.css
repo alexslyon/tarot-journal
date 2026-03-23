@@ -70,3 +70,32 @@
   font-size: 14px;
   flex-shrink: 0;
 }
+
+.pos-legend__reorder {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.pos-legend__move-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 8px;
+  line-height: 1;
+  padding: 1px 4px;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.pos-legend__move-btn:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.pos-legend__move-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}

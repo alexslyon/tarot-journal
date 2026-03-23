@@ -59,6 +59,23 @@ export async function importFromFolder(data: ImportFromFolderParams): Promise<{
   return res.data;
 }
 
+export async function scanNewCards(deckId: number, folder: string): Promise<{
+  cards: { filename: string; name: string }[];
+  count: number;
+  existing_count: number;
+}> {
+  const res = await api.post('/api/import/scan-new-cards', { deck_id: deckId, folder });
+  return res.data;
+}
+
+export async function addCardsToDeck(deckId: number, folder: string): Promise<{
+  cards_added: number;
+  filenames: string[];
+}> {
+  const res = await api.post('/api/import/add-cards-to-deck', { deck_id: deckId, folder });
+  return res.data;
+}
+
 export function exportDeckUrl(deckId: number): string {
   return `${API_BASE}/api/export/deck/${deckId}`;
 }

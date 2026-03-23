@@ -162,6 +162,140 @@ def import_from_folder():
         return jsonify({'error': str(e)}), 500
 
 
+@import_export_bp.route('/api/import/add-cards-to-deck', methods=['POST'])
+def add_cards_to_deck():
+    """Scan a folder and add new card images to an existing deck."""
+    db = current_app.config['DB']
+    data = request.get_json()
+    if data is None:
+        return jsonify({'error': 'Invalid or missing JSON body'}), 400
+
+    deck_id = data.get('deck_id')
+    folder = data.get('folder', '').strip()
+
+    if not deck_id:
+        return jsonify({'error': 'deck_id is required'}), 400
+    if not folder or not is_valid_directory(folder):
+        logger.warning(f"Invalid folder path for add-cards: {folder}")
+        return jsonify({'error': 'Invalid folder path'}), 400
+
+    deck = db.get_deck(deck_id)
+    if not deck:
+        return jsonify({'error': 'Deck not found'}), 404
+
+    try:
+        # Get existing card image paths for this deck to avoid duplicates
+        existing_cards = db.get_cards(deck_id)
+        existing_paths = set()
+        for c in existing_cards:
+            c = dict(c)
+            if c.get('image_path'):
+                existing_paths.add(os.path.normpath(c['image_path']))
+
+        # Find image files in the folder
+        from backend.security import ALLOWED_IMAGE_EXTENSIONS
+        image_files = []
+        for f in sorted(os.listdir(folder)):
+            ext = os.path.splitext(f)[1].lower()
+            if ext in ALLOWED_IMAGE_EXTENSIONS:
+                full_path = os.path.normpath(os.path.join(folder, f))
+                # Skip only if the exact same path is already in the deck
+                if full_path in existing_paths:
+                    continue
+                image_files.append(f)
+
+        if not image_files:
+            return jsonify({'error': 'No new image files found in folder'}), 400
+
+        # Determine starting sort order
+        max_order = max((dict(c).get('card_order', 0) for c in existing_cards), default=-1)
+
+        # Build card data
+        cards = []
+        for i, filename in enumerate(image_files):
+            name = os.path.splitext(filename)[0]
+            # Clean up common filename patterns: replace underscores/hyphens, strip numbers
+            name = name.replace('_', ' ').replace('-', ' ').strip()
+            cards.append({
+                'name': name,
+                'image_path': os.path.join(folder, filename),
+                'sort_order': max_order + 1 + i,
+            })
+
+        db.bulk_add_cards(deck_id, cards, auto_metadata=False)
+
+        # Pre-generate thumbnails
+        thumb_cache = current_app.config['THUMB_CACHE']
+        for card_row in db.get_cards(deck_id):
+            card = dict(card_row)
+            if card.get('image_path') and os.path.join(folder, '') in card['image_path']:
+                try:
+                    thumb_cache.get_thumbnail(card['image_path'], (300, 450))
+                except Exception as e:
+                    logger.warning(f"Failed to generate thumbnail for {card['image_path']}: {e}")
+
+        return jsonify({
+            'cards_added': len(cards),
+            'filenames': [c['name'] for c in cards],
+        }), 201
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@import_export_bp.route('/api/import/scan-new-cards', methods=['POST'])
+def scan_new_cards():
+    """Scan a folder and preview which images would be added to a deck (skipping existing)."""
+    data = request.get_json()
+    if data is None:
+        return jsonify({'error': 'Invalid or missing JSON body'}), 400
+
+    deck_id = data.get('deck_id')
+    folder = data.get('folder', '').strip()
+
+    if not deck_id:
+        return jsonify({'error': 'deck_id is required'}), 400
+    if not folder or not is_valid_directory(folder):
+        return jsonify({'error': 'Invalid folder path'}), 400
+
+    db = current_app.config['DB']
+    deck = db.get_deck(deck_id)
+    if not deck:
+        return jsonify({'error': 'Deck not found'}), 404
+
+    try:
+        # Get existing image paths to skip exact duplicates
+        existing_cards = db.get_cards(deck_id)
+        existing_paths = set()
+        for c in existing_cards:
+            c = dict(c)
+            if c.get('image_path'):
+                existing_paths.add(os.path.normpath(c['image_path']))
+
+        from backend.security import ALLOWED_IMAGE_EXTENSIONS
+        new_cards = []
+        for f in sorted(os.listdir(folder)):
+            ext = os.path.splitext(f)[1].lower()
+            if ext in ALLOWED_IMAGE_EXTENSIONS:
+                full_path = os.path.normpath(os.path.join(folder, f))
+                if full_path in existing_paths:
+                    continue
+                name = os.path.splitext(f)[0].replace('_', ' ').replace('-', ' ').strip()
+                new_cards.append({
+                    'filename': f,
+                    'name': name,
+                })
+
+        return jsonify({
+            'cards': new_cards,
+            'count': len(new_cards),
+            'existing_count': len(existing_cards),
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @import_export_bp.route('/api/import/presets')
 def get_import_presets():
     """Get available import preset names."""

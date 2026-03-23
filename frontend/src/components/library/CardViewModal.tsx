@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import { getCard } from '../../api/cards';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getCard, deleteCard } from '../../api/cards';
 import { cardPreviewUrl } from '../../api/images';
+import { useToast } from '../../context/ToastContext';
 import type { Card, Tag, CardGroup } from '../../types';
 import Modal from '../common/Modal';
 import RichTextViewer from '../common/RichTextViewer';
@@ -12,6 +13,7 @@ interface CardViewModalProps {
   onClose: () => void;
   onNavigate: (cardId: number) => void;
   onEdit?: (cardId: number) => void;
+  onDeleted?: () => void;
 }
 
 interface CardDetail extends Card {
@@ -27,7 +29,10 @@ interface CardDetail extends Card {
   }>;
 }
 
-export default function CardViewModal({ cardId, cardIds, onClose, onNavigate, onEdit }: CardViewModalProps) {
+export default function CardViewModal({ cardId, cardIds, onClose, onNavigate, onEdit, onDeleted }: CardViewModalProps) {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+
   const { data: card, isLoading } = useQuery<CardDetail>({
     queryKey: ['card-detail', cardId],
     queryFn: () => getCard(cardId!),
@@ -197,6 +202,25 @@ export default function CardViewModal({ cardId, cardIds, onClose, onNavigate, on
           {onEdit && (
             <button onClick={() => onEdit(cardId)}>Edit</button>
           )}
+          <button
+            className="danger"
+            onClick={async () => {
+              if (!window.confirm(`Delete "${card?.name}"? This cannot be undone.`)) return;
+              try {
+                await deleteCard(cardId);
+                queryClient.invalidateQueries({ queryKey: ['cards'] });
+                queryClient.invalidateQueries({ queryKey: ['card-search'] });
+                queryClient.invalidateQueries({ queryKey: ['decks'] });
+                onDeleted?.();
+                onClose();
+              } catch (err) {
+                console.error('Failed to delete card:', err);
+                showToast('Failed to delete card.');
+              }
+            }}
+          >
+            Delete
+          </button>
           <button onClick={onClose}>Close</button>
         </div>
       </div>

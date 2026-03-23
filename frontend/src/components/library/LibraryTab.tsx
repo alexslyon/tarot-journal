@@ -9,6 +9,7 @@ import CardSearchBar, { type SearchFilters } from './CardSearchBar';
 import DeckEditModal from './DeckEditModal';
 import BatchEditModal from './BatchEditModal';
 import ImportDeckModal from './ImportDeckModal';
+import AddCardsModal from './AddCardsModal';
 import { getCards, searchCards } from '../../api/cards';
 import { getDeck } from '../../api/decks';
 import type { Deck, Card } from '../../types';
@@ -23,6 +24,7 @@ export default function LibraryTab() {
   const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
   const [showBatchEdit, setShowBatchEdit] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showAddCards, setShowAddCards] = useState(false);
 
   const deckId = selectedDeck?.id ?? null;
 
@@ -77,6 +79,7 @@ export default function LibraryTab() {
               selectedIds={selectedCardIds}
               onSelectionChange={setSelectedCardIds}
               onBatchEdit={() => setShowBatchEdit(true)}
+              onAddCard={deckId ? () => setShowAddCards(true) : undefined}
             />
           </div>
         </Panel>
@@ -91,6 +94,7 @@ export default function LibraryTab() {
           setViewingCardId(null);
           setEditingCardId(id);
         }}
+        onDeleted={() => setSelectedCardIds(new Set())}
       />
 
       <CardEditModal
@@ -129,6 +133,15 @@ export default function LibraryTab() {
             const deck = await getDeck(deckId);
             setSelectedDeck(deck);
           }}
+        />
+      )}
+
+      {showAddCards && deckId && (
+        <AddCardsModal
+          deckId={deckId}
+          deckName={selectedDeck?.name ?? ''}
+          onClose={() => setShowAddCards(false)}
+          onImported={() => {}}
         />
       )}
     </div>
