@@ -178,22 +178,37 @@ def export_deck(deck_id):
     if not data:
         return jsonify({'error': 'Deck not found'}), 404
 
-    # Write to temp file and send
+    # Write to temp file, send it, then clean up
     tmp = tempfile.NamedTemporaryFile(
         mode='w', suffix='.json', delete=False, prefix='deck_export_'
     )
-    json.dump(data, tmp, indent=2)
-    tmp.close()
+    try:
+        json.dump(data, tmp, indent=2)
+        tmp.close()
 
-    deck_name = data.get('deck', {}).get('name', 'deck')
-    safe_name = ''.join(c for c in deck_name if c.isalnum() or c in ' _-').strip()
+        deck_name = data.get('deck', {}).get('name', 'deck')
+        safe_name = ''.join(c for c in deck_name if c.isalnum() or c in ' _-').strip()
 
-    return send_file(
-        tmp.name,
-        as_attachment=True,
-        download_name=f'{safe_name}.json',
-        mimetype='application/json',
-    )
+        response = send_file(
+            tmp.name,
+            as_attachment=True,
+            download_name=f'{safe_name}.json',
+            mimetype='application/json',
+        )
+
+        # Delete the temp file after Flask finishes sending it
+        @response.call_on_close
+        def _cleanup():
+            try:
+                os.remove(tmp.name)
+            except OSError:
+                pass
+
+        return response
+    except Exception:
+        # Clean up if something goes wrong before the response is sent
+        os.remove(tmp.name)
+        raise
 
 
 @import_export_bp.route('/api/import/deck-json', methods=['POST'])
