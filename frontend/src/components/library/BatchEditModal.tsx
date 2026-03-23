@@ -4,6 +4,7 @@ import { updateCardMetadata, setCardTags, setCardGroups, getCard } from '../../a
 import { getCardTags } from '../../api/tags';
 import { getDeckGroups } from '../../api/decks';
 import type { Tag, CardGroup } from '../../types';
+import { useToast } from '../../context/ToastContext';
 import Modal from '../common/Modal';
 import './BatchEditModal.css';
 
@@ -20,6 +21,7 @@ type TagAction = 'skip' | 'add' | 'remove' | 'set';
 
 export default function BatchEditModal({ cardIds, deckId, onClose, onSaved }: BatchEditModalProps) {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   const { data: allTags = [] } = useQuery({
     queryKey: ['card-tags'],
@@ -153,9 +155,9 @@ export default function BatchEditModal({ cardIds, deckId, onClose, onSaved }: Ba
       setFailedCards(failed);
       const successCount = cardIds.length - failed.length;
       if (successCount === 0) {
-        setError(`Failed to update all ${failed.length} cards.`);
+        showToast(`Failed to update all ${failed.length} cards.`);
       } else {
-        setError(`Updated ${successCount} cards successfully, but ${failed.length} failed.`);
+        showToast(`Updated ${successCount} cards, but ${failed.length} failed.`, 'warning');
       }
       // Log full list to console for debugging
       if (failed.length > 10) {

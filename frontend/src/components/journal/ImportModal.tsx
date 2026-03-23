@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { importEntries } from '../../api/entries';
+import { useToast } from '../../context/ToastContext';
 import Modal from '../common/Modal';
 import './ImportModal.css';
 
@@ -12,6 +13,7 @@ type Step = 'upload' | 'importing' | 'done';
 
 export default function ImportModal({ onClose }: ImportModalProps) {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<Step>('upload');
@@ -57,9 +59,9 @@ export default function ImportModal({ onClose }: ImportModalProps) {
       queryClient.invalidateQueries({ queryKey: ['entries'] });
       queryClient.invalidateQueries({ queryKey: ['entry-tags'] });
     } catch (err) {
-      setError('Import failed. Please check the file format and try again.');
-      setStep('upload');
       console.error('Import error:', err);
+      showToast('Import failed. Please check the file format and try again.');
+      setStep('upload');
     }
   };
 

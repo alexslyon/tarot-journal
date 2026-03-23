@@ -10,6 +10,7 @@ import { getDeckTags } from '../../api/tags';
 import { deckBackUrl } from '../../api/images';
 import { exportDeckUrl } from '../../api/importExport';
 import type { Deck, Tag, DeckCustomField, CardGroup } from '../../types';
+import { useToast } from '../../context/ToastContext';
 import Modal from '../common/Modal';
 import RichTextEditor from '../common/RichTextEditor';
 import './DeckEditModal.css';
@@ -48,6 +49,7 @@ interface DeckEditModalProps {
 
 export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: DeckEditModalProps) {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   const { data: deck, isLoading } = useQuery<Deck>({
     queryKey: ['deck-detail', deckId],
@@ -354,6 +356,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
       refetchGroups();
     } catch (err) {
       console.error('Failed to add group:', err);
+      showToast('Failed to add group.');
     }
   };
 
@@ -363,6 +366,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
       refetchGroups();
     } catch (err) {
       console.error('Failed to update group:', err);
+      showToast('Failed to update group.');
     }
   };
 
@@ -372,6 +376,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
       refetchGroups();
     } catch (err) {
       console.error('Failed to delete group:', err);
+      showToast('Failed to delete group.');
     }
   };
 
@@ -414,7 +419,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
       onClose();
     } catch (err) {
       console.error('Failed to save deck:', err);
-      setError('Failed to save deck. Please try again.');
+      showToast('Failed to save deck.');
     } finally {
       setSaving(false);
     }
@@ -431,7 +436,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
       onClose();
     } catch (err) {
       console.error('Failed to delete deck:', err);
-      setError('Failed to delete deck. Please try again.');
+      showToast('Failed to delete deck.');
     } finally {
       setDeleting(false);
       setConfirmingDelete(false);

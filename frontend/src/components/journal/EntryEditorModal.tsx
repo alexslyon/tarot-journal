@@ -12,6 +12,7 @@ import {
 } from '../../api/entries';
 import { getEntryTags as getAllEntryTags } from '../../api/tags';
 import { getDefaults, type AppDefaults } from '../../api/settings';
+import { useToast } from '../../context/ToastContext';
 import Modal from '../common/Modal';
 import RichTextEditor from '../common/RichTextEditor';
 import ReadingEditor, { type ReadingData } from './ReadingEditor';
@@ -56,6 +57,7 @@ function nowLocalISO(): string {
 
 export default function EntryEditorModal({ entryId, open, onClose, onSaved }: EntryEditorModalProps) {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const isEditing = entryId !== null;
 
   // Load existing entry if editing
@@ -313,7 +315,7 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
       }
 
       if (failures.length > 0) {
-        setError(`Entry saved, but failed to save: ${failures.join(', ')}. Please try editing the entry again.`);
+        showToast(`Entry saved, but failed to save: ${failures.join(', ')}.`, 'warning');
         // Still close and notify - the entry was saved
         queryClient.invalidateQueries({ queryKey: ['entries'] });
         queryClient.invalidateQueries({ queryKey: ['entry-search'] });
@@ -333,8 +335,7 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
       onClose();
     } catch (err) {
       console.error('Failed to save entry:', err);
-      const message = err instanceof Error ? err.message : 'An unexpected error occurred';
-      setError(`Failed to save entry: ${message}`);
+      showToast('Failed to save entry.');
     } finally {
       setSaving(false);
     }

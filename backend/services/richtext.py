@@ -33,7 +33,7 @@ def convert_content_to_html(content: str | None) -> str:
     if stripped.startswith('<?xml') or stripped.startswith('<richtext'):
         try:
             return _convert_xml_to_html(stripped)
-        except Exception:
+        except ET.ParseError:
             # Fallback: strip tags and wrap as plain text
             plain = re.sub(r'<[^>]+>', '', stripped)
             return _plain_text_to_html(plain)
