@@ -47,21 +47,53 @@ export default function Modal({
     setShowConfirm(false);
   };
 
+  // Focus trap: keep Tab cycling within the modal
+  const contentRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!open) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (showConfirm) {
-          // If confirm dialog is open, Escape cancels it
           cancelClose();
         } else {
           attemptClose();
+        }
+      }
+      // Trap focus within modal
+      if (e.key === 'Tab' && contentRef.current) {
+        const focusable = contentRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
         }
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [open, onClose, isDirty, showConfirm]);
+
+  // Auto-focus the modal when it opens
+  useEffect(() => {
+    if (open && contentRef.current) {
+      const firstFocusable = contentRef.current.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      firstFocusable?.focus();
+    }
+  }, [open]);
 
   if (!open) return null;
 
@@ -74,11 +106,18 @@ export default function Modal({
         if (e.target === overlayRef.current) attemptClose();
       }}
     >
-      <div className="modal-content" style={{ maxWidth: width }}>
+      <div
+        className="modal-content"
+        style={{ maxWidth: width }}
+        ref={contentRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title || 'Dialog'}
+      >
         {title && (
           <div className="modal-header">
             <h2 className="modal-title">{title}</h2>
-            <button className="modal-close" onClick={attemptClose}>&times;</button>
+            <button className="modal-close" onClick={attemptClose} aria-label="Close">&times;</button>
           </div>
         )}
         <div className="modal-body">

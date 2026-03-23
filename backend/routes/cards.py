@@ -4,7 +4,7 @@ Card endpoints -- CRUD and search for individual cards.
 
 import json
 from flask import Blueprint, jsonify, request, current_app
-from backend.utils import row_to_dict
+from backend.utils import row_to_dict, require_json, validate_length
 
 cards_bp = Blueprint('cards', __name__)
 
@@ -58,15 +58,16 @@ def get_card(card_id):
 
 
 @cards_bp.route('/api/cards', methods=['POST'])
-def add_card():
+@require_json
+def add_card(data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     deck_id = data.get('deck_id')
     name = data.get('name', '').strip()
     if not deck_id or not name:
         return jsonify({'error': 'deck_id and name are required'}), 400
+    err = validate_length(name, field_name='name')
+    if err:
+        return jsonify({'error': err}), 400
     card_id = db.add_card(
         deck_id=deck_id,
         name=name,
@@ -77,11 +78,9 @@ def add_card():
 
 
 @cards_bp.route('/api/cards/<int:card_id>', methods=['PUT'])
-def update_card(card_id):
+@require_json
+def update_card(card_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     db.update_card(
         card_id,
         name=data.get('name'),
@@ -99,11 +98,9 @@ def delete_card(card_id):
 
 
 @cards_bp.route('/api/cards/<int:card_id>/metadata', methods=['PUT'])
-def update_card_metadata(card_id):
+@require_json
+def update_card_metadata(card_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     db.update_card_metadata(
         card_id,
         archetype=data.get('archetype'),
@@ -127,11 +124,9 @@ def get_card_tags(card_id):
 
 
 @cards_bp.route('/api/cards/<int:card_id>/tags', methods=['PUT'])
-def set_card_tag_assignments(card_id):
+@require_json
+def set_card_tag_assignments(card_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     tag_ids = data.get('tag_ids', [])
     db.set_card_tags(card_id, tag_ids)
     return jsonify({'ok': True})
@@ -145,11 +140,9 @@ def get_card_groups(card_id):
 
 
 @cards_bp.route('/api/cards/<int:card_id>/groups', methods=['PUT'])
-def set_card_group_assignments(card_id):
+@require_json
+def set_card_group_assignments(card_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     group_ids = data.get('group_ids', [])
     db.set_card_groups(card_id, group_ids)
     return jsonify({'ok': True})
@@ -163,11 +156,9 @@ def get_card_custom_fields(card_id):
 
 
 @cards_bp.route('/api/cards/<int:card_id>/custom-fields', methods=['POST'])
-def add_card_custom_field(card_id):
+@require_json
+def add_card_custom_field(card_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     field_name = data.get('field_name', '').strip()
     field_type = data.get('field_type', 'text')
     if not field_name:
@@ -184,11 +175,9 @@ def add_card_custom_field(card_id):
 
 
 @cards_bp.route('/api/cards/custom-fields/<int:field_id>', methods=['PUT'])
-def update_card_custom_field(field_id):
+@require_json
+def update_card_custom_field(field_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     db.update_card_custom_field(
         field_id,
         field_name=data.get('field_name'),

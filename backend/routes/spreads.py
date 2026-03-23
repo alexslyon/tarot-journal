@@ -4,7 +4,7 @@ Spread endpoints -- CRUD, clone for card spreads.
 
 import json
 from flask import Blueprint, jsonify, request, current_app
-from backend.utils import row_to_dict
+from backend.utils import row_to_dict, require_json, validate_length
 
 spreads_bp = Blueprint('spreads', __name__)
 
@@ -46,14 +46,15 @@ def get_spread(spread_id):
 
 
 @spreads_bp.route('/api/spreads', methods=['POST'])
-def add_spread():
+@require_json
+def add_spread(data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     name = data.get('name', '').strip()
     if not name:
         return jsonify({'error': 'name is required'}), 400
+    err = validate_length(name, field_name='name')
+    if err:
+        return jsonify({'error': err}), 400
 
     spread_id = db.add_spread(
         name=name,
@@ -68,11 +69,9 @@ def add_spread():
 
 
 @spreads_bp.route('/api/spreads/<int:spread_id>', methods=['PUT'])
-def update_spread(spread_id):
+@require_json
+def update_spread(spread_id, data):
     db = current_app.config['DB']
-    data = request.get_json()
-    if data is None:
-        return jsonify({'error': 'Invalid or missing JSON body'}), 400
     db.update_spread(
         spread_id,
         name=data.get('name'),
@@ -89,6 +88,8 @@ def update_spread(spread_id):
 @spreads_bp.route('/api/spreads/<int:spread_id>', methods=['DELETE'])
 def delete_spread(spread_id):
     db = current_app.config['DB']
+    if not db.get_spread(spread_id):
+        return jsonify({'error': 'Spread not found'}), 404
     db.delete_spread(spread_id)
     return jsonify({'ok': True})
 
