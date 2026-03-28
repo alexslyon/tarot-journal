@@ -7,6 +7,7 @@ serving all data over a REST API for the React frontend.
 
 import sys
 import os
+import atexit
 
 # Add the project root to Python path so we can import database.py, etc.
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -36,9 +37,13 @@ def create_app():
 
     # Use absolute path so Flask works regardless of working directory
     db_path = os.path.join(PROJECT_ROOT, 'tarot_journal.db')
-    app.config['DB'] = Database(db_path=db_path)
+    db = Database(db_path=db_path)
+    app.config['DB'] = db
     app.config['THUMB_CACHE'] = get_cache()
     app.config['THEME'] = get_theme()
+
+    # Ensure the database is properly closed (and WAL checkpointed) on exit
+    atexit.register(db.close)
 
     # Register route blueprints
     from backend.routes import register_blueprints
