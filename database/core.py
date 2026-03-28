@@ -653,6 +653,7 @@ class CoreMixin:
         """Close the database connection (safe to call more than once)."""
         if self.conn:
             try:
+                self.conn.execute('PRAGMA wal_checkpoint(TRUNCATE)')
                 self.conn.close()
             except Exception as e:
                 logger.debug("Error closing database connection: %s", e)
