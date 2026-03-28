@@ -7,6 +7,7 @@ Usage:
 
 import sys
 import os
+import signal
 
 # Ensure project root is on the path
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -18,6 +19,13 @@ from backend.config import PORT
 
 app = create_app()
 
+
+def _graceful_shutdown(signum, frame):
+    """Handle SIGTERM so atexit handlers (WAL checkpoint) actually run."""
+    sys.exit(0)
+
+
 if __name__ == '__main__':
+    signal.signal(signal.SIGTERM, _graceful_shutdown)
     print(f"Starting Tarot Journal API on http://localhost:{PORT}")
     app.run(host='127.0.0.1', port=PORT, debug=os.environ.get('FLASK_DEBUG', '0') == '1')
