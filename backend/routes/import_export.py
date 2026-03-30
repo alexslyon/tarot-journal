@@ -304,6 +304,90 @@ def get_import_presets():
     return jsonify(presets.get_preset_names())
 
 
+@import_export_bp.route('/api/import/presets/details')
+def get_import_presets_details():
+    """Get all presets with full details (for settings UI)."""
+    from import_presets import ImportPresets, BUILTIN_PRESETS
+    presets = ImportPresets()
+    result = []
+    for name in presets.get_preset_names():
+        preset = presets.get_preset(name)
+        if not preset:
+            continue
+        clean_name = name.replace("Custom: ", "")
+        is_builtin = clean_name in BUILTIN_PRESETS
+        is_customized = presets.is_preset_customized(name)
+        # Group mappings by card name for the UI:
+        # { "The Fool": ["00", "0", "fool"], ... }
+        mappings = preset.get('mappings', {})
+        grouped = {}
+        for pattern, card_name in mappings.items():
+            grouped.setdefault(card_name, []).append(pattern)
+
+        result.append({
+            'name': name,
+            'type': preset.get('type', 'Oracle'),
+            'description': preset.get('description', ''),
+            'suit_names': preset.get('suit_names', {}),
+            'card_count': len(set(mappings.values())) if mappings else 0,
+            'is_builtin': is_builtin,
+            'is_customized': is_customized,
+            'mappings_grouped': grouped,
+        })
+    return jsonify(result)
+
+
+@import_export_bp.route('/api/import/presets', methods=['POST'])
+def save_import_preset():
+    """Create or update a custom import preset."""
+    from import_presets import ImportPresets
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid JSON'}), 400
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'error': 'Name is required'}), 400
+    cartomancy_type = data.get('type', 'Oracle')
+    description = data.get('description', '')
+    suit_names = data.get('suit_names', {})
+    mappings = data.get('mappings')
+
+    presets = ImportPresets()
+    # If no mappings provided, preserve existing ones from the preset being edited
+    if mappings is None:
+        existing = presets.get_preset(name)
+        mappings = existing.get('mappings', {}) if existing else {}
+
+    presets.add_custom_preset(name, cartomancy_type, mappings, description, suit_names)
+    return jsonify({'ok': True})
+
+
+@import_export_bp.route('/api/import/presets/<path:name>', methods=['DELETE'])
+def delete_import_preset(name):
+    """Delete a custom import preset."""
+    from import_presets import ImportPresets, BUILTIN_PRESETS
+    presets = ImportPresets()
+    clean_name = name.replace("Custom: ", "")
+    # Can't delete a builtin unless it's been customized (in which case we revert it)
+    if clean_name in BUILTIN_PRESETS and clean_name not in presets.custom_presets:
+        return jsonify({'error': 'Cannot delete a built-in preset'}), 400
+    presets.delete_custom_preset(name)
+    return jsonify({'ok': True})
+
+
+@import_export_bp.route('/api/import/presets/<path:name>/reset', methods=['POST'])
+def reset_import_preset(name):
+    """Reset a customized built-in preset back to its default."""
+    from import_presets import ImportPresets, BUILTIN_PRESETS
+    if name not in BUILTIN_PRESETS:
+        return jsonify({'error': 'Not a built-in preset'}), 400
+    presets = ImportPresets()
+    if name in presets.custom_presets:
+        del presets.custom_presets[name]
+        presets._save_presets()
+    return jsonify({'ok': True})
+
+
 @import_export_bp.route('/api/export/deck/<int:deck_id>')
 def export_deck(deck_id):
     """Export a deck as JSON download."""

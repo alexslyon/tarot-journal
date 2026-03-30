@@ -248,6 +248,135 @@
   margin-bottom: 4px;
 }
 
+/* Import Presets */
+.settings-tab__preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.settings-tab__import-preset-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: var(--bg-primary);
+}
+
+.settings-tab__import-preset-row:hover {
+  background: var(--bg-tertiary);
+}
+
+.settings-tab__import-preset-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-tab__import-preset-name {
+  font-size: var(--font-size-body);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-tab__import-preset-badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.settings-tab__import-preset-badge--custom {
+  background: color-mix(in srgb, var(--success) 20%, transparent);
+  color: var(--success);
+}
+
+.settings-tab__import-preset-desc {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-tab__import-preset-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.settings-tab__import-preset-btn {
+  font-size: var(--font-size-small) !important;
+  padding: 3px 10px !important;
+}
+
+.settings-tab__import-preset-btn--danger {
+  color: var(--danger) !important;
+  border-color: var(--danger) !important;
+}
+
+.settings-tab__import-preset-btn--danger:hover {
+  background: var(--danger) !important;
+  color: var(--bg-primary) !important;
+}
+
+.settings-tab__add-preset-btn {
+  font-size: var(--font-size-body);
+  color: var(--accent) !important;
+  background: none !important;
+  border: 1px dashed var(--accent) !important;
+  width: 100%;
+  padding: 8px !important;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.settings-tab__add-preset-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+}
+
+.settings-tab__preset-editor {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.settings-tab__preset-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.settings-tab__suit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.settings-tab__label--small {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.settings-tab__mappings-toggle {
+  padding-top: 4px;
+}
+
+.settings-tab__preset-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 /* Backup */
 .settings-tab__last-backup {
   font-size: var(--font-size-small);

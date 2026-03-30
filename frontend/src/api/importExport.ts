@@ -34,6 +34,41 @@ export async function getImportPresets(): Promise<string[]> {
   return res.data;
 }
 
+export interface ImportPresetDetail {
+  name: string;
+  type: string;
+  description: string;
+  suit_names: Record<string, string>;
+  card_count: number;
+  is_builtin: boolean;
+  is_customized: boolean;
+  /** Card name → list of filename patterns that trigger it */
+  mappings_grouped: Record<string, string[]>;
+}
+
+export async function getImportPresetsDetails(): Promise<ImportPresetDetail[]> {
+  const res = await api.get('/api/import/presets/details');
+  return res.data;
+}
+
+export async function saveImportPreset(data: {
+  name: string;
+  type: string;
+  description: string;
+  suit_names: Record<string, string>;
+  mappings?: Record<string, string>;
+}): Promise<void> {
+  await api.post('/api/import/presets', data);
+}
+
+export async function deleteImportPreset(name: string): Promise<void> {
+  await api.delete(`/api/import/presets/${encodeURIComponent(name)}`);
+}
+
+export async function resetImportPreset(name: string): Promise<void> {
+  await api.post(`/api/import/presets/${encodeURIComponent(name)}/reset`);
+}
+
 export async function getPresetInfo(presetName: string): Promise<{
   type: string;
   suit_names?: Record<string, string>;
