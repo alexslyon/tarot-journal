@@ -1,0 +1,161 @@
+.mappings-editor {
+  margin-top: 12px;
+}
+
+.mappings-editor__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.mappings-editor__count {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.mappings-editor__search {
+  flex: 1;
+  max-width: 250px;
+  padding: 4px 8px;
+  font-size: var(--font-size-small);
+}
+
+.mappings-editor__list {
+  max-height: 350px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+}
+
+.mappings-editor__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+}
+
+.mappings-editor__row:last-child {
+  border-bottom: none;
+}
+
+.mappings-editor__row:hover {
+  background: var(--bg-tertiary);
+}
+
+.mappings-editor__card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.mappings-editor__card-name {
+  font-size: var(--font-size-body);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.mappings-editor__patterns {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mappings-editor__row-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.mappings-editor__row-btn {
+  font-size: 11px !important;
+  padding: 2px 8px !important;
+}
+
+.mappings-editor__row-btn--danger {
+  color: var(--danger) !important;
+  border-color: var(--danger) !important;
+}
+
+.mappings-editor__row-btn--danger:hover {
+  background: var(--danger) !important;
+  color: var(--bg-primary) !important;
+}
+
+/* Edit / Add forms */
+.mappings-editor__edit-form,
+.mappings-editor__add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 0;
+}
+
+.mappings-editor__add-form {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-top: 8px;
+  background: var(--bg-primary);
+}
+
+.mappings-editor__edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mappings-editor__edit-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mappings-editor__edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.mappings-editor__save-btn {
+  background: var(--accent) !important;
+  color: var(--text-primary) !important;
+}
+
+.mappings-editor__save-btn:hover {
+  background: var(--accent-hover) !important;
+}
+
+.mappings-editor__add-btn {
+  font-size: var(--font-size-small);
+  color: var(--accent) !important;
+  background: none !important;
+  border: 1px dashed var(--accent) !important;
+  width: 100%;
+  padding: 6px !important;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.mappings-editor__add-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+}
+
+.mappings-editor__empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: var(--font-size-body);
+}

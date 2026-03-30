@@ -43,6 +43,7 @@ wheels/
 # OS
 .DS_Store
 Thumbs.db
+.fuse_hidden*
 
 # Thumbnails and cache
 thumbnail_cache/
