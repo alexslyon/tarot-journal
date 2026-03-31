@@ -735,6 +735,189 @@ DEFAULT_CARD_BACK_PATTERNS = [
     "back_00", "back-00", "back00",
 ]
 
+# Grand Jeu de Mlle Lenormand (54 cards)
+# Also called the Astro-Mythological Lenormand.
+# 52 playing-card-based cards + 2 Consultant cards (Man/Woman).
+# Each card depicts a Greek mythological scene and belongs to one of five
+# thematic groups: The Golden Fleece, The Trojan War, The Hermetic Science,
+# The Order of Time (Zodiac), and The Unforeseen.
+GRAND_LENORMAND = {
+    # --- Clubs ---
+    # Ace of Clubs — Golden Fleece: Jason fights for the Golden Fleece
+    "aceofclubs": "Ace of Clubs", "clubsace": "Ace of Clubs", "clubs01": "Ace of Clubs",
+    "clubs1": "Ace of Clubs", "ac": "Ace of Clubs", "c01": "Ace of Clubs", "c1": "Ace of Clubs",
+    # 2 of Clubs — Unforeseen: Goddesses with gold pots by a river
+    "2ofclubs": "2 of Clubs", "clubs02": "2 of Clubs", "clubs2": "2 of Clubs",
+    "c02": "2 of Clubs", "c2": "2 of Clubs",
+    # 3 of Clubs — Hermetic Science: Alchemist observing dissolving matter
+    "3ofclubs": "3 of Clubs", "clubs03": "3 of Clubs", "clubs3": "3 of Clubs",
+    "c03": "3 of Clubs", "c3": "3 of Clubs",
+    # 4 of Clubs — Hermetic Science: Alchemist between containers
+    "4ofclubs": "4 of Clubs", "clubs04": "4 of Clubs", "clubs4": "4 of Clubs",
+    "c04": "4 of Clubs", "c4": "4 of Clubs",
+    # 5 of Clubs — Trojan War: Paris abducting Helen
+    "5ofclubs": "5 of Clubs", "clubs05": "5 of Clubs", "clubs5": "5 of Clubs",
+    "c05": "5 of Clubs", "c5": "5 of Clubs",
+    # 6 of Clubs — Trojan War: Paris and Menelaus in combat
+    "6ofclubs": "6 of Clubs", "clubs06": "6 of Clubs", "clubs6": "6 of Clubs",
+    "c06": "6 of Clubs", "c6": "6 of Clubs",
+    # 7 of Clubs — Zodiac/Capricorn: God Pan transforms into Capricorn
+    "7ofclubs": "7 of Clubs", "clubs07": "7 of Clubs", "clubs7": "7 of Clubs",
+    "c07": "7 of Clubs", "c7": "7 of Clubs",
+    # 8 of Clubs — Hermetic Science: Alchemist between two containers
+    "8ofclubs": "8 of Clubs", "clubs08": "8 of Clubs", "clubs8": "8 of Clubs",
+    "c08": "8 of Clubs", "c8": "8 of Clubs",
+    # 9 of Clubs — Golden Fleece/Zodiac: Hercules fighting the Lernaean Hydra
+    "9ofclubs": "9 of Clubs", "clubs09": "9 of Clubs", "clubs9": "9 of Clubs",
+    "c09": "9 of Clubs", "c9": "9 of Clubs",
+    # 10 of Clubs — Trojan War: Ulysses and Diomedes stealing Rhesus's horses
+    "10ofclubs": "10 of Clubs", "clubs10": "10 of Clubs",
+    "c10": "10 of Clubs",
+    # Jack of Clubs — Unforeseen: Hippomenes dropping golden apples before Atalanta
+    "jackofclubs": "Jack of Clubs", "clubsjack": "Jack of Clubs", "clubs11": "Jack of Clubs",
+    "jc": "Jack of Clubs", "c11": "Jack of Clubs",
+    # Queen of Clubs — Unforeseen: Three Hesperides guarding the golden apple tree
+    "queenofclubs": "Queen of Clubs", "clubsqueen": "Queen of Clubs", "clubs12": "Queen of Clubs",
+    "qc": "Queen of Clubs", "c12": "Queen of Clubs",
+    # King of Clubs — Golden Fleece: Phineas directing the Argonauts
+    "kingofclubs": "King of Clubs", "clubsking": "King of Clubs", "clubs13": "King of Clubs",
+    "kc": "King of Clubs", "c13": "King of Clubs",
+
+    # --- Diamonds ---
+    # Ace of Diamonds — Unforeseen: Harpocrates handing Mercury a letter
+    "aceofdiamonds": "Ace of Diamonds", "diamondsace": "Ace of Diamonds", "diamonds01": "Ace of Diamonds",
+    "diamonds1": "Ace of Diamonds", "ad": "Ace of Diamonds", "d01": "Ace of Diamonds", "d1": "Ace of Diamonds",
+    # 2 of Diamonds — Unforeseen: Child riding a goat (Zeus/Amalthea)
+    "2ofdiamonds": "2 of Diamonds", "diamonds02": "2 of Diamonds", "diamonds2": "2 of Diamonds",
+    "d02": "2 of Diamonds", "d2": "2 of Diamonds",
+    # 3 of Diamonds — Zodiac/Gemini: Castor and Pollux holding hands
+    "3ofdiamonds": "3 of Diamonds", "diamonds03": "3 of Diamonds", "diamonds3": "3 of Diamonds",
+    "d03": "3 of Diamonds", "d3": "3 of Diamonds",
+    # 4 of Diamonds — Golden Fleece: Medea giving Jason a package
+    "4ofdiamonds": "4 of Diamonds", "diamonds04": "4 of Diamonds", "diamonds4": "4 of Diamonds",
+    "d04": "4 of Diamonds", "d4": "4 of Diamonds",
+    # 5 of Diamonds — Zodiac/Scorpio: Phaeton dropping reins of the sun chariot
+    "5ofdiamonds": "5 of Diamonds", "diamonds05": "5 of Diamonds", "diamonds5": "5 of Diamonds",
+    "d05": "5 of Diamonds", "d5": "5 of Diamonds",
+    # 6 of Diamonds — Unforeseen: Mongoose in crocodile's jaws
+    "6ofdiamonds": "6 of Diamonds", "diamonds06": "6 of Diamonds", "diamonds6": "6 of Diamonds",
+    "d06": "6 of Diamonds", "d6": "6 of Diamonds",
+    # 7 of Diamonds — Unforeseen: Pandora opening the forbidden box
+    "7ofdiamonds": "7 of Diamonds", "diamonds07": "7 of Diamonds", "diamonds7": "7 of Diamonds",
+    "d07": "7 of Diamonds", "d7": "7 of Diamonds",
+    # 8 of Diamonds — Zodiac/Aquarius: Ganymede presenting ambrosia to the gods
+    "8ofdiamonds": "8 of Diamonds", "diamonds08": "8 of Diamonds", "diamonds8": "8 of Diamonds",
+    "d08": "8 of Diamonds", "d8": "8 of Diamonds",
+    # 9 of Diamonds — Golden Fleece: Argonauts embarking on the ship Argo
+    "9ofdiamonds": "9 of Diamonds", "diamonds09": "9 of Diamonds", "diamonds9": "9 of Diamonds",
+    "d09": "9 of Diamonds", "d9": "9 of Diamonds",
+    # 10 of Diamonds — Golden Fleece: Pelias giving Jason advice in his palace
+    "10ofdiamonds": "10 of Diamonds", "diamonds10": "10 of Diamonds",
+    "d10": "10 of Diamonds",
+    # Jack of Diamonds — Trojan War: Ulysses disguised seeking Achilles
+    "jackofdiamonds": "Jack of Diamonds", "diamondsjack": "Jack of Diamonds", "diamonds11": "Jack of Diamonds",
+    "jd": "Jack of Diamonds", "d11": "Jack of Diamonds",
+    # Queen of Diamonds — Trojan War: Wedding of Peleus and Thetis; Eris throws discord apple
+    "queenofdiamonds": "Queen of Diamonds", "diamondsqueen": "Queen of Diamonds", "diamonds12": "Queen of Diamonds",
+    "qd": "Queen of Diamonds", "d12": "Queen of Diamonds",
+    # King of Diamonds — Unforeseen: Minerva receiving Hermes about Rhodes snake invasion
+    "kingofdiamonds": "King of Diamonds", "diamondsking": "King of Diamonds", "diamonds13": "King of Diamonds",
+    "kd": "King of Diamonds", "d13": "King of Diamonds",
+
+    # --- Spades ---
+    # Ace of Spades — Zodiac/Taurus: Jupiter as bull carrying Europa across the sea
+    "aceofspades": "Ace of Spades", "spadesace": "Ace of Spades", "spades01": "Ace of Spades",
+    "spades1": "Ace of Spades", "as": "Ace of Spades", "s01": "Ace of Spades", "s1": "Ace of Spades",
+    # 2 of Spades — Trojan War: Greek princes consulting prophet Calchas
+    "2ofspades": "2 of Spades", "spades02": "2 of Spades", "spades2": "2 of Spades",
+    "s02": "2 of Spades", "s2": "2 of Spades",
+    # 3 of Spades — Unforeseen: The Three Fates (Clotho, Lachesis, Atropos)
+    "3ofspades": "3 of Spades", "spades03": "3 of Spades", "spades3": "3 of Spades",
+    "s03": "3 of Spades", "s3": "3 of Spades",
+    # 4 of Spades — Unforeseen: Juno disguised as old woman deceiving Semele
+    "4ofspades": "4 of Spades", "spades04": "4 of Spades", "spades4": "4 of Spades",
+    "s04": "4 of Spades", "s4": "4 of Spades",
+    # 5 of Spades — Zodiac/Sagittarius: Centaur Chiron transformed into Sagittarius
+    "5ofspades": "5 of Spades", "spades05": "5 of Spades", "spades5": "5 of Spades",
+    "s05": "5 of Spades", "s5": "5 of Spades",
+    # 6 of Spades — Trojan War: Wooden horse entering Troy
+    "6ofspades": "6 of Spades", "spades06": "6 of Spades", "spades6": "6 of Spades",
+    "s06": "6 of Spades", "s6": "6 of Spades",
+    # 7 of Spades — Hermetic Science: Alchemist introducing raw materials
+    "7ofspades": "7 of Spades", "spades07": "7 of Spades", "spades7": "7 of Spades",
+    "s07": "7 of Spades", "s7": "7 of Spades",
+    # 8 of Spades — Trojan War: Achilles dragging Hector's corpse
+    "8ofspades": "8 of Spades", "spades08": "8 of Spades", "spades8": "8 of Spades",
+    "s08": "8 of Spades", "s8": "8 of Spades",
+    # 9 of Spades — Trojan War: Iris bringing news to Helen
+    "9ofspades": "9 of Spades", "spades09": "9 of Spades", "spades9": "9 of Spades",
+    "s09": "9 of Spades", "s9": "9 of Spades",
+    # 10 of Spades — Unforeseen: Laverna (goddess of thieves) with wolves
+    "10ofspades": "10 of Spades", "spades10": "10 of Spades",
+    "s10": "10 of Spades",
+    # Jack of Spades — Zodiac/Libra: Philosopher with balance weighing materials
+    "jackofspades": "Jack of Spades", "spadesjack": "Jack of Spades", "spades11": "Jack of Spades",
+    "js": "Jack of Spades", "s11": "Jack of Spades",
+    # Queen of Spades — Unforeseen: Isis discovering dead Osiris
+    "queenofspades": "Queen of Spades", "spadesqueen": "Queen of Spades", "spades12": "Queen of Spades",
+    "qs": "Queen of Spades", "s12": "Queen of Spades",
+    # King of Spades — Unforeseen: Menes presiding over a legal plea
+    "kingofspades": "King of Spades", "spadesking": "King of Spades", "spades13": "King of Spades",
+    "ks": "King of Spades", "s13": "King of Spades",
+
+    # --- Hearts ---
+    # Ace of Hearts — Unforeseen: Danaus surrounded by his fifty daughters
+    "aceofhearts": "Ace of Hearts", "heartsace": "Ace of Hearts", "hearts01": "Ace of Hearts",
+    "hearts1": "Ace of Hearts", "ah": "Ace of Hearts", "h01": "Ace of Hearts", "h1": "Ace of Hearts",
+    # 2 of Hearts — Unforeseen: Covey of partridges stopped by a dog
+    "2ofhearts": "2 of Hearts", "hearts02": "2 of Hearts", "hearts2": "2 of Hearts",
+    "h02": "2 of Hearts", "h2": "2 of Hearts",
+    # 3 of Hearts — Unforeseen: Baboon holding a roll of paper
+    "3ofhearts": "3 of Hearts", "hearts03": "3 of Hearts", "hearts3": "3 of Hearts",
+    "h03": "3 of Hearts", "h3": "3 of Hearts",
+    # 4 of Hearts — Zodiac/Pisces: Venus and Cupid on dolphin backs
+    "4ofhearts": "4 of Hearts", "hearts04": "4 of Hearts", "hearts4": "4 of Hearts",
+    "h04": "4 of Hearts", "h4": "4 of Hearts",
+    # 5 of Hearts — Unforeseen: Two gentlemen received by a king
+    "5ofhearts": "5 of Hearts", "hearts05": "5 of Hearts", "hearts5": "5 of Hearts",
+    "h05": "5 of Hearts", "h5": "5 of Hearts",
+    # 6 of Hearts — Hermetic Science: Alchemist observing gold transformation
+    "6ofhearts": "6 of Hearts", "hearts06": "6 of Hearts", "hearts6": "6 of Hearts",
+    "h06": "6 of Hearts", "h6": "6 of Hearts",
+    # 7 of Hearts — Hermetic Science: Alchemist with solvent and philosopher's lamp
+    "7ofhearts": "7 of Hearts", "hearts07": "7 of Hearts", "hearts7": "7 of Hearts",
+    "h07": "7 of Hearts", "h7": "7 of Hearts",
+    # 8 of Hearts — Unforeseen: Eagle taking a toad over a pond
+    "8ofhearts": "8 of Hearts", "hearts08": "8 of Hearts", "hearts8": "8 of Hearts",
+    "h08": "8 of Hearts", "h8": "8 of Hearts",
+    # 9 of Hearts — Zodiac/Leo: Hercules subduing the Nemean lion
+    "9ofhearts": "9 of Hearts", "hearts09": "9 of Hearts", "hearts9": "9 of Hearts",
+    "h09": "9 of Hearts", "h9": "9 of Hearts",
+    # 10 of Hearts — Hermetic Science: Alchemist contemplating whitened matter
+    "10ofhearts": "10 of Hearts", "hearts10": "10 of Hearts",
+    "h10": "10 of Hearts",
+    # Jack of Hearts — Zodiac/Aries: Jupiter (ram-headed) shows Bacchus a spring
+    "jackofhearts": "Jack of Hearts", "heartsjack": "Jack of Hearts", "hearts11": "Jack of Hearts",
+    "jh": "Jack of Hearts", "h11": "Jack of Hearts",
+    # Queen of Hearts — Zodiac/Virgo: Jupiter pointing out Astraea's place in heaven
+    "queenofhearts": "Queen of Hearts", "heartsqueen": "Queen of Hearts", "hearts12": "Queen of Hearts",
+    "qh": "Queen of Hearts", "h12": "Queen of Hearts",
+    # King of Hearts — Unforeseen: King with harp
+    "kingofhearts": "King of Hearts", "heartsking": "King of Hearts", "hearts13": "King of Hearts",
+    "kh": "King of Hearts", "h13": "King of Hearts",
+
+    # --- Consultant cards ---
+    # Male Consultant
+    "man": "Man (Consultant)", "male": "Man (Consultant)", "consultant": "Man (Consultant)",
+    "consultantman": "Man (Consultant)", "maleconsultant": "Man (Consultant)",
+    "53": "Man (Consultant)",
+    # Female Consultant
+    "woman": "Woman (Consultant)", "female": "Woman (Consultant)",
+    "consultantwoman": "Woman (Consultant)", "femaleconsultant": "Woman (Consultant)",
+    "54": "Woman (Consultant)",
+}
+
+
 BUILTIN_PRESETS = {
     "Tarot (RWS Ordering)": {
         "type": "Tarot",
@@ -768,6 +951,13 @@ BUILTIN_PRESETS = {
         "type": "Lenormand",
         "mappings": STANDARD_LENORMAND,
         "description": "Standard 36-card Lenormand deck",
+        "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
+    },
+    "Grand Lenormand (54 cards)": {
+        "type": "Lenormand",
+        "mappings": GRAND_LENORMAND,
+        "description": "Grand Jeu de Mlle Lenormand (Astro-Mythological). 52 playing-card-based cards with Greek mythology scenes + 2 Consultant cards. Five groups: Golden Fleece, Trojan War, Hermetic Science, Zodiac, The Unforeseen.",
         "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"},
         "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
