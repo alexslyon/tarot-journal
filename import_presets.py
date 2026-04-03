@@ -1361,6 +1361,9 @@ class ImportPresets:
             return self._get_tarot_metadata(card_name, sort_order, custom_suit_names, preset_name,
                                             custom_court_names, archetype_mapping)
         elif preset_type == 'Lenormand':
+            is_grand = preset_name and 'grand' in preset_name.lower()
+            if is_grand:
+                return self._get_grand_lenormand_metadata(card_name, sort_order)
             return self._get_lenormand_metadata(card_name, sort_order)
         elif preset_type == 'Kipper':
             return self._get_kipper_metadata(card_name, sort_order)
@@ -1393,6 +1396,9 @@ class ImportPresets:
                 # For standard Tarot, map sort_order to card position
                 return self._get_tarot_metadata_by_position(sort_order, preset_name)
         elif preset_type == 'Lenormand':
+            is_grand = preset_name and 'grand' in preset_name.lower()
+            if is_grand:
+                return self._get_grand_lenormand_metadata(placeholder_name, sort_order)
             return self._get_lenormand_metadata_by_position(sort_order)
         elif preset_type == 'Kipper':
             return self._get_kipper_metadata_by_position(sort_order)
@@ -2121,6 +2127,94 @@ class ImportPresets:
             'sort_order': sort_order
         }
 
+    def _get_grand_lenormand_metadata(self, card_name: str, sort_order: int) -> dict:
+        """Get metadata for a Grand Lenormand (54-card) card.
+
+        Sort order follows suit order: Clubs 1-13, Diamonds 14-26, Spades 27-39,
+        Hearts 40-52, Man Consultant 53, Woman Consultant 54.
+        """
+        # Grand Lenormand cards: (archetype, sort_order, rank, suit)
+        grand_lenormand_cards = {
+            # Clubs (1-13)
+            'ace of clubs': ('Ace of Clubs', 1, 'Ace', 'Clubs'),
+            '2 of clubs': ('2 of Clubs', 2, '2', 'Clubs'),
+            '3 of clubs': ('3 of Clubs', 3, '3', 'Clubs'),
+            '4 of clubs': ('4 of Clubs', 4, '4', 'Clubs'),
+            '5 of clubs': ('5 of Clubs', 5, '5', 'Clubs'),
+            '6 of clubs': ('6 of Clubs', 6, '6', 'Clubs'),
+            '7 of clubs': ('7 of Clubs', 7, '7', 'Clubs'),
+            '8 of clubs': ('8 of Clubs', 8, '8', 'Clubs'),
+            '9 of clubs': ('9 of Clubs', 9, '9', 'Clubs'),
+            '10 of clubs': ('10 of Clubs', 10, '10', 'Clubs'),
+            'jack of clubs': ('Jack of Clubs', 11, 'Jack', 'Clubs'),
+            'queen of clubs': ('Queen of Clubs', 12, 'Queen', 'Clubs'),
+            'king of clubs': ('King of Clubs', 13, 'King', 'Clubs'),
+            # Diamonds (14-26)
+            'ace of diamonds': ('Ace of Diamonds', 14, 'Ace', 'Diamonds'),
+            '2 of diamonds': ('2 of Diamonds', 15, '2', 'Diamonds'),
+            '3 of diamonds': ('3 of Diamonds', 16, '3', 'Diamonds'),
+            '4 of diamonds': ('4 of Diamonds', 17, '4', 'Diamonds'),
+            '5 of diamonds': ('5 of Diamonds', 18, '5', 'Diamonds'),
+            '6 of diamonds': ('6 of Diamonds', 19, '6', 'Diamonds'),
+            '7 of diamonds': ('7 of Diamonds', 20, '7', 'Diamonds'),
+            '8 of diamonds': ('8 of Diamonds', 21, '8', 'Diamonds'),
+            '9 of diamonds': ('9 of Diamonds', 22, '9', 'Diamonds'),
+            '10 of diamonds': ('10 of Diamonds', 23, '10', 'Diamonds'),
+            'jack of diamonds': ('Jack of Diamonds', 24, 'Jack', 'Diamonds'),
+            'queen of diamonds': ('Queen of Diamonds', 25, 'Queen', 'Diamonds'),
+            'king of diamonds': ('King of Diamonds', 26, 'King', 'Diamonds'),
+            # Spades (27-39)
+            'ace of spades': ('Ace of Spades', 27, 'Ace', 'Spades'),
+            '2 of spades': ('2 of Spades', 28, '2', 'Spades'),
+            '3 of spades': ('3 of Spades', 29, '3', 'Spades'),
+            '4 of spades': ('4 of Spades', 30, '4', 'Spades'),
+            '5 of spades': ('5 of Spades', 31, '5', 'Spades'),
+            '6 of spades': ('6 of Spades', 32, '6', 'Spades'),
+            '7 of spades': ('7 of Spades', 33, '7', 'Spades'),
+            '8 of spades': ('8 of Spades', 34, '8', 'Spades'),
+            '9 of spades': ('9 of Spades', 35, '9', 'Spades'),
+            '10 of spades': ('10 of Spades', 36, '10', 'Spades'),
+            'jack of spades': ('Jack of Spades', 37, 'Jack', 'Spades'),
+            'queen of spades': ('Queen of Spades', 38, 'Queen', 'Spades'),
+            'king of spades': ('King of Spades', 39, 'King', 'Spades'),
+            # Hearts (40-52)
+            'ace of hearts': ('Ace of Hearts', 40, 'Ace', 'Hearts'),
+            '2 of hearts': ('2 of Hearts', 41, '2', 'Hearts'),
+            '3 of hearts': ('3 of Hearts', 42, '3', 'Hearts'),
+            '4 of hearts': ('4 of Hearts', 43, '4', 'Hearts'),
+            '5 of hearts': ('5 of Hearts', 44, '5', 'Hearts'),
+            '6 of hearts': ('6 of Hearts', 45, '6', 'Hearts'),
+            '7 of hearts': ('7 of Hearts', 46, '7', 'Hearts'),
+            '8 of hearts': ('8 of Hearts', 47, '8', 'Hearts'),
+            '9 of hearts': ('9 of Hearts', 48, '9', 'Hearts'),
+            '10 of hearts': ('10 of Hearts', 49, '10', 'Hearts'),
+            'jack of hearts': ('Jack of Hearts', 50, 'Jack', 'Hearts'),
+            'queen of hearts': ('Queen of Hearts', 51, 'Queen', 'Hearts'),
+            'king of hearts': ('King of Hearts', 52, 'King', 'Hearts'),
+            # Consultants (53-54)
+            'man (consultant)': ('Man (Consultant)', 53, 'Consultant', None),
+            'woman (consultant)': ('Woman (Consultant)', 54, 'Consultant', None),
+        }
+
+        name_lower = card_name.lower()
+        # Sort by key length descending so "woman (consultant)" matches before "man (consultant)"
+        sorted_items = sorted(grand_lenormand_cards.items(), key=lambda x: len(x[0]), reverse=True)
+        for key, (archetype, card_number, rank, suit) in sorted_items:
+            if key in name_lower:
+                return {
+                    'archetype': archetype,
+                    'rank': rank,
+                    'suit': suit,
+                    'sort_order': card_number
+                }
+
+        return {
+            'archetype': None,
+            'rank': None,
+            'suit': None,
+            'sort_order': sort_order
+        }
+
     def _get_lenormand_metadata(self, card_name: str, sort_order: int) -> dict:
         """Get metadata for a Lenormand card.
 
@@ -2383,9 +2477,11 @@ class ImportPresets:
             if preset_type == 'I Ching':
                 if 1 <= extracted_num <= 64:
                     return extracted_num
-            # For Lenormand, validate range 1-36
+            # For Lenormand, validate range 1-36 (Petit) or 1-54 (Grand)
             elif preset_type == 'Lenormand':
-                if 1 <= extracted_num <= 36:
+                is_grand = preset_name and 'grand' in preset_name.lower()
+                max_card = 54 if is_grand else 36
+                if 1 <= extracted_num <= max_card:
                     return extracted_num
             # For Kipper, validate range 1-36
             elif preset_type == 'Kipper':
@@ -2549,9 +2645,9 @@ class ImportPresets:
         """Get sort order for playing cards.
         Jokers: 1 (Red), 2 (Black)
         Suits: Spades=1xx, Hearts=2xx, Clubs=3xx, Diamonds=4xx
-        Ranks: Two=01, Three=02, ... Ten=09, Jack=10, Queen=11, King=12, Ace=13
-        Order within suit: 2, 3, 4, 5, 6, 7, 8, 9, 10, J, Q, K, A
-        Examples: Two of Spades=101, Ace of Spades=113, Two of Hearts=201, Ace of Diamonds=413
+        Ranks: Ace=01, Two=02, Three=03, ... Ten=10, Jack=11, Queen=12, King=13
+        Order within suit: A, 2, 3, 4, 5, 6, 7, 8, 9, 10, J, Q, K
+        Examples: Ace of Spades=101, Two of Spades=102, King of Spades=113, Ace of Hearts=201
         """
         # Jokers first
         if 'joker' in name_lower:
@@ -2570,22 +2666,22 @@ class ImportPresets:
             'diamonds': 400,
         }
 
-        # Rank values (2-A order: 2=1, 3=2, ..., K=12, A=13)
+        # Rank values (A=1, 2=2, 3=3, ..., K=13)
         # Include both word and numeric forms
         rank_values = {
-            'two': 1, '2': 1,
-            'three': 2, '3': 2,
-            'four': 3, '4': 3,
-            'five': 4, '5': 4,
-            'six': 5, '6': 5,
-            'seven': 6, '7': 6,
-            'eight': 7, '8': 7,
-            'nine': 8, '9': 8,
-            'ten': 9, '10': 9,
-            'jack': 10, 'j': 10,
-            'queen': 11, 'q': 11,
-            'king': 12, 'k': 12,
-            'ace': 13, 'a': 13,
+            'ace': 1, 'a': 1,
+            'two': 2, '2': 2,
+            'three': 3, '3': 3,
+            'four': 4, '4': 4,
+            'five': 5, '5': 5,
+            'six': 6, '6': 6,
+            'seven': 7, '7': 7,
+            'eight': 8, '8': 8,
+            'nine': 9, '9': 9,
+            'ten': 10, '10': 10,
+            'jack': 11, 'j': 11,
+            'queen': 12, 'q': 12,
+            'king': 13, 'k': 13,
         }
 
         # Find suit and rank
