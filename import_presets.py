@@ -723,6 +723,15 @@ I_CHING_HEXAGRAMS = {
     "62": "Small Excess",
     "63": "After Completion",
     "64": "Before Completion",
+    # Trigrams: filenames starting with "t" (e.g. t1.jpg, t01.jpg)
+    "t1": "Heaven (Qián)", "t01": "Heaven (Qián)",
+    "t2": "Earth (Kūn)", "t02": "Earth (Kūn)",
+    "t3": "Thunder (Zhèn)", "t03": "Thunder (Zhèn)",
+    "t4": "Water (Kǎn)", "t04": "Water (Kǎn)",
+    "t5": "Mountain (Gèn)", "t05": "Mountain (Gèn)",
+    "t6": "Wind (Xùn)", "t06": "Wind (Xùn)",
+    "t7": "Fire (Lí)", "t07": "Fire (Lí)",
+    "t8": "Lake (Duì)", "t08": "Lake (Duì)",
 }
 
 # Built-in presets
@@ -2407,12 +2416,52 @@ class ImportPresets:
             'sort_order': sort_order
         }
 
-    def _get_iching_metadata(self, card_name: str, sort_order: int) -> dict:
-        """Get metadata for an I Ching hexagram.
+    # Trigram data: (unicode, simplified, pinyin, english)
+    _TRIGRAMS = [
+        ('☰', '乾', 'Qián', 'Heaven'),
+        ('☷', '坤', 'Kūn', 'Earth'),
+        ('☳', '震', 'Zhèn', 'Thunder'),
+        ('☵', '坎', 'Kǎn', 'Water'),
+        ('☶', '艮', 'Gèn', 'Mountain'),
+        ('☴', '巽', 'Xùn', 'Wind'),
+        ('☲', '离', 'Lí', 'Fire'),
+        ('☱', '兑', 'Duì', 'Lake'),
+    ]
 
-        Tries to parse hexagram number from card name, falls back to sort_order.
+    def _get_trigram_metadata(self, trigram_num: int) -> dict:
+        """Get metadata for a trigram (1-8). Sort order is 65-72 (after hexagrams)."""
+        if 1 <= trigram_num <= 8:
+            unicode_char, simplified, pinyin, english = self._TRIGRAMS[trigram_num - 1]
+            return {
+                'archetype': f"{english} ({pinyin})",
+                'rank': str(trigram_num),
+                'suit': 'Trigram',
+                'sort_order': 64 + trigram_num,
+                'custom_fields': {
+                    'Trigram': unicode_char,
+                    'Pinyin': pinyin,
+                    'Simplified Chinese': simplified,
+                    'Traditional Chinese': simplified,
+                }
+            }
+        return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': 999}
+
+    def _get_iching_metadata(self, card_name: str, sort_order: int) -> dict:
+        """Get metadata for an I Ching hexagram or trigram.
+
+        Tries to parse hexagram/trigram number from card name, falls back to sort_order.
         """
         name_lower = card_name.lower().strip()
+
+        # Check for trigram names (mapped from t1-t8 filenames)
+        trigram_keywords = {
+            'heaven (qián)': 1, 'earth (kūn)': 2, 'thunder (zhèn)': 3,
+            'water (kǎn)': 4, 'mountain (gèn)': 5, 'wind (xùn)': 6,
+            'fire (lí)': 7, 'lake (duì)': 8,
+        }
+        for keyword, tri_num in trigram_keywords.items():
+            if keyword in name_lower:
+                return self._get_trigram_metadata(tri_num)
 
         # Try to extract hexagram number from the card name
         # Match patterns like "Hexagram 1", "1.", "01", "01_the_creative", etc.
@@ -2467,13 +2516,21 @@ class ImportPresets:
         preset = self.get_preset(preset_name) if preset_name else None
         preset_type = preset.get('type') if preset else None
 
+        # I Ching trigrams: filenames like "t1", "t01" → sort order 65-72
+        if preset_type == 'I Ching':
+            trigram_match = re.match(r'^t(\d+)(?:[\s_\-\.]|$)', card_name.lower())
+            if trigram_match:
+                tri_num = int(trigram_match.group(1))
+                if 1 <= tri_num <= 8:
+                    return 64 + tri_num
+
         # First, try to extract a numeric prefix from the filename (before normalizing)
         # This handles filenames like "01_the_fool.png", "08-justice.png", "22 The World.png"
         # Also handles pure numeric filenames like "01", "64"
         numeric_prefix_match = re.match(r'^(\d+)(?:[\s_\-\.]|$)', card_name.lower())
         if numeric_prefix_match:
             extracted_num = int(numeric_prefix_match.group(1))
-            # For I Ching, validate range 1-64
+            # For I Ching, validate range 1-64 (hexagrams)
             if preset_type == 'I Ching':
                 if 1 <= extracted_num <= 64:
                     return extracted_num
