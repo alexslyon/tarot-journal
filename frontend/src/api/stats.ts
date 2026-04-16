@@ -91,3 +91,35 @@ export async function getUsageStats(limit?: number): Promise<UsageStats> {
   const res = await api.get(`/api/stats/usage${query}`);
   return res.data;
 }
+
+/** Correspondence field value frequency */
+export interface CorrespondenceFrequency {
+  value: string;
+  count: number;
+}
+
+/** Monthly correspondence breakdown */
+export interface CorrespondenceTimeline {
+  period: string;
+  values: Record<string, number>;
+}
+
+export async function getCorrespondenceFrequency(
+  field: string,
+  months?: number,
+): Promise<CorrespondenceFrequency[]> {
+  const params = new URLSearchParams({ field });
+  if (months) params.set('months', String(months));
+  const res = await api.get(`/api/stats/correspondence-frequency?${params}`);
+  return res.data;
+}
+
+export async function getCorrespondenceTimeline(
+  field: string,
+  months?: number,
+): Promise<CorrespondenceTimeline[]> {
+  const params = new URLSearchParams({ field });
+  if (months) params.set('months', String(months));
+  const res = await api.get(`/api/stats/correspondence-timeline?${params}`);
+  return res.data;
+}

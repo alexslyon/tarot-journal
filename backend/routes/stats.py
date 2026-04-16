@@ -1,8 +1,9 @@
 """
-Statistics endpoints for the Stats tab.
+Statistics endpoints for the Stats/Insights tab.
 """
 
 from flask import Blueprint, jsonify, current_app, request
+from database.correspondences import CORRESPONDENCE_FIELDS
 
 stats_bp = Blueprint('stats', __name__)
 
@@ -88,4 +89,40 @@ def get_usage_stats():
     limit = request.args.get('limit', 10, type=int)
     limit = min(max(limit, 1), 50)
     data = db.get_usage_stats(limit=limit)
+    return jsonify(data)
+
+
+@stats_bp.route('/api/stats/correspondence-frequency')
+def get_correspondence_frequency():
+    """Get frequency of correspondence field values across readings.
+
+    Query params:
+        field: Correspondence field name (required)
+        months: Time period in months (default 6, max 36)
+    """
+    db = current_app.config['DB']
+    field = request.args.get('field', '')
+    if field not in CORRESPONDENCE_FIELDS:
+        return jsonify({'error': f'Invalid field. Must be one of: {", ".join(CORRESPONDENCE_FIELDS)}'}), 400
+    months = request.args.get('months', 6, type=int)
+    months = min(max(months, 1), 36)
+    data = db.get_correspondence_frequency(field, months=months)
+    return jsonify(data)
+
+
+@stats_bp.route('/api/stats/correspondence-timeline')
+def get_correspondence_timeline():
+    """Get monthly breakdown of correspondence field values across readings.
+
+    Query params:
+        field: Correspondence field name (required)
+        months: Number of months (default 12, max 36)
+    """
+    db = current_app.config['DB']
+    field = request.args.get('field', '')
+    if field not in CORRESPONDENCE_FIELDS:
+        return jsonify({'error': f'Invalid field. Must be one of: {", ".join(CORRESPONDENCE_FIELDS)}'}), 400
+    months = request.args.get('months', 12, type=int)
+    months = min(max(months, 1), 36)
+    data = db.get_correspondence_timeline(field, months=months)
     return jsonify(data)
