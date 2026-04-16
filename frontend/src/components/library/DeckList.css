@@ -27,8 +27,17 @@
 }
 
 .deck-list__filters {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   padding: 0 12px 8px;
   flex-shrink: 0;
+}
+
+.deck-list__search {
+  width: 275px;
+  padding: 5px 8px;
+  font-size: var(--font-size-body);
 }
 
 .deck-list__filter {

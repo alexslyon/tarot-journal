@@ -14,6 +14,7 @@ interface DeckListProps {
 
 export default function DeckList({ selectedDeckId, onSelectDeck, onEditDeck, onImport }: DeckListProps) {
   const [filterTypeId, setFilterTypeId] = useState<number | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'type' | 'cards'>('name');
   const [sortAsc, setSortAsc] = useState(true);
   const [showTags, setShowTags] = useState(false);
@@ -28,7 +29,11 @@ export default function DeckList({ selectedDeckId, onSelectDeck, onEditDeck, onI
     queryFn: () => getDecks(filterTypeId),
   });
 
-  const sortedDecks = [...decks].sort((a, b) => {
+  const filteredDecks = searchQuery.trim()
+    ? decks.filter((d) => d.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : decks;
+
+  const sortedDecks = [...filteredDecks].sort((a, b) => {
     let cmp = 0;
     if (sortBy === 'name') {
       cmp = a.name.localeCompare(b.name);
@@ -66,6 +71,13 @@ export default function DeckList({ selectedDeckId, onSelectDeck, onEditDeck, onI
         </label>
       </div>
       <div className="deck-list__filters">
+        <input
+          type="text"
+          className="deck-list__search"
+          placeholder="Search decks..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
         <select
           className="deck-list__filter"
           value={filterTypeId ?? ''}
