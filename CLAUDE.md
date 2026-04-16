@@ -68,6 +68,30 @@ When the user asks for UI changes, **always modify the Electron/React code in `f
 
 ---
 
+## Card Image Naming Conventions
+
+When renaming card image files for deck folders, use these naming schemes:
+
+**Playing Cards:**
+- h01-h13 for Ace of Hearts through King of Hearts
+- c01-c13 for Clubs (same pattern)
+- s01-s13 for Spades
+- d01-d13 for Diamonds
+- j1 and j2 for Jokers
+
+**Tarot:**
+- Major Arcana: 00 for The Fool through 21 for The World
+- Minor Arcana: w01-w14 for Ace through King of Wands
+- c01-c14 for Cups, s01-s14 for Swords, p01-p14 for Pentacles
+
+**Lenormand:**
+- 01-36, starting with Rider and ending with Cross
+
+**Oracle:**
+- Look for numbers on the card and use those if available
+
+---
+
 ## DEPRECATED: wxPython Styling Rules (Dark Theme)
 
 This app uses a custom dark theme. When creating UI elements:
