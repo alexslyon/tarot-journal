@@ -496,6 +496,19 @@ class CoreMixin:
             self.conn.commit()
             self.conn.execute('PRAGMA foreign_keys = ON')
 
+        # Migration: recreate correspondence tables if CHECK constraint is missing 'chakra'
+        cursor.execute("SELECT sql FROM sqlite_master WHERE name='correspondence_assignments'")
+        row = cursor.fetchone()
+        if row and 'chakra' not in (row[0] or ''):
+            # Save existing data, drop old tables, let them be recreated below
+            cursor.execute('SELECT * FROM correspondence_assignments')
+            saved_assignments = [dict(r) for r in cursor.fetchall()]
+            cursor.execute('SELECT * FROM card_correspondence_overrides')
+            saved_overrides = [dict(r) for r in cursor.fetchall()]
+            cursor.execute('DROP TABLE IF EXISTS correspondence_assignments')
+            cursor.execute('DROP TABLE IF EXISTS card_correspondence_overrides')
+            self._needs_corr_restore = (saved_assignments, saved_overrides)
+
         # Correspondence systems (RWS, Thoth, Golden Dawn, user-defined)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS correspondence_systems (
@@ -516,7 +529,8 @@ class CoreMixin:
                 archetype_id INTEGER NOT NULL,
                 field_name TEXT NOT NULL CHECK(field_name IN (
                     'element', 'planet', 'zodiac_sign', 'decan',
-                    'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram'
+                    'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram',
+                    'chakra'
                 )),
                 field_value TEXT NOT NULL,
                 FOREIGN KEY (system_id) REFERENCES correspondence_systems(id) ON DELETE CASCADE,
@@ -532,7 +546,8 @@ class CoreMixin:
                 card_id INTEGER NOT NULL,
                 field_name TEXT NOT NULL CHECK(field_name IN (
                     'element', 'planet', 'zodiac_sign', 'decan',
-                    'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram'
+                    'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram',
+                    'chakra'
                 )),
                 field_value TEXT,
                 FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
@@ -573,6 +588,29 @@ class CoreMixin:
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_corr_assignments_field ON correspondence_assignments(field_name)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_card_corr_overrides_card ON card_correspondence_overrides(card_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_decks_corr_system ON decks(correspondence_system_id)')
+
+        # Restore correspondence data after CHECK constraint migration
+        if hasattr(self, '_needs_corr_restore'):
+            saved_assignments, saved_overrides = self._needs_corr_restore
+            # Temporarily disable FK checks — the referenced rows exist but
+            # the table was just recreated so SQLite needs this
+            self.conn.commit()
+            self.conn.execute('PRAGMA foreign_keys = OFF')
+            for a in saved_assignments:
+                cursor.execute('''
+                    INSERT OR IGNORE INTO correspondence_assignments
+                        (system_id, archetype_id, field_name, field_value)
+                    VALUES (?, ?, ?, ?)
+                ''', (a['system_id'], a['archetype_id'], a['field_name'], a['field_value']))
+            for o in saved_overrides:
+                cursor.execute('''
+                    INSERT OR IGNORE INTO card_correspondence_overrides
+                        (card_id, field_name, field_value)
+                    VALUES (?, ?, ?)
+                ''', (o['card_id'], o['field_name'], o['field_value']))
+            self.conn.commit()
+            self.conn.execute('PRAGMA foreign_keys = ON')
+            del self._needs_corr_restore
 
         # Seed card archetypes if table is empty
         cursor.execute('SELECT COUNT(*) FROM card_archetypes')
