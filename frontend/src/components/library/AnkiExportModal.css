@@ -1,0 +1,124 @@
+.anki-export {
+  padding: 20px;
+  max-width: 500px;
+}
+
+.anki-export__title {
+  font-size: var(--font-size-title);
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.anki-export__hint {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  margin: 0 0 16px;
+  line-height: 1.4;
+}
+
+.anki-export__error {
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: var(--font-size-body);
+  background: color-mix(in srgb, var(--danger) 20%, transparent);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+.anki-export__loading {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.anki-export__field-list {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.anki-export__field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.anki-export__field-row:last-child {
+  border-bottom: none;
+}
+
+.anki-export__drag-handle {
+  cursor: grab;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  user-select: none;
+  padding: 2px 4px;
+}
+
+.anki-export__drag-handle:active {
+  cursor: grabbing;
+}
+
+.anki-export__field-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  font-size: var(--font-size-body);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.anki-export__field-label input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.anki-export__badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--success) 20%, transparent);
+  color: var(--success);
+}
+
+.anki-export__badge--required {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
+}
+
+.anki-export__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.anki-export__count {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+}
+
+.anki-export__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.anki-export__export-btn {
+  background: var(--accent) !important;
+  color: var(--text-primary) !important;
+}
+
+.anki-export__export-btn:hover {
+  background: var(--accent-hover) !important;
+}
+
+.anki-export__export-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

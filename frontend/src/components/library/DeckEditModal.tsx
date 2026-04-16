@@ -15,6 +15,7 @@ import { ensureHtml } from '../../utils/formatting';
 import { useToast } from '../../context/ToastContext';
 import Modal from '../common/Modal';
 import RichTextEditor from '../common/RichTextEditor';
+import AnkiExportModal from './AnkiExportModal';
 import './DeckEditModal.css';
 
 interface InitialDeckFormState {
@@ -125,6 +126,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
   const [error, setError] = useState('');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showAnkiExport, setShowAnkiExport] = useState(false);
 
   // Track initial form state for dirty checking
   const initialStateRef = useRef<InitialDeckFormState | null>(null);
@@ -839,6 +841,13 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
                 Export JSON
               </a>
               <button
+                className="deck-edit__export-link"
+                onClick={() => setShowAnkiExport(true)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                Export for Anki
+              </button>
+              <button
                 className="deck-edit__delete-trigger"
                 onClick={() => setConfirmingDelete(true)}
               >
@@ -857,6 +866,14 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
           )}
         </div>
       ) : null}
+
+      {showAnkiExport && deckId && deck && (
+        <AnkiExportModal
+          deckId={deckId}
+          deckName={deck.name}
+          onClose={() => setShowAnkiExport(false)}
+        />
+      )}
     </Modal>
   );
 }
