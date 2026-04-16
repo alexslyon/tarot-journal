@@ -104,7 +104,7 @@ export default function CorrespondenceStatsSection({ defaultField = 'element' }:
                 cy="50%"
                 outerRadius={100}
                 label={({ value: _val, name, percent }) =>
-                  `${name} (${(percent * 100).toFixed(0)}%)`
+                  `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`
                 }
                 labelLine={{ stroke: 'var(--text-dim)' }}
               >
