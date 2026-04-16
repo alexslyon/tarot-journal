@@ -1,18 +1,80 @@
-.reference-tab {
-  height: 100%;
+.reference-layout {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  height: 100%;
+}
+
+.reference-layout__sidebar {
+  width: 180px;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
+  overflow-y: auto;
+}
+
+.reference-layout__nav-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 0;
+  background: none;
   color: var(--text-secondary);
+  font-size: var(--font-size-body);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
 }
 
-.reference-tab__placeholder h2 {
-  margin: 0 0 8px;
+.reference-layout__nav-item:hover {
   color: var(--text-primary);
-  text-align: center;
+  background: var(--bg-tertiary);
 }
 
-.reference-tab__placeholder p {
-  margin: 0;
-  text-align: center;
+.reference-layout__nav-item--active {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-left: 3px solid var(--accent);
+  padding-left: 17px;
+}
+
+.reference-layout__content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+/* Shared styles for reference sections */
+.reference-section {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+.reference-section__title {
+  font-size: var(--font-size-title);
+  color: var(--text-primary);
+  margin: 0 0 16px;
+}
+
+.reference-section__subtitle {
+  font-size: var(--font-size-heading);
+  color: var(--accent);
+  margin: 20px 0 8px;
+}
+
+.reference-section__hint {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  margin: 0 0 12px;
+}
+
+.reference-section__card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
 }

@@ -1,0 +1,235 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import {
+  getCorrespondenceSystems,
+  getCorrespondenceSystem,
+  compareCorrespondenceSystems,
+} from '../../../api/correspondences';
+import type { CorrespondenceSystem, CorrespondenceAssignment } from '../../../types';
+import { CORRESPONDENCE_FIELDS, CORRESPONDENCE_FIELD_LABELS } from '../../../types';
+import './CorrespondencesViewer.css';
+
+type ViewMode = 'by-system' | 'compare';
+
+interface CorrespondencesViewerProps {
+  onEditCorrespondences?: (section: string) => void;
+}
+
+export default function CorrespondencesViewer({ onEditCorrespondences }: CorrespondencesViewerProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>('by-system');
+  const [selectedSystemId, setSelectedSystemId] = useState<number | null>(null);
+  const [compareIds, setCompareIds] = useState<number[]>([]);
+  const [filterText, setFilterText] = useState('');
+
+  const { data: systems = [] } = useQuery<CorrespondenceSystem[]>({
+    queryKey: ['correspondence-systems'],
+    queryFn: getCorrespondenceSystems,
+  });
+
+  // Auto-select first system
+  if (systems.length > 0 && selectedSystemId === null) {
+    setSelectedSystemId(systems[0].id);
+  }
+
+  const { data: systemDetail } = useQuery({
+    queryKey: ['correspondence-system', selectedSystemId],
+    queryFn: () => getCorrespondenceSystem(selectedSystemId!),
+    enabled: selectedSystemId !== null && viewMode === 'by-system',
+  });
+
+  const { data: compareData = [] } = useQuery<CorrespondenceAssignment[]>({
+    queryKey: ['correspondence-compare', compareIds],
+    queryFn: () => compareCorrespondenceSystems(compareIds),
+    enabled: compareIds.length >= 2 && viewMode === 'compare',
+  });
+
+  const toggleCompareId = (id: number) => {
+    setCompareIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  // Build table data for by-system view
+  const bySystemRows = new Map<number, { name: string; fields: Map<string, string> }>();
+  if (systemDetail?.assignments) {
+    for (const a of systemDetail.assignments as CorrespondenceAssignment[]) {
+      if (!bySystemRows.has(a.archetype_id)) {
+        bySystemRows.set(a.archetype_id, { name: a.archetype_name, fields: new Map() });
+      }
+      bySystemRows.get(a.archetype_id)!.fields.set(a.field_name, a.field_value);
+    }
+  }
+
+  const filteredArchetypeIds = [...bySystemRows.keys()].filter(id => {
+    if (!filterText) return true;
+    return bySystemRows.get(id)!.name.toLowerCase().includes(filterText.toLowerCase());
+  });
+
+  // Build compare table data — grouped by archetype, then by system
+  const compareRows = new Map<string, Map<string, Map<string, string>>>();
+  const compareSystemNames = new Map<number, string>();
+  for (const a of compareData) {
+    if (!compareRows.has(a.archetype_name)) {
+      compareRows.set(a.archetype_name, new Map());
+    }
+    const systemName = (a as CorrespondenceAssignment & { system_name?: string }).system_name || String(a.system_id);
+    compareSystemNames.set(a.system_id, systemName);
+    if (!compareRows.get(a.archetype_name)!.has(systemName)) {
+      compareRows.get(a.archetype_name)!.set(systemName, new Map());
+    }
+    compareRows.get(a.archetype_name)!.get(systemName)!.set(a.field_name, a.field_value);
+  }
+
+  const compareSystemList = [...compareSystemNames.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+
+  return (
+    <div className="reference-section">
+      <div className="corr-viewer__header">
+        <h2 className="reference-section__title">Correspondences</h2>
+        {onEditCorrespondences && (
+          <button
+            className="corr-viewer__edit-btn"
+            onClick={() => onEditCorrespondences('correspondences')}
+          >
+            Edit Correspondences
+          </button>
+        )}
+      </div>
+
+      {/* View mode tabs */}
+      <div className="corr-viewer__mode-tabs">
+        <button
+          className={`corr-viewer__mode-tab ${viewMode === 'by-system' ? 'corr-viewer__mode-tab--active' : ''}`}
+          onClick={() => setViewMode('by-system')}
+        >
+          By System
+        </button>
+        <button
+          className={`corr-viewer__mode-tab ${viewMode === 'compare' ? 'corr-viewer__mode-tab--active' : ''}`}
+          onClick={() => setViewMode('compare')}
+        >
+          Compare Systems
+        </button>
+      </div>
+
+      {/* By System view */}
+      {viewMode === 'by-system' && (
+        <div className="reference-section__card">
+          <div className="corr-viewer__controls">
+            <select
+              value={selectedSystemId ?? ''}
+              onChange={e => setSelectedSystemId(Number(e.target.value))}
+              className="corr-viewer__system-select"
+            >
+              {systems.map(sys => (
+                <option key={sys.id} value={sys.id}>{sys.name}</option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={filterText}
+              onChange={e => setFilterText(e.target.value)}
+              placeholder="Filter cards..."
+              className="corr-viewer__filter"
+            />
+          </div>
+
+          <div className="corr-viewer__table-wrap">
+            <table className="corr-viewer__table">
+              <thead>
+                <tr>
+                  <th className="corr-viewer__th--card">Card</th>
+                  {CORRESPONDENCE_FIELDS.map(f => (
+                    <th key={f}>{CORRESPONDENCE_FIELD_LABELS[f]}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredArchetypeIds.map(archId => {
+                  const row = bySystemRows.get(archId)!;
+                  return (
+                    <tr key={archId}>
+                      <td className="corr-viewer__td--card">{row.name}</td>
+                      {CORRESPONDENCE_FIELDS.map(f => (
+                        <td key={f} className="corr-viewer__td--value">
+                          {row.fields.get(f) || ''}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredArchetypeIds.length === 0 && (
+            <p className="reference-section__hint" style={{ textAlign: 'center', padding: 20 }}>
+              {filterText ? 'No cards match your filter.' : 'No assignments in this system.'}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Compare view */}
+      {viewMode === 'compare' && (
+        <div className="reference-section__card">
+          <p className="reference-section__hint">Select two or more systems to compare.</p>
+          <div className="corr-viewer__compare-select">
+            {systems.map(sys => (
+              <label key={sys.id} className="corr-viewer__compare-check">
+                <input
+                  type="checkbox"
+                  checked={compareIds.includes(sys.id)}
+                  onChange={() => toggleCompareId(sys.id)}
+                />
+                <span>{sys.name}</span>
+              </label>
+            ))}
+          </div>
+
+          {compareIds.length >= 2 && compareRows.size > 0 && (
+            <div className="corr-viewer__table-wrap">
+              <table className="corr-viewer__table">
+                <thead>
+                  <tr>
+                    <th className="corr-viewer__th--card">Card</th>
+                    <th>Field</th>
+                    {compareSystemList.map(([id, name]) => (
+                      <th key={id}>{name}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...compareRows.entries()].map(([archName, systemMap]) => {
+                    // Find fields that differ across systems
+                    const allFields = new Set<string>();
+                    for (const fields of systemMap.values()) {
+                      for (const f of fields.keys()) allFields.add(f);
+                    }
+
+                    return [...allFields].map((fieldName, fi) => (
+                      <tr key={`${archName}-${fieldName}`}>
+                        {fi === 0 ? (
+                          <td className="corr-viewer__td--card" rowSpan={allFields.size}>
+                            {archName}
+                          </td>
+                        ) : null}
+                        <td className="corr-viewer__td--field">
+                          {CORRESPONDENCE_FIELD_LABELS[fieldName] || fieldName}
+                        </td>
+                        {compareSystemList.map(([, sysName]) => {
+                          const val = systemMap.get(sysName)?.get(fieldName) || '';
+                          return <td key={sysName} className="corr-viewer__td--value">{val}</td>;
+                        })}
+                      </tr>
+                    ));
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

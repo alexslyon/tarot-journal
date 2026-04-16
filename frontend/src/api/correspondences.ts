@@ -93,3 +93,18 @@ export async function compareCorrespondenceSystems(systemIds: number[]): Promise
   });
   return res.data;
 }
+
+// === Card Names (for Reference tab) ===
+
+export interface CardNameEntry {
+  field_name: string;
+  field_value: string;
+  archetype: string | null;
+  card_name: string;
+  deck_name: string;
+}
+
+export async function getCardNames(): Promise<CardNameEntry[]> {
+  const res = await api.get('/api/card-names');
+  return res.data;
+}
