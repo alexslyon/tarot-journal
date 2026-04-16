@@ -1,0 +1,117 @@
+.card-corr__empty {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-corr__add-btn {
+  font-size: var(--font-size-small) !important;
+  padding: 2px 8px !important;
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+
+.card-corr__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 16px;
+}
+
+.card-corr__field {
+  min-width: 0;
+}
+
+.card-corr__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.card-corr__badge {
+  font-size: 9px;
+  padding: 0 4px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.card-corr__badge--override {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
+}
+
+.card-corr__badge--inherited {
+  background: color-mix(in srgb, var(--text-dim) 20%, transparent);
+  color: var(--text-dim);
+}
+
+.card-corr__value-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  min-height: 26px;
+}
+
+.card-corr__value-row:hover {
+  background: var(--bg-tertiary);
+}
+
+.card-corr__value {
+  font-size: var(--font-size-body);
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-corr__value--inherited {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.card-corr__value--empty {
+  color: var(--text-dim);
+}
+
+.card-corr__revert-btn {
+  font-size: 10px !important;
+  padding: 1px 6px !important;
+  color: var(--text-dim) !important;
+  border-color: var(--border) !important;
+  flex-shrink: 0;
+}
+
+.card-corr__revert-btn:hover {
+  color: var(--danger) !important;
+  border-color: var(--danger) !important;
+}
+
+.card-corr__edit-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.card-corr__input {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-size-body) !important;
+  padding: 3px 6px !important;
+}
+
+.card-corr__save-btn {
+  font-size: var(--font-size-small) !important;
+  padding: 3px 8px !important;
+  background: var(--accent) !important;
+  color: var(--text-primary) !important;
+}

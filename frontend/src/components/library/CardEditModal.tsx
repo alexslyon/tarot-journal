@@ -13,6 +13,7 @@ import type { Tag, CardGroup } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import Modal from '../common/Modal';
 import RichTextEditor from '../common/RichTextEditor';
+import CardCorrespondences from './CardCorrespondences';
 import './CardEditModal.css';
 
 interface CardEditModalProps {
@@ -544,6 +545,13 @@ export default function CardEditModal({ cardId, deckId, cardIds = [], onClose, o
                 placeholder="Card notes..."
               />
             </div>
+
+            {cardId && (
+              <div className="card-edit__section">
+                <h3 className="card-edit__section-title">Correspondences</h3>
+                <CardCorrespondences cardId={cardId} />
+              </div>
+            )}
 
             <div className="card-edit__section">
               <div className="card-edit__section-header">

@@ -25,7 +25,7 @@ export async function getDeckGroups(deckId: number): Promise<import('../types').
 export async function updateDeck(
   deckId: number,
   data: Partial<Pick<Deck, 'name' | 'date_published' | 'publisher' | 'credits' | 'notes' | 'booklet_info'>>
-    & { suit_names?: Record<string, string> | null; court_names?: Record<string, string> | null },
+    & { suit_names?: Record<string, string> | null; court_names?: Record<string, string> | null; correspondence_system_id?: number | null },
 ) {
   await api.put(`/api/decks/${deckId}`, data);
 }
