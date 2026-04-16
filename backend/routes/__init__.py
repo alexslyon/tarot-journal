@@ -16,6 +16,7 @@ def register_blueprints(app):
     from backend.routes.spreads import spreads_bp
     from backend.routes.stats import stats_bp
     from backend.routes.settings import settings_bp
+    from backend.routes.correspondences import correspondences_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(types_bp)
@@ -29,3 +30,4 @@ def register_blueprints(app):
     app.register_blueprint(spreads_bp)
     app.register_blueprint(stats_bp)
     app.register_blueprint(settings_bp)
+    app.register_blueprint(correspondences_bp)

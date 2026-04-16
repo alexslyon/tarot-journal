@@ -13,6 +13,7 @@ from .entries import EntriesMixin
 from .profiles import ProfilesMixin
 from .settings import SettingsMixin
 from .import_export import ImportExportMixin
+from .correspondences import CorrespondencesMixin
 
 
 class Database(
@@ -25,6 +26,7 @@ class Database(
     ProfilesMixin,
     SettingsMixin,
     ImportExportMixin,
+    CorrespondencesMixin,
 ):
     """
     Main database class combining all functionality.
@@ -41,6 +43,7 @@ class Database(
     - ProfilesMixin: Querent/reader profiles
     - SettingsMixin: Application settings and statistics
     - ImportExportMixin: Import/export and backup/restore
+    - CorrespondencesMixin: Correspondence systems and assignments
     """
     pass
 
