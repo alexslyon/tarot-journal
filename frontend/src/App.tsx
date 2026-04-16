@@ -35,6 +35,10 @@ export default function App() {
     setSettingsSection(undefined);
   }, []);
 
+  const handleNavigateToSettings = useCallback((section: string) => {
+    handleTabChange('settings', section);
+  }, [handleTabChange]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
@@ -45,7 +49,9 @@ export default function App() {
               {activeTab === 'library' && <LibraryTab />}
               {activeTab === 'spreads' && <SpreadsTab />}
               {activeTab === 'journal' && <JournalTab />}
-              {activeTab === 'reference' && <ReferenceTab />}
+              {activeTab === 'reference' && (
+                <ReferenceTab onNavigateToSettings={handleNavigateToSettings} />
+              )}
               {activeTab === 'insights' && <StatsTab />}
               {activeTab === 'settings' && (
                 <SettingsTab

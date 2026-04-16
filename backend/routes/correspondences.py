@@ -193,3 +193,24 @@ def compare_systems():
         return jsonify({'error': 'At least one system ID required'}), 400
     assignments = db.compare_correspondence_systems(system_ids)
     return jsonify([row_to_dict(a) for a in assignments])
+
+
+@correspondences_bp.route('/api/card-names')
+def card_names():
+    """Get card names in other languages, aggregated by archetype."""
+    db = current_app.config['DB']
+    cursor = db.conn.cursor()
+    # Find all custom fields with "Name" in the field name
+    cursor.execute('''
+        SELECT ccf.field_name, ccf.field_value, c.archetype, c.name AS card_name,
+               d.name AS deck_name
+        FROM card_custom_fields ccf
+        JOIN cards c ON c.id = ccf.card_id
+        JOIN decks d ON d.id = c.deck_id
+        WHERE ccf.field_name LIKE '%Name%'
+          AND ccf.field_value IS NOT NULL
+          AND ccf.field_value != ''
+        ORDER BY c.archetype, ccf.field_name
+    ''')
+    rows = cursor.fetchall()
+    return jsonify([row_to_dict(r) for r in rows])
