@@ -597,6 +597,10 @@ class CoreMixin:
 
         self._commit()
 
+        # Run one-time correspondence field migration (after commit so tables exist)
+        from database.correspondence_migration import run_correspondence_migration
+        run_correspondence_migration(self)
+
     def _seed_card_archetypes(self, cursor):
         """Seed the card_archetypes table with standard archetypes for all types.
 
