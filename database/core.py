@@ -496,6 +496,59 @@ class CoreMixin:
             self.conn.commit()
             self.conn.execute('PRAGMA foreign_keys = ON')
 
+        # Correspondence systems (RWS, Thoth, Golden Dawn, user-defined)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS correspondence_systems (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                description TEXT,
+                is_builtin INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # System-level correspondence assignments:
+        # one row per (system, archetype, field) combination
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS correspondence_assignments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                system_id INTEGER NOT NULL,
+                archetype_id INTEGER NOT NULL,
+                field_name TEXT NOT NULL CHECK(field_name IN (
+                    'element', 'planet', 'zodiac_sign', 'decan',
+                    'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram'
+                )),
+                field_value TEXT NOT NULL,
+                FOREIGN KEY (system_id) REFERENCES correspondence_systems(id) ON DELETE CASCADE,
+                FOREIGN KEY (archetype_id) REFERENCES card_archetypes(id) ON DELETE CASCADE,
+                UNIQUE(system_id, archetype_id, field_name)
+            )
+        ''')
+
+        # Card-level correspondence overrides (individual cards deviating from deck's system)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS card_correspondence_overrides (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                card_id INTEGER NOT NULL,
+                field_name TEXT NOT NULL CHECK(field_name IN (
+                    'element', 'planet', 'zodiac_sign', 'decan',
+                    'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram'
+                )),
+                field_value TEXT,
+                FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
+                UNIQUE(card_id, field_name)
+            )
+        ''')
+
+        # Migration: add correspondence_system_id to decks
+        cursor.execute("PRAGMA table_info(decks)")
+        deck_cols = [col[1] for col in cursor.fetchall()]
+        if 'correspondence_system_id' not in deck_cols:
+            cursor.execute('''
+                ALTER TABLE decks ADD COLUMN correspondence_system_id
+                INTEGER REFERENCES correspondence_systems(id)
+            ''')
+
         # Indexes for commonly queried foreign keys and search columns.
         # These speed up filtering, joining, and sorting as data grows.
         # "IF NOT EXISTS" means they're safe to run every startup.
@@ -515,6 +568,11 @@ class CoreMixin:
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_journal_entries_created_at ON journal_entries(created_at DESC)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_card_custom_fields_card_id ON card_custom_fields(card_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_deck_custom_fields_deck_id ON deck_custom_fields(deck_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_corr_assignments_system ON correspondence_assignments(system_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_corr_assignments_archetype ON correspondence_assignments(archetype_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_corr_assignments_field ON correspondence_assignments(field_name)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_card_corr_overrides_card ON card_correspondence_overrides(card_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_decks_corr_system ON decks(correspondence_system_id)')
 
         # Seed card archetypes if table is empty
         cursor.execute('SELECT COUNT(*) FROM card_archetypes')
@@ -530,6 +588,12 @@ class CoreMixin:
             row = cursor.fetchone()
             if row and row[0] == 'Ace':  # Old schema used 'Ace', new uses '101'
                 self._migrate_tarot_numbering(cursor)
+
+        # Seed correspondence systems if table is empty
+        cursor.execute('SELECT COUNT(*) FROM correspondence_systems')
+        if cursor.fetchone()[0] == 0:
+            from database.correspondence_seed import seed_rws_correspondences
+            seed_rws_correspondences(cursor)
 
         self._commit()
 
