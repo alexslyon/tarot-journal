@@ -221,6 +221,7 @@ export interface ResolvedCorrespondence {
 export const CORRESPONDENCE_FIELDS = [
   'element', 'planet', 'zodiac_sign', 'decan',
   'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram',
+  'chakra',
 ] as const;
 
 export const CORRESPONDENCE_FIELD_LABELS: Record<string, string> = {
@@ -232,6 +233,7 @@ export const CORRESPONDENCE_FIELD_LABELS: Record<string, string> = {
   numerology: 'Numerology',
   rune: 'Rune',
   i_ching_hexagram: 'I Ching Hexagram',
+  chakra: 'Chakra',
 };
 
 export interface ThemeColors {
