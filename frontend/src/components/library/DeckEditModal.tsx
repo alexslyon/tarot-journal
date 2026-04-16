@@ -9,7 +9,8 @@ import {
 import { getDeckTags } from '../../api/tags';
 import { deckBackUrl } from '../../api/images';
 import { exportDeckUrl } from '../../api/importExport';
-import type { Deck, Tag, DeckCustomField, CardGroup } from '../../types';
+import { getCorrespondenceSystems } from '../../api/correspondences';
+import type { Deck, Tag, DeckCustomField, CardGroup, CorrespondenceSystem } from '../../types';
 import { ensureHtml } from '../../utils/formatting';
 import { useToast } from '../../context/ToastContext';
 import Modal from '../common/Modal';
@@ -25,6 +26,7 @@ interface InitialDeckFormState {
   bookletInfo: string;
   selectedTypeIds: number[];
   selectedTagIds: number[];
+  corrSystemId: number | null;
   suitNames: Record<string, string>;
   courtNames: Record<string, string>;
 }
@@ -88,6 +90,12 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
     enabled: deckId !== null,
   });
 
+  const { data: corrSystems = [] } = useQuery<CorrespondenceSystem[]>({
+    queryKey: ['correspondence-systems'],
+    queryFn: getCorrespondenceSystems,
+    enabled: deckId !== null,
+  });
+
   // Standard suit/court keys (lowercase for database) with default display names
   const TAROT_SUIT_DEFAULTS: Record<string, string> = {
     wands: 'Wands', cups: 'Cups', swords: 'Swords', pentacles: 'Pentacles'
@@ -108,6 +116,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
   const [notes, setNotes] = useState('');
   const [bookletInfo, setBookletInfo] = useState('');
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [corrSystemId, setCorrSystemId] = useState<number | null>(null);
   const [suitNames, setSuitNames] = useState<Record<string, string>>({});
   const [courtNames, setCourtNames] = useState<Record<string, string>>({});
   const [originalSuitNames, setOriginalSuitNames] = useState<Record<string, string>>({});
@@ -154,6 +163,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
       setCredits(deck.credits || '');
       setNotes(deck.notes || '');
       setBookletInfo(deck.booklet_info || '');
+      setCorrSystemId(deck.correspondence_system_id ?? null);
 
       // Parse suit and court names JSON, and save originals for card renaming
       try {
@@ -207,6 +217,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
         bookletInfo: deck.booklet_info || '',
         selectedTypeIds: deckTypeAssignments.map(t => t.id),
         selectedTagIds: deckTagAssignments.map(t => t.id),
+        corrSystemId: deck.correspondence_system_id ?? null,
         suitNames: suitNamesVal,
         courtNames: courtNamesVal,
       };
@@ -251,6 +262,9 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
     // Compare tag selections
     if (selectedTagIds.length !== initial.selectedTagIds.length) return true;
     if (!selectedTagIds.every(id => initial.selectedTagIds.includes(id))) return true;
+
+    // Compare correspondence system
+    if (corrSystemId !== initial.corrSystemId) return true;
 
     // Compare suit/court names
     if (JSON.stringify(suitNames) !== JSON.stringify(initial.suitNames)) return true;
@@ -381,6 +395,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
         credits: credits || null,
         notes: notes || null,
         booklet_info: bookletInfo || null,
+        correspondence_system_id: corrSystemId === null ? -1 : corrSystemId,
       });
 
       // Update suit names using dedicated endpoint (also renames cards)
@@ -471,6 +486,24 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
                   Select all types that apply to this deck.
                 </p>
               </div>
+
+              {corrSystems.length > 0 && (
+                <div className="deck-edit__field">
+                  <label className="deck-edit__label">Correspondence System</label>
+                  <select
+                    value={corrSystemId ?? ''}
+                    onChange={e => setCorrSystemId(e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">None</option>
+                    {corrSystems.map(sys => (
+                      <option key={sys.id} value={sys.id}>{sys.name}</option>
+                    ))}
+                  </select>
+                  <p className="deck-edit__type-hint">
+                    Cards in this deck will inherit correspondences from the selected system.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="deck-edit__section">

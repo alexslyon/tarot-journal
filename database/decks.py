@@ -87,7 +87,7 @@ class DecksMixin:
     def update_deck(self, deck_id: int, name: str = None, image_folder: str = None, suit_names: dict = None,
                     court_names: dict = None, date_published: str = None, publisher: str = None,
                     credits: str = None, notes: str = None, card_back_image: str = None,
-                    booklet_info: str = None):
+                    booklet_info: str = None, correspondence_system_id=None):
         cursor = self.conn.cursor()
         if name:
             cursor.execute('UPDATE decks SET name = ? WHERE id = ?', (name, deck_id))
@@ -111,6 +111,10 @@ class DecksMixin:
             cursor.execute('UPDATE decks SET card_back_image = ? WHERE id = ?', (card_back_image, deck_id))
         if booklet_info is not None:
             cursor.execute('UPDATE decks SET booklet_info = ? WHERE id = ?', (booklet_info, deck_id))
+        if correspondence_system_id is not None:
+            # Use -1 as sentinel for "clear the value" since None means "don't change"
+            val = None if correspondence_system_id == -1 else correspondence_system_id
+            cursor.execute('UPDATE decks SET correspondence_system_id = ? WHERE id = ?', (val, deck_id))
         self._commit()
 
     # === Deck Type Assignments (multiple types per deck) ===

@@ -18,6 +18,7 @@ export interface Deck {
   notes: string | null;
   card_back_image: string | null;
   booklet_info: string | null;
+  correspondence_system_id: number | null;
   created_at: string;
   // Joined fields from get_deck():
   cartomancy_type?: string;
@@ -187,6 +188,51 @@ export interface CardGroup {
   color: string;
   sort_order: number;
 }
+
+export interface CorrespondenceSystem {
+  id: number;
+  name: string;
+  description: string | null;
+  is_builtin: boolean;
+  archetype_count?: number;
+  assignment_count?: number;
+  created_at: string;
+}
+
+export interface CorrespondenceAssignment {
+  id: number;
+  system_id: number;
+  archetype_id: number;
+  archetype_name: string;
+  cartomancy_type: string;
+  rank: string | null;
+  suit: string | null;
+  card_type: string | null;
+  field_name: string;
+  field_value: string;
+}
+
+export interface ResolvedCorrespondence {
+  field_name: string;
+  value: string | null;
+  source: 'override' | 'inherited' | 'none';
+}
+
+export const CORRESPONDENCE_FIELDS = [
+  'element', 'planet', 'zodiac_sign', 'decan',
+  'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram',
+] as const;
+
+export const CORRESPONDENCE_FIELD_LABELS: Record<string, string> = {
+  element: 'Element',
+  planet: 'Planet',
+  zodiac_sign: 'Zodiac Sign',
+  decan: 'Decan',
+  hebrew_letter: 'Hebrew Letter',
+  numerology: 'Numerology',
+  rune: 'Rune',
+  i_ching_hexagram: 'I Ching Hexagram',
+};
 
 export interface ThemeColors {
   bg_primary: string;

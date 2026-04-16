@@ -5,12 +5,14 @@ import TagsSection from './sections/TagsSection';
 import ImportPresetsSection from './sections/ImportPresetsSection';
 import BackupSection from './sections/BackupSection';
 import CacheSection from './sections/CacheSection';
+import CorrespondencesSection from './sections/CorrespondencesSection';
 import './SettingsLayout.css';
 
 export type SettingsSectionId =
   | 'general'
   | 'profiles'
   | 'tags'
+  | 'correspondences'
   | 'import-presets'
   | 'backup'
   | 'cache';
@@ -19,6 +21,7 @@ const SECTIONS: { id: SettingsSectionId; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'profiles', label: 'Profiles' },
   { id: 'tags', label: 'Tags' },
+  { id: 'correspondences', label: 'Correspondences' },
   { id: 'import-presets', label: 'Import Presets' },
   { id: 'backup', label: 'Backup & Restore' },
   { id: 'cache', label: 'Thumbnail Cache' },
@@ -56,6 +59,7 @@ export default function SettingsLayout({ initialSection, onSectionViewed }: Sett
         {activeSection === 'general' && <GeneralSection />}
         {activeSection === 'profiles' && <ProfilesSection />}
         {activeSection === 'tags' && <TagsSection />}
+        {activeSection === 'correspondences' && <CorrespondencesSection />}
         {activeSection === 'import-presets' && <ImportPresetsSection />}
         {activeSection === 'backup' && <BackupSection />}
         {activeSection === 'cache' && <CacheSection />}
