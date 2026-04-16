@@ -347,6 +347,162 @@ class CorrespondencesMixin:
         ''', (archetype_id,))
         return cursor.fetchall()
 
+    # === Stats / Insights Queries ===
+
+    def get_correspondence_frequency(self, field_name: str, months: int = 6):
+        """Count frequency of each value for a correspondence field across readings.
+
+        Resolves correspondences for every card drawn in journal entries
+        within the given time period, using the three-tier inheritance.
+        Returns: [{value, count}] sorted by count descending.
+        """
+        if field_name not in CORRESPONDENCE_FIELDS:
+            return []
+
+        cursor = self.conn.cursor()
+        # Get all readings within the period
+        cursor.execute('''
+            SELECT er.cards_used, er.deck_id
+            FROM entry_readings er
+            JOIN journal_entries je ON je.id = er.entry_id
+            WHERE er.cards_used IS NOT NULL
+              AND je.created_at >= date('now', ?)
+        ''', (f'-{months} months',))
+
+        import json
+        value_counts = {}
+        for row in cursor.fetchall():
+            try:
+                cards = json.loads(row['cards_used'])
+            except (json.JSONDecodeError, TypeError):
+                continue
+            deck_id = row['deck_id']
+
+            for card_entry in cards:
+                card_name = card_entry.get('name')
+                card_deck_id = card_entry.get('deck_id', deck_id)
+                if not card_name or not card_deck_id:
+                    continue
+
+                # Look up the card
+                cursor.execute('''
+                    SELECT c.id, c.archetype, d.correspondence_system_id
+                    FROM cards c
+                    JOIN decks d ON d.id = c.deck_id
+                    WHERE c.name = ? AND c.deck_id = ?
+                    LIMIT 1
+                ''', (card_name, card_deck_id))
+                card_row = cursor.fetchone()
+                if not card_row:
+                    continue
+
+                # Resolve the correspondence value (override → inherited → none)
+                value = None
+
+                # Check card override
+                cursor.execute('''
+                    SELECT field_value FROM card_correspondence_overrides
+                    WHERE card_id = ? AND field_name = ?
+                ''', (card_row['id'], field_name))
+                override = cursor.fetchone()
+                if override:
+                    value = override['field_value']
+                elif card_row['correspondence_system_id'] and card_row['archetype']:
+                    # Check system inheritance
+                    cursor.execute('''
+                        SELECT ca.field_value
+                        FROM correspondence_assignments ca
+                        JOIN card_archetypes a ON a.id = ca.archetype_id
+                        WHERE ca.system_id = ?
+                          AND a.name = ?
+                          AND ca.field_name = ?
+                    ''', (card_row['correspondence_system_id'], card_row['archetype'], field_name))
+                    inherited = cursor.fetchone()
+                    if inherited:
+                        value = inherited['field_value']
+
+                if value:
+                    value_counts[value] = value_counts.get(value, 0) + 1
+
+        result = [{'value': v, 'count': c} for v, c in value_counts.items()]
+        result.sort(key=lambda x: x['count'], reverse=True)
+        return result
+
+    def get_correspondence_timeline(self, field_name: str, months: int = 12):
+        """Get monthly breakdown of correspondence field values across readings.
+
+        Returns: [{period, values: {value: count, ...}}] for each month.
+        """
+        if field_name not in CORRESPONDENCE_FIELDS:
+            return []
+
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT er.cards_used, er.deck_id,
+                   strftime('%Y-%m', je.created_at) as period
+            FROM entry_readings er
+            JOIN journal_entries je ON je.id = er.entry_id
+            WHERE er.cards_used IS NOT NULL
+              AND je.created_at >= date('now', ?)
+            ORDER BY je.created_at
+        ''', (f'-{months} months',))
+
+        import json
+        monthly = {}  # period -> {value -> count}
+        for row in cursor.fetchall():
+            try:
+                cards = json.loads(row['cards_used'])
+            except (json.JSONDecodeError, TypeError):
+                continue
+            deck_id = row['deck_id']
+            period = row['period']
+            if period not in monthly:
+                monthly[period] = {}
+
+            for card_entry in cards:
+                card_name = card_entry.get('name')
+                card_deck_id = card_entry.get('deck_id', deck_id)
+                if not card_name or not card_deck_id:
+                    continue
+
+                cursor.execute('''
+                    SELECT c.id, c.archetype, d.correspondence_system_id
+                    FROM cards c
+                    JOIN decks d ON d.id = c.deck_id
+                    WHERE c.name = ? AND c.deck_id = ?
+                    LIMIT 1
+                ''', (card_name, card_deck_id))
+                card_row = cursor.fetchone()
+                if not card_row:
+                    continue
+
+                value = None
+                cursor.execute('''
+                    SELECT field_value FROM card_correspondence_overrides
+                    WHERE card_id = ? AND field_name = ?
+                ''', (card_row['id'], field_name))
+                override = cursor.fetchone()
+                if override:
+                    value = override['field_value']
+                elif card_row['correspondence_system_id'] and card_row['archetype']:
+                    cursor.execute('''
+                        SELECT ca.field_value
+                        FROM correspondence_assignments ca
+                        JOIN card_archetypes a ON a.id = ca.archetype_id
+                        WHERE ca.system_id = ?
+                          AND a.name = ?
+                          AND ca.field_name = ?
+                    ''', (card_row['correspondence_system_id'], card_row['archetype'], field_name))
+                    inherited = cursor.fetchone()
+                    if inherited:
+                        value = inherited['field_value']
+
+                if value:
+                    monthly[period][value] = monthly[period].get(value, 0) + 1
+
+        result = [{'period': p, 'values': v} for p, v in sorted(monthly.items())]
+        return result
+
     def compare_correspondence_systems(self, system_ids: list[int]):
         """Compare assignments across multiple systems.
 

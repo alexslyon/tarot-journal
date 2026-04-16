@@ -18,6 +18,7 @@ import TimelineSection from './TimelineSection';
 import CardFrequencySection from './CardFrequencySection';
 import TagTrendsSection from './TagTrendsSection';
 import UsageSection from './UsageSection';
+import CorrespondenceStatsSection from './CorrespondenceStatsSection';
 import './StatsTab.css';
 
 export default function StatsTab() {
@@ -61,6 +62,7 @@ export default function StatsTab() {
             <TimelineSection data={timeline || []} />
             <CardFrequencySection data={cardFrequency || []} />
             <TagTrendsSection data={tagTrends || []} />
+            <CorrespondenceStatsSection />
             {usage && <UsageSection data={usage} />}
           </>
         )}
