@@ -1,0 +1,18 @@
+.reference-tab {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+.reference-tab__placeholder h2 {
+  margin: 0 0 8px;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.reference-tab__placeholder p {
+  margin: 0;
+  text-align: center;
+}
