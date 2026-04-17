@@ -734,6 +734,37 @@ class CoreMixin:
             from database.correspondence_seed import seed_field_options
             seed_field_options(cursor)
 
+        # One-time migration: upgrade plain-numeric I Ching options to "N ䷀ Name" format.
+        # Renames cascade to correspondence_assignments / card_correspondence_overrides.
+        if self.get_setting('i_ching_hexagram_format_migration_done') != 'true':
+            from database.correspondence_seed import I_CHING_HEXAGRAMS
+            for i, new_value in enumerate(I_CHING_HEXAGRAMS, start=1):
+                old_value = str(i)
+                # Skip if the option is already in the new format
+                cursor.execute(
+                    "SELECT id, option_value FROM correspondence_field_options WHERE field_name = 'i_ching_hexagram' AND option_value = ?",
+                    (old_value,)
+                )
+                row = cursor.fetchone()
+                if not row:
+                    continue
+                opt_id = row['id']
+                # Rename the option
+                cursor.execute(
+                    'UPDATE correspondence_field_options SET option_value = ? WHERE id = ?',
+                    (new_value, opt_id)
+                )
+                # Cascade to assignments + overrides
+                cursor.execute(
+                    "UPDATE correspondence_assignments SET field_value = ? WHERE field_name = 'i_ching_hexagram' AND field_value = ?",
+                    (new_value, old_value)
+                )
+                cursor.execute(
+                    "UPDATE card_correspondence_overrides SET field_value = ? WHERE field_name = 'i_ching_hexagram' AND field_value = ?",
+                    (new_value, old_value)
+                )
+            self.set_setting('i_ching_hexagram_format_migration_done', 'true')
+
         self._commit()
 
         # Run one-time correspondence field migration (after commit so tables exist)
