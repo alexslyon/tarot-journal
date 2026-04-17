@@ -548,16 +548,15 @@ class CoreMixin:
                 FOREIGN KEY (archetype_id) REFERENCES card_archetypes(id) ON DELETE CASCADE
             )
         ''')
-        # Partial unique indexes: one for NULL source_group, one for non-NULL.
-        # This lets us have at most one manual value and one value per bulk group.
+        # Both NULL and non-NULL source groups can contribute multiple values
+        # per cell (e.g. a manual edit can pick multiple zodiac signs). Unique
+        # indexes include field_value so we only prevent exact duplicates.
+        cursor.execute('DROP INDEX IF EXISTS idx_corr_assignments_unique_manual')
         cursor.execute('''
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_corr_assignments_unique_manual
-            ON correspondence_assignments(system_id, archetype_id, field_name)
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_corr_assignments_unique_manual_value
+            ON correspondence_assignments(system_id, archetype_id, field_name, field_value)
             WHERE source_group IS NULL
         ''')
-        # Non-NULL source groups can contribute multiple values (e.g. an Ace
-        # assignment can expand to multiple zodiac signs). The unique index
-        # includes field_value so we only prevent exact duplicates.
         cursor.execute('DROP INDEX IF EXISTS idx_corr_assignments_unique_group')
         cursor.execute('''
             CREATE UNIQUE INDEX IF NOT EXISTS idx_corr_assignments_unique_group_value

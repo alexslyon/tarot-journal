@@ -7,15 +7,15 @@ import {
   updateCorrespondenceSystem,
   deleteCorrespondenceSystem,
   cloneCorrespondenceSystem,
-  setAssignment,
   deleteAssignment,
-  bulkSetAssignments,
   getArchetypes,
   getFieldOptions,
   expandElementalZodiac,
+  setAssignmentValues,
   type Archetype,
   type FieldOption,
 } from '../../../api/correspondences';
+import MultiValueSelect from '../../common/MultiValueSelect';
 import type {
   CorrespondenceSystem,
   CorrespondenceAssignment,
@@ -45,7 +45,7 @@ export default function CorrespondencesSection() {
   const [filterText, setFilterText] = useState('');
   const [bulkGroup, setBulkGroup] = useState('');
   const [bulkField, setBulkField] = useState(CORRESPONDENCE_FIELDS[0] as string);
-  const [bulkValue, setBulkValue] = useState('');
+  const [bulkValues, setBulkValues] = useState<string[]>([]);
   const [bulkApplying, setBulkApplying] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
   const [showOptionsEditor, setShowOptionsEditor] = useState(false);
@@ -164,15 +164,17 @@ export default function CorrespondencesSection() {
     }
   };
 
-  const handleSetAssignment = async (archetypeId: number, fieldName: string, value: string) => {
+  const handleSetCellValues = async (archetypeId: number, fieldName: string, values: string[]) => {
     if (!selectedSystemId) return;
     try {
-      if (value.trim()) {
-        // Manual edit: replaces all sources (NULL source)
-        await setAssignment(selectedSystemId, archetypeId, fieldName, value.trim());
-      } else {
-        // Empty: clear all sources for this cell
+      if (values.length === 0) {
+        // Empty: clear all sources for this cell (including bulk/group contributions)
         await deleteAssignment(selectedSystemId, archetypeId, fieldName, { all: true });
+      } else {
+        // Manual multi-value edit: replaces the NULL-sourced rows for this cell
+        // (plus clears any non-NULL sources since the user just took ownership)
+        await deleteAssignment(selectedSystemId, archetypeId, fieldName, { all: true });
+        await setAssignmentValues(selectedSystemId, archetypeId, fieldName, values);
       }
       queryClient.invalidateQueries({ queryKey: ['correspondence-system', selectedSystemId] });
     } catch {
@@ -255,21 +257,21 @@ export default function CorrespondencesSection() {
   };
 
   const handleBulkApply = async () => {
-    if (!selectedSystemId || !bulkGroup || !bulkField || !bulkValue.trim()) return;
+    if (!selectedSystemId || !bulkGroup || !bulkField || bulkValues.length === 0) return;
     const archetypes = getGroupArchetypes(bulkGroup);
     if (archetypes.length === 0) return;
 
     setBulkApplying(true);
     try {
-      const assignments = archetypes.map(a => ({
-        archetype_id: a.id,
-        field_name: bulkField,
-        field_value: bulkValue.trim(),
-      }));
-      await bulkSetAssignments(selectedSystemId, assignments, bulkGroup);
+      // Use multi-value API per archetype so all selected values are applied
+      await Promise.all(archetypes.map(a =>
+        setAssignmentValues(selectedSystemId, a.id, bulkField, bulkValues, bulkGroup)
+      ));
       queryClient.invalidateQueries({ queryKey: ['correspondence-system', selectedSystemId] });
-      showMsg(`Set ${CORRESPONDENCE_FIELD_LABELS[bulkField]} = "${bulkValue.trim()}" for ${archetypes.length} cards`, 'success');
-      setBulkValue('');
+      const label = CORRESPONDENCE_FIELD_LABELS[bulkField];
+      const valueDesc = bulkValues.length === 1 ? bulkValues[0] : `[${bulkValues.join(', ')}]`;
+      showMsg(`Set ${label} = ${valueDesc} for ${archetypes.length} cards`, 'success');
+      setBulkValues([]);
     } catch {
       showMsg('Failed to apply bulk assignment', 'error');
     } finally {
@@ -579,23 +581,20 @@ export default function CorrespondencesSection() {
                   </div>
 
                   <div className="corr-bulk__field" style={{ flex: 1 }}>
-                    <label className="settings-tab__label">Value</label>
-                    <select
-                      value={bulkValue}
-                      onChange={e => setBulkValue(e.target.value)}
-                    >
-                      <option value="">Select...</option>
-                      {(optionsByField.get(bulkField) || []).map(o => (
-                        <option key={o.id} value={o.option_value}>{o.option_value}</option>
-                      ))}
-                    </select>
+                    <label className="settings-tab__label">Value(s)</label>
+                    <MultiValueSelect
+                      values={bulkValues}
+                      options={(optionsByField.get(bulkField) || []).map(o => o.option_value)}
+                      onCommit={setBulkValues}
+                      placeholder="Select value(s)..."
+                    />
                   </div>
 
                   <div className="corr-bulk__field corr-bulk__actions" style={{ alignSelf: 'flex-end' }}>
                     <button
                       className="settings-tab__save-btn"
                       onClick={handleBulkApply}
-                      disabled={bulkApplying || !bulkGroup || !bulkValue.trim()}
+                      disabled={bulkApplying || !bulkGroup || bulkValues.length === 0}
                     >
                       {bulkApplying ? 'Working...' : `Apply${bulkGroup ? ` (${getGroupArchetypes(bulkGroup).length})` : ''}`}
                     </button>
@@ -614,7 +613,7 @@ export default function CorrespondencesSection() {
                   <p className="settings-tab__hint" style={{ marginTop: 4 }}>
                     Targets {getGroupArchetypes(bulkGroup).length} cards: {getGroupArchetypes(bulkGroup).slice(0, 4).map(a => a.name).join(', ')}{getGroupArchetypes(bulkGroup).length > 4 ? ', ...' : ''}
                     <br />
-                    <strong>Apply</strong> sets {CORRESPONDENCE_FIELD_LABELS[bulkField]} = "{bulkValue || '...'}" for these cards. <strong>Clear</strong> removes {CORRESPONDENCE_FIELD_LABELS[bulkField]} entirely (card-level overrides are not affected).
+                    <strong>Apply</strong> sets {CORRESPONDENCE_FIELD_LABELS[bulkField]} = "{bulkValues.join(', ') || '...'}" for these cards. <strong>Clear</strong> removes {CORRESPONDENCE_FIELD_LABELS[bulkField]} entirely (card-level overrides are not affected).
                   </p>
                 )}
 
@@ -670,60 +669,12 @@ export default function CorrespondencesSection() {
                       </td>
                       {CORRESPONDENCE_FIELDS.map(f => (
                         <td key={f}>
-                          {(() => {
-                            const currentValues = fields.get(f) || [];
-                            const joined = currentValues.join(', ');
-                            const opts = optionsByField.get(f) || [];
-                            // If multi-value or current value isn't in options, show display + edit button
-                            const singleValue = currentValues.length === 1 ? currentValues[0] : '';
-                            const singleInOptions = singleValue && opts.some(o => o.option_value === singleValue);
-
-                            if (currentValues.length > 1 || (singleValue && !singleInOptions)) {
-                              // Multi-value or custom value: show display with overwrite dropdown
-                              return (
-                                <div className="corr-systems__cell-multi">
-                                  <span className="corr-systems__cell-display">{joined}</span>
-                                  <select
-                                    className="corr-systems__cell-select"
-                                    value=""
-                                    onChange={e => {
-                                      if (e.target.value === '__clear__') {
-                                        handleSetAssignment(archId, f, '');
-                                      } else if (e.target.value) {
-                                        handleSetAssignment(archId, f, e.target.value);
-                                      }
-                                    }}
-                                    title="Overwrite with a single value"
-                                  >
-                                    <option value="">↻</option>
-                                    {opts.map(o => (
-                                      <option key={o.id} value={o.option_value}>{o.option_value}</option>
-                                    ))}
-                                    <option value="__clear__">— Clear —</option>
-                                  </select>
-                                </div>
-                              );
-                            }
-
-                            // Single value or empty: simple dropdown
-                            return (
-                              <select
-                                className="corr-systems__cell-select"
-                                value={singleValue}
-                                onChange={e => {
-                                  const newVal = e.target.value;
-                                  if (newVal !== singleValue) {
-                                    handleSetAssignment(archId, f, newVal);
-                                  }
-                                }}
-                              >
-                                <option value="">—</option>
-                                {opts.map(o => (
-                                  <option key={o.id} value={o.option_value}>{o.option_value}</option>
-                                ))}
-                              </select>
-                            );
-                          })()}
+                          <MultiValueSelect
+                            values={fields.get(f) || []}
+                            options={(optionsByField.get(f) || []).map(o => o.option_value)}
+                            onCommit={vals => handleSetCellValues(archId, f, vals)}
+                            compact
+                          />
                         </td>
                       ))}
                     </tr>

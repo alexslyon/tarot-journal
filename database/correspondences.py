@@ -468,23 +468,28 @@ class CorrespondencesMixin:
 
     def set_system_multi_assignment(self, system_id: int, archetype_id: int,
                                     field_name: str, values: list,
-                                    source_group: str):
+                                    source_group: str = None):
         """Set multiple values for the same (system, archetype, field, source_group).
 
-        Used for assignments like "Aces → all 3 zodiac signs of the suit's element".
-        Replaces any prior rows for this source_group+field with the new set.
-        Requires a non-NULL source_group.
+        Replaces any prior rows for this (source_group, field) combination with
+        the new set. Pass source_group=None for manual (NULL-sourced) multi-edits;
+        pass a group label for bulk/group-sourced multi-values.
         """
-        if not source_group:
-            raise ValueError("Multi-value assignment requires a source_group")
         if field_name not in CORRESPONDENCE_FIELDS:
             raise ValueError(f"Invalid field name: {field_name}")
         cursor = self.conn.cursor()
-        cursor.execute('''
-            DELETE FROM correspondence_assignments
-            WHERE system_id = ? AND archetype_id = ? AND field_name = ?
-              AND source_group = ?
-        ''', (system_id, archetype_id, field_name, source_group))
+        if source_group is None:
+            cursor.execute('''
+                DELETE FROM correspondence_assignments
+                WHERE system_id = ? AND archetype_id = ? AND field_name = ?
+                  AND source_group IS NULL
+            ''', (system_id, archetype_id, field_name))
+        else:
+            cursor.execute('''
+                DELETE FROM correspondence_assignments
+                WHERE system_id = ? AND archetype_id = ? AND field_name = ?
+                  AND source_group = ?
+            ''', (system_id, archetype_id, field_name, source_group))
         seen = set()
         for v in values:
             if not v or v in seen:
