@@ -180,7 +180,8 @@
   background: transparent !important;
   color: var(--text-primary) !important;
   font-family: system-ui, -apple-system, 'Arial Hebrew', 'Times New Roman', sans-serif !important;
-  unicode-bidi: plaintext;
+  direction: ltr !important;
+  text-align: left !important;
 }
 
 .corr-systems__cell-select:hover,
@@ -206,7 +207,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  unicode-bidi: plaintext;
+  direction: ltr;
+  text-align: left;
 }
 
 .corr-systems__cell-multi .corr-systems__cell-select {
@@ -336,7 +338,8 @@
   font-family: system-ui, -apple-system, 'Arial Hebrew', sans-serif;
   font-size: var(--font-size-body);
   line-height: 1.6;
-  unicode-bidi: plaintext;
+  direction: ltr;
+  text-align: left;
 }
 
 .field-options__input {
@@ -346,7 +349,8 @@
   font-family: system-ui, -apple-system, 'Arial Hebrew', sans-serif !important;
   font-size: var(--font-size-body) !important;
   line-height: 1.6 !important;
-  unicode-bidi: plaintext;
+  direction: ltr !important;
+  text-align: left !important;
 }
 
 .field-options__row button {
