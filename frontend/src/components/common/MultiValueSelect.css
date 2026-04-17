@@ -101,6 +101,10 @@
 .multi-select__option input[type="checkbox"] {
   accent-color: var(--accent);
   flex-shrink: 0;
+  width: auto !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .multi-select__option-label {
