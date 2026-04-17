@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getCorrespondenceSystems,
@@ -21,6 +21,7 @@ import {
   CORRESPONDENCE_FIELDS,
   CORRESPONDENCE_FIELD_LABELS,
 } from '../../../types';
+import { detectGroupPatterns, groupPatternsByField, type GroupPattern } from '../../../utils/correspondencePatterns';
 import '../SettingsTab.css';
 import './CorrespondencesSection.css';
 
@@ -162,6 +163,13 @@ export default function CorrespondencesSection() {
       assignmentsByArchetype.get(a.archetype_id)!.set(a.field_name, a.field_value);
     }
   }
+
+  // Detect group-level patterns (same as Reference view)
+  const patternsByField = useMemo<Map<string, GroupPattern[]>>(() => {
+    if (!systemDetail?.assignments) return new Map();
+    const patterns = detectGroupPatterns(systemDetail.assignments as CorrespondenceAssignment[]);
+    return groupPatternsByField(patterns);
+  }, [systemDetail]);
 
   // === Bulk assign groups ===
   const BULK_GROUPS: { label: string; filter: (a: Archetype) => boolean }[] = [
@@ -386,6 +394,27 @@ export default function CorrespondencesSection() {
               </>
             )}
           </div>
+
+          {/* Group-level patterns summary (same as Reference view) */}
+          {patternsByField.size > 0 && (
+            <div className="corr-viewer__group-summary">
+              <h4 className="corr-viewer__group-title">Group Patterns</h4>
+              {[...patternsByField.entries()].map(([fieldLabel, patterns]) => (
+                <div key={fieldLabel} className="corr-viewer__group-row">
+                  <span className="corr-viewer__group-field">{fieldLabel}</span>
+                  <div className="corr-viewer__group-values">
+                    {patterns.map(p => (
+                      <span key={p.groupLabel} className="corr-viewer__group-tag">
+                        <span className="corr-viewer__group-name">{p.groupLabel}</span>
+                        <span className="corr-viewer__group-eq">=</span>
+                        <span className="corr-viewer__group-val">{p.value}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Bulk Assign */}
           <div className="corr-bulk">
