@@ -272,6 +272,14 @@ class CorrespondencesMixin:
         if element and modality:
             zodiac = MODALITY_ZODIAC.get((element, modality))
             if zodiac:
+                # Modality assignment takes ownership of zodiac for this card:
+                # clear any other zodiac entries (seed data, other groups) since
+                # element+modality is a more specific derivation than free-floating
+                # zodiac values would typically provide.
+                cursor.execute('''
+                    DELETE FROM correspondence_assignments
+                    WHERE system_id = ? AND archetype_id = ? AND field_name = 'zodiac_sign'
+                ''', (system_id, archetype_id))
                 cursor.execute('''
                     INSERT INTO correspondence_assignments
                         (system_id, archetype_id, field_name, field_value, source_group)
