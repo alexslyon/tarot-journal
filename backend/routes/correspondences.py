@@ -101,10 +101,11 @@ def get_assignments(system_id):
 def bulk_set_assignments(system_id, data):
     db = current_app.config['DB']
     assignments = data.get('assignments', [])
+    source_group = data.get('source_group')  # None for manual edits
     if not assignments:
         return jsonify({'error': 'No assignments provided'}), 400
     try:
-        db.bulk_set_system_assignments(system_id, assignments)
+        db.bulk_set_system_assignments(system_id, assignments, source_group=source_group)
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     return jsonify({'ok': True})
@@ -118,10 +119,14 @@ def bulk_set_assignments(system_id, data):
 def set_assignment(system_id, archetype_id, field_name, data):
     db = current_app.config['DB']
     field_value = data.get('value', '').strip()
+    source_group = data.get('source_group')
     if not field_value:
         return jsonify({'error': 'Value is required'}), 400
     try:
-        db.set_system_assignment(system_id, archetype_id, field_name, field_value)
+        db.set_system_assignment(
+            system_id, archetype_id, field_name, field_value,
+            source_group=source_group,
+        )
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     return jsonify({'ok': True})
@@ -132,8 +137,20 @@ def set_assignment(system_id, archetype_id, field_name, data):
     methods=['DELETE']
 )
 def delete_assignment(system_id, archetype_id, field_name):
+    """Delete assignment(s) for a cell.
+
+    Query params:
+        source_group: only delete the value from this specific group
+        all: if 'true', delete all values (both manual and all groups)
+    """
     db = current_app.config['DB']
-    db.delete_system_assignment(system_id, archetype_id, field_name)
+    source_group = request.args.get('source_group')
+    delete_all = request.args.get('all') == 'true'
+    db.delete_system_assignment(
+        system_id, archetype_id, field_name,
+        source_group=source_group,
+        delete_all_sources=delete_all,
+    )
     return jsonify({'ok': True})
 
 

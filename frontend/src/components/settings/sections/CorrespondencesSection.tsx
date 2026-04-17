@@ -151,9 +151,11 @@ export default function CorrespondencesSection() {
     if (!selectedSystemId) return;
     try {
       if (value.trim()) {
+        // Manual edit: replaces all sources (NULL source)
         await setAssignment(selectedSystemId, archetypeId, fieldName, value.trim());
       } else {
-        await deleteAssignment(selectedSystemId, archetypeId, fieldName);
+        // Empty: clear all sources for this cell
+        await deleteAssignment(selectedSystemId, archetypeId, fieldName, { all: true });
       }
       queryClient.invalidateQueries({ queryKey: ['correspondence-system', selectedSystemId] });
     } catch {
@@ -161,8 +163,8 @@ export default function CorrespondencesSection() {
     }
   };
 
-  // Group assignments by archetype for table display
-  const assignmentsByArchetype = new Map<number, Map<string, string>>();
+  // Group assignments by archetype — each cell may have multiple values from different source groups
+  const assignmentsByArchetype = new Map<number, Map<string, string[]>>();
   const archetypeInfo = new Map<number, { name: string; cartomancy_type: string; card_type: string | null }>();
 
   if (systemDetail?.assignments) {
@@ -175,7 +177,10 @@ export default function CorrespondencesSection() {
           card_type: a.card_type,
         });
       }
-      assignmentsByArchetype.get(a.archetype_id)!.set(a.field_name, a.field_value);
+      const fieldMap = assignmentsByArchetype.get(a.archetype_id)!;
+      if (!fieldMap.has(a.field_name)) fieldMap.set(a.field_name, []);
+      const values = fieldMap.get(a.field_name)!;
+      if (!values.includes(a.field_value)) values.push(a.field_value);
     }
   }
 
@@ -243,7 +248,7 @@ export default function CorrespondencesSection() {
         field_name: bulkField,
         field_value: bulkValue.trim(),
       }));
-      await bulkSetAssignments(selectedSystemId, assignments);
+      await bulkSetAssignments(selectedSystemId, assignments, bulkGroup);
       queryClient.invalidateQueries({ queryKey: ['correspondence-system', selectedSystemId] });
       showMsg(`Set ${CORRESPONDENCE_FIELD_LABELS[bulkField]} = "${bulkValue.trim()}" for ${archetypes.length} cards`, 'success');
       setBulkValue('');
@@ -260,16 +265,16 @@ export default function CorrespondencesSection() {
     if (archetypes.length === 0) return;
 
     if (!window.confirm(
-      `Clear ${CORRESPONDENCE_FIELD_LABELS[bulkField]} for all ${archetypes.length} cards in "${bulkGroup}"?\n\nThis removes the system-level assignment. Card-level overrides on individual decks are not affected.`
+      `Clear the "${bulkGroup}" group's ${CORRESPONDENCE_FIELD_LABELS[bulkField]} values for all ${archetypes.length} cards?\n\nOther contributions (manual edits or other groups) are not affected.`
     )) return;
 
     setBulkApplying(true);
     try {
       await Promise.all(archetypes.map(a =>
-        deleteAssignment(selectedSystemId, a.id, bulkField)
+        deleteAssignment(selectedSystemId, a.id, bulkField, { sourceGroup: bulkGroup })
       ));
       queryClient.invalidateQueries({ queryKey: ['correspondence-system', selectedSystemId] });
-      showMsg(`Cleared ${CORRESPONDENCE_FIELD_LABELS[bulkField]} for ${archetypes.length} cards`, 'success');
+      showMsg(`Cleared "${bulkGroup}" ${CORRESPONDENCE_FIELD_LABELS[bulkField]} for ${archetypes.length} cards`, 'success');
     } catch {
       showMsg('Failed to clear bulk assignment', 'error');
     } finally {
@@ -602,18 +607,23 @@ export default function CorrespondencesSection() {
                       </td>
                       {CORRESPONDENCE_FIELDS.map(f => (
                         <td key={f}>
-                          <input
-                            type="text"
-                            className="corr-systems__cell-input"
-                            defaultValue={fields.get(f) || ''}
-                            onBlur={e => {
-                              const newVal = e.target.value;
-                              const oldVal = fields.get(f) || '';
-                              if (newVal !== oldVal) {
-                                handleSetAssignment(archId, f, newVal);
-                              }
-                            }}
-                          />
+                          {(() => {
+                            const joined = (fields.get(f) || []).join(', ');
+                            return (
+                              <input
+                                key={`${archId}-${f}-${joined}`}
+                                type="text"
+                                className="corr-systems__cell-input"
+                                defaultValue={joined}
+                                onBlur={e => {
+                                  const newVal = e.target.value;
+                                  if (newVal !== joined) {
+                                    handleSetAssignment(archId, f, newVal);
+                                  }
+                                }}
+                              />
+                            );
+                          })()}
                         </td>
                       ))}
                     </tr>

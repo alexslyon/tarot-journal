@@ -210,6 +210,7 @@ export interface CorrespondenceAssignment {
   card_type: string | null;
   field_name: string;
   field_value: string;
+  source_group: string | null;
 }
 
 export interface ResolvedCorrespondence {

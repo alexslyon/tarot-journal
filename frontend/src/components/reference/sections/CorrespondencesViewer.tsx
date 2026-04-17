@@ -50,14 +50,17 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
     );
   };
 
-  // Build table data for by-system view
-  const bySystemRows = new Map<number, { name: string; fields: Map<string, string> }>();
+  // Build table data for by-system view — aggregate multiple values per field
+  const bySystemRows = new Map<number, { name: string; fields: Map<string, string[]> }>();
   if (systemDetail?.assignments) {
     for (const a of systemDetail.assignments as CorrespondenceAssignment[]) {
       if (!bySystemRows.has(a.archetype_id)) {
         bySystemRows.set(a.archetype_id, { name: a.archetype_name, fields: new Map() });
       }
-      bySystemRows.get(a.archetype_id)!.fields.set(a.field_name, a.field_value);
+      const fieldMap = bySystemRows.get(a.archetype_id)!.fields;
+      if (!fieldMap.has(a.field_name)) fieldMap.set(a.field_name, []);
+      const values = fieldMap.get(a.field_name)!;
+      if (!values.includes(a.field_value)) values.push(a.field_value);
     }
   }
 
@@ -73,8 +76,8 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
     return bySystemRows.get(id)!.name.toLowerCase().includes(filterText.toLowerCase());
   });
 
-  // Build compare table data — grouped by archetype, then by system
-  const compareRows = new Map<string, Map<string, Map<string, string>>>();
+  // Build compare table data — grouped by archetype, then by system, aggregating multiple values per field
+  const compareRows = new Map<string, Map<string, Map<string, string[]>>>();
   const compareSystemNames = new Map<number, string>();
   for (const a of compareData) {
     if (!compareRows.has(a.archetype_name)) {
@@ -82,10 +85,14 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
     }
     const systemName = (a as CorrespondenceAssignment & { system_name?: string }).system_name || String(a.system_id);
     compareSystemNames.set(a.system_id, systemName);
-    if (!compareRows.get(a.archetype_name)!.has(systemName)) {
-      compareRows.get(a.archetype_name)!.set(systemName, new Map());
+    const sysMap = compareRows.get(a.archetype_name)!;
+    if (!sysMap.has(systemName)) {
+      sysMap.set(systemName, new Map());
     }
-    compareRows.get(a.archetype_name)!.get(systemName)!.set(a.field_name, a.field_value);
+    const fieldMap = sysMap.get(systemName)!;
+    if (!fieldMap.has(a.field_name)) fieldMap.set(a.field_name, []);
+    const values = fieldMap.get(a.field_name)!;
+    if (!values.includes(a.field_value)) values.push(a.field_value);
   }
 
   const compareSystemList = [...compareSystemNames.entries()].sort((a, b) => a[1].localeCompare(b[1]));
@@ -181,7 +188,7 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
                       <td className="corr-viewer__td--card">{row.name}</td>
                       {CORRESPONDENCE_FIELDS.map(f => (
                         <td key={f} className="corr-viewer__td--value">
-                          {row.fields.get(f) || ''}
+                          {(row.fields.get(f) || []).join(', ')}
                         </td>
                       ))}
                     </tr>
@@ -247,7 +254,8 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
                           {CORRESPONDENCE_FIELD_LABELS[fieldName] || fieldName}
                         </td>
                         {compareSystemList.map(([, sysName]) => {
-                          const val = systemMap.get(sysName)?.get(fieldName) || '';
+                          const vals = systemMap.get(sysName)?.get(fieldName) || [];
+                          const val = vals.join(', ');
                           return <td key={sysName} className="corr-viewer__td--value">{val}</td>;
                         })}
                       </tr>

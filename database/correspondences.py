@@ -149,66 +149,117 @@ class CorrespondencesMixin:
         return cursor.fetchall()
 
     def set_system_assignment(self, system_id: int, archetype_id: int,
-                              field_name: str, field_value: str):
-        """Set or update a single assignment. Handles decan derivation."""
+                              field_name: str, field_value: str,
+                              source_group: str = None):
+        """Set an assignment for an archetype/field.
+
+        If source_group is None (individual cell edit), replaces ALL existing
+        values for this cell with a single manual value.
+        If source_group is provided (bulk edit), replaces only the value from
+        that specific group.
+        """
         if field_name not in CORRESPONDENCE_FIELDS:
             raise ValueError(f"Invalid field name: {field_name}")
         cursor = self.conn.cursor()
-        cursor.execute('''
-            INSERT INTO correspondence_assignments
-                (system_id, archetype_id, field_name, field_value)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(system_id, archetype_id, field_name)
-            DO UPDATE SET field_value = excluded.field_value
-        ''', (system_id, archetype_id, field_name, field_value))
 
-        # Decan derivation: auto-set planet and zodiac_sign
+        if source_group is None:
+            # Individual edit: clear all existing values for this cell first
+            cursor.execute('''
+                DELETE FROM correspondence_assignments
+                WHERE system_id = ? AND archetype_id = ? AND field_name = ?
+            ''', (system_id, archetype_id, field_name))
+            cursor.execute('''
+                INSERT INTO correspondence_assignments
+                    (system_id, archetype_id, field_name, field_value, source_group)
+                VALUES (?, ?, ?, ?, NULL)
+            ''', (system_id, archetype_id, field_name, field_value))
+        else:
+            # Bulk edit: replace just the value from this group
+            cursor.execute('''
+                DELETE FROM correspondence_assignments
+                WHERE system_id = ? AND archetype_id = ? AND field_name = ?
+                  AND source_group = ?
+            ''', (system_id, archetype_id, field_name, source_group))
+            cursor.execute('''
+                INSERT INTO correspondence_assignments
+                    (system_id, archetype_id, field_name, field_value, source_group)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (system_id, archetype_id, field_name, field_value, source_group))
+
+        # Decan derivation: auto-set planet and zodiac_sign with same source_group
         if field_name == 'decan':
             derived = parse_decan(field_value)
             if derived:
                 planet, sign = derived
-                # Only set if not already explicitly set
-                cursor.execute('''
-                    INSERT INTO correspondence_assignments
-                        (system_id, archetype_id, field_name, field_value)
-                    VALUES (?, ?, 'planet', ?)
-                    ON CONFLICT(system_id, archetype_id, field_name)
-                    DO UPDATE SET field_value = excluded.field_value
-                ''', (system_id, archetype_id, planet))
-                cursor.execute('''
-                    INSERT INTO correspondence_assignments
-                        (system_id, archetype_id, field_name, field_value)
-                    VALUES (?, ?, 'zodiac_sign', ?)
-                    ON CONFLICT(system_id, archetype_id, field_name)
-                    DO UPDATE SET field_value = excluded.field_value
-                ''', (system_id, archetype_id, sign))
+                for derived_field, derived_value in (('planet', planet), ('zodiac_sign', sign)):
+                    if source_group is None:
+                        cursor.execute('''
+                            DELETE FROM correspondence_assignments
+                            WHERE system_id = ? AND archetype_id = ? AND field_name = ?
+                        ''', (system_id, archetype_id, derived_field))
+                        cursor.execute('''
+                            INSERT INTO correspondence_assignments
+                                (system_id, archetype_id, field_name, field_value, source_group)
+                            VALUES (?, ?, ?, ?, NULL)
+                        ''', (system_id, archetype_id, derived_field, derived_value))
+                    else:
+                        cursor.execute('''
+                            DELETE FROM correspondence_assignments
+                            WHERE system_id = ? AND archetype_id = ? AND field_name = ?
+                              AND source_group = ?
+                        ''', (system_id, archetype_id, derived_field, source_group))
+                        cursor.execute('''
+                            INSERT INTO correspondence_assignments
+                                (system_id, archetype_id, field_name, field_value, source_group)
+                            VALUES (?, ?, ?, ?, ?)
+                        ''', (system_id, archetype_id, derived_field, derived_value, source_group))
 
         self._commit()
 
     def delete_system_assignment(self, system_id: int, archetype_id: int,
-                                 field_name: str):
+                                 field_name: str, source_group: str = None,
+                                 delete_all_sources: bool = False):
+        """Delete an assignment.
+
+        By default, deletes only the NULL-sourced (manual) row. Pass
+        source_group to delete a specific group's contribution, or
+        delete_all_sources=True to clear everything for this cell.
+        """
         cursor = self.conn.cursor()
-        cursor.execute('''
-            DELETE FROM correspondence_assignments
-            WHERE system_id = ? AND archetype_id = ? AND field_name = ?
-        ''', (system_id, archetype_id, field_name))
+        if delete_all_sources:
+            cursor.execute('''
+                DELETE FROM correspondence_assignments
+                WHERE system_id = ? AND archetype_id = ? AND field_name = ?
+            ''', (system_id, archetype_id, field_name))
+        elif source_group is not None:
+            cursor.execute('''
+                DELETE FROM correspondence_assignments
+                WHERE system_id = ? AND archetype_id = ? AND field_name = ?
+                  AND source_group = ?
+            ''', (system_id, archetype_id, field_name, source_group))
+        else:
+            cursor.execute('''
+                DELETE FROM correspondence_assignments
+                WHERE system_id = ? AND archetype_id = ? AND field_name = ?
+                  AND source_group IS NULL
+            ''', (system_id, archetype_id, field_name))
         self._commit()
 
     def bulk_set_system_assignments(self, system_id: int,
-                                    assignments: list[dict]):
-        """Bulk upsert assignments. Each dict: {archetype_id, field_name, field_value}."""
-        cursor = self.conn.cursor()
+                                    assignments: list[dict],
+                                    source_group: str = None):
+        """Bulk set assignments. Each dict: {archetype_id, field_name, field_value}.
+
+        If source_group is provided, all assignments are tagged with it.
+        Otherwise they are treated as manual (NULL source).
+        """
         for a in assignments:
             if a['field_name'] not in CORRESPONDENCE_FIELDS:
                 continue
-            cursor.execute('''
-                INSERT INTO correspondence_assignments
-                    (system_id, archetype_id, field_name, field_value)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(system_id, archetype_id, field_name)
-                DO UPDATE SET field_value = excluded.field_value
-            ''', (system_id, a['archetype_id'], a['field_name'], a['field_value']))
-        self._commit()
+            self.set_system_assignment(
+                system_id, a['archetype_id'], a['field_name'], a['field_value'],
+                source_group=source_group,
+            )
 
     # === Card-Level Overrides ===
 
@@ -292,21 +343,24 @@ class CorrespondencesMixin:
                 })
                 continue
 
-            # Check system-level inheritance
+            # Check system-level inheritance — may return multiple values from
+            # different source groups (e.g. Page of Wands: Fire from Wands + Earth from Pages)
             if card['correspondence_system_id'] and card['archetype']:
                 cursor.execute('''
-                    SELECT ca.field_value
+                    SELECT DISTINCT ca.field_value
                     FROM correspondence_assignments ca
                     JOIN card_archetypes a ON a.id = ca.archetype_id
                     WHERE ca.system_id = ?
                       AND a.name = ?
                       AND ca.field_name = ?
+                    ORDER BY ca.source_group IS NOT NULL, ca.field_value
                 ''', (card['correspondence_system_id'], card['archetype'], field))
-                inherited = cursor.fetchone()
-                if inherited:
+                inherited_rows = cursor.fetchall()
+                if inherited_rows:
+                    values = [r['field_value'] for r in inherited_rows]
                     result.append({
                         'field_name': field,
-                        'value': inherited['field_value'],
+                        'value': ', '.join(values),
                         'source': 'inherited',
                     })
                     continue
@@ -397,7 +451,7 @@ class CorrespondencesMixin:
                     continue
 
                 # Resolve the correspondence value (override → inherited → none)
-                value = None
+                values = []
 
                 # Check card override
                 cursor.execute('''
@@ -405,24 +459,23 @@ class CorrespondencesMixin:
                     WHERE card_id = ? AND field_name = ?
                 ''', (card_row['id'], field_name))
                 override = cursor.fetchone()
-                if override:
-                    value = override['field_value']
+                if override and override['field_value']:
+                    values = [override['field_value']]
                 elif card_row['correspondence_system_id'] and card_row['archetype']:
-                    # Check system inheritance
+                    # System inheritance — may return multiple values from different groups
                     cursor.execute('''
-                        SELECT ca.field_value
+                        SELECT DISTINCT ca.field_value
                         FROM correspondence_assignments ca
                         JOIN card_archetypes a ON a.id = ca.archetype_id
                         WHERE ca.system_id = ?
                           AND a.name = ?
                           AND ca.field_name = ?
                     ''', (card_row['correspondence_system_id'], card_row['archetype'], field_name))
-                    inherited = cursor.fetchone()
-                    if inherited:
-                        value = inherited['field_value']
+                    values = [r['field_value'] for r in cursor.fetchall()]
 
-                if value:
-                    value_counts[value] = value_counts.get(value, 0) + 1
+                for v in values:
+                    if v:
+                        value_counts[v] = value_counts.get(v, 0) + 1
 
         result = [{'value': v, 'count': c} for v, c in value_counts.items()]
         result.sort(key=lambda x: x['count'], reverse=True)
@@ -476,29 +529,28 @@ class CorrespondencesMixin:
                 if not card_row:
                     continue
 
-                value = None
+                values = []
                 cursor.execute('''
                     SELECT field_value FROM card_correspondence_overrides
                     WHERE card_id = ? AND field_name = ?
                 ''', (card_row['id'], field_name))
                 override = cursor.fetchone()
-                if override:
-                    value = override['field_value']
+                if override and override['field_value']:
+                    values = [override['field_value']]
                 elif card_row['correspondence_system_id'] and card_row['archetype']:
                     cursor.execute('''
-                        SELECT ca.field_value
+                        SELECT DISTINCT ca.field_value
                         FROM correspondence_assignments ca
                         JOIN card_archetypes a ON a.id = ca.archetype_id
                         WHERE ca.system_id = ?
                           AND a.name = ?
                           AND ca.field_name = ?
                     ''', (card_row['correspondence_system_id'], card_row['archetype'], field_name))
-                    inherited = cursor.fetchone()
-                    if inherited:
-                        value = inherited['field_value']
+                    values = [r['field_value'] for r in cursor.fetchall()]
 
-                if value:
-                    monthly[period][value] = monthly[period].get(value, 0) + 1
+                for v in values:
+                    if v:
+                        monthly[period][v] = monthly[period].get(v, 0) + 1
 
         result = [{'period': p, 'values': v} for p, v in sorted(monthly.items())]
         return result
