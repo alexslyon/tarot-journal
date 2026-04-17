@@ -11,7 +11,9 @@ import {
   deleteAssignment,
   bulkSetAssignments,
   getArchetypes,
+  getFieldOptions,
   type Archetype,
+  type FieldOption,
 } from '../../../api/correspondences';
 import type {
   CorrespondenceSystem,
@@ -22,6 +24,7 @@ import {
   CORRESPONDENCE_FIELD_LABELS,
 } from '../../../types';
 import { detectGroupPatterns, groupPatternsByField, type GroupPattern } from '../../../utils/correspondencePatterns';
+import FieldOptionsEditor from './FieldOptionsEditor';
 import '../SettingsTab.css';
 import './CorrespondencesSection.css';
 
@@ -44,6 +47,7 @@ export default function CorrespondencesSection() {
   const [bulkValue, setBulkValue] = useState('');
   const [bulkApplying, setBulkApplying] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
+  const [showOptionsEditor, setShowOptionsEditor] = useState(false);
 
   const { data: systems = [] } = useQuery<CorrespondenceSystem[]>({
     queryKey: ['correspondence-systems'],
@@ -60,6 +64,18 @@ export default function CorrespondencesSection() {
     queryKey: ['archetypes', 'Tarot'],
     queryFn: () => getArchetypes('Tarot'),
   });
+
+  const { data: allFieldOptions = [] } = useQuery<FieldOption[]>({
+    queryKey: ['field-options', 'all'],
+    queryFn: () => getFieldOptions(),
+  });
+
+  // Group options by field_name
+  const optionsByField = new Map<string, FieldOption[]>();
+  for (const opt of allFieldOptions) {
+    if (!optionsByField.has(opt.field_name)) optionsByField.set(opt.field_name, []);
+    optionsByField.get(opt.field_name)!.push(opt);
+  }
 
   const showMsg = (text: string, type: 'success' | 'error') => {
     setMessage({ text, type });
@@ -481,6 +497,13 @@ export default function CorrespondencesSection() {
             </div>
           )}
 
+          {/* Options Editor */}
+          {showOptionsEditor && (
+            <div style={{ marginBottom: 12 }}>
+              <FieldOptionsEditor onClose={() => setShowOptionsEditor(false)} />
+            </div>
+          )}
+
           {/* Bulk Assign */}
           <div className="corr-bulk">
             <button
@@ -488,6 +511,13 @@ export default function CorrespondencesSection() {
               onClick={() => setShowBulk(!showBulk)}
             >
               {showBulk ? 'Hide Bulk Assign' : 'Bulk Assign by Group...'}
+            </button>
+            <button
+              className="settings-tab__customize-btn"
+              onClick={() => setShowOptionsEditor(!showOptionsEditor)}
+              style={{ marginLeft: 16 }}
+            >
+              {showOptionsEditor ? 'Hide Field Options' : 'Edit Field Options...'}
             </button>
 
             {showBulk && (
@@ -536,12 +566,15 @@ export default function CorrespondencesSection() {
 
                   <div className="corr-bulk__field" style={{ flex: 1 }}>
                     <label className="settings-tab__label">Value</label>
-                    <input
-                      type="text"
+                    <select
                       value={bulkValue}
                       onChange={e => setBulkValue(e.target.value)}
-                      placeholder="e.g. Fire, Water, Air..."
-                    />
+                    >
+                      <option value="">Select...</option>
+                      {(optionsByField.get(bulkField) || []).map(o => (
+                        <option key={o.id} value={o.option_value}>{o.option_value}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="corr-bulk__field corr-bulk__actions" style={{ alignSelf: 'flex-end' }}>
@@ -608,20 +641,57 @@ export default function CorrespondencesSection() {
                       {CORRESPONDENCE_FIELDS.map(f => (
                         <td key={f}>
                           {(() => {
-                            const joined = (fields.get(f) || []).join(', ');
+                            const currentValues = fields.get(f) || [];
+                            const joined = currentValues.join(', ');
+                            const opts = optionsByField.get(f) || [];
+                            // If multi-value or current value isn't in options, show display + edit button
+                            const singleValue = currentValues.length === 1 ? currentValues[0] : '';
+                            const singleInOptions = singleValue && opts.some(o => o.option_value === singleValue);
+
+                            if (currentValues.length > 1 || (singleValue && !singleInOptions)) {
+                              // Multi-value or custom value: show display with overwrite dropdown
+                              return (
+                                <div className="corr-systems__cell-multi">
+                                  <span className="corr-systems__cell-display">{joined}</span>
+                                  <select
+                                    className="corr-systems__cell-select"
+                                    value=""
+                                    onChange={e => {
+                                      if (e.target.value === '__clear__') {
+                                        handleSetAssignment(archId, f, '');
+                                      } else if (e.target.value) {
+                                        handleSetAssignment(archId, f, e.target.value);
+                                      }
+                                    }}
+                                    title="Overwrite with a single value"
+                                  >
+                                    <option value="">↻</option>
+                                    {opts.map(o => (
+                                      <option key={o.id} value={o.option_value}>{o.option_value}</option>
+                                    ))}
+                                    <option value="__clear__">— Clear —</option>
+                                  </select>
+                                </div>
+                              );
+                            }
+
+                            // Single value or empty: simple dropdown
                             return (
-                              <input
-                                key={`${archId}-${f}-${joined}`}
-                                type="text"
-                                className="corr-systems__cell-input"
-                                defaultValue={joined}
-                                onBlur={e => {
+                              <select
+                                className="corr-systems__cell-select"
+                                value={singleValue}
+                                onChange={e => {
                                   const newVal = e.target.value;
-                                  if (newVal !== joined) {
+                                  if (newVal !== singleValue) {
                                     handleSetAssignment(archId, f, newVal);
                                   }
                                 }}
-                              />
+                              >
+                                <option value="">—</option>
+                                {opts.map(o => (
+                                  <option key={o.id} value={o.option_value}>{o.option_value}</option>
+                                ))}
+                              </select>
                             );
                           })()}
                         </td>

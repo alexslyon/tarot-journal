@@ -575,6 +575,23 @@ class CoreMixin:
             )
         ''')
 
+        # Correspondence field options: the allowed values for each correspondence field
+        # (Element, Planet, Zodiac, etc). Global list, shared across all systems.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS correspondence_field_options (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                field_name TEXT NOT NULL CHECK(field_name IN (
+                    'element', 'planet', 'zodiac_sign', 'decan',
+                    'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram',
+                    'chakra'
+                )),
+                option_value TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                UNIQUE(field_name, option_value)
+            )
+        ''')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_corr_field_options_field ON correspondence_field_options(field_name, sort_order)')
+
         # Migration: add correspondence_system_id to decks
         cursor.execute("PRAGMA table_info(decks)")
         deck_cols = [col[1] for col in cursor.fetchall()]
@@ -654,6 +671,12 @@ class CoreMixin:
         if cursor.fetchone()[0] == 0:
             from database.correspondence_seed import seed_rws_correspondences
             seed_rws_correspondences(cursor)
+
+        # Seed correspondence field options if table is empty
+        cursor.execute('SELECT COUNT(*) FROM correspondence_field_options')
+        if cursor.fetchone()[0] == 0:
+            from database.correspondence_seed import seed_field_options
+            seed_field_options(cursor)
 
         self._commit()
 

@@ -123,6 +123,72 @@ class CorrespondencesMixin:
         self._commit()
         return new_id
 
+    # === Field Options ===
+
+    def get_field_options(self, field_name: str = None):
+        """Get all field options, optionally filtered by field name."""
+        cursor = self.conn.cursor()
+        if field_name:
+            cursor.execute('''
+                SELECT * FROM correspondence_field_options
+                WHERE field_name = ?
+                ORDER BY sort_order, option_value
+            ''', (field_name,))
+        else:
+            cursor.execute('''
+                SELECT * FROM correspondence_field_options
+                ORDER BY field_name, sort_order, option_value
+            ''')
+        return cursor.fetchall()
+
+    def add_field_option(self, field_name: str, option_value: str):
+        if field_name not in CORRESPONDENCE_FIELDS:
+            raise ValueError(f"Invalid field name: {field_name}")
+        cursor = self.conn.cursor()
+        # Append at the end
+        cursor.execute(
+            'SELECT COALESCE(MAX(sort_order), -1) + 1 FROM correspondence_field_options WHERE field_name = ?',
+            (field_name,)
+        )
+        next_order = cursor.fetchone()[0]
+        cursor.execute('''
+            INSERT OR IGNORE INTO correspondence_field_options
+                (field_name, option_value, sort_order)
+            VALUES (?, ?, ?)
+        ''', (field_name, option_value, next_order))
+        self._commit()
+        return cursor.lastrowid
+
+    def update_field_option(self, option_id: int, option_value: str = None,
+                            sort_order: int = None):
+        cursor = self.conn.cursor()
+        if option_value is not None:
+            cursor.execute(
+                'UPDATE correspondence_field_options SET option_value = ? WHERE id = ?',
+                (option_value, option_id)
+            )
+        if sort_order is not None:
+            cursor.execute(
+                'UPDATE correspondence_field_options SET sort_order = ? WHERE id = ?',
+                (sort_order, option_id)
+            )
+        self._commit()
+
+    def delete_field_option(self, option_id: int):
+        cursor = self.conn.cursor()
+        cursor.execute('DELETE FROM correspondence_field_options WHERE id = ?', (option_id,))
+        self._commit()
+
+    def reorder_field_options(self, field_name: str, ordered_ids: list[int]):
+        """Set sort_order based on position in ordered_ids list."""
+        cursor = self.conn.cursor()
+        for i, opt_id in enumerate(ordered_ids):
+            cursor.execute(
+                'UPDATE correspondence_field_options SET sort_order = ? WHERE id = ? AND field_name = ?',
+                (i, opt_id, field_name)
+            )
+        self._commit()
+
     # === System-Level Assignments ===
 
     def get_system_assignments(self, system_id: int, archetype_id: int = None):

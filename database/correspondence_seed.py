@@ -199,3 +199,44 @@ def _insert_assignment(cursor, system_id, archetype_id, field_name, field_value)
             (system_id, archetype_id, field_name, field_value)
         VALUES (?, ?, ?, ?)
     ''', (system_id, archetype_id, field_name, field_value))
+
+
+def seed_field_options(cursor):
+    """Populate the default options for each correspondence field."""
+
+    planets = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars',
+               'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']
+    signs = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
+             'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces']
+
+    options = {
+        'element': ['Fire', 'Water', 'Air', 'Earth', 'Aether', 'Spirit'],
+        'planet': planets,
+        'zodiac_sign': signs,
+        'decan': [f'{p} in {s}' for s in signs for p in planets],
+        # 22 Hebrew letters of the Kabbalah (traditional Golden Dawn attribution order)
+        'hebrew_letter': [
+            'Aleph', 'Beth', 'Gimel', 'Daleth', 'He', 'Vav', 'Zayin',
+            'Cheth', 'Teth', 'Yod', 'Kaph', 'Lamed', 'Mem', 'Nun',
+            'Samekh', 'Ayin', 'Pe', 'Tzade', 'Qoph', 'Resh', 'Shin', 'Tav',
+        ],
+        'numerology': [str(i) for i in range(0, 22)],
+        # Elder Futhark (24 runes, in traditional order)
+        'rune': [
+            'Fehu', 'Uruz', 'Thurisaz', 'Ansuz', 'Raidho', 'Kenaz', 'Gebo', 'Wunjo',
+            'Hagalaz', 'Nauthiz', 'Isa', 'Jera', 'Eihwaz', 'Perthro', 'Algiz', 'Sowilo',
+            'Tiwaz', 'Berkano', 'Ehwaz', 'Mannaz', 'Laguz', 'Ingwaz', 'Dagaz', 'Othala',
+        ],
+        'i_ching_hexagram': [str(i) for i in range(1, 65)],
+        'chakra': [
+            'Root', 'Sacral', 'Solar Plexus', 'Heart', 'Throat', 'Third Eye', 'Crown',
+        ],
+    }
+
+    for field_name, values in options.items():
+        for i, value in enumerate(values):
+            cursor.execute('''
+                INSERT OR IGNORE INTO correspondence_field_options
+                    (field_name, option_value, sort_order)
+                VALUES (?, ?, ?)
+            ''', (field_name, value, i))
