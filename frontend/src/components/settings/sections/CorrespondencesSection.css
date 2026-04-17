@@ -343,7 +343,10 @@
   flex: 1;
   min-width: 0;
   padding: 3px 6px !important;
+  font-family: system-ui, -apple-system, 'Arial Hebrew', sans-serif !important;
   font-size: var(--font-size-body) !important;
+  line-height: 1.6 !important;
+  unicode-bidi: plaintext;
 }
 
 .field-options__row button {
