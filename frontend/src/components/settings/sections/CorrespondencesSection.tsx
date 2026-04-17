@@ -239,6 +239,29 @@ export default function CorrespondencesSection() {
     }
   };
 
+  const handleBulkClear = async () => {
+    if (!selectedSystemId || !bulkGroup || !bulkField) return;
+    const archetypes = getGroupArchetypes(bulkGroup);
+    if (archetypes.length === 0) return;
+
+    if (!window.confirm(
+      `Clear ${CORRESPONDENCE_FIELD_LABELS[bulkField]} for all ${archetypes.length} cards in "${bulkGroup}"?\n\nThis removes the system-level assignment. Card-level overrides on individual decks are not affected.`
+    )) return;
+
+    setBulkApplying(true);
+    try {
+      await Promise.all(archetypes.map(a =>
+        deleteAssignment(selectedSystemId, a.id, bulkField)
+      ));
+      queryClient.invalidateQueries({ queryKey: ['correspondence-system', selectedSystemId] });
+      showMsg(`Cleared ${CORRESPONDENCE_FIELD_LABELS[bulkField]} for ${archetypes.length} cards`, 'success');
+    } catch {
+      showMsg('Failed to clear bulk assignment', 'error');
+    } finally {
+      setBulkApplying(false);
+    }
+  };
+
   // Get all archetypes that have at least one assignment, filtered
   const archetypeIds = [...assignmentsByArchetype.keys()].filter(id => {
     if (!filterText) return true;
@@ -479,20 +502,30 @@ export default function CorrespondencesSection() {
                     />
                   </div>
 
-                  <div className="corr-bulk__field" style={{ alignSelf: 'flex-end' }}>
+                  <div className="corr-bulk__field corr-bulk__actions" style={{ alignSelf: 'flex-end' }}>
                     <button
                       className="settings-tab__save-btn"
                       onClick={handleBulkApply}
                       disabled={bulkApplying || !bulkGroup || !bulkValue.trim()}
                     >
-                      {bulkApplying ? 'Applying...' : `Apply${bulkGroup ? ` (${getGroupArchetypes(bulkGroup).length})` : ''}`}
+                      {bulkApplying ? 'Working...' : `Apply${bulkGroup ? ` (${getGroupArchetypes(bulkGroup).length})` : ''}`}
+                    </button>
+                    <button
+                      className="corr-bulk__clear-btn"
+                      onClick={handleBulkClear}
+                      disabled={bulkApplying || !bulkGroup}
+                      title="Remove the assignment for every card in this group"
+                    >
+                      Clear
                     </button>
                   </div>
                 </div>
 
                 {bulkGroup && (
                   <p className="settings-tab__hint" style={{ marginTop: 4 }}>
-                    Will set {CORRESPONDENCE_FIELD_LABELS[bulkField]} to "{bulkValue || '...'}" for {getGroupArchetypes(bulkGroup).length} cards: {getGroupArchetypes(bulkGroup).slice(0, 4).map(a => a.name).join(', ')}{getGroupArchetypes(bulkGroup).length > 4 ? ', ...' : ''}
+                    Targets {getGroupArchetypes(bulkGroup).length} cards: {getGroupArchetypes(bulkGroup).slice(0, 4).map(a => a.name).join(', ')}{getGroupArchetypes(bulkGroup).length > 4 ? ', ...' : ''}
+                    <br />
+                    <strong>Apply</strong> sets {CORRESPONDENCE_FIELD_LABELS[bulkField]} = "{bulkValue || '...'}" for these cards. <strong>Clear</strong> removes {CORRESPONDENCE_FIELD_LABELS[bulkField]} entirely (card-level overrides are not affected).
                   </p>
                 )}
               </div>
