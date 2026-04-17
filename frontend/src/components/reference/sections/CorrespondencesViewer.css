@@ -121,6 +121,7 @@
   color: var(--text-primary);
   white-space: nowrap;
   unicode-bidi: plaintext;
+  font-family: system-ui, -apple-system, 'Arial Hebrew', sans-serif;
 }
 
 .corr-viewer__td--field {
