@@ -231,6 +231,7 @@ def seed_field_options(cursor):
         'chakra': [
             'Root', 'Sacral', 'Solar Plexus', 'Heart', 'Throat', 'Third Eye', 'Crown',
         ],
+        'modality': ['Cardinal', 'Fixed', 'Mutable'],
     }
 
     for field_name, values in options.items():

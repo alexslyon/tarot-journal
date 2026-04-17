@@ -503,7 +503,9 @@ class CoreMixin:
         needs_recreate = False
         if row:
             existing_sql = row[0] or ''
-            if 'chakra' not in existing_sql or 'source_group' not in existing_sql:
+            if ('chakra' not in existing_sql
+                    or 'source_group' not in existing_sql
+                    or 'modality' not in existing_sql):
                 needs_recreate = True
         if needs_recreate:
             cursor.execute('SELECT * FROM correspondence_assignments')
@@ -538,7 +540,7 @@ class CoreMixin:
                 field_name TEXT NOT NULL CHECK(field_name IN (
                     'element', 'planet', 'zodiac_sign', 'decan',
                     'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram',
-                    'chakra'
+                    'chakra', 'modality'
                 )),
                 field_value TEXT NOT NULL,
                 source_group TEXT,
@@ -567,13 +569,22 @@ class CoreMixin:
                 field_name TEXT NOT NULL CHECK(field_name IN (
                     'element', 'planet', 'zodiac_sign', 'decan',
                     'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram',
-                    'chakra'
+                    'chakra', 'modality'
                 )),
                 field_value TEXT,
                 FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
                 UNIQUE(card_id, field_name)
             )
         ''')
+
+        # Migration: recreate field options table if CHECK constraint is missing 'modality'
+        cursor.execute("SELECT sql FROM sqlite_master WHERE name='correspondence_field_options'")
+        fo_row = cursor.fetchone()
+        if fo_row and 'modality' not in (fo_row[0] or ''):
+            cursor.execute('SELECT * FROM correspondence_field_options')
+            saved_options = [dict(r) for r in cursor.fetchall()]
+            cursor.execute('DROP TABLE IF EXISTS correspondence_field_options')
+            self._needs_options_restore = saved_options
 
         # Correspondence field options: the allowed values for each correspondence field
         # (Element, Planet, Zodiac, etc). Global list, shared across all systems.
@@ -583,7 +594,7 @@ class CoreMixin:
                 field_name TEXT NOT NULL CHECK(field_name IN (
                     'element', 'planet', 'zodiac_sign', 'decan',
                     'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram',
-                    'chakra'
+                    'chakra', 'modality'
                 )),
                 option_value TEXT NOT NULL,
                 sort_order INTEGER DEFAULT 0,
@@ -651,6 +662,16 @@ class CoreMixin:
             self.conn.execute('PRAGMA foreign_keys = ON')
             del self._needs_corr_restore
 
+        # Restore field options after CHECK constraint migration
+        if hasattr(self, '_needs_options_restore'):
+            for o in self._needs_options_restore:
+                cursor.execute('''
+                    INSERT OR IGNORE INTO correspondence_field_options
+                        (field_name, option_value, sort_order)
+                    VALUES (?, ?, ?)
+                ''', (o['field_name'], o['option_value'], o['sort_order']))
+            del self._needs_options_restore
+
         # Seed card archetypes if table is empty
         cursor.execute('SELECT COUNT(*) FROM card_archetypes')
         if cursor.fetchone()[0] == 0:
@@ -672,9 +693,12 @@ class CoreMixin:
             from database.correspondence_seed import seed_rws_correspondences
             seed_rws_correspondences(cursor)
 
-        # Seed correspondence field options if table is empty
+        # Seed correspondence field options if table is empty, or if modality is missing
         cursor.execute('SELECT COUNT(*) FROM correspondence_field_options')
-        if cursor.fetchone()[0] == 0:
+        total_options = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM correspondence_field_options WHERE field_name = 'modality'")
+        modality_count = cursor.fetchone()[0]
+        if total_options == 0 or modality_count == 0:
             from database.correspondence_seed import seed_field_options
             seed_field_options(cursor)
 

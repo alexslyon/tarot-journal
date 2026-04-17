@@ -12,7 +12,7 @@ import re
 CORRESPONDENCE_FIELDS = (
     'element', 'planet', 'zodiac_sign', 'decan',
     'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram',
-    'chakra',
+    'chakra', 'modality',
 )
 
 ZODIAC_SIGNS = {
@@ -24,6 +24,25 @@ PLANETS = {
     'sun', 'moon', 'mercury', 'venus', 'mars',
     'jupiter', 'saturn', 'uranus', 'neptune', 'pluto',
 }
+
+# Auto-derive zodiac sign from (element, modality) — used for court cards
+MODALITY_ZODIAC = {
+    ('Fire', 'Cardinal'): 'Aries',
+    ('Fire', 'Fixed'): 'Leo',
+    ('Fire', 'Mutable'): 'Sagittarius',
+    ('Water', 'Cardinal'): 'Cancer',
+    ('Water', 'Fixed'): 'Scorpio',
+    ('Water', 'Mutable'): 'Pisces',
+    ('Air', 'Cardinal'): 'Libra',
+    ('Air', 'Fixed'): 'Aquarius',
+    ('Air', 'Mutable'): 'Gemini',
+    ('Earth', 'Cardinal'): 'Capricorn',
+    ('Earth', 'Fixed'): 'Taurus',
+    ('Earth', 'Mutable'): 'Virgo',
+}
+
+# Source tag for values derived automatically from other fields
+MODALITY_DERIVED_SOURCE = 'auto:modality'
 
 DECAN_PATTERN = re.compile(
     r'^(\w+)\s+in\s+(\w+)$', re.IGNORECASE
@@ -189,6 +208,50 @@ class CorrespondencesMixin:
             )
         self._commit()
 
+    # === Auto-derivation helpers ===
+
+    def _refresh_modality_zodiac(self, system_id: int, archetype_id: int):
+        """Recompute auto-derived zodiac_sign for a card based on its element + modality.
+
+        Called after any change to element or modality. If the card has exactly one
+        element value and one modality value, and the pair maps to a zodiac sign,
+        we insert a zodiac_sign row tagged with MODALITY_DERIVED_SOURCE. Prior
+        derived rows for that card are always cleared first.
+        """
+        cursor = self.conn.cursor()
+        # Clear previous auto-derived zodiac
+        cursor.execute('''
+            DELETE FROM correspondence_assignments
+            WHERE system_id = ? AND archetype_id = ? AND field_name = 'zodiac_sign'
+              AND source_group = ?
+        ''', (system_id, archetype_id, MODALITY_DERIVED_SOURCE))
+
+        # Collect distinct current element and modality values for this card
+        cursor.execute('''
+            SELECT field_name, field_value FROM correspondence_assignments
+            WHERE system_id = ? AND archetype_id = ?
+              AND field_name IN ('element', 'modality')
+        ''', (system_id, archetype_id))
+        elements = set()
+        modalities = set()
+        for row in cursor.fetchall():
+            if row['field_name'] == 'element':
+                elements.add(row['field_value'])
+            elif row['field_name'] == 'modality':
+                modalities.add(row['field_value'])
+
+        # Only derive when there's exactly one of each (unambiguous)
+        if len(elements) == 1 and len(modalities) == 1:
+            element = next(iter(elements))
+            modality = next(iter(modalities))
+            zodiac = MODALITY_ZODIAC.get((element, modality))
+            if zodiac:
+                cursor.execute('''
+                    INSERT INTO correspondence_assignments
+                        (system_id, archetype_id, field_name, field_value, source_group)
+                    VALUES (?, ?, 'zodiac_sign', ?, ?)
+                ''', (system_id, archetype_id, zodiac, MODALITY_DERIVED_SOURCE))
+
     # === System-Level Assignments ===
 
     def get_system_assignments(self, system_id: int, archetype_id: int = None):
@@ -280,6 +343,10 @@ class CorrespondencesMixin:
                             VALUES (?, ?, ?, ?, ?)
                         ''', (system_id, archetype_id, derived_field, derived_value, source_group))
 
+        # Auto-derive zodiac from element + modality when either changes
+        if field_name in ('element', 'modality'):
+            self._refresh_modality_zodiac(system_id, archetype_id)
+
         self._commit()
 
     def delete_system_assignment(self, system_id: int, archetype_id: int,
@@ -309,6 +376,11 @@ class CorrespondencesMixin:
                 WHERE system_id = ? AND archetype_id = ? AND field_name = ?
                   AND source_group IS NULL
             ''', (system_id, archetype_id, field_name))
+
+        # Re-derive zodiac if we removed an element or modality value
+        if field_name in ('element', 'modality'):
+            self._refresh_modality_zodiac(system_id, archetype_id)
+
         self._commit()
 
     def bulk_set_system_assignments(self, system_id: int,

@@ -23,6 +23,7 @@ FIELD_LABELS = {
     'rune': 'Rune',
     'i_ching_hexagram': 'I Ching Hexagram',
     'chakra': 'Chakra',
+    'modality': 'Modality',
 }
 
 
