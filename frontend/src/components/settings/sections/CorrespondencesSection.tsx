@@ -311,7 +311,7 @@ export default function CorrespondencesSection() {
               <div className="corr-systems__item-info">
                 <span className="corr-systems__item-name">
                   {sys.name}
-                  {sys.is_builtin && <span className="settings-tab__import-preset-badge">built-in</span>}
+                  {!!sys.is_builtin && <span className="settings-tab__import-preset-badge">built-in</span>}
                 </span>
                 <span className="corr-systems__item-stats">
                   {sys.archetype_count} archetypes · {sys.assignment_count} assignments
