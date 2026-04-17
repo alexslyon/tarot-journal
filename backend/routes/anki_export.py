@@ -96,6 +96,8 @@ def anki_export(deck_id, data):
                 header_labels.append('Card Image')
             elif f == 'name':
                 header_labels.append('Card Name')
+            elif f == 'sort_number':
+                header_labels.append('Sort Number')
             elif f == 'notes':
                 header_labels.append('Notes')
             elif f in CORRESPONDENCE_FIELDS:
@@ -123,6 +125,8 @@ def anki_export(deck_id, data):
                         row.append('')
                 elif f == 'name':
                     row.append(card.get('name', ''))
+                elif f == 'sort_number':
+                    row.append(str(card.get('card_order', '') or ''))
                 elif f == 'notes':
                     row.append(card.get('notes', '') or '')
                 elif f in CORRESPONDENCE_FIELDS:
@@ -171,6 +175,7 @@ def anki_fields(deck_id):
     fields = [
         {'key': 'image', 'label': 'Card Image', 'always': True},
         {'key': 'name', 'label': 'Card Name', 'always': True},
+        {'key': 'sort_number', 'label': 'Sort Number', 'always': True},
     ]
 
     # Check which correspondence fields have any values in this deck
