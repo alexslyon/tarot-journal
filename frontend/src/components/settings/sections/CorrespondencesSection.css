@@ -198,6 +198,27 @@
   width: 100%;
 }
 
+.corr-bulk__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.corr-bulk__clear-btn {
+  color: var(--danger) !important;
+  border-color: var(--danger) !important;
+  background: none !important;
+}
+
+.corr-bulk__clear-btn:hover:not(:disabled) {
+  background: var(--danger) !important;
+  color: var(--bg-primary) !important;
+}
+
+.corr-bulk__clear-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* Group patterns summary (shared style with Reference view) */
 .corr-viewer__group-summary {
   background: var(--bg-primary);
