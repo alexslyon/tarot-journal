@@ -74,7 +74,8 @@
 .corr-viewer__table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--font-size-small);
+  font-size: var(--font-size-body);
+  line-height: 1.4;
 }
 
 .corr-viewer__table thead {

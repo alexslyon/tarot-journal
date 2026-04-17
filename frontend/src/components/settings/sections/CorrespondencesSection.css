@@ -157,8 +157,9 @@
 .corr-systems__cell-input {
   width: 100%;
   min-width: 70px;
-  padding: 3px 4px !important;
-  font-size: var(--font-size-small) !important;
+  padding: 4px 4px !important;
+  font-size: var(--font-size-body) !important;
+  line-height: 1.4 !important;
   border: 1px solid transparent !important;
   background: transparent !important;
   color: var(--text-primary) !important;
@@ -172,8 +173,9 @@
 .corr-systems__cell-select {
   width: 100%;
   min-width: 80px;
-  padding: 3px 4px !important;
-  font-size: var(--font-size-small) !important;
+  padding: 4px 4px !important;
+  font-size: var(--font-size-body) !important;
+  line-height: 1.4 !important;
   border: 1px solid transparent !important;
   background: transparent !important;
   color: var(--text-primary) !important;
@@ -195,7 +197,8 @@
 .corr-systems__cell-display {
   flex: 1;
   min-width: 0;
-  font-size: var(--font-size-small);
+  font-size: var(--font-size-body);
+  line-height: 1.4;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
