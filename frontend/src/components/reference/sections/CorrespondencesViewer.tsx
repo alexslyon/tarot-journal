@@ -7,7 +7,7 @@ import {
 } from '../../../api/correspondences';
 import type { CorrespondenceSystem, CorrespondenceAssignment } from '../../../types';
 import { CORRESPONDENCE_FIELDS, CORRESPONDENCE_FIELD_LABELS } from '../../../types';
-import { detectGroupPatterns, groupPatternsByGroup, type GroupPattern } from '../../../utils/correspondencePatterns';
+import { detectGroupPatterns, patternsByCategory, type PatternCategorySection } from '../../../utils/correspondencePatterns';
 import './CorrespondencesViewer.css';
 
 type ViewMode = 'by-system' | 'compare';
@@ -64,11 +64,11 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
     }
   }
 
-  // Detect group-level patterns
-  const patternsByGroup = useMemo<Map<string, GroupPattern[]>>(() => {
-    if (!systemDetail?.assignments) return new Map();
+  // Detect group-level patterns, structured by category
+  const patternSections = useMemo<PatternCategorySection[]>(() => {
+    if (!systemDetail?.assignments) return [];
     const patterns = detectGroupPatterns(systemDetail.assignments as CorrespondenceAssignment[]);
-    return groupPatternsByGroup(patterns);
+    return patternsByCategory(patterns);
   }, [systemDetail]);
 
   const filteredArchetypeIds = [...bySystemRows.keys()].filter(id => {
@@ -150,21 +150,26 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
           </div>
 
           {/* Group-level patterns summary */}
-          {patternsByGroup.size > 0 && (
+          {patternSections.length > 0 && (
             <div className="corr-viewer__group-summary">
               <h4 className="corr-viewer__group-title">Group Patterns</h4>
-              {[...patternsByGroup.entries()].map(([groupLabel, patterns]) => (
-                <div key={groupLabel} className="corr-viewer__group-row">
-                  <span className="corr-viewer__group-field">{groupLabel}</span>
-                  <div className="corr-viewer__group-values">
-                    {patterns.map(p => (
-                      <span key={p.fieldLabel} className="corr-viewer__group-tag">
-                        <span className="corr-viewer__group-name">{p.fieldLabel}</span>
-                        <span className="corr-viewer__group-eq">=</span>
-                        <span className="corr-viewer__group-val">{p.value}</span>
-                      </span>
-                    ))}
-                  </div>
+              {patternSections.map(section => (
+                <div key={section.category} className="corr-viewer__group-category">
+                  <div className="corr-viewer__group-category-heading">{section.category}</div>
+                  {section.groups.map(({ groupLabel, patterns }) => (
+                    <div key={groupLabel} className="corr-viewer__group-row">
+                      <span className="corr-viewer__group-field">{groupLabel}</span>
+                      <div className="corr-viewer__group-values">
+                        {patterns.map(p => (
+                          <span key={p.fieldLabel} className="corr-viewer__group-tag">
+                            <span className="corr-viewer__group-name">{p.fieldLabel}</span>
+                            <span className="corr-viewer__group-eq">=</span>
+                            <span className="corr-viewer__group-val">{p.value}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>

@@ -206,3 +206,24 @@
 .corr-viewer__group-val {
   color: var(--accent);
 }
+
+.corr-viewer__group-category {
+  margin-bottom: 10px;
+}
+
+.corr-viewer__group-category:last-child {
+  margin-bottom: 0;
+}
+
+.corr-viewer__group-category-heading {
+  font-size: var(--font-size-small);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  margin: 8px 0 4px;
+  font-weight: 600;
+}
+
+.corr-viewer__group-category:first-child .corr-viewer__group-category-heading {
+  margin-top: 0;
+}

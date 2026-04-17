@@ -23,7 +23,7 @@ import {
   CORRESPONDENCE_FIELDS,
   CORRESPONDENCE_FIELD_LABELS,
 } from '../../../types';
-import { detectGroupPatterns, groupPatternsByGroup, type GroupPattern } from '../../../utils/correspondencePatterns';
+import { detectGroupPatterns, patternsByCategory, type PatternCategorySection } from '../../../utils/correspondencePatterns';
 import FieldOptionsEditor from './FieldOptionsEditor';
 import '../SettingsTab.css';
 import './CorrespondencesSection.css';
@@ -200,51 +200,52 @@ export default function CorrespondencesSection() {
     }
   }
 
-  // Detect group-level patterns (same as Reference view)
-  const patternsByGroup = useMemo<Map<string, GroupPattern[]>>(() => {
-    if (!systemDetail?.assignments) return new Map();
+  // Detect group-level patterns (same as Reference view), grouped by category
+  const patternSections = useMemo<PatternCategorySection[]>(() => {
+    if (!systemDetail?.assignments) return [];
     const patterns = detectGroupPatterns(systemDetail.assignments as CorrespondenceAssignment[]);
-    return groupPatternsByGroup(patterns);
+    return patternsByCategory(patterns);
   }, [systemDetail]);
 
   // === Bulk assign groups ===
-  const BULK_GROUPS: { label: string; filter: (a: Archetype) => boolean }[] = [
-    { label: 'Major Arcana', filter: a => a.card_type === 'major' },
-    { label: 'All Minor Arcana', filter: a => a.card_type === 'minor' },
-    // Suits
-    { label: 'Wands', filter: a => a.suit === 'Wands' },
-    { label: 'Cups', filter: a => a.suit === 'Cups' },
-    { label: 'Swords', filter: a => a.suit === 'Swords' },
-    { label: 'Pentacles', filter: a => a.suit === 'Pentacles' },
-    // Court ranks
-    { label: 'All Pages', filter: a => a.name.startsWith('Page of') },
-    { label: 'All Knights', filter: a => a.name.startsWith('Knight of') },
-    { label: 'All Queens', filter: a => a.name.startsWith('Queen of') },
-    { label: 'All Kings', filter: a => a.name.startsWith('King of') },
-    // Pip numbers
-    { label: 'All Aces', filter: a => a.name.startsWith('Ace of') },
-    { label: 'All Twos', filter: a => a.name.startsWith('Two of') },
-    { label: 'All Threes', filter: a => a.name.startsWith('Three of') },
-    { label: 'All Fours', filter: a => a.name.startsWith('Four of') },
-    { label: 'All Fives', filter: a => a.name.startsWith('Five of') },
-    { label: 'All Sixes', filter: a => a.name.startsWith('Six of') },
-    { label: 'All Sevens', filter: a => a.name.startsWith('Seven of') },
-    { label: 'All Eights', filter: a => a.name.startsWith('Eight of') },
-    { label: 'All Nines', filter: a => a.name.startsWith('Nine of') },
-    { label: 'All Tens', filter: a => a.name.startsWith('Ten of') },
-    // All pips (non-court minor)
-    { label: 'All Pips (Ace-10)', filter: a => {
-      if (a.card_type !== 'minor') return false;
-      const rankNum = parseInt(a.rank?.slice(-2) || '0');
-      return rankNum >= 1 && rankNum <= 10;
-    }},
-    // All court cards
-    { label: 'All Court Cards', filter: a => {
+  const BULK_GROUPS: { label: string; category: string; filter: (a: Archetype) => boolean }[] = [
+    { label: 'Major Arcana', category: 'Card Type', filter: a => a.card_type === 'major' },
+    { label: 'Minor Arcana', category: 'Card Type', filter: a => a.card_type === 'minor' },
+    { label: 'Wands', category: 'Suits', filter: a => a.suit === 'Wands' },
+    { label: 'Cups', category: 'Suits', filter: a => a.suit === 'Cups' },
+    { label: 'Swords', category: 'Suits', filter: a => a.suit === 'Swords' },
+    { label: 'Pentacles', category: 'Suits', filter: a => a.suit === 'Pentacles' },
+    { label: 'Pages', category: 'Court Ranks', filter: a => a.name.startsWith('Page of') },
+    { label: 'Knights', category: 'Court Ranks', filter: a => a.name.startsWith('Knight of') },
+    { label: 'Queens', category: 'Court Ranks', filter: a => a.name.startsWith('Queen of') },
+    { label: 'Kings', category: 'Court Ranks', filter: a => a.name.startsWith('King of') },
+    { label: 'Court Cards', category: 'Court Ranks', filter: a => {
       if (a.card_type !== 'minor') return false;
       const rankNum = parseInt(a.rank?.slice(-2) || '0');
       return rankNum >= 11 && rankNum <= 14;
     }},
+    { label: 'Aces', category: 'Pip Numbers', filter: a => a.name.startsWith('Ace of') },
+    { label: 'Twos', category: 'Pip Numbers', filter: a => a.name.startsWith('Two of') },
+    { label: 'Threes', category: 'Pip Numbers', filter: a => a.name.startsWith('Three of') },
+    { label: 'Fours', category: 'Pip Numbers', filter: a => a.name.startsWith('Four of') },
+    { label: 'Fives', category: 'Pip Numbers', filter: a => a.name.startsWith('Five of') },
+    { label: 'Sixes', category: 'Pip Numbers', filter: a => a.name.startsWith('Six of') },
+    { label: 'Sevens', category: 'Pip Numbers', filter: a => a.name.startsWith('Seven of') },
+    { label: 'Eights', category: 'Pip Numbers', filter: a => a.name.startsWith('Eight of') },
+    { label: 'Nines', category: 'Pip Numbers', filter: a => a.name.startsWith('Nine of') },
+    { label: 'Tens', category: 'Pip Numbers', filter: a => a.name.startsWith('Ten of') },
+    { label: 'Pips (Ace-10)', category: 'Pip Numbers', filter: a => {
+      if (a.card_type !== 'minor') return false;
+      const rankNum = parseInt(a.rank?.slice(-2) || '0');
+      return rankNum >= 1 && rankNum <= 10;
+    }},
   ];
+
+  // Build ordered category list from BULK_GROUPS
+  const BULK_CATEGORIES: string[] = [];
+  for (const g of BULK_GROUPS) {
+    if (!BULK_CATEGORIES.includes(g.category)) BULK_CATEGORIES.push(g.category);
+  }
 
   const getGroupArchetypes = (groupLabel: string): Archetype[] => {
     const group = BULK_GROUPS.find(g => g.label === groupLabel);
@@ -495,21 +496,26 @@ export default function CorrespondencesSection() {
           </div>
 
           {/* Group-level patterns summary (same as Reference view) */}
-          {patternsByGroup.size > 0 && (
+          {patternSections.length > 0 && (
             <div className="corr-viewer__group-summary">
               <h4 className="corr-viewer__group-title">Group Patterns</h4>
-              {[...patternsByGroup.entries()].map(([groupLabel, patterns]) => (
-                <div key={groupLabel} className="corr-viewer__group-row">
-                  <span className="corr-viewer__group-field">{groupLabel}</span>
-                  <div className="corr-viewer__group-values">
-                    {patterns.map(p => (
-                      <span key={p.fieldLabel} className="corr-viewer__group-tag">
-                        <span className="corr-viewer__group-name">{p.fieldLabel}</span>
-                        <span className="corr-viewer__group-eq">=</span>
-                        <span className="corr-viewer__group-val">{p.value}</span>
-                      </span>
-                    ))}
-                  </div>
+              {patternSections.map(section => (
+                <div key={section.category} className="corr-viewer__group-category">
+                  <div className="corr-viewer__group-category-heading">{section.category}</div>
+                  {section.groups.map(({ groupLabel, patterns }) => (
+                    <div key={groupLabel} className="corr-viewer__group-row">
+                      <span className="corr-viewer__group-field">{groupLabel}</span>
+                      <div className="corr-viewer__group-values">
+                        {patterns.map(p => (
+                          <span key={p.fieldLabel} className="corr-viewer__group-tag">
+                            <span className="corr-viewer__group-name">{p.fieldLabel}</span>
+                            <span className="corr-viewer__group-eq">=</span>
+                            <span className="corr-viewer__group-val">{p.value}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
@@ -531,31 +537,13 @@ export default function CorrespondencesSection() {
                     <label className="settings-tab__label">Group</label>
                     <select value={bulkGroup} onChange={e => setBulkGroup(e.target.value)}>
                       <option value="">Select a group...</option>
-                      <optgroup label="Card Type">
-                        {BULK_GROUPS.filter((_, i) => i < 2).map(g => (
-                          <option key={g.label} value={g.label}>{g.label}</option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="Suits">
-                        {BULK_GROUPS.filter((_, i) => i >= 2 && i < 6).map(g => (
-                          <option key={g.label} value={g.label}>{g.label}</option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="Court Ranks">
-                        {BULK_GROUPS.filter((_, i) => i >= 6 && i < 10).map(g => (
-                          <option key={g.label} value={g.label}>{g.label}</option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="Pip Numbers">
-                        {BULK_GROUPS.filter((_, i) => i >= 10 && i < 20).map(g => (
-                          <option key={g.label} value={g.label}>{g.label}</option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="Combined">
-                        {BULK_GROUPS.filter((_, i) => i >= 20).map(g => (
-                          <option key={g.label} value={g.label}>{g.label}</option>
-                        ))}
-                      </optgroup>
+                      {BULK_CATEGORIES.map(cat => (
+                        <optgroup key={cat} label={cat}>
+                          {BULK_GROUPS.filter(g => g.category === cat).map(g => (
+                            <option key={g.label} value={g.label}>{g.label}</option>
+                          ))}
+                        </optgroup>
+                      ))}
                     </select>
                   </div>
 

@@ -693,6 +693,34 @@ class CoreMixin:
             from database.correspondence_seed import seed_rws_correspondences
             seed_rws_correspondences(cursor)
 
+        # One-time migration: rename legacy source_group labels (remove "All " prefix)
+        if self.get_setting('source_group_label_migration_done') != 'true':
+            legacy_rename = {
+                'All Minor Arcana': 'Minor Arcana',
+                'All Pages': 'Pages',
+                'All Knights': 'Knights',
+                'All Queens': 'Queens',
+                'All Kings': 'Kings',
+                'All Aces': 'Aces',
+                'All Twos': 'Twos',
+                'All Threes': 'Threes',
+                'All Fours': 'Fours',
+                'All Fives': 'Fives',
+                'All Sixes': 'Sixes',
+                'All Sevens': 'Sevens',
+                'All Eights': 'Eights',
+                'All Nines': 'Nines',
+                'All Tens': 'Tens',
+                'All Pips (Ace-10)': 'Pips (Ace-10)',
+                'All Court Cards': 'Court Cards',
+            }
+            for old, new in legacy_rename.items():
+                cursor.execute(
+                    'UPDATE correspondence_assignments SET source_group = ? WHERE source_group = ?',
+                    (new, old)
+                )
+            self.set_setting('source_group_label_migration_done', 'true')
+
         # Seed correspondence field options if table is empty, or if modality is missing
         cursor.execute('SELECT COUNT(*) FROM correspondence_field_options')
         total_options = cursor.fetchone()[0]

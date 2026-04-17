@@ -60,18 +60,23 @@ export function groupPatternsByField(patterns: GroupPattern[]): Map<string, Grou
   return map;
 }
 
-// Canonical display order for known group labels — keeps related groups together
-const GROUP_ORDER = [
-  'Major Arcana',
-  'All Minor Arcana',
-  // Suits
-  'Wands', 'Cups', 'Swords', 'Pentacles',
-  // Court ranks
-  'All Pages', 'All Knights', 'All Queens', 'All Kings', 'All Court Cards',
-  // Pip numbers
-  'All Aces', 'All Twos', 'All Threes', 'All Fours', 'All Fives',
-  'All Sixes', 'All Sevens', 'All Eights', 'All Nines', 'All Tens',
-  'All Pips (Ace-10)',
+// Canonical categories and their group labels — must match BULK_GROUPS in
+// CorrespondencesSection for consistent display ordering.
+export const GROUP_CATEGORIES: { name: string; labels: string[] }[] = [
+  { name: 'Card Type', labels: ['Major Arcana', 'Minor Arcana'] },
+  { name: 'Suits', labels: ['Wands', 'Cups', 'Swords', 'Pentacles'] },
+  {
+    name: 'Court Ranks',
+    labels: ['Pages', 'Knights', 'Queens', 'Kings', 'Court Cards'],
+  },
+  {
+    name: 'Pip Numbers',
+    labels: [
+      'Aces', 'Twos', 'Threes', 'Fours', 'Fives',
+      'Sixes', 'Sevens', 'Eights', 'Nines', 'Tens',
+      'Pips (Ace-10)',
+    ],
+  },
 ];
 
 /** Group patterns by card-group label for display, sorted by canonical order. */
@@ -82,12 +87,13 @@ export function groupPatternsByGroup(patterns: GroupPattern[]): Map<string, Grou
     unordered.get(p.groupLabel)!.push(p);
   }
 
-  // Build an ordered Map: canonical order first, then any unknown labels alphabetically
   const ordered = new Map<string, GroupPattern[]>();
-  for (const label of GROUP_ORDER) {
-    if (unordered.has(label)) {
-      ordered.set(label, unordered.get(label)!);
-      unordered.delete(label);
+  for (const cat of GROUP_CATEGORIES) {
+    for (const label of cat.labels) {
+      if (unordered.has(label)) {
+        ordered.set(label, unordered.get(label)!);
+        unordered.delete(label);
+      }
     }
   }
   // Remaining custom labels — sort alphabetically
@@ -96,4 +102,47 @@ export function groupPatternsByGroup(patterns: GroupPattern[]): Map<string, Grou
     ordered.set(label, unordered.get(label)!);
   }
   return ordered;
+}
+
+/** Build a display structure grouped by category, then by group label. */
+export interface PatternCategorySection {
+  category: string;
+  groups: { groupLabel: string; patterns: GroupPattern[] }[];
+}
+
+export function patternsByCategory(patterns: GroupPattern[]): PatternCategorySection[] {
+  const byGroup = groupPatternsByGroup(patterns);
+  const sections: PatternCategorySection[] = [];
+
+  // Map each label to its category
+  const labelToCategory = new Map<string, string>();
+  for (const cat of GROUP_CATEGORIES) {
+    for (const label of cat.labels) labelToCategory.set(label, cat.name);
+  }
+
+  // Build each known category section
+  for (const cat of GROUP_CATEGORIES) {
+    const groups: { groupLabel: string; patterns: GroupPattern[] }[] = [];
+    for (const label of cat.labels) {
+      if (byGroup.has(label)) {
+        groups.push({ groupLabel: label, patterns: byGroup.get(label)! });
+      }
+    }
+    if (groups.length > 0) {
+      sections.push({ category: cat.name, groups });
+    }
+  }
+
+  // Any labels not in known categories → "Other"
+  const otherGroups: { groupLabel: string; patterns: GroupPattern[] }[] = [];
+  for (const [label, pats] of byGroup) {
+    if (!labelToCategory.has(label)) {
+      otherGroups.push({ groupLabel: label, patterns: pats });
+    }
+  }
+  if (otherGroups.length > 0) {
+    sections.push({ category: 'Other', groups: otherGroups });
+  }
+
+  return sections;
 }
