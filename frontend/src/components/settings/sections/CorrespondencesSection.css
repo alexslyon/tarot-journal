@@ -197,3 +197,63 @@
 .corr-bulk__field input {
   width: 100%;
 }
+
+/* Group patterns summary (shared style with Reference view) */
+.corr-viewer__group-summary {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.corr-viewer__group-title {
+  font-size: var(--font-size-body);
+  color: var(--accent);
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.corr-viewer__group-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 0;
+}
+
+.corr-viewer__group-field {
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  min-width: 90px;
+  font-weight: 500;
+}
+
+.corr-viewer__group-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.corr-viewer__group-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-small);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 8px;
+}
+
+.corr-viewer__group-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.corr-viewer__group-eq {
+  color: var(--text-dim);
+}
+
+.corr-viewer__group-val {
+  color: var(--accent);
+}
