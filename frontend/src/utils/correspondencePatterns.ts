@@ -8,61 +8,41 @@ export interface GroupPattern {
   value: string;
 }
 
-/** Detect group-level patterns: values shared by all cards in a group. */
+/** Detect group-level patterns from source_group-tagged assignments.
+ *
+ * Any source_group that has entries with consistent values across all its
+ * members produces a pattern. Works for any custom group the user creates.
+ */
 export function detectGroupPatterns(
   assignments: CorrespondenceAssignment[],
 ): GroupPattern[] {
-  const cards = new Map<number, {
-    name: string;
-    suit: string | null;
-    card_type: string | null;
-    fields: Map<string, string>;
-  }>();
+  // group -> field -> Map<archetype_id, value>
+  const groupFieldValues = new Map<string, Map<string, Map<number, string>>>();
 
   for (const a of assignments) {
-    if (!cards.has(a.archetype_id)) {
-      cards.set(a.archetype_id, {
-        name: a.archetype_name,
-        suit: a.suit,
-        card_type: a.card_type,
-        fields: new Map(),
-      });
+    if (!a.source_group) continue;
+    if (!groupFieldValues.has(a.source_group)) {
+      groupFieldValues.set(a.source_group, new Map());
     }
-    cards.get(a.archetype_id)!.fields.set(a.field_name, a.field_value);
+    const fieldMap = groupFieldValues.get(a.source_group)!;
+    if (!fieldMap.has(a.field_name)) fieldMap.set(a.field_name, new Map());
+    fieldMap.get(a.field_name)!.set(a.archetype_id, a.field_value);
   }
 
-  const allCards = [...cards.values()];
   const patterns: GroupPattern[] = [];
 
-  const groups: { label: string; filter: (c: typeof allCards[0]) => boolean }[] = [
-    { label: 'Wands', filter: c => c.suit === 'Wands' },
-    { label: 'Cups', filter: c => c.suit === 'Cups' },
-    { label: 'Swords', filter: c => c.suit === 'Swords' },
-    { label: 'Pentacles', filter: c => c.suit === 'Pentacles' },
-    { label: 'Pages', filter: c => c.name.startsWith('Page of') },
-    { label: 'Knights', filter: c => c.name.startsWith('Knight of') },
-    { label: 'Queens', filter: c => c.name.startsWith('Queen of') },
-    { label: 'Kings', filter: c => c.name.startsWith('King of') },
-    { label: 'Aces', filter: c => c.name.startsWith('Ace of') },
-    { label: 'Major Arcana', filter: c => c.card_type === 'major' },
-  ];
-
-  for (const group of groups) {
-    const members = allCards.filter(group.filter);
-    if (members.length < 2) continue;
-
+  for (const [groupLabel, fieldMap] of groupFieldValues) {
     for (const field of CORRESPONDENCE_FIELDS) {
-      const values = members.map(m => m.fields.get(field)).filter(Boolean);
-      if (values.length === members.length) {
-        const unique = new Set(values);
-        if (unique.size === 1) {
-          patterns.push({
-            groupLabel: group.label,
-            fieldName: field,
-            fieldLabel: CORRESPONDENCE_FIELD_LABELS[field],
-            value: values[0]!,
-          });
-        }
+      const entries = fieldMap.get(field);
+      if (!entries || entries.size === 0) continue;
+      const uniqueValues = new Set(entries.values());
+      if (uniqueValues.size === 1) {
+        patterns.push({
+          groupLabel,
+          fieldName: field,
+          fieldLabel: CORRESPONDENCE_FIELD_LABELS[field],
+          value: [...uniqueValues][0],
+        });
       }
     }
   }

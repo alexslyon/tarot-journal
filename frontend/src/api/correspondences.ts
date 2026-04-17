@@ -45,8 +45,12 @@ export async function getSystemAssignments(
 export async function bulkSetAssignments(
   systemId: number,
   assignments: { archetype_id: number; field_name: string; field_value: string }[],
+  sourceGroup?: string,
 ) {
-  await api.put(`/api/correspondence-systems/${systemId}/assignments`, { assignments });
+  await api.put(`/api/correspondence-systems/${systemId}/assignments`, {
+    assignments,
+    source_group: sourceGroup ?? null,
+  });
 }
 
 export async function setAssignment(
@@ -54,12 +58,25 @@ export async function setAssignment(
   archetypeId: number,
   fieldName: string,
   value: string,
+  sourceGroup?: string,
 ) {
-  await api.put(`/api/correspondence-systems/${systemId}/assignments/${archetypeId}/${fieldName}`, { value });
+  await api.put(`/api/correspondence-systems/${systemId}/assignments/${archetypeId}/${fieldName}`, {
+    value,
+    source_group: sourceGroup ?? null,
+  });
 }
 
-export async function deleteAssignment(systemId: number, archetypeId: number, fieldName: string) {
-  await api.delete(`/api/correspondence-systems/${systemId}/assignments/${archetypeId}/${fieldName}`);
+export async function deleteAssignment(
+  systemId: number,
+  archetypeId: number,
+  fieldName: string,
+  options?: { sourceGroup?: string; all?: boolean },
+) {
+  const params = new URLSearchParams();
+  if (options?.sourceGroup) params.set('source_group', options.sourceGroup);
+  if (options?.all) params.set('all', 'true');
+  const qs = params.toString() ? `?${params}` : '';
+  await api.delete(`/api/correspondence-systems/${systemId}/assignments/${archetypeId}/${fieldName}${qs}`);
 }
 
 // === Card-Level Overrides ===

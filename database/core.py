@@ -497,10 +497,15 @@ class CoreMixin:
             self.conn.execute('PRAGMA foreign_keys = ON')
 
         # Migration: recreate correspondence tables if CHECK constraint is missing 'chakra'
+        # or if source_group column is missing (needed for multi-value support)
         cursor.execute("SELECT sql FROM sqlite_master WHERE name='correspondence_assignments'")
         row = cursor.fetchone()
-        if row and 'chakra' not in (row[0] or ''):
-            # Save existing data, drop old tables, let them be recreated below
+        needs_recreate = False
+        if row:
+            existing_sql = row[0] or ''
+            if 'chakra' not in existing_sql or 'source_group' not in existing_sql:
+                needs_recreate = True
+        if needs_recreate:
             cursor.execute('SELECT * FROM correspondence_assignments')
             saved_assignments = [dict(r) for r in cursor.fetchall()]
             cursor.execute('SELECT * FROM card_correspondence_overrides')
@@ -520,8 +525,11 @@ class CoreMixin:
             )
         ''')
 
-        # System-level correspondence assignments:
-        # one row per (system, archetype, field) combination
+        # System-level correspondence assignments.
+        # Multiple rows per (system, archetype, field) allowed — each tagged with
+        # source_group so a card can have multiple values contributed by different
+        # bulk groups (e.g. Page of Wands gets Fire from "Wands" and Earth from "Pages").
+        # source_group IS NULL means an individual cell edit (not from a bulk group).
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS correspondence_assignments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -533,10 +541,22 @@ class CoreMixin:
                     'chakra'
                 )),
                 field_value TEXT NOT NULL,
+                source_group TEXT,
                 FOREIGN KEY (system_id) REFERENCES correspondence_systems(id) ON DELETE CASCADE,
-                FOREIGN KEY (archetype_id) REFERENCES card_archetypes(id) ON DELETE CASCADE,
-                UNIQUE(system_id, archetype_id, field_name)
+                FOREIGN KEY (archetype_id) REFERENCES card_archetypes(id) ON DELETE CASCADE
             )
+        ''')
+        # Partial unique indexes: one for NULL source_group, one for non-NULL.
+        # This lets us have at most one manual value and one value per bulk group.
+        cursor.execute('''
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_corr_assignments_unique_manual
+            ON correspondence_assignments(system_id, archetype_id, field_name)
+            WHERE source_group IS NULL
+        ''')
+        cursor.execute('''
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_corr_assignments_unique_group
+            ON correspondence_assignments(system_id, archetype_id, field_name, source_group)
+            WHERE source_group IS NOT NULL
         ''')
 
         # Card-level correspondence overrides (individual cards deviating from deck's system)
@@ -597,11 +617,13 @@ class CoreMixin:
             self.conn.commit()
             self.conn.execute('PRAGMA foreign_keys = OFF')
             for a in saved_assignments:
+                # Preserve existing source_group if present, else default to NULL
+                source_group = a.get('source_group')
                 cursor.execute('''
                     INSERT OR IGNORE INTO correspondence_assignments
-                        (system_id, archetype_id, field_name, field_value)
-                    VALUES (?, ?, ?, ?)
-                ''', (a['system_id'], a['archetype_id'], a['field_name'], a['field_value']))
+                        (system_id, archetype_id, field_name, field_value, source_group)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (a['system_id'], a['archetype_id'], a['field_name'], a['field_value'], source_group))
             for o in saved_overrides:
                 cursor.execute('''
                     INSERT OR IGNORE INTO card_correspondence_overrides
