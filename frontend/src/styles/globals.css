@@ -24,8 +24,8 @@
   --danger: #d9534f;
   --card-slot: #292c31;
 
-  --font-display: 'SF Pro Display', -apple-system, 'Arial Hebrew', sans-serif;
-  --font-text: 'SF Pro Text', -apple-system, 'Arial Hebrew', sans-serif;
+  --font-display: 'SF Pro Display', -apple-system, 'Arial Hebrew', 'Times New Roman', sans-serif;
+  --font-text: 'SF Pro Text', -apple-system, 'Arial Hebrew', 'Times New Roman', sans-serif;
   --font-mono: 'SF Mono', 'Menlo', monospace;
   --font-size-title: 22px;
   --font-size-heading: 14px;
