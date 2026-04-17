@@ -31,6 +31,7 @@ export default function CorrespondencesSection() {
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [newSourceId, setNewSourceId] = useState<number | ''>('');
   const [creating, setCreating] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editingName, setEditingName] = useState<string | null>(null);
@@ -76,13 +77,27 @@ export default function CorrespondencesSection() {
     if (!newName.trim()) return;
     setCreating(true);
     try {
-      const result = await createCorrespondenceSystem({ name: newName.trim(), description: newDesc.trim() || undefined });
+      let newId: number;
+      if (newSourceId) {
+        // Clone existing system
+        const cloneResult = await cloneCorrespondenceSystem(newSourceId, newName.trim());
+        newId = cloneResult.id;
+        // Update description separately if provided
+        if (newDesc.trim()) {
+          await updateCorrespondenceSystem(newId, { description: newDesc.trim() });
+        }
+        showMsg('System cloned', 'success');
+      } else {
+        const result = await createCorrespondenceSystem({ name: newName.trim(), description: newDesc.trim() || undefined });
+        newId = result.id;
+        showMsg('System created', 'success');
+      }
       invalidate();
-      setSelectedSystemId(result.id);
+      setSelectedSystemId(newId);
       setNewName('');
       setNewDesc('');
+      setNewSourceId('');
       setShowCreate(false);
-      showMsg('System created', 'success');
     } catch {
       showMsg('Failed to create system (name may already exist)', 'error');
     } finally {
@@ -330,6 +345,23 @@ export default function CorrespondencesSection() {
               />
             </div>
             <div className="settings-tab__field">
+              <label className="settings-tab__label">Base on</label>
+              <select
+                value={newSourceId}
+                onChange={e => setNewSourceId(e.target.value ? Number(e.target.value) : '')}
+              >
+                <option value="">Empty (no assignments)</option>
+                {systems.map(sys => (
+                  <option key={sys.id} value={sys.id}>Clone: {sys.name}</option>
+                ))}
+              </select>
+              {newSourceId && (
+                <p className="settings-tab__hint" style={{ marginTop: 4, marginBottom: 0 }}>
+                  All assignments from the source system will be copied. You can edit them after creation.
+                </p>
+              )}
+            </div>
+            <div className="settings-tab__field">
               <label className="settings-tab__label">Description</label>
               <input
                 type="text"
@@ -339,13 +371,18 @@ export default function CorrespondencesSection() {
               />
             </div>
             <div className="corr-systems__create-actions">
-              <button onClick={() => setShowCreate(false)}>Cancel</button>
+              <button onClick={() => {
+                setShowCreate(false);
+                setNewName('');
+                setNewDesc('');
+                setNewSourceId('');
+              }}>Cancel</button>
               <button
                 className="settings-tab__save-btn"
                 onClick={handleCreate}
                 disabled={creating || !newName.trim()}
               >
-                {creating ? 'Creating...' : 'Create'}
+                {creating ? (newSourceId ? 'Cloning...' : 'Creating...') : (newSourceId ? 'Clone' : 'Create')}
               </button>
             </div>
           </div>
