@@ -172,7 +172,7 @@ export default function AnkiExportModal({ deckId, deckName, onClose }: AnkiExpor
   const selectedCount = orderedFields.filter(f => selectedKeys.has(f.key)).length;
 
   return (
-    <Modal onClose={onClose} isDirty={false}>
+    <Modal open={true} onClose={onClose} isDirty={false}>
       <div className="anki-export">
         <h2 className="anki-export__title">Export for Anki</h2>
         <p className="anki-export__hint">
