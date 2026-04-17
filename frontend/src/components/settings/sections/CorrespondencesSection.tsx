@@ -9,6 +9,9 @@ import {
   cloneCorrespondenceSystem,
   setAssignment,
   deleteAssignment,
+  bulkSetAssignments,
+  getArchetypes,
+  type Archetype,
 } from '../../../api/correspondences';
 import type {
   CorrespondenceSystem,
@@ -34,6 +37,11 @@ export default function CorrespondencesSection() {
   const [cloneName, setCloneName] = useState('');
   const [showClone, setShowClone] = useState(false);
   const [filterText, setFilterText] = useState('');
+  const [bulkGroup, setBulkGroup] = useState('');
+  const [bulkField, setBulkField] = useState(CORRESPONDENCE_FIELDS[0] as string);
+  const [bulkValue, setBulkValue] = useState('');
+  const [bulkApplying, setBulkApplying] = useState(false);
+  const [showBulk, setShowBulk] = useState(false);
 
   const { data: systems = [] } = useQuery<CorrespondenceSystem[]>({
     queryKey: ['correspondence-systems'],
@@ -44,6 +52,11 @@ export default function CorrespondencesSection() {
     queryKey: ['correspondence-system', selectedSystemId],
     queryFn: () => getCorrespondenceSystem(selectedSystemId!),
     enabled: selectedSystemId !== null,
+  });
+
+  const { data: allArchetypes = [] } = useQuery<Archetype[]>({
+    queryKey: ['archetypes', 'Tarot'],
+    queryFn: () => getArchetypes('Tarot'),
   });
 
   const showMsg = (text: string, type: 'success' | 'error') => {
@@ -149,6 +162,74 @@ export default function CorrespondencesSection() {
       assignmentsByArchetype.get(a.archetype_id)!.set(a.field_name, a.field_value);
     }
   }
+
+  // === Bulk assign groups ===
+  const BULK_GROUPS: { label: string; filter: (a: Archetype) => boolean }[] = [
+    { label: 'Major Arcana', filter: a => a.card_type === 'major' },
+    { label: 'All Minor Arcana', filter: a => a.card_type === 'minor' },
+    // Suits
+    { label: 'Wands', filter: a => a.suit === 'Wands' },
+    { label: 'Cups', filter: a => a.suit === 'Cups' },
+    { label: 'Swords', filter: a => a.suit === 'Swords' },
+    { label: 'Pentacles', filter: a => a.suit === 'Pentacles' },
+    // Court ranks
+    { label: 'All Pages', filter: a => a.name.startsWith('Page of') },
+    { label: 'All Knights', filter: a => a.name.startsWith('Knight of') },
+    { label: 'All Queens', filter: a => a.name.startsWith('Queen of') },
+    { label: 'All Kings', filter: a => a.name.startsWith('King of') },
+    // Pip numbers
+    { label: 'All Aces', filter: a => a.name.startsWith('Ace of') },
+    { label: 'All Twos', filter: a => a.name.startsWith('Two of') },
+    { label: 'All Threes', filter: a => a.name.startsWith('Three of') },
+    { label: 'All Fours', filter: a => a.name.startsWith('Four of') },
+    { label: 'All Fives', filter: a => a.name.startsWith('Five of') },
+    { label: 'All Sixes', filter: a => a.name.startsWith('Six of') },
+    { label: 'All Sevens', filter: a => a.name.startsWith('Seven of') },
+    { label: 'All Eights', filter: a => a.name.startsWith('Eight of') },
+    { label: 'All Nines', filter: a => a.name.startsWith('Nine of') },
+    { label: 'All Tens', filter: a => a.name.startsWith('Ten of') },
+    // All pips (non-court minor)
+    { label: 'All Pips (Ace-10)', filter: a => {
+      if (a.card_type !== 'minor') return false;
+      const rankNum = parseInt(a.rank?.slice(-2) || '0');
+      return rankNum >= 1 && rankNum <= 10;
+    }},
+    // All court cards
+    { label: 'All Court Cards', filter: a => {
+      if (a.card_type !== 'minor') return false;
+      const rankNum = parseInt(a.rank?.slice(-2) || '0');
+      return rankNum >= 11 && rankNum <= 14;
+    }},
+  ];
+
+  const getGroupArchetypes = (groupLabel: string): Archetype[] => {
+    const group = BULK_GROUPS.find(g => g.label === groupLabel);
+    if (!group) return [];
+    return allArchetypes.filter(group.filter);
+  };
+
+  const handleBulkApply = async () => {
+    if (!selectedSystemId || !bulkGroup || !bulkField || !bulkValue.trim()) return;
+    const archetypes = getGroupArchetypes(bulkGroup);
+    if (archetypes.length === 0) return;
+
+    setBulkApplying(true);
+    try {
+      const assignments = archetypes.map(a => ({
+        archetype_id: a.id,
+        field_name: bulkField,
+        field_value: bulkValue.trim(),
+      }));
+      await bulkSetAssignments(selectedSystemId, assignments);
+      queryClient.invalidateQueries({ queryKey: ['correspondence-system', selectedSystemId] });
+      showMsg(`Set ${CORRESPONDENCE_FIELD_LABELS[bulkField]} = "${bulkValue.trim()}" for ${archetypes.length} cards`, 'success');
+      setBulkValue('');
+    } catch {
+      showMsg('Failed to apply bulk assignment', 'error');
+    } finally {
+      setBulkApplying(false);
+    }
+  };
 
   // Get all archetypes that have at least one assignment, filtered
   const archetypeIds = [...assignmentsByArchetype.keys()].filter(id => {
@@ -303,6 +384,89 @@ export default function CorrespondencesSection() {
                   )}
                 </div>
               </>
+            )}
+          </div>
+
+          {/* Bulk Assign */}
+          <div className="corr-bulk">
+            <button
+              className="settings-tab__customize-btn"
+              onClick={() => setShowBulk(!showBulk)}
+            >
+              {showBulk ? 'Hide Bulk Assign' : 'Bulk Assign by Group...'}
+            </button>
+
+            {showBulk && (
+              <div className="corr-bulk__panel">
+                <div className="corr-bulk__row">
+                  <div className="corr-bulk__field">
+                    <label className="settings-tab__label">Group</label>
+                    <select value={bulkGroup} onChange={e => setBulkGroup(e.target.value)}>
+                      <option value="">Select a group...</option>
+                      <optgroup label="Card Type">
+                        {BULK_GROUPS.filter((_, i) => i < 2).map(g => (
+                          <option key={g.label} value={g.label}>{g.label}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Suits">
+                        {BULK_GROUPS.filter((_, i) => i >= 2 && i < 6).map(g => (
+                          <option key={g.label} value={g.label}>{g.label}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Court Ranks">
+                        {BULK_GROUPS.filter((_, i) => i >= 6 && i < 10).map(g => (
+                          <option key={g.label} value={g.label}>{g.label}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Pip Numbers">
+                        {BULK_GROUPS.filter((_, i) => i >= 10 && i < 20).map(g => (
+                          <option key={g.label} value={g.label}>{g.label}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Combined">
+                        {BULK_GROUPS.filter((_, i) => i >= 20).map(g => (
+                          <option key={g.label} value={g.label}>{g.label}</option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  <div className="corr-bulk__field">
+                    <label className="settings-tab__label">Field</label>
+                    <select value={bulkField} onChange={e => setBulkField(e.target.value)}>
+                      {CORRESPONDENCE_FIELDS.map(f => (
+                        <option key={f} value={f}>{CORRESPONDENCE_FIELD_LABELS[f]}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="corr-bulk__field" style={{ flex: 1 }}>
+                    <label className="settings-tab__label">Value</label>
+                    <input
+                      type="text"
+                      value={bulkValue}
+                      onChange={e => setBulkValue(e.target.value)}
+                      placeholder="e.g. Fire, Water, Air..."
+                    />
+                  </div>
+
+                  <div className="corr-bulk__field" style={{ alignSelf: 'flex-end' }}>
+                    <button
+                      className="settings-tab__save-btn"
+                      onClick={handleBulkApply}
+                      disabled={bulkApplying || !bulkGroup || !bulkValue.trim()}
+                    >
+                      {bulkApplying ? 'Applying...' : `Apply${bulkGroup ? ` (${getGroupArchetypes(bulkGroup).length})` : ''}`}
+                    </button>
+                  </div>
+                </div>
+
+                {bulkGroup && (
+                  <p className="settings-tab__hint" style={{ marginTop: 4 }}>
+                    Will set {CORRESPONDENCE_FIELD_LABELS[bulkField]} to "{bulkValue || '...'}" for {getGroupArchetypes(bulkGroup).length} cards: {getGroupArchetypes(bulkGroup).slice(0, 4).map(a => a.name).join(', ')}{getGroupArchetypes(bulkGroup).length > 4 ? ', ...' : ''}
+                  </p>
+                )}
+              </div>
             )}
           </div>
 

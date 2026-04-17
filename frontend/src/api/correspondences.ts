@@ -94,6 +94,23 @@ export async function compareCorrespondenceSystems(systemIds: number[]): Promise
   return res.data;
 }
 
+// === Archetypes (for bulk editing) ===
+
+export interface Archetype {
+  id: number;
+  name: string;
+  cartomancy_type: string;
+  rank: string | null;
+  suit: string | null;
+  card_type: string | null;
+}
+
+export async function getArchetypes(cartomancyType?: string): Promise<Archetype[]> {
+  const params = cartomancyType ? { cartomancy_type: cartomancyType } : {};
+  const res = await api.get('/api/archetypes', { params });
+  return res.data;
+}
+
 // === Card Names (for Reference tab) ===
 
 export interface CardNameEntry {
