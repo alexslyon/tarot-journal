@@ -128,6 +128,44 @@ export async function getArchetypes(cartomancyType?: string): Promise<Archetype[
   return res.data;
 }
 
+// === Field Options ===
+
+export interface FieldOption {
+  id: number;
+  field_name: string;
+  option_value: string;
+  sort_order: number;
+}
+
+export async function getFieldOptions(fieldName?: string): Promise<FieldOption[]> {
+  const params = fieldName ? { field: fieldName } : {};
+  const res = await api.get('/api/correspondence-field-options', { params });
+  return res.data;
+}
+
+export async function addFieldOption(fieldName: string, optionValue: string): Promise<{ id: number }> {
+  const res = await api.post('/api/correspondence-field-options', {
+    field_name: fieldName,
+    option_value: optionValue,
+  });
+  return res.data;
+}
+
+export async function updateFieldOption(optionId: number, data: { option_value?: string; sort_order?: number }) {
+  await api.put(`/api/correspondence-field-options/${optionId}`, data);
+}
+
+export async function deleteFieldOption(optionId: number) {
+  await api.delete(`/api/correspondence-field-options/${optionId}`);
+}
+
+export async function reorderFieldOptions(fieldName: string, orderedIds: number[]) {
+  await api.post('/api/correspondence-field-options/reorder', {
+    field_name: fieldName,
+    ordered_ids: orderedIds,
+  });
+}
+
 // === Card Names (for Reference tab) ===
 
 export interface CardNameEntry {

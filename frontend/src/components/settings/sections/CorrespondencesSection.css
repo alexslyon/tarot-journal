@@ -169,6 +169,45 @@
   background: var(--bg-input) !important;
 }
 
+.corr-systems__cell-select {
+  width: 100%;
+  min-width: 80px;
+  padding: 3px 4px !important;
+  font-size: var(--font-size-small) !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: var(--text-primary) !important;
+}
+
+.corr-systems__cell-select:hover,
+.corr-systems__cell-select:focus {
+  border-color: var(--accent) !important;
+  background: var(--bg-input) !important;
+}
+
+.corr-systems__cell-multi {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+}
+
+.corr-systems__cell-display {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-size-small);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.corr-systems__cell-multi .corr-systems__cell-select {
+  width: 24px !important;
+  min-width: 24px;
+  flex-shrink: 0;
+}
+
 /* Bulk assign panel */
 .corr-bulk {
   margin-bottom: 12px;
@@ -217,6 +256,95 @@
 .corr-bulk__clear-btn:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* Field options editor */
+.field-options {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+}
+
+.field-options__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.field-options__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 12px 0;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.field-options__tab {
+  padding: 5px 10px;
+  font-size: var(--font-size-small);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.field-options__tab:hover {
+  color: var(--text-primary);
+}
+
+.field-options__tab--active {
+  background: var(--accent-dim) !important;
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+
+.field-options__list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.field-options__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.field-options__row:last-child {
+  border-bottom: none;
+}
+
+.field-options__value {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-body);
+}
+
+.field-options__input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px !important;
+  font-size: var(--font-size-body) !important;
+}
+
+.field-options__row button {
+  font-size: var(--font-size-small) !important;
+  padding: 2px 8px !important;
+}
+
+.field-options__add-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
 /* Group patterns summary (shared style with Reference view) */

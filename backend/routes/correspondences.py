@@ -212,6 +212,61 @@ def compare_systems():
     return jsonify([row_to_dict(a) for a in assignments])
 
 
+@correspondences_bp.route('/api/correspondence-field-options')
+def list_field_options():
+    """Get all field options, optionally filtered by field name."""
+    db = current_app.config['DB']
+    field_name = request.args.get('field')
+    options = db.get_field_options(field_name=field_name)
+    return jsonify([row_to_dict(o) for o in options])
+
+
+@correspondences_bp.route('/api/correspondence-field-options', methods=['POST'])
+@require_json
+def create_field_option(data):
+    db = current_app.config['DB']
+    field_name = data.get('field_name', '')
+    option_value = (data.get('option_value', '') or '').strip()
+    if not field_name or not option_value:
+        return jsonify({'error': 'field_name and option_value are required'}), 400
+    try:
+        opt_id = db.add_field_option(field_name, option_value)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    return jsonify({'id': opt_id}), 201
+
+
+@correspondences_bp.route('/api/correspondence-field-options/<int:option_id>', methods=['PUT'])
+@require_json
+def update_field_option(option_id, data):
+    db = current_app.config['DB']
+    db.update_field_option(
+        option_id,
+        option_value=data.get('option_value'),
+        sort_order=data.get('sort_order'),
+    )
+    return jsonify({'ok': True})
+
+
+@correspondences_bp.route('/api/correspondence-field-options/<int:option_id>', methods=['DELETE'])
+def delete_field_option(option_id):
+    db = current_app.config['DB']
+    db.delete_field_option(option_id)
+    return jsonify({'ok': True})
+
+
+@correspondences_bp.route('/api/correspondence-field-options/reorder', methods=['POST'])
+@require_json
+def reorder_field_options(data):
+    db = current_app.config['DB']
+    field_name = data.get('field_name')
+    ordered_ids = data.get('ordered_ids', [])
+    if not field_name:
+        return jsonify({'error': 'field_name required'}), 400
+    db.reorder_field_options(field_name, ordered_ids)
+    return jsonify({'ok': True})
+
+
 @correspondences_bp.route('/api/card-names')
 def card_names():
     """Get card names in other languages, aggregated by archetype."""
