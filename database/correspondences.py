@@ -143,8 +143,8 @@ class CorrespondencesMixin:
         cursor = self.conn.cursor()
         cursor.execute('''
             INSERT INTO correspondence_assignments
-                (system_id, archetype_id, field_name, field_value)
-            SELECT ?, archetype_id, field_name, field_value
+                (system_id, archetype_id, field_name, field_value, source_group)
+            SELECT ?, archetype_id, field_name, field_value, source_group
             FROM correspondence_assignments
             WHERE system_id = ?
         ''', (new_id, source_id))
