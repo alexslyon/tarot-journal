@@ -44,6 +44,15 @@ MODALITY_ZODIAC = {
 # Source tag for values derived automatically from other fields
 MODALITY_DERIVED_SOURCE = 'auto:modality'
 
+# Reverse of MODALITY_ZODIAC: element → list of all 3 zodiac signs of that element.
+# Used when assigning "all signs of element" to a group (e.g. Aces).
+ELEMENT_ZODIACS = {
+    'Fire': ['Aries', 'Leo', 'Sagittarius'],
+    'Water': ['Cancer', 'Scorpio', 'Pisces'],
+    'Air': ['Libra', 'Aquarius', 'Gemini'],
+    'Earth': ['Capricorn', 'Taurus', 'Virgo'],
+}
+
 DECAN_PATTERN = re.compile(
     r'^(\w+)\s+in\s+(\w+)$', re.IGNORECASE
 )
@@ -432,6 +441,98 @@ class CorrespondencesMixin:
                 system_id, a['archetype_id'], a['field_name'], a['field_value'],
                 source_group=source_group,
             )
+
+    def set_system_multi_assignment(self, system_id: int, archetype_id: int,
+                                    field_name: str, values: list,
+                                    source_group: str):
+        """Set multiple values for the same (system, archetype, field, source_group).
+
+        Used for assignments like "Aces → all 3 zodiac signs of the suit's element".
+        Replaces any prior rows for this source_group+field with the new set.
+        Requires a non-NULL source_group.
+        """
+        if not source_group:
+            raise ValueError("Multi-value assignment requires a source_group")
+        if field_name not in CORRESPONDENCE_FIELDS:
+            raise ValueError(f"Invalid field name: {field_name}")
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            DELETE FROM correspondence_assignments
+            WHERE system_id = ? AND archetype_id = ? AND field_name = ?
+              AND source_group = ?
+        ''', (system_id, archetype_id, field_name, source_group))
+        seen = set()
+        for v in values:
+            if not v or v in seen:
+                continue
+            seen.add(v)
+            cursor.execute('''
+                INSERT INTO correspondence_assignments
+                    (system_id, archetype_id, field_name, field_value, source_group)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (system_id, archetype_id, field_name, v, source_group))
+        if field_name in ('element', 'modality'):
+            self._refresh_modality_zodiac(system_id, archetype_id)
+        self._commit()
+
+    def expand_elemental_zodiac(self, system_id: int, archetype_ids: list,
+                                source_group: str):
+        """Assign the 3 zodiac signs of each archetype's suit element.
+
+        For each archetype, determines its element (prefer the value sourced
+        from the suit name, else the single distinct element value, else the
+        element implied by the archetype's suit if it's a tarot minor), then
+        assigns the 3 corresponding zodiac signs to that card with the given
+        source_group. Returns a list of {archetype_id, signs, skipped_reason?}.
+        """
+        cursor = self.conn.cursor()
+        report = []
+
+        # Default suit → element fallback used when no system assignment exists
+        DEFAULT_SUIT_ELEMENT = {
+            'Wands': 'Fire',
+            'Cups': 'Water',
+            'Swords': 'Air',
+            'Pentacles': 'Earth',
+        }
+
+        for archetype_id in archetype_ids:
+            cursor.execute('SELECT suit FROM card_archetypes WHERE id = ?', (archetype_id,))
+            arch_row = cursor.fetchone()
+            suit_name = arch_row['suit'] if arch_row else None
+
+            # Find this card's element — prefer suit-sourced entry, then any entry,
+            # then fall back to the default suit → element mapping
+            element = None
+            cursor.execute('''
+                SELECT field_value, source_group FROM correspondence_assignments
+                WHERE system_id = ? AND archetype_id = ? AND field_name = 'element'
+            ''', (system_id, archetype_id))
+            elem_rows = cursor.fetchall()
+            if suit_name:
+                for r in elem_rows:
+                    if r['source_group'] == suit_name:
+                        element = r['field_value']
+                        break
+            if element is None:
+                distinct = {r['field_value'] for r in elem_rows}
+                if len(distinct) == 1:
+                    element = next(iter(distinct))
+            if element is None and suit_name in DEFAULT_SUIT_ELEMENT:
+                element = DEFAULT_SUIT_ELEMENT[suit_name]
+
+            signs = ELEMENT_ZODIACS.get(element) if element else None
+            if not signs:
+                report.append({'archetype_id': archetype_id, 'skipped': True,
+                               'reason': f'No element for archetype (element={element!r})'})
+                continue
+
+            self.set_system_multi_assignment(
+                system_id, archetype_id, 'zodiac_sign', signs, source_group=source_group,
+            )
+            report.append({'archetype_id': archetype_id, 'signs': signs})
+
+        return report
 
     # === Card-Level Overrides ===
 
