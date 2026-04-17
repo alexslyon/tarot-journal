@@ -168,3 +168,32 @@
   border-color: var(--accent) !important;
   background: var(--bg-input) !important;
 }
+
+/* Bulk assign panel */
+.corr-bulk {
+  margin-bottom: 12px;
+}
+
+.corr-bulk__panel {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+}
+
+.corr-bulk__row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.corr-bulk__field {
+  min-width: 140px;
+}
+
+.corr-bulk__field select,
+.corr-bulk__field input {
+  width: 100%;
+}
