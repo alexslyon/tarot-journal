@@ -190,7 +190,31 @@ class CorrespondencesMixin:
     def update_field_option(self, option_id: int, option_value: str = None,
                             sort_order: int = None):
         cursor = self.conn.cursor()
+
+        # If renaming: cascade to existing assignments and card overrides so
+        # cells still show the option value after the rename.
         if option_value is not None:
+            cursor.execute(
+                'SELECT field_name, option_value FROM correspondence_field_options WHERE id = ?',
+                (option_id,)
+            )
+            current = cursor.fetchone()
+            if current:
+                old_value = current['option_value']
+                field_name = current['field_name']
+                if old_value != option_value:
+                    cursor.execute(
+                        '''UPDATE correspondence_assignments
+                           SET field_value = ?
+                           WHERE field_name = ? AND field_value = ?''',
+                        (option_value, field_name, old_value)
+                    )
+                    cursor.execute(
+                        '''UPDATE card_correspondence_overrides
+                           SET field_value = ?
+                           WHERE field_name = ? AND field_value = ?''',
+                        (option_value, field_name, old_value)
+                    )
             cursor.execute(
                 'UPDATE correspondence_field_options SET option_value = ? WHERE id = ?',
                 (option_value, option_id)
