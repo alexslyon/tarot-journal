@@ -28,6 +28,12 @@ export default function FieldOptionsEditor({ onClose }: FieldOptionsEditorProps)
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['field-options'] });
+    // Renames cascade to correspondence_assignments + card_correspondence_overrides,
+    // so refresh any cached views of that data too.
+    queryClient.invalidateQueries({ queryKey: ['correspondence-system'] });
+    queryClient.invalidateQueries({ queryKey: ['correspondence-systems'] });
+    queryClient.invalidateQueries({ queryKey: ['card-correspondences'] });
+    queryClient.invalidateQueries({ queryKey: ['correspondence-compare'] });
   };
 
   const handleAdd = async () => {
