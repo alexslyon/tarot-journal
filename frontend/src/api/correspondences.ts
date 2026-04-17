@@ -66,6 +66,19 @@ export async function setAssignment(
   });
 }
 
+export async function setAssignmentValues(
+  systemId: number,
+  archetypeId: number,
+  fieldName: string,
+  values: string[],
+  sourceGroup?: string,
+) {
+  await api.put(`/api/correspondence-systems/${systemId}/assignments/${archetypeId}/${fieldName}`, {
+    values,
+    source_group: sourceGroup ?? null,
+  });
+}
+
 export async function expandElementalZodiac(
   systemId: number,
   archetypeIds: number[],

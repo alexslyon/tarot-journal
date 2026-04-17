@@ -136,9 +136,27 @@ def expand_elemental_zodiac_route(system_id, data):
 )
 @require_json
 def set_assignment(system_id, archetype_id, field_name, data):
+    """Set one or more values for a cell.
+
+    Accepts either:
+      { value: string, source_group?: string }    → single-value assignment
+      { values: string[], source_group?: string } → multi-value assignment
+    """
     db = current_app.config['DB']
-    field_value = data.get('value', '').strip()
     source_group = data.get('source_group')
+
+    if 'values' in data:
+        values = [v.strip() for v in data.get('values') or [] if v and v.strip()]
+        try:
+            db.set_system_multi_assignment(
+                system_id, archetype_id, field_name, values,
+                source_group=source_group,
+            )
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+        return jsonify({'ok': True})
+
+    field_value = (data.get('value') or '').strip()
     if not field_value:
         return jsonify({'error': 'Value is required'}), 400
     try:
