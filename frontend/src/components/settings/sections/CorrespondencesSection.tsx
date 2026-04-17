@@ -350,6 +350,24 @@ export default function CorrespondencesSection() {
           ))}
         </div>
 
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 8 }}>
+          <button
+            className="settings-tab__customize-btn"
+            onClick={() => setShowOptionsEditor(!showOptionsEditor)}
+          >
+            {showOptionsEditor ? 'Hide Field Options' : 'Edit Field Options...'}
+          </button>
+          <span className="settings-tab__hint" style={{ margin: 0 }}>
+            Manage the values available in correspondence dropdowns (global, applies to all systems).
+          </span>
+        </div>
+
+        {showOptionsEditor && (
+          <div style={{ marginBottom: 12 }}>
+            <FieldOptionsEditor onClose={() => setShowOptionsEditor(false)} />
+          </div>
+        )}
+
         {!showCreate ? (
           <button className="settings-tab__add-preset-btn" onClick={() => setShowCreate(true)}>
             + New System
@@ -497,13 +515,6 @@ export default function CorrespondencesSection() {
             </div>
           )}
 
-          {/* Options Editor */}
-          {showOptionsEditor && (
-            <div style={{ marginBottom: 12 }}>
-              <FieldOptionsEditor onClose={() => setShowOptionsEditor(false)} />
-            </div>
-          )}
-
           {/* Bulk Assign */}
           <div className="corr-bulk">
             <button
@@ -511,13 +522,6 @@ export default function CorrespondencesSection() {
               onClick={() => setShowBulk(!showBulk)}
             >
               {showBulk ? 'Hide Bulk Assign' : 'Bulk Assign by Group...'}
-            </button>
-            <button
-              className="settings-tab__customize-btn"
-              onClick={() => setShowOptionsEditor(!showOptionsEditor)}
-              style={{ marginLeft: 16 }}
-            >
-              {showOptionsEditor ? 'Hide Field Options' : 'Edit Field Options...'}
             </button>
 
             {showBulk && (
