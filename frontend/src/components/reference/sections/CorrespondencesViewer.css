@@ -120,6 +120,7 @@
 .corr-viewer__td--value {
   color: var(--text-primary);
   white-space: nowrap;
+  unicode-bidi: plaintext;
 }
 
 .corr-viewer__td--field {
