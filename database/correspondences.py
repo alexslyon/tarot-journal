@@ -213,10 +213,15 @@ class CorrespondencesMixin:
     def _refresh_modality_zodiac(self, system_id: int, archetype_id: int):
         """Recompute auto-derived zodiac_sign for a card based on its element + modality.
 
-        Called after any change to element or modality. If the card has exactly one
-        element value and one modality value, and the pair maps to a zodiac sign,
-        we insert a zodiac_sign row tagged with MODALITY_DERIVED_SOURCE. Prior
-        derived rows for that card are always cleared first.
+        Called after any change to element or modality. If we can identify a
+        single element and a single modality for this card, and the pair maps
+        to a zodiac sign, we insert a zodiac_sign row tagged with
+        MODALITY_DERIVED_SOURCE. Prior derived rows are always cleared first.
+
+        When multiple element values exist (e.g. one from the suit bulk assign
+        and another from a court rank), we prefer the one whose source_group
+        matches the card's suit name — since that's the "elemental nature of
+        the suit" needed for the modality→zodiac mapping.
         """
         cursor = self.conn.cursor()
         # Clear previous auto-derived zodiac
@@ -226,24 +231,45 @@ class CorrespondencesMixin:
               AND source_group = ?
         ''', (system_id, archetype_id, MODALITY_DERIVED_SOURCE))
 
-        # Collect distinct current element and modality values for this card
+        # Look up the archetype's suit (e.g. "Wands") so we can prefer suit-sourced element
+        cursor.execute('SELECT suit FROM card_archetypes WHERE id = ?', (archetype_id,))
+        arch_row = cursor.fetchone()
+        suit_name = arch_row['suit'] if arch_row else None
+
+        # Collect current element and modality values with their source_group
         cursor.execute('''
-            SELECT field_name, field_value FROM correspondence_assignments
+            SELECT field_name, field_value, source_group FROM correspondence_assignments
             WHERE system_id = ? AND archetype_id = ?
               AND field_name IN ('element', 'modality')
         ''', (system_id, archetype_id))
-        elements = set()
-        modalities = set()
+        element_rows = []
+        modality_rows = []
         for row in cursor.fetchall():
             if row['field_name'] == 'element':
-                elements.add(row['field_value'])
+                element_rows.append(row)
             elif row['field_name'] == 'modality':
-                modalities.add(row['field_value'])
+                modality_rows.append(row)
 
-        # Only derive when there's exactly one of each (unambiguous)
-        if len(elements) == 1 and len(modalities) == 1:
-            element = next(iter(elements))
-            modality = next(iter(modalities))
+        # Pick element: prefer one sourced from the card's suit name, else use
+        # the single distinct value if unambiguous
+        element = None
+        if suit_name:
+            for r in element_rows:
+                if r['source_group'] == suit_name:
+                    element = r['field_value']
+                    break
+        if element is None:
+            distinct_elements = {r['field_value'] for r in element_rows}
+            if len(distinct_elements) == 1:
+                element = next(iter(distinct_elements))
+
+        # Pick modality: use the single distinct value if unambiguous
+        modality = None
+        distinct_modalities = {r['field_value'] for r in modality_rows}
+        if len(distinct_modalities) == 1:
+            modality = next(iter(distinct_modalities))
+
+        if element and modality:
             zodiac = MODALITY_ZODIAC.get((element, modality))
             if zodiac:
                 cursor.execute('''
