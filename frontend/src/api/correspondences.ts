@@ -66,6 +66,18 @@ export async function setAssignment(
   });
 }
 
+export async function expandElementalZodiac(
+  systemId: number,
+  archetypeIds: number[],
+  sourceGroup: string,
+) {
+  const res = await api.post(
+    `/api/correspondence-systems/${systemId}/expand-elemental-zodiac`,
+    { archetype_ids: archetypeIds, source_group: sourceGroup },
+  );
+  return res.data;
+}
+
 export async function deleteAssignment(
   systemId: number,
   archetypeId: number,

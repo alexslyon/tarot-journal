@@ -12,6 +12,7 @@ import {
   bulkSetAssignments,
   getArchetypes,
   getFieldOptions,
+  expandElementalZodiac,
   type Archetype,
   type FieldOption,
 } from '../../../api/correspondences';
@@ -271,6 +272,27 @@ export default function CorrespondencesSection() {
       setBulkValue('');
     } catch {
       showMsg('Failed to apply bulk assignment', 'error');
+    } finally {
+      setBulkApplying(false);
+    }
+  };
+
+  const handleExpandElemental = async () => {
+    if (!selectedSystemId || !bulkGroup) return;
+    const archetypes = getGroupArchetypes(bulkGroup);
+    if (archetypes.length === 0) return;
+
+    setBulkApplying(true);
+    try {
+      await expandElementalZodiac(
+        selectedSystemId,
+        archetypes.map(a => a.id),
+        bulkGroup,
+      );
+      queryClient.invalidateQueries({ queryKey: ['correspondence-system', selectedSystemId] });
+      showMsg(`Assigned elemental zodiac signs to ${archetypes.length} cards in "${bulkGroup}"`, 'success');
+    } catch {
+      showMsg('Failed to expand elemental zodiac', 'error');
     } finally {
       setBulkApplying(false);
     }
@@ -594,6 +616,22 @@ export default function CorrespondencesSection() {
                     <br />
                     <strong>Apply</strong> sets {CORRESPONDENCE_FIELD_LABELS[bulkField]} = "{bulkValue || '...'}" for these cards. <strong>Clear</strong> removes {CORRESPONDENCE_FIELD_LABELS[bulkField]} entirely (card-level overrides are not affected).
                   </p>
+                )}
+
+                {bulkField === 'zodiac_sign' && (
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                    <button
+                      className="settings-tab__save-btn"
+                      onClick={handleExpandElemental}
+                      disabled={bulkApplying || !bulkGroup}
+                      style={{ marginRight: 8 }}
+                    >
+                      {bulkApplying ? 'Working...' : 'Expand to Elemental Signs'}
+                    </button>
+                    <span className="settings-tab__hint">
+                      Assigns all 3 zodiac signs of each card's suit element (Wands→Aries/Leo/Sagittarius, etc). Common for Aces representing the "root" of an element.
+                    </span>
+                  </div>
                 )}
               </div>
             )}

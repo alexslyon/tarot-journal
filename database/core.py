@@ -555,9 +555,13 @@ class CoreMixin:
             ON correspondence_assignments(system_id, archetype_id, field_name)
             WHERE source_group IS NULL
         ''')
+        # Non-NULL source groups can contribute multiple values (e.g. an Ace
+        # assignment can expand to multiple zodiac signs). The unique index
+        # includes field_value so we only prevent exact duplicates.
+        cursor.execute('DROP INDEX IF EXISTS idx_corr_assignments_unique_group')
         cursor.execute('''
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_corr_assignments_unique_group
-            ON correspondence_assignments(system_id, archetype_id, field_name, source_group)
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_corr_assignments_unique_group_value
+            ON correspondence_assignments(system_id, archetype_id, field_name, source_group, field_value)
             WHERE source_group IS NOT NULL
         ''')
 

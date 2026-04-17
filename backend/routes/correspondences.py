@@ -112,6 +112,25 @@ def bulk_set_assignments(system_id, data):
 
 
 @correspondences_bp.route(
+    '/api/correspondence-systems/<int:system_id>/expand-elemental-zodiac',
+    methods=['POST']
+)
+@require_json
+def expand_elemental_zodiac_route(system_id, data):
+    """Assign all 3 zodiac signs of each archetype's suit element.
+
+    Body: { archetype_ids: [int], source_group: str }
+    """
+    db = current_app.config['DB']
+    archetype_ids = data.get('archetype_ids', [])
+    source_group = data.get('source_group') or ''
+    if not archetype_ids or not source_group:
+        return jsonify({'error': 'archetype_ids and source_group are required'}), 400
+    report = db.expand_elemental_zodiac(system_id, archetype_ids, source_group)
+    return jsonify({'ok': True, 'report': report})
+
+
+@correspondences_bp.route(
     '/api/correspondence-systems/<int:system_id>/assignments/<int:archetype_id>/<field_name>',
     methods=['PUT']
 )
