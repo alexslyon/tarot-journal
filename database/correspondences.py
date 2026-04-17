@@ -135,7 +135,7 @@ class CorrespondencesMixin:
                 FROM correspondence_assignments ca
                 JOIN card_archetypes a ON a.id = ca.archetype_id
                 WHERE ca.system_id = ? AND ca.archetype_id = ?
-                ORDER BY a.rank
+                ORDER BY CAST(a.rank AS INTEGER)
             ''', (system_id, archetype_id))
         else:
             cursor.execute('''
@@ -144,7 +144,7 @@ class CorrespondencesMixin:
                 FROM correspondence_assignments ca
                 JOIN card_archetypes a ON a.id = ca.archetype_id
                 WHERE ca.system_id = ?
-                ORDER BY a.cartomancy_type, a.rank
+                ORDER BY a.cartomancy_type, CAST(a.rank AS INTEGER)
             ''', (system_id,))
         return cursor.fetchall()
 
@@ -520,6 +520,6 @@ class CorrespondencesMixin:
             JOIN correspondence_systems cs ON cs.id = ca.system_id
             JOIN card_archetypes a ON a.id = ca.archetype_id
             WHERE ca.system_id IN ({placeholders})
-            ORDER BY a.cartomancy_type, a.rank, a.name, cs.name, ca.field_name
+            ORDER BY a.cartomancy_type, CAST(a.rank AS INTEGER), a.name, cs.name, ca.field_name
         ''', system_ids)
         return cursor.fetchall()
