@@ -59,3 +59,13 @@ export function groupPatternsByField(patterns: GroupPattern[]): Map<string, Grou
   }
   return map;
 }
+
+/** Group patterns by card-group label for display. */
+export function groupPatternsByGroup(patterns: GroupPattern[]): Map<string, GroupPattern[]> {
+  const map = new Map<string, GroupPattern[]>();
+  for (const p of patterns) {
+    if (!map.has(p.groupLabel)) map.set(p.groupLabel, []);
+    map.get(p.groupLabel)!.push(p);
+  }
+  return map;
+}

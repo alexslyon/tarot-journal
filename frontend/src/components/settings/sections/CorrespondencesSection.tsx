@@ -23,7 +23,7 @@ import {
   CORRESPONDENCE_FIELDS,
   CORRESPONDENCE_FIELD_LABELS,
 } from '../../../types';
-import { detectGroupPatterns, groupPatternsByField, type GroupPattern } from '../../../utils/correspondencePatterns';
+import { detectGroupPatterns, groupPatternsByGroup, type GroupPattern } from '../../../utils/correspondencePatterns';
 import FieldOptionsEditor from './FieldOptionsEditor';
 import '../SettingsTab.css';
 import './CorrespondencesSection.css';
@@ -201,10 +201,10 @@ export default function CorrespondencesSection() {
   }
 
   // Detect group-level patterns (same as Reference view)
-  const patternsByField = useMemo<Map<string, GroupPattern[]>>(() => {
+  const patternsByGroup = useMemo<Map<string, GroupPattern[]>>(() => {
     if (!systemDetail?.assignments) return new Map();
     const patterns = detectGroupPatterns(systemDetail.assignments as CorrespondenceAssignment[]);
-    return groupPatternsByField(patterns);
+    return groupPatternsByGroup(patterns);
   }, [systemDetail]);
 
   // === Bulk assign groups ===
@@ -495,16 +495,16 @@ export default function CorrespondencesSection() {
           </div>
 
           {/* Group-level patterns summary (same as Reference view) */}
-          {patternsByField.size > 0 && (
+          {patternsByGroup.size > 0 && (
             <div className="corr-viewer__group-summary">
               <h4 className="corr-viewer__group-title">Group Patterns</h4>
-              {[...patternsByField.entries()].map(([fieldLabel, patterns]) => (
-                <div key={fieldLabel} className="corr-viewer__group-row">
-                  <span className="corr-viewer__group-field">{fieldLabel}</span>
+              {[...patternsByGroup.entries()].map(([groupLabel, patterns]) => (
+                <div key={groupLabel} className="corr-viewer__group-row">
+                  <span className="corr-viewer__group-field">{groupLabel}</span>
                   <div className="corr-viewer__group-values">
                     {patterns.map(p => (
-                      <span key={p.groupLabel} className="corr-viewer__group-tag">
-                        <span className="corr-viewer__group-name">{p.groupLabel}</span>
+                      <span key={p.fieldLabel} className="corr-viewer__group-tag">
+                        <span className="corr-viewer__group-name">{p.fieldLabel}</span>
                         <span className="corr-viewer__group-eq">=</span>
                         <span className="corr-viewer__group-val">{p.value}</span>
                       </span>
