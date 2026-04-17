@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   getCorrespondenceSystems,
@@ -8,6 +8,82 @@ import {
 import type { CorrespondenceSystem, CorrespondenceAssignment } from '../../../types';
 import { CORRESPONDENCE_FIELDS, CORRESPONDENCE_FIELD_LABELS } from '../../../types';
 import './CorrespondencesViewer.css';
+
+interface GroupPattern {
+  groupLabel: string;
+  fieldName: string;
+  fieldLabel: string;
+  value: string;
+}
+
+/** Detect group-level patterns: values shared by all cards in a group. */
+function detectGroupPatterns(
+  assignments: CorrespondenceAssignment[],
+): GroupPattern[] {
+  // Build per-card field maps with card metadata
+  const cards = new Map<number, {
+    name: string;
+    suit: string | null;
+    card_type: string | null;
+    fields: Map<string, string>;
+  }>();
+
+  for (const a of assignments) {
+    if (!cards.has(a.archetype_id)) {
+      cards.set(a.archetype_id, {
+        name: a.archetype_name,
+        suit: a.suit,
+        card_type: a.card_type,
+        fields: new Map(),
+      });
+    }
+    cards.get(a.archetype_id)!.fields.set(a.field_name, a.field_value);
+  }
+
+  const allCards = [...cards.values()];
+  const patterns: GroupPattern[] = [];
+
+  // Define groups to check
+  const groups: { label: string; filter: (c: typeof allCards[0]) => boolean }[] = [
+    // Suits
+    { label: 'Wands', filter: c => c.suit === 'Wands' },
+    { label: 'Cups', filter: c => c.suit === 'Cups' },
+    { label: 'Swords', filter: c => c.suit === 'Swords' },
+    { label: 'Pentacles', filter: c => c.suit === 'Pentacles' },
+    // Court ranks
+    { label: 'Pages', filter: c => c.name.startsWith('Page of') },
+    { label: 'Knights', filter: c => c.name.startsWith('Knight of') },
+    { label: 'Queens', filter: c => c.name.startsWith('Queen of') },
+    { label: 'Kings', filter: c => c.name.startsWith('King of') },
+    // Pips
+    { label: 'Aces', filter: c => c.name.startsWith('Ace of') },
+    // Major Arcana as a whole
+    { label: 'Major Arcana', filter: c => c.card_type === 'major' },
+  ];
+
+  for (const group of groups) {
+    const members = allCards.filter(group.filter);
+    if (members.length < 2) continue;
+
+    for (const field of CORRESPONDENCE_FIELDS) {
+      const values = members.map(m => m.fields.get(field)).filter(Boolean);
+      if (values.length === members.length) {
+        // Every member has this field set
+        const unique = new Set(values);
+        if (unique.size === 1) {
+          patterns.push({
+            groupLabel: group.label,
+            fieldName: field,
+            fieldLabel: CORRESPONDENCE_FIELD_LABELS[field],
+            value: values[0]!,
+          });
+        }
+      }
+    }
+  }
+
+  return patterns;
+}
 
 type ViewMode = 'by-system' | 'compare';
 
@@ -59,6 +135,22 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
       bySystemRows.get(a.archetype_id)!.fields.set(a.field_name, a.field_value);
     }
   }
+
+  // Detect group-level patterns
+  const groupPatterns = useMemo(() => {
+    if (!systemDetail?.assignments) return [];
+    return detectGroupPatterns(systemDetail.assignments as CorrespondenceAssignment[]);
+  }, [systemDetail]);
+
+  // Group the patterns by field for display
+  const patternsByField = useMemo(() => {
+    const map = new Map<string, GroupPattern[]>();
+    for (const p of groupPatterns) {
+      if (!map.has(p.fieldLabel)) map.set(p.fieldLabel, []);
+      map.get(p.fieldLabel)!.push(p);
+    }
+    return map;
+  }, [groupPatterns]);
 
   const filteredArchetypeIds = [...bySystemRows.keys()].filter(id => {
     if (!filterText) return true;
@@ -133,6 +225,27 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
               className="corr-viewer__filter"
             />
           </div>
+
+          {/* Group-level patterns summary */}
+          {patternsByField.size > 0 && (
+            <div className="corr-viewer__group-summary">
+              <h4 className="corr-viewer__group-title">Group Patterns</h4>
+              {[...patternsByField.entries()].map(([fieldLabel, patterns]) => (
+                <div key={fieldLabel} className="corr-viewer__group-row">
+                  <span className="corr-viewer__group-field">{fieldLabel}</span>
+                  <div className="corr-viewer__group-values">
+                    {patterns.map(p => (
+                      <span key={p.groupLabel} className="corr-viewer__group-tag">
+                        <span className="corr-viewer__group-name">{p.groupLabel}</span>
+                        <span className="corr-viewer__group-eq">=</span>
+                        <span className="corr-viewer__group-val">{p.value}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="corr-viewer__table-wrap">
             <table className="corr-viewer__table">
