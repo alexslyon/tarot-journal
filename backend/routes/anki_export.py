@@ -51,10 +51,11 @@ def anki_export(deck_id, data):
     if not fields:
         return jsonify({'error': 'No fields selected'}), 400
 
-    # Get all cards in the deck
-    cards = db.get_cards(deck_id)
-    if not cards:
+    # Get all cards in the deck (convert Rows to dicts for easier handling)
+    cards_raw = db.get_cards(deck_id)
+    if not cards_raw:
         return jsonify({'error': 'Deck has no cards'}), 400
+    cards = [dict(c) for c in cards_raw]
 
     # Get correspondences for all cards
     card_correspondences = {}
