@@ -60,12 +60,40 @@ export function groupPatternsByField(patterns: GroupPattern[]): Map<string, Grou
   return map;
 }
 
-/** Group patterns by card-group label for display. */
+// Canonical display order for known group labels — keeps related groups together
+const GROUP_ORDER = [
+  'Major Arcana',
+  'All Minor Arcana',
+  // Suits
+  'Wands', 'Cups', 'Swords', 'Pentacles',
+  // Court ranks
+  'All Pages', 'All Knights', 'All Queens', 'All Kings', 'All Court Cards',
+  // Pip numbers
+  'All Aces', 'All Twos', 'All Threes', 'All Fours', 'All Fives',
+  'All Sixes', 'All Sevens', 'All Eights', 'All Nines', 'All Tens',
+  'All Pips (Ace-10)',
+];
+
+/** Group patterns by card-group label for display, sorted by canonical order. */
 export function groupPatternsByGroup(patterns: GroupPattern[]): Map<string, GroupPattern[]> {
-  const map = new Map<string, GroupPattern[]>();
+  const unordered = new Map<string, GroupPattern[]>();
   for (const p of patterns) {
-    if (!map.has(p.groupLabel)) map.set(p.groupLabel, []);
-    map.get(p.groupLabel)!.push(p);
+    if (!unordered.has(p.groupLabel)) unordered.set(p.groupLabel, []);
+    unordered.get(p.groupLabel)!.push(p);
   }
-  return map;
+
+  // Build an ordered Map: canonical order first, then any unknown labels alphabetically
+  const ordered = new Map<string, GroupPattern[]>();
+  for (const label of GROUP_ORDER) {
+    if (unordered.has(label)) {
+      ordered.set(label, unordered.get(label)!);
+      unordered.delete(label);
+    }
+  }
+  // Remaining custom labels — sort alphabetically
+  const remaining = [...unordered.keys()].sort();
+  for (const label of remaining) {
+    ordered.set(label, unordered.get(label)!);
+  }
+  return ordered;
 }
