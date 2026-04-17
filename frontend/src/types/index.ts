@@ -229,7 +229,7 @@ export const CORRESPONDENCE_FIELD_LABELS: Record<string, string> = {
   planet: 'Planet',
   zodiac_sign: 'Zodiac Sign',
   decan: 'Decan',
-  hebrew_letter: 'Hebrew Letter',
+  hebrew_letter: 'Kabbalah',
   numerology: 'Numerology',
   rune: 'Rune',
   i_ching_hexagram: 'I Ching Hexagram',

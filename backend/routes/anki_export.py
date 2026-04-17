@@ -12,6 +12,19 @@ from backend.utils import require_json
 
 anki_export_bp = Blueprint('anki_export', __name__)
 
+# Display labels for correspondence fields (matches frontend labels)
+FIELD_LABELS = {
+    'element': 'Element',
+    'planet': 'Planet',
+    'zodiac_sign': 'Zodiac Sign',
+    'decan': 'Decan',
+    'hebrew_letter': 'Kabbalah',
+    'numerology': 'Numerology',
+    'rune': 'Rune',
+    'i_ching_hexagram': 'I Ching Hexagram',
+    'chakra': 'Chakra',
+}
+
 
 @anki_export_bp.route('/api/decks/<int:deck_id>/anki-export', methods=['POST'])
 @require_json
@@ -85,8 +98,7 @@ def anki_export(deck_id, data):
             elif f == 'notes':
                 header_labels.append('Notes')
             elif f in CORRESPONDENCE_FIELDS:
-                # Capitalize nicely
-                header_labels.append(f.replace('_', ' ').title())
+                header_labels.append(FIELD_LABELS.get(f, f.replace('_', ' ').title()))
             else:
                 header_labels.append(f)
         lines.append('#' + '\t'.join(header_labels))
@@ -169,7 +181,7 @@ def anki_fields(deck_id):
                 corr_populated.add(c['field_name'])
 
     for f in CORRESPONDENCE_FIELDS:
-        label = f.replace('_', ' ').title()
+        label = FIELD_LABELS.get(f, f.replace('_', ' ').title())
         fields.append({
             'key': f,
             'label': label,
