@@ -203,19 +203,35 @@ def get_card_correspondences(card_id):
 @correspondences_bp.route('/api/cards/<int:card_id>/correspondences', methods=['PUT'])
 @require_json
 def set_card_overrides(card_id, data):
-    """Set one or more card-level overrides. Body: {overrides: [{field_name, field_value}]}"""
+    """Set one or more card-level overrides.
+
+    Body: {overrides: [{field_name, field_value?, field_values?}]}
+    - field_values: list of strings → multi-value override
+    - field_value: string or null → single-value override (null to clear)
+    """
     db = current_app.config['DB']
     overrides = data.get('overrides', [])
     for override in overrides:
         field_name = override.get('field_name')
-        field_value = override.get('field_value')
-        if field_value is None or field_value == '':
-            db.delete_card_correspondence_override(card_id, field_name)
+        if 'field_values' in override:
+            values = override.get('field_values') or []
+            values = [v.strip() for v in values if v and v.strip()]
+            if not values:
+                db.delete_card_correspondence_override(card_id, field_name)
+            else:
+                try:
+                    db.set_card_correspondence_overrides(card_id, field_name, values)
+                except ValueError as e:
+                    return jsonify({'error': str(e)}), 400
         else:
-            try:
-                db.set_card_correspondence_override(card_id, field_name, field_value)
-            except ValueError as e:
-                return jsonify({'error': str(e)}), 400
+            field_value = override.get('field_value')
+            if field_value is None or field_value == '':
+                db.delete_card_correspondence_override(card_id, field_name)
+            else:
+                try:
+                    db.set_card_correspondence_override(card_id, field_name, field_value)
+                except ValueError as e:
+                    return jsonify({'error': str(e)}), 400
     return jsonify({'ok': True})
 
 

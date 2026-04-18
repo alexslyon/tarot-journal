@@ -567,37 +567,45 @@ class CorrespondencesMixin:
 
     def set_card_correspondence_override(self, card_id: int, field_name: str,
                                          field_value: str):
+        """Set a single override value for a card field (replaces any existing)."""
+        self.set_card_correspondence_overrides(card_id, field_name, [field_value])
+
+    def set_card_correspondence_overrides(self, card_id: int, field_name: str,
+                                          values: list):
+        """Replace all override rows for (card, field) with the given value list."""
         if field_name not in CORRESPONDENCE_FIELDS:
             raise ValueError(f"Invalid field name: {field_name}")
         cursor = self.conn.cursor()
-        cursor.execute('''
-            INSERT INTO card_correspondence_overrides
-                (card_id, field_name, field_value)
-            VALUES (?, ?, ?)
-            ON CONFLICT(card_id, field_name)
-            DO UPDATE SET field_value = excluded.field_value
-        ''', (card_id, field_name, field_value))
+        cursor.execute(
+            'DELETE FROM card_correspondence_overrides WHERE card_id = ? AND field_name = ?',
+            (card_id, field_name)
+        )
+        seen = set()
+        for v in values:
+            if not v or v in seen:
+                continue
+            seen.add(v)
+            cursor.execute('''
+                INSERT INTO card_correspondence_overrides
+                    (card_id, field_name, field_value)
+                VALUES (?, ?, ?)
+            ''', (card_id, field_name, v))
 
-        # Decan derivation for card overrides too
-        if field_name == 'decan' and field_value:
-            derived = parse_decan(field_value)
-            if derived:
-                planet, sign = derived
-                cursor.execute('''
-                    INSERT INTO card_correspondence_overrides
-                        (card_id, field_name, field_value)
-                    VALUES (?, 'planet', ?)
-                    ON CONFLICT(card_id, field_name)
-                    DO UPDATE SET field_value = excluded.field_value
-                ''', (card_id, planet))
-                cursor.execute('''
-                    INSERT INTO card_correspondence_overrides
-                        (card_id, field_name, field_value)
-                    VALUES (?, 'zodiac_sign', ?)
-                    ON CONFLICT(card_id, field_name)
-                    DO UPDATE SET field_value = excluded.field_value
-                ''', (card_id, sign))
-
+            # Decan derivation: if this is a decan value, also derive planet/zodiac
+            if field_name == 'decan':
+                derived = parse_decan(v)
+                if derived:
+                    planet, sign = derived
+                    cursor.execute('''
+                        INSERT OR IGNORE INTO card_correspondence_overrides
+                            (card_id, field_name, field_value)
+                        VALUES (?, 'planet', ?)
+                    ''', (card_id, planet))
+                    cursor.execute('''
+                        INSERT OR IGNORE INTO card_correspondence_overrides
+                            (card_id, field_name, field_value)
+                        VALUES (?, 'zodiac_sign', ?)
+                    ''', (card_id, sign))
         self._commit()
 
     def delete_card_correspondence_override(self, card_id: int,
@@ -631,21 +639,23 @@ class CorrespondencesMixin:
 
         result = []
         for field in CORRESPONDENCE_FIELDS:
-            # Check card-level override first
+            # Card-level override(s) win — may be multi-value
             cursor.execute('''
                 SELECT field_value FROM card_correspondence_overrides
                 WHERE card_id = ? AND field_name = ?
+                ORDER BY field_value
             ''', (card_id, field))
-            override = cursor.fetchone()
-            if override:
+            override_rows = [r['field_value'] for r in cursor.fetchall() if r['field_value']]
+            if override_rows:
                 result.append({
                     'field_name': field,
-                    'value': override['field_value'],
+                    'value': ', '.join(override_rows),
+                    'values': override_rows,
                     'source': 'override',
                 })
                 continue
 
-            # Check system-level inheritance — may return multiple values from
+            # System-level inheritance — may return multiple values from
             # different source groups (e.g. Page of Wands: Fire from Wands + Earth from Pages)
             if card['correspondence_system_id'] and card['archetype']:
                 cursor.execute('''
@@ -663,6 +673,7 @@ class CorrespondencesMixin:
                     result.append({
                         'field_name': field,
                         'value': ', '.join(values),
+                        'values': values,
                         'source': 'inherited',
                     })
                     continue
@@ -670,6 +681,7 @@ class CorrespondencesMixin:
             result.append({
                 'field_name': field,
                 'value': None,
+                'values': [],
                 'source': 'none',
             })
 
