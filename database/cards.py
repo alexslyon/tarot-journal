@@ -709,8 +709,57 @@ class CardsMixin:
             self._commit()
 
     def delete_deck_custom_field(self, field_id: int):
-        """Delete a deck custom field definition"""
+        """Delete a deck custom field definition, cascading to all cards in the deck.
+
+        Removes both the table-based card_custom_fields rows and any legacy
+        JSON blob entries on cards.custom_fields for the same field_name.
+        """
         cursor = self.conn.cursor()
+
+        # Look up the field's deck and name so we can cascade
+        cursor.execute(
+            'SELECT deck_id, field_name FROM deck_custom_fields WHERE id = ?',
+            (field_id,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return
+        deck_id = row['deck_id']
+        field_name = row['field_name']
+
+        # Remove table-based card custom field values for this field in this deck
+        cursor.execute(
+            '''DELETE FROM card_custom_fields
+               WHERE field_name = ?
+                 AND card_id IN (SELECT id FROM cards WHERE deck_id = ?)''',
+            (field_name, deck_id)
+        )
+
+        # Strip the field from any legacy JSON custom_fields blobs on this deck's cards
+        cursor.execute(
+            'SELECT id, custom_fields FROM cards WHERE deck_id = ? AND custom_fields IS NOT NULL',
+            (deck_id,)
+        )
+        import json
+        for card_row in cursor.fetchall():
+            try:
+                blob = json.loads(card_row['custom_fields']) if card_row['custom_fields'] else {}
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if not isinstance(blob, dict):
+                continue
+            # Case-insensitive key match, consistent with other legacy field handling
+            keys_to_remove = [k for k in blob.keys() if k.lower() == field_name.lower()]
+            if keys_to_remove:
+                for k in keys_to_remove:
+                    blob.pop(k, None)
+                new_blob = json.dumps(blob) if blob else None
+                cursor.execute(
+                    'UPDATE cards SET custom_fields = ? WHERE id = ?',
+                    (new_blob, card_row['id'])
+                )
+
+        # Finally, remove the deck-level field definition
         cursor.execute('DELETE FROM deck_custom_fields WHERE id = ?', (field_id,))
         self._commit()
 
