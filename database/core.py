@@ -507,6 +507,13 @@ class CoreMixin:
                     or 'source_group' not in existing_sql
                     or 'modality' not in existing_sql):
                 needs_recreate = True
+
+        # Also check card_correspondence_overrides — drop the old UNIQUE(card_id, field_name)
+        # constraint so card overrides can be multi-value.
+        cursor.execute("SELECT sql FROM sqlite_master WHERE name='card_correspondence_overrides'")
+        cco_row = cursor.fetchone()
+        if cco_row and 'UNIQUE(card_id, field_name)' in (cco_row[0] or ''):
+            needs_recreate = True
         if needs_recreate:
             cursor.execute('SELECT * FROM correspondence_assignments')
             saved_assignments = [dict(r) for r in cursor.fetchall()]
@@ -575,9 +582,15 @@ class CoreMixin:
                     'chakra', 'modality'
                 )),
                 field_value TEXT,
-                FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
-                UNIQUE(card_id, field_name)
+                FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE
             )
+        ''')
+        # Unique constraint on (card, field, value) — card overrides can be
+        # multi-value (e.g. Ace of Wands = Aries, Leo, Sagittarius); each
+        # distinct value is its own row.
+        cursor.execute('''
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_card_corr_overrides_unique_value
+            ON card_correspondence_overrides(card_id, field_name, field_value)
         ''')
 
         # Migration: recreate field options table if CHECK constraint is missing 'modality'

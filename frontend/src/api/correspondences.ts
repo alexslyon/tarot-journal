@@ -113,7 +113,7 @@ export async function getCardCorrespondences(cardId: number): Promise<ResolvedCo
 
 export async function setCardOverrides(
   cardId: number,
-  overrides: { field_name: string; field_value: string | null }[],
+  overrides: { field_name: string; field_value?: string | null; field_values?: string[] }[],
 ) {
   await api.put(`/api/cards/${cardId}/correspondences`, { overrides });
 }

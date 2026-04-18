@@ -216,6 +216,7 @@ export interface CorrespondenceAssignment {
 export interface ResolvedCorrespondence {
   field_name: string;
   value: string | null;
+  values: string[];
   source: 'override' | 'inherited' | 'none';
 }
 
