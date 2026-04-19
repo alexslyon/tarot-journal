@@ -81,7 +81,7 @@
 .corr-viewer__table thead {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 3;
 }
 
 .corr-viewer__table th {
@@ -98,7 +98,7 @@
   min-width: 160px;
   position: sticky;
   left: 0;
-  z-index: 2;
+  z-index: 4;
   background: var(--bg-tertiary);
 }
 
