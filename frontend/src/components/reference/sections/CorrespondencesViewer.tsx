@@ -77,6 +77,16 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
     return bySystemRows.get(id)!.name.toLowerCase().includes(filterText.toLowerCase());
   });
 
+  // Only show columns that have at least one value in this system — empty
+  // fields clutter the view for systems that don't use them.
+  const visibleFields = CORRESPONDENCE_FIELDS.filter(f => {
+    for (const row of bySystemRows.values()) {
+      const vals = row.fields.get(f);
+      if (vals && vals.length > 0) return true;
+    }
+    return false;
+  });
+
   // Build compare table data — grouped by archetype, then by system, aggregating multiple values per field
   const compareRows = new Map<string, Map<string, Map<string, string[]>>>();
   const compareSystemNames = new Map<number, string>();
@@ -181,7 +191,7 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
               <thead>
                 <tr>
                   <th className="corr-viewer__th--card">Card</th>
-                  {CORRESPONDENCE_FIELDS.map(f => (
+                  {visibleFields.map(f => (
                     <th key={f}>{CORRESPONDENCE_FIELD_LABELS[f]}</th>
                   ))}
                 </tr>
@@ -192,7 +202,7 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
                   return (
                     <tr key={archId}>
                       <td className="corr-viewer__td--card">{displayArchetypeName(row.name, systemDetail?.naming_style)}</td>
-                      {CORRESPONDENCE_FIELDS.map(f => (
+                      {visibleFields.map(f => (
                         <td key={f} className="corr-viewer__td--value">
                           {(row.fields.get(f) || []).join(', ')}
                         </td>
