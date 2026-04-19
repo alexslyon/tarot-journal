@@ -184,17 +184,11 @@ export default function CorrespondencesSection() {
 
   // Group assignments by archetype — each cell may have multiple values from different source groups
   const assignmentsByArchetype = new Map<number, Map<string, string[]>>();
-  const archetypeInfo = new Map<number, { name: string; cartomancy_type: string; card_type: string | null }>();
 
   if (systemDetail?.assignments) {
     for (const a of systemDetail.assignments as CorrespondenceAssignment[]) {
       if (!assignmentsByArchetype.has(a.archetype_id)) {
         assignmentsByArchetype.set(a.archetype_id, new Map());
-        archetypeInfo.set(a.archetype_id, {
-          name: a.archetype_name,
-          cartomancy_type: a.cartomancy_type,
-          card_type: a.card_type,
-        });
       }
       const fieldMap = assignmentsByArchetype.get(a.archetype_id)!;
       if (!fieldMap.has(a.field_name)) fieldMap.set(a.field_name, []);
@@ -386,10 +380,17 @@ export default function CorrespondencesSection() {
   };
 
   // Get all archetypes that have at least one assignment, filtered
-  const archetypeIds = [...assignmentsByArchetype.keys()].filter(id => {
+  // Show every archetype from the deck type so a newly-created (empty) system
+  // still lets the user assign values. Sort by numeric rank so Major Arcana
+  // come first (0–21), then minor arcana grouped by suit (101–114, 201–214, ...).
+  const sortedArchetypes = [...allArchetypes].sort((a, b) => {
+    const aRank = parseInt(a.rank || '0', 10);
+    const bRank = parseInt(b.rank || '0', 10);
+    return aRank - bRank;
+  });
+  const visibleArchetypes = sortedArchetypes.filter(a => {
     if (!filterText) return true;
-    const info = archetypeInfo.get(id);
-    return info?.name.toLowerCase().includes(filterText.toLowerCase());
+    return a.name.toLowerCase().includes(filterText.toLowerCase());
   });
 
   return (
@@ -721,20 +722,19 @@ export default function CorrespondencesSection() {
                 </tr>
               </thead>
               <tbody>
-                {archetypeIds.map(archId => {
-                  const info = archetypeInfo.get(archId)!;
-                  const fields = assignmentsByArchetype.get(archId)!;
+                {visibleArchetypes.map(arch => {
+                  const fields = assignmentsByArchetype.get(arch.id);
                   return (
-                    <tr key={archId}>
+                    <tr key={arch.id}>
                       <td className="corr-systems__td--card">
-                        <span className="corr-systems__card-name">{info.name}</span>
+                        <span className="corr-systems__card-name">{arch.name}</span>
                       </td>
                       {CORRESPONDENCE_FIELDS.map(f => (
                         <td key={f}>
                           <MultiValueSelect
-                            values={fields.get(f) || []}
+                            values={fields?.get(f) || []}
                             options={(optionsByField.get(f) || []).map(o => o.option_value)}
-                            onCommit={vals => handleSetCellValues(archId, f, vals)}
+                            onCommit={vals => handleSetCellValues(arch.id, f, vals)}
                             compact
                           />
                         </td>
@@ -746,9 +746,9 @@ export default function CorrespondencesSection() {
             </table>
           </div>
 
-          {archetypeIds.length === 0 && (
+          {visibleArchetypes.length === 0 && (
             <p className="settings-tab__hint" style={{ textAlign: 'center', padding: 20 }}>
-              {filterText ? 'No cards match your filter.' : 'No assignments yet. Edit cells to add correspondences.'}
+              {filterText ? 'No cards match your filter.' : 'Loading archetypes...'}
             </p>
           )}
         </section>
