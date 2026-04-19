@@ -263,11 +263,44 @@ export default function CorrespondencesSection() {
 
     setBulkApplying(true);
     try {
-      // Use multi-value API per archetype so all selected values are applied
-      await Promise.all(archetypes.map(a =>
-        setAssignmentValues(selectedSystemId, a.id, bulkField, bulkValues, bulkGroup)
-      ));
+      for (const a of archetypes) {
+        await setAssignmentValues(selectedSystemId, a.id, bulkField, bulkValues, bulkGroup);
+      }
+
+      // Optimistic cache update so the table reflects the change immediately
+      const affectedIds = new Set(archetypes.map(a => a.id));
+      queryClient.setQueryData<{ assignments: CorrespondenceAssignment[] } & Record<string, unknown>>(
+        ['correspondence-system', selectedSystemId],
+        (old) => {
+          if (!old) return old;
+          // Remove any prior rows for this group/field and the affected archetypes,
+          // then append the new value rows.
+          const kept = old.assignments.filter(a => !(
+            a.source_group === bulkGroup && a.field_name === bulkField && affectedIds.has(a.archetype_id)
+          ));
+          const added: CorrespondenceAssignment[] = [];
+          for (const a of archetypes) {
+            for (const v of bulkValues) {
+              added.push({
+                id: -1, // placeholder; backend id will arrive on refetch
+                system_id: selectedSystemId,
+                archetype_id: a.id,
+                archetype_name: a.name,
+                cartomancy_type: a.cartomancy_type,
+                rank: a.rank,
+                suit: a.suit,
+                card_type: a.card_type,
+                field_name: bulkField,
+                field_value: v,
+                source_group: bulkGroup,
+              });
+            }
+          }
+          return { ...old, assignments: [...kept, ...added] };
+        },
+      );
       queryClient.invalidateQueries({ queryKey: ['correspondence-system', selectedSystemId] });
+
       const label = CORRESPONDENCE_FIELD_LABELS[bulkField];
       const valueDesc = bulkValues.length === 1 ? bulkValues[0] : `[${bulkValues.join(', ')}]`;
       showMsg(`Set ${label} = ${valueDesc} for ${archetypes.length} cards`, 'success');
@@ -317,13 +350,33 @@ export default function CorrespondencesSection() {
       for (const a of archetypes) {
         await deleteAssignment(selectedSystemId, a.id, bulkField, { sourceGroup: bulkGroup });
       }
-      // Force an immediate refetch so the table rebinds to the new data
-      // before we release the button.
-      await queryClient.invalidateQueries({
+
+      // Optimistically update the cached systemDetail so the UI reflects the
+      // removal immediately. React Query's invalidate+refetch can lag enough
+      // that the table doesn't visibly update until the user navigates away.
+      const affectedIds = new Set(archetypes.map(a => a.id));
+      const isAutoDerivedClear = bulkField === 'modality'; // modality clear also wipes auto:modality zodiac
+      queryClient.setQueryData<{ assignments: CorrespondenceAssignment[] } & Record<string, unknown>>(
+        ['correspondence-system', selectedSystemId],
+        (old) => {
+          if (!old) return old;
+          const filtered = old.assignments.filter(a => {
+            if (a.source_group === bulkGroup && a.field_name === bulkField && affectedIds.has(a.archetype_id)) {
+              return false;
+            }
+            if (isAutoDerivedClear && a.source_group === 'auto:modality' && a.field_name === 'zodiac_sign' && affectedIds.has(a.archetype_id)) {
+              return false;
+            }
+            return true;
+          });
+          return { ...old, assignments: filtered };
+        },
+      );
+
+      // Still invalidate so we'll eventually reconcile with the authoritative backend data
+      queryClient.invalidateQueries({
         queryKey: ['correspondence-system', selectedSystemId],
-        refetchType: 'all',
       });
-      await queryClient.refetchQueries({ queryKey: ['correspondence-system', selectedSystemId] });
       showMsg(`Cleared "${bulkGroup}" ${CORRESPONDENCE_FIELD_LABELS[bulkField]} for ${archetypes.length} cards`, 'success');
     } catch {
       showMsg('Failed to clear bulk assignment', 'error');
