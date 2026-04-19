@@ -11,6 +11,7 @@ import { deckBackUrl } from '../../api/images';
 import { exportDeckUrl } from '../../api/importExport';
 import { getCorrespondenceSystems } from '../../api/correspondences';
 import type { Deck, Tag, DeckCustomField, CardGroup, CorrespondenceSystem } from '../../types';
+import DeckCorrespondenceOverrides from './DeckCorrespondenceOverrides';
 import { ensureHtml } from '../../utils/formatting';
 import { useToast } from '../../context/ToastContext';
 import Modal from '../common/Modal';
@@ -142,6 +143,14 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
     n.includes('playing') || n.includes('poker') || n.includes('bridge')
   );
   const hasSuitedDeck = hasTarot || hasPlayingCards;
+
+  // Primary cartomancy type for the deck override UI — prefer whichever type
+  // the deck's currently-selected correspondence system uses, else first
+  // selected deck type, else fall back to Tarot.
+  const selectedSystem = corrSystems.find(s => s.id === corrSystemId);
+  const overridesCartomancyType = selectedSystem?.cartomancy_type
+    || types.find(t => selectedTypeIds.includes(t.id))?.name
+    || 'Tarot';
 
   // Get the appropriate default suits for current deck type
   const getDefaultSuits = (): Record<string, string> => {
@@ -504,6 +513,16 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
                   <p className="deck-edit__type-hint">
                     Cards in this deck will inherit correspondences from the selected system.
                   </p>
+                </div>
+              )}
+
+              {deckId != null && (
+                <div className="deck-edit__field">
+                  <label className="deck-edit__label">Correspondence Overrides</label>
+                  <DeckCorrespondenceOverrides
+                    deckId={deckId}
+                    cartomancyType={overridesCartomancyType}
+                  />
                 </div>
               )}
             </div>

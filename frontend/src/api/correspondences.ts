@@ -127,6 +127,47 @@ export async function deleteCardOverride(cardId: number, fieldName: string) {
   await api.delete(`/api/cards/${cardId}/correspondences/${fieldName}`);
 }
 
+// === Deck-Level Overrides ===
+
+export interface DeckCorrespondenceOverride {
+  id: number;
+  deck_id: number;
+  archetype_id: number;
+  archetype_name: string;
+  cartomancy_type: string;
+  rank: string | null;
+  suit: string | null;
+  card_type: string | null;
+  field_name: string;
+  field_value: string;
+}
+
+export async function getDeckCorrespondenceOverrides(deckId: number): Promise<DeckCorrespondenceOverride[]> {
+  const res = await api.get(`/api/decks/${deckId}/correspondence-overrides`);
+  return res.data;
+}
+
+export async function setDeckCorrespondenceOverride(
+  deckId: number,
+  archetypeId: number,
+  fieldName: string,
+  values: string[],
+) {
+  await api.put(`/api/decks/${deckId}/correspondence-overrides`, {
+    archetype_id: archetypeId,
+    field_name: fieldName,
+    values,
+  });
+}
+
+export async function deleteDeckCorrespondenceOverride(
+  deckId: number,
+  archetypeId: number,
+  fieldName: string,
+) {
+  await api.delete(`/api/decks/${deckId}/correspondence-overrides/${archetypeId}/${fieldName}`);
+}
+
 // === Cross-System Queries ===
 
 export async function getCorrespondencesByArchetype(archetypeId: number): Promise<CorrespondenceAssignment[]> {

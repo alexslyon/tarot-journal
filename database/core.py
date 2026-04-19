@@ -602,6 +602,33 @@ class CoreMixin:
             ON card_correspondence_overrides(card_id, field_name, field_value)
         ''')
 
+        # Deck-level correspondence overrides: sit between card overrides and
+        # system assignments in the resolution order. Applied to all cards in
+        # the deck with the given archetype.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS deck_correspondence_overrides (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                deck_id INTEGER NOT NULL,
+                archetype_id INTEGER NOT NULL,
+                field_name TEXT NOT NULL CHECK(field_name IN (
+                    'element', 'planet', 'zodiac_sign', 'decan',
+                    'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram',
+                    'chakra', 'modality'
+                )),
+                field_value TEXT,
+                FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE,
+                FOREIGN KEY (archetype_id) REFERENCES card_archetypes(id) ON DELETE CASCADE
+            )
+        ''')
+        cursor.execute('''
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_deck_corr_overrides_unique_value
+            ON deck_correspondence_overrides(deck_id, archetype_id, field_name, field_value)
+        ''')
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_deck_corr_overrides_deck
+            ON deck_correspondence_overrides(deck_id)
+        ''')
+
         # Migration: recreate field options table if CHECK constraint is missing 'modality'
         cursor.execute("SELECT sql FROM sqlite_master WHERE name='correspondence_field_options'")
         fo_row = cursor.fetchone()

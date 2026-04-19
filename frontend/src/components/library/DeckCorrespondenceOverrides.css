@@ -1,0 +1,105 @@
+.deck-corr-overrides__hint {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+
+.deck-corr-overrides__empty {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  font-style: italic;
+  margin: 0 0 8px;
+}
+
+.deck-corr-overrides__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.deck-corr-overrides__row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(100px, auto) 2fr auto;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: var(--bg-primary);
+  border-radius: 3px;
+}
+
+.deck-corr-overrides__archetype {
+  font-size: var(--font-size-body);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.deck-corr-overrides__field {
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.deck-corr-overrides__values {
+  min-width: 0;
+}
+
+.deck-corr-overrides__remove-btn {
+  font-size: 16px !important;
+  line-height: 1 !important;
+  padding: 2px 8px !important;
+  color: var(--text-dim) !important;
+  background: none !important;
+  border: 1px solid var(--border) !important;
+}
+
+.deck-corr-overrides__remove-btn:hover {
+  color: var(--danger) !important;
+  border-color: var(--danger) !important;
+}
+
+.deck-corr-overrides__add-form {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  margin-top: 4px;
+}
+
+.deck-corr-overrides__add-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.deck-corr-overrides__add-values {
+  min-width: 0;
+}
+
+.deck-corr-overrides__add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.deck-corr-overrides__save-btn {
+  background: var(--accent) !important;
+  color: var(--text-primary) !important;
+}
+
+.deck-corr-overrides__add-btn {
+  font-size: var(--font-size-body);
+  color: var(--accent) !important;
+  background: none !important;
+  border: 1px dashed var(--accent) !important;
+  width: 100%;
+  padding: 6px !important;
+  cursor: pointer;
+}
+
+.deck-corr-overrides__add-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+}
