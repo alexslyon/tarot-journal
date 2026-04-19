@@ -194,6 +194,8 @@ export interface CorrespondenceSystem {
   name: string;
   description: string | null;
   is_builtin: boolean;
+  cartomancy_type: string | null;
+  naming_style: string | null;
   archetype_count?: number;
   assignment_count?: number;
   created_at: string;

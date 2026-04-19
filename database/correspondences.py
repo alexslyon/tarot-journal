@@ -100,12 +100,15 @@ class CorrespondencesMixin:
         return cursor.fetchone()
 
     def create_correspondence_system(self, name: str, description: str = None,
-                                     is_builtin: bool = False):
+                                     is_builtin: bool = False,
+                                     cartomancy_type: str = 'Tarot',
+                                     naming_style: str = None):
         cursor = self.conn.cursor()
         cursor.execute(
-            '''INSERT INTO correspondence_systems (name, description, is_builtin)
-               VALUES (?, ?, ?)''',
-            (name, description, int(is_builtin))
+            '''INSERT INTO correspondence_systems
+                (name, description, is_builtin, cartomancy_type, naming_style)
+               VALUES (?, ?, ?, ?, ?)''',
+            (name, description, int(is_builtin), cartomancy_type, naming_style)
         )
         self._commit()
         return cursor.lastrowid
@@ -137,8 +140,12 @@ class CorrespondencesMixin:
         source = self.get_correspondence_system(source_id)
         if not source:
             return None
+        src_dict = dict(source)
         new_id = self.create_correspondence_system(
-            new_name, source['description']
+            new_name,
+            description=src_dict.get('description'),
+            cartomancy_type=src_dict.get('cartomancy_type') or 'Tarot',
+            naming_style=src_dict.get('naming_style'),
         )
         cursor = self.conn.cursor()
         cursor.execute('''

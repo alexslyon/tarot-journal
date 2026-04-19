@@ -25,6 +25,7 @@ import {
   CORRESPONDENCE_FIELD_LABELS,
 } from '../../../types';
 import { detectGroupPatterns, patternsByCategory, type PatternCategorySection } from '../../../utils/correspondencePatterns';
+import { displayArchetypeName, archetypeSortKey } from '../../../utils/tarotNaming';
 import FieldOptionsEditor from './FieldOptionsEditor';
 import '../SettingsTab.css';
 import './CorrespondencesSection.css';
@@ -35,6 +36,8 @@ export default function CorrespondencesSection() {
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [newCartomancyType, setNewCartomancyType] = useState('Tarot');
+  const [newNamingStyle, setNewNamingStyle] = useState('RWS');
   const [newSourceId, setNewSourceId] = useState<number | ''>('');
   const [creating, setCreating] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -61,9 +64,14 @@ export default function CorrespondencesSection() {
     enabled: selectedSystemId !== null,
   });
 
+  // Which cartomancy type's archetypes to show depends on the selected
+  // system's type (falls back to Tarot for backwards compat and for the
+  // create-form archetype preview).
+  const activeCartomancyType = systemDetail?.cartomancy_type || 'Tarot';
+
   const { data: allArchetypes = [] } = useQuery<Archetype[]>({
-    queryKey: ['archetypes', 'Tarot'],
-    queryFn: () => getArchetypes('Tarot'),
+    queryKey: ['archetypes', activeCartomancyType],
+    queryFn: () => getArchetypes(activeCartomancyType),
   });
 
   const { data: allFieldOptions = [] } = useQuery<FieldOption[]>({
@@ -105,7 +113,12 @@ export default function CorrespondencesSection() {
         }
         showMsg('System cloned', 'success');
       } else {
-        const result = await createCorrespondenceSystem({ name: newName.trim(), description: newDesc.trim() || undefined });
+        const result = await createCorrespondenceSystem({
+          name: newName.trim(),
+          description: newDesc.trim() || undefined,
+          cartomancy_type: newCartomancyType,
+          naming_style: newCartomancyType === 'Tarot' ? newNamingStyle : undefined,
+        });
         newId = result.id;
         showMsg('System created', 'success');
       }
@@ -113,6 +126,8 @@ export default function CorrespondencesSection() {
       setSelectedSystemId(newId);
       setNewName('');
       setNewDesc('');
+      setNewCartomancyType('Tarot');
+      setNewNamingStyle('RWS');
       setNewSourceId('');
       setShowCreate(false);
     } catch {
@@ -381,16 +396,18 @@ export default function CorrespondencesSection() {
 
   // Get all archetypes that have at least one assignment, filtered
   // Show every archetype from the deck type so a newly-created (empty) system
-  // still lets the user assign values. Sort by numeric rank so Major Arcana
-  // come first (0–21), then minor arcana grouped by suit (101–114, 201–214, ...).
-  const sortedArchetypes = [...allArchetypes].sort((a, b) => {
-    const aRank = parseInt(a.rank || '0', 10);
-    const bRank = parseInt(b.rank || '0', 10);
-    return aRank - bRank;
-  });
+  // still lets the user assign values. Sort by the naming-style-aware rank so
+  // e.g. Marseille swaps Strength (8 ↔ 11) with Justice.
+  const activeNamingStyle = systemDetail?.naming_style || null;
+  const sortedArchetypes = [...allArchetypes].sort((a, b) =>
+    archetypeSortKey(a.name, a.rank, activeNamingStyle)
+      - archetypeSortKey(b.name, b.rank, activeNamingStyle)
+  );
   const visibleArchetypes = sortedArchetypes.filter(a => {
     if (!filterText) return true;
-    return a.name.toLowerCase().includes(filterText.toLowerCase());
+    const display = displayArchetypeName(a.name, activeNamingStyle).toLowerCase();
+    return a.name.toLowerCase().includes(filterText.toLowerCase())
+      || display.includes(filterText.toLowerCase());
   });
 
   return (
@@ -471,6 +488,40 @@ export default function CorrespondencesSection() {
                 placeholder="e.g. Thoth, Golden Dawn"
               />
             </div>
+            {!newSourceId && (
+              <>
+                <div className="settings-tab__field">
+                  <label className="settings-tab__label">Deck Type</label>
+                  <select
+                    value={newCartomancyType}
+                    onChange={e => setNewCartomancyType(e.target.value)}
+                  >
+                    <option value="Tarot">Tarot</option>
+                    <option value="Lenormand">Lenormand</option>
+                    <option value="Playing Cards">Playing Cards</option>
+                    <option value="Oracle">Oracle</option>
+                    <option value="I Ching">I Ching</option>
+                    <option value="Kipper">Kipper</option>
+                  </select>
+                </div>
+                {newCartomancyType === 'Tarot' && (
+                  <div className="settings-tab__field">
+                    <label className="settings-tab__label">Naming &amp; Ordering</label>
+                    <select
+                      value={newNamingStyle}
+                      onChange={e => setNewNamingStyle(e.target.value)}
+                    >
+                      <option value="RWS">Rider-Waite-Smith (Page, Knight, Queen, King)</option>
+                      <option value="Thoth">Thoth (Princess, Prince, Queen, Knight; Adjustment/Lust)</option>
+                      <option value="Marseille">Marseille / Pre-Golden Dawn (Justice=8, Strength=11)</option>
+                    </select>
+                    <p className="settings-tab__hint" style={{ marginTop: 4, marginBottom: 0 }}>
+                      Changes card labels shown in this system. Card data is shared across styles.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
             <div className="settings-tab__field">
               <label className="settings-tab__label">Base on</label>
               <select
@@ -484,7 +535,7 @@ export default function CorrespondencesSection() {
               </select>
               {newSourceId && (
                 <p className="settings-tab__hint" style={{ marginTop: 4, marginBottom: 0 }}>
-                  All assignments from the source system will be copied. You can edit them after creation.
+                  All assignments from the source system will be copied, including its deck type and naming style.
                 </p>
               )}
             </div>
@@ -502,6 +553,8 @@ export default function CorrespondencesSection() {
                 setShowCreate(false);
                 setNewName('');
                 setNewDesc('');
+                setNewCartomancyType('Tarot');
+                setNewNamingStyle('RWS');
                 setNewSourceId('');
               }}>Cancel</button>
               <button
@@ -544,6 +597,10 @@ export default function CorrespondencesSection() {
                 <div>
                   <h3 className="settings-tab__section-title" style={{ marginBottom: 2 }}>
                     {systemDetail.name}
+                    <span style={{ marginLeft: 8, fontSize: 'var(--font-size-small)', color: 'var(--text-dim)', fontWeight: 'normal' }}>
+                      {activeCartomancyType}
+                      {activeCartomancyType === 'Tarot' && activeNamingStyle && activeNamingStyle !== 'RWS' ? ` · ${activeNamingStyle}` : ''}
+                    </span>
                   </h3>
                   {systemDetail.description && (
                     <p className="settings-tab__hint" style={{ margin: 0 }}>
@@ -724,10 +781,11 @@ export default function CorrespondencesSection() {
               <tbody>
                 {visibleArchetypes.map(arch => {
                   const fields = assignmentsByArchetype.get(arch.id);
+                  const displayName = displayArchetypeName(arch.name, activeNamingStyle);
                   return (
                     <tr key={arch.id}>
                       <td className="corr-systems__td--card">
-                        <span className="corr-systems__card-name">{arch.name}</span>
+                        <span className="corr-systems__card-name">{displayName}</span>
                       </td>
                       {CORRESPONDENCE_FIELDS.map(f => (
                         <td key={f}>
