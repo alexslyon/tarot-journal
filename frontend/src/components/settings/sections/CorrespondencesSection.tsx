@@ -311,10 +311,19 @@ export default function CorrespondencesSection() {
 
     setBulkApplying(true);
     try {
-      await Promise.all(archetypes.map(a =>
-        deleteAssignment(selectedSystemId, a.id, bulkField, { sourceGroup: bulkGroup })
-      ));
-      queryClient.invalidateQueries({ queryKey: ['correspondence-system', selectedSystemId] });
+      // Run deletes sequentially so the DB's internal lock doesn't starve
+      // under parallel load, and any auto-derived cleanup (e.g. modality
+      // zodiac refresh) runs cleanly between deletes.
+      for (const a of archetypes) {
+        await deleteAssignment(selectedSystemId, a.id, bulkField, { sourceGroup: bulkGroup });
+      }
+      // Force an immediate refetch so the table rebinds to the new data
+      // before we release the button.
+      await queryClient.invalidateQueries({
+        queryKey: ['correspondence-system', selectedSystemId],
+        refetchType: 'all',
+      });
+      await queryClient.refetchQueries({ queryKey: ['correspondence-system', selectedSystemId] });
       showMsg(`Cleared "${bulkGroup}" ${CORRESPONDENCE_FIELD_LABELS[bulkField]} for ${archetypes.length} cards`, 'success');
     } catch {
       showMsg('Failed to clear bulk assignment', 'error');
