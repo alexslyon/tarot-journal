@@ -327,6 +327,44 @@ def reorder_field_options(data):
     return jsonify({'ok': True})
 
 
+@correspondences_bp.route('/api/decks/<int:deck_id>/correspondence-overrides')
+def list_deck_correspondence_overrides(deck_id):
+    db = current_app.config['DB']
+    rows = db.get_deck_correspondence_overrides(deck_id)
+    return jsonify([row_to_dict(r) for r in rows])
+
+
+@correspondences_bp.route('/api/decks/<int:deck_id>/correspondence-overrides', methods=['PUT'])
+@require_json
+def set_deck_correspondence_override(deck_id, data):
+    """Set a deck-level override. Body: {archetype_id, field_name, values: []}"""
+    db = current_app.config['DB']
+    archetype_id = data.get('archetype_id')
+    field_name = data.get('field_name')
+    values = data.get('values') or []
+    values = [v.strip() for v in values if v and v.strip()]
+    if archetype_id is None or not field_name:
+        return jsonify({'error': 'archetype_id and field_name are required'}), 400
+    if not values:
+        db.delete_deck_correspondence_override(deck_id, archetype_id, field_name)
+    else:
+        try:
+            db.set_deck_correspondence_overrides(deck_id, archetype_id, field_name, values)
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+    return jsonify({'ok': True})
+
+
+@correspondences_bp.route(
+    '/api/decks/<int:deck_id>/correspondence-overrides/<int:archetype_id>/<field_name>',
+    methods=['DELETE']
+)
+def delete_deck_correspondence_override_route(deck_id, archetype_id, field_name):
+    db = current_app.config['DB']
+    db.delete_deck_correspondence_override(deck_id, archetype_id, field_name)
+    return jsonify({'ok': True})
+
+
 @correspondences_bp.route('/api/card-names')
 def card_names():
     """Get card names in other languages, aggregated by archetype."""

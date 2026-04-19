@@ -624,6 +624,55 @@ class CorrespondencesMixin:
         ''', (card_id, field_name))
         self._commit()
 
+    # === Deck-Level Overrides ===
+
+    def get_deck_correspondence_overrides(self, deck_id: int):
+        """Return all deck-level override rows with archetype metadata."""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT dco.*, a.name AS archetype_name, a.cartomancy_type,
+                   a.rank, a.suit, a.card_type
+            FROM deck_correspondence_overrides dco
+            JOIN card_archetypes a ON a.id = dco.archetype_id
+            WHERE dco.deck_id = ?
+            ORDER BY a.cartomancy_type, CAST(a.rank AS INTEGER), a.name, dco.field_name
+        ''', (deck_id,))
+        return cursor.fetchall()
+
+    def set_deck_correspondence_overrides(self, deck_id: int, archetype_id: int,
+                                          field_name: str, values: list):
+        """Replace all deck-level override rows for (deck, archetype, field)
+        with the given values.
+        """
+        if field_name not in CORRESPONDENCE_FIELDS:
+            raise ValueError(f"Invalid field name: {field_name}")
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            DELETE FROM deck_correspondence_overrides
+            WHERE deck_id = ? AND archetype_id = ? AND field_name = ?
+        ''', (deck_id, archetype_id, field_name))
+        seen = set()
+        for v in values:
+            if not v or v in seen:
+                continue
+            seen.add(v)
+            cursor.execute('''
+                INSERT INTO deck_correspondence_overrides
+                    (deck_id, archetype_id, field_name, field_value)
+                VALUES (?, ?, ?, ?)
+            ''', (deck_id, archetype_id, field_name, v))
+        self._commit()
+
+    def delete_deck_correspondence_override(self, deck_id: int,
+                                            archetype_id: int,
+                                            field_name: str):
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            DELETE FROM deck_correspondence_overrides
+            WHERE deck_id = ? AND archetype_id = ? AND field_name = ?
+        ''', (deck_id, archetype_id, field_name))
+        self._commit()
+
     # === Resolved Correspondences (Three-Tier Inheritance) ===
 
     def get_card_correspondences(self, card_id: int):
@@ -644,9 +693,20 @@ class CorrespondencesMixin:
         if not card:
             return []
 
+        # Resolve the card's archetype ID so we can check deck-level overrides
+        archetype_id = None
+        if card['archetype']:
+            cursor.execute(
+                'SELECT id FROM card_archetypes WHERE name = ? LIMIT 1',
+                (card['archetype'],)
+            )
+            arch_row = cursor.fetchone()
+            if arch_row:
+                archetype_id = arch_row['id']
+
         result = []
         for field in CORRESPONDENCE_FIELDS:
-            # Card-level override(s) win — may be multi-value
+            # Tier 1: card-level override(s) win — may be multi-value
             cursor.execute('''
                 SELECT field_value FROM card_correspondence_overrides
                 WHERE card_id = ? AND field_name = ?
@@ -662,7 +722,24 @@ class CorrespondencesMixin:
                 })
                 continue
 
-            # System-level inheritance — may return multiple values from
+            # Tier 2: deck-level override(s) for this archetype
+            if archetype_id is not None:
+                cursor.execute('''
+                    SELECT field_value FROM deck_correspondence_overrides
+                    WHERE deck_id = ? AND archetype_id = ? AND field_name = ?
+                    ORDER BY field_value
+                ''', (card['deck_id'], archetype_id, field))
+                deck_override_rows = [r['field_value'] for r in cursor.fetchall() if r['field_value']]
+                if deck_override_rows:
+                    result.append({
+                        'field_name': field,
+                        'value': ', '.join(deck_override_rows),
+                        'values': deck_override_rows,
+                        'source': 'deck-override',
+                    })
+                    continue
+
+            # Tier 3: system-level inheritance — may return multiple values from
             # different source groups (e.g. Page of Wands: Fire from Wands + Earth from Pages)
             if card['correspondence_system_id'] and card['archetype']:
                 cursor.execute('''

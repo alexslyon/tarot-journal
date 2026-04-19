@@ -219,7 +219,7 @@ export interface ResolvedCorrespondence {
   field_name: string;
   value: string | null;
   values: string[];
-  source: 'override' | 'inherited' | 'none';
+  source: 'override' | 'deck-override' | 'inherited' | 'none';
 }
 
 export const CORRESPONDENCE_FIELDS = [
