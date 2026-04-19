@@ -18,10 +18,32 @@ const THOTH_NAME_OVERRIDES: Record<string, string> = {
   'Temperance': 'Art',
   'Judgement': 'The Aeon',
   'The World': 'The Universe',
-  // Court card renames (Thoth uses Knight as the "king" equivalent)
-  // Page → Princess, Knight → Prince, King → Knight
-  // Queen stays the same
 };
+
+// Suit name overrides for Thoth. Pentacles is called Disks in Thoth decks.
+const THOTH_SUIT_OVERRIDES: Record<string, string> = {
+  'Pentacles': 'Disks',
+};
+
+/** Translate a suit name (e.g. "Pentacles") under the given style. */
+export function displaySuitName(
+  suit: string,
+  namingStyle: string | null | undefined,
+): string {
+  if (namingStyle === 'Thoth' && THOTH_SUIT_OVERRIDES[suit]) {
+    return THOTH_SUIT_OVERRIDES[suit];
+  }
+  return suit;
+}
+
+function applyThothSuitRename(name: string): string {
+  for (const [from, to] of Object.entries(THOTH_SUIT_OVERRIDES)) {
+    // Replace "of Pentacles" → "of Disks" (with word boundary to avoid
+    // accidentally replacing inside other tokens)
+    name = name.replace(new RegExp(`\\bof ${from}\\b`), `of ${to}`);
+  }
+  return name;
+}
 
 function thothCourtRename(name: string): string {
   if (name.startsWith('Page of ')) return 'Princess of ' + name.slice('Page of '.length);
@@ -36,12 +58,24 @@ export function displayArchetypeName(
 ): string {
   if (!namingStyle || namingStyle === 'RWS') return name;
   if (namingStyle === 'Thoth') {
-    if (THOTH_NAME_OVERRIDES[name]) return THOTH_NAME_OVERRIDES[name];
-    return thothCourtRename(name);
+    const majorOverride = THOTH_NAME_OVERRIDES[name];
+    if (majorOverride) return majorOverride;
+    return applyThothSuitRename(thothCourtRename(name));
   }
   // Marseille uses canonical RWS names — the ordering swap is handled at
   // sort time, not via name remapping
   return name;
+}
+
+/** Translate a group/suit label for display under the given style. */
+export function displayGroupLabel(
+  label: string,
+  namingStyle: string | null | undefined,
+): string {
+  if (namingStyle === 'Thoth' && THOTH_SUIT_OVERRIDES[label]) {
+    return THOTH_SUIT_OVERRIDES[label];
+  }
+  return label;
 }
 
 /**

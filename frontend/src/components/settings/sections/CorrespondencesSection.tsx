@@ -25,7 +25,7 @@ import {
   CORRESPONDENCE_FIELD_LABELS,
 } from '../../../types';
 import { detectGroupPatterns, patternsByCategory, type PatternCategorySection } from '../../../utils/correspondencePatterns';
-import { displayArchetypeName, archetypeSortKey } from '../../../utils/tarotNaming';
+import { displayArchetypeName, archetypeSortKey, displayGroupLabel } from '../../../utils/tarotNaming';
 import FieldOptionsEditor from './FieldOptionsEditor';
 import '../SettingsTab.css';
 import './CorrespondencesSection.css';
@@ -334,7 +334,7 @@ export default function CorrespondencesSection() {
         bulkGroup,
       );
       queryClient.invalidateQueries({ queryKey: ['correspondence-system', selectedSystemId] });
-      showMsg(`Assigned elemental zodiac signs to ${archetypes.length} cards in "${bulkGroup}"`, 'success');
+      showMsg(`Assigned elemental zodiac signs to ${archetypes.length} cards in "${displayGroupLabel(bulkGroup, activeNamingStyle)}"`, 'success');
     } catch {
       showMsg('Failed to expand elemental zodiac', 'error');
     } finally {
@@ -348,7 +348,7 @@ export default function CorrespondencesSection() {
     if (archetypes.length === 0) return;
 
     if (!window.confirm(
-      `Clear the "${bulkGroup}" group's ${CORRESPONDENCE_FIELD_LABELS[bulkField]} values for all ${archetypes.length} cards?\n\nOther contributions (manual edits or other groups) are not affected.`
+      `Clear the "${displayGroupLabel(bulkGroup, activeNamingStyle)}" group's ${CORRESPONDENCE_FIELD_LABELS[bulkField]} values for all ${archetypes.length} cards?\n\nOther contributions (manual edits or other groups) are not affected.`
     )) return;
 
     setBulkApplying(true);
@@ -386,7 +386,7 @@ export default function CorrespondencesSection() {
       queryClient.invalidateQueries({
         queryKey: ['correspondence-system', selectedSystemId],
       });
-      showMsg(`Cleared "${bulkGroup}" ${CORRESPONDENCE_FIELD_LABELS[bulkField]} for ${archetypes.length} cards`, 'success');
+      showMsg(`Cleared "${displayGroupLabel(bulkGroup, activeNamingStyle)}" ${CORRESPONDENCE_FIELD_LABELS[bulkField]} for ${archetypes.length} cards`, 'success');
     } catch {
       showMsg('Failed to clear bulk assignment', 'error');
     } finally {
@@ -648,7 +648,7 @@ export default function CorrespondencesSection() {
                   <div className="corr-viewer__group-category-heading">{section.category}</div>
                   {section.groups.map(({ groupLabel, patterns }) => (
                     <div key={groupLabel} className="corr-viewer__group-row">
-                      <span className="corr-viewer__group-field">{groupLabel}</span>
+                      <span className="corr-viewer__group-field">{displayGroupLabel(groupLabel, activeNamingStyle)}</span>
                       <div className="corr-viewer__group-values">
                         {patterns.map(p => (
                           <span key={p.fieldLabel} className="corr-viewer__group-tag">
@@ -684,7 +684,9 @@ export default function CorrespondencesSection() {
                       {BULK_CATEGORIES.map(cat => (
                         <optgroup key={cat} label={cat}>
                           {BULK_GROUPS.filter(g => g.category === cat).map(g => (
-                            <option key={g.label} value={g.label}>{g.label}</option>
+                            <option key={g.label} value={g.label}>
+                              {displayGroupLabel(g.label, activeNamingStyle)}
+                            </option>
                           ))}
                         </optgroup>
                       ))}
