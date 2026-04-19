@@ -24,9 +24,16 @@ def create_system(data):
     name = data.get('name', '').strip()
     if not name:
         return jsonify({'error': 'Name is required'}), 400
-    description = data.get('description', '').strip() or None
+    description = (data.get('description') or '').strip() or None
+    cartomancy_type = (data.get('cartomancy_type') or 'Tarot').strip() or 'Tarot'
+    naming_style = (data.get('naming_style') or '').strip() or None
     try:
-        system_id = db.create_correspondence_system(name, description)
+        system_id = db.create_correspondence_system(
+            name,
+            description=description,
+            cartomancy_type=cartomancy_type,
+            naming_style=naming_style,
+        )
     except Exception:
         return jsonify({'error': 'A system with that name already exists'}), 409
     return jsonify({'id': system_id}), 201

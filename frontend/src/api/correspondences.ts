@@ -13,7 +13,12 @@ export async function getCorrespondenceSystem(systemId: number): Promise<Corresp
   return res.data;
 }
 
-export async function createCorrespondenceSystem(data: { name: string; description?: string }): Promise<{ id: number }> {
+export async function createCorrespondenceSystem(data: {
+  name: string;
+  description?: string;
+  cartomancy_type?: string;
+  naming_style?: string;
+}): Promise<{ id: number }> {
   const res = await api.post('/api/correspondence-systems', data);
   return res.data;
 }

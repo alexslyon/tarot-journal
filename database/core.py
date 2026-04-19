@@ -530,9 +530,18 @@ class CoreMixin:
                 name TEXT UNIQUE NOT NULL,
                 description TEXT,
                 is_builtin INTEGER DEFAULT 0,
+                cartomancy_type TEXT DEFAULT 'Tarot',
+                naming_style TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # Migration: add columns if they're missing on older databases
+        cursor.execute('PRAGMA table_info(correspondence_systems)')
+        cs_cols = [c[1] for c in cursor.fetchall()]
+        if 'cartomancy_type' not in cs_cols:
+            cursor.execute("ALTER TABLE correspondence_systems ADD COLUMN cartomancy_type TEXT DEFAULT 'Tarot'")
+        if 'naming_style' not in cs_cols:
+            cursor.execute('ALTER TABLE correspondence_systems ADD COLUMN naming_style TEXT')
 
         # System-level correspondence assignments.
         # Multiple rows per (system, archetype, field) allowed — each tagged with
