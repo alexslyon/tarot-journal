@@ -8,6 +8,7 @@ import {
 import type { CorrespondenceSystem, CorrespondenceAssignment } from '../../../types';
 import { CORRESPONDENCE_FIELDS, CORRESPONDENCE_FIELD_LABELS } from '../../../types';
 import { detectGroupPatterns, patternsByCategory, type PatternCategorySection } from '../../../utils/correspondencePatterns';
+import { displayArchetypeName, displayGroupLabel } from '../../../utils/tarotNaming';
 import './CorrespondencesViewer.css';
 
 type ViewMode = 'by-system' | 'compare';
@@ -158,7 +159,7 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
                   <div className="corr-viewer__group-category-heading">{section.category}</div>
                   {section.groups.map(({ groupLabel, patterns }) => (
                     <div key={groupLabel} className="corr-viewer__group-row">
-                      <span className="corr-viewer__group-field">{groupLabel}</span>
+                      <span className="corr-viewer__group-field">{displayGroupLabel(groupLabel, systemDetail?.naming_style)}</span>
                       <div className="corr-viewer__group-values">
                         {patterns.map(p => (
                           <span key={p.fieldLabel} className="corr-viewer__group-tag">
@@ -190,7 +191,7 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
                   const row = bySystemRows.get(archId)!;
                   return (
                     <tr key={archId}>
-                      <td className="corr-viewer__td--card">{row.name}</td>
+                      <td className="corr-viewer__td--card">{displayArchetypeName(row.name, systemDetail?.naming_style)}</td>
                       {CORRESPONDENCE_FIELDS.map(f => (
                         <td key={f} className="corr-viewer__td--value">
                           {(row.fields.get(f) || []).join(', ')}
