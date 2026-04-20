@@ -28,6 +28,7 @@ import {
 import { detectGroupPatterns, patternsByCategory, type PatternCategorySection } from '../../../utils/correspondencePatterns';
 import { displayArchetypeName, archetypeSortKey, displayGroupLabel } from '../../../utils/tarotNaming';
 import { LENORMAND_PLAYING_CARD, lenormandDefaultNumerology, PIP_RANK_TO_NUMBER } from '../../../utils/lenormand';
+import { tarotPipNumerology, tarotPipDecan } from '../../../utils/tarotPips';
 import FieldOptionsEditor from './FieldOptionsEditor';
 import '../SettingsTab.css';
 import './CorrespondencesSection.css';
@@ -152,6 +153,28 @@ export default function CorrespondencesSection() {
             }
           } catch (err) {
             console.error('Failed to seed Playing Cards numerology:', err);
+          }
+        }
+
+        // Seed Tarot systems with numerology for every card (majors use their
+        // rank 0-21 directly; pips Ace-Ten map to 1-10) and Golden Dawn decans
+        // for pip cards Two-Ten. Courts and Aces get no decan.
+        if (newCartomancyType === 'Tarot') {
+          try {
+            const tarotArchetypes = await getArchetypes('Tarot');
+            for (const a of tarotArchetypes) {
+              const numerologyValue =
+                a.card_type === 'major' ? a.rank : tarotPipNumerology(a.name);
+              if (numerologyValue) {
+                await setAssignmentValues(newId, a.id, 'numerology', [numerologyValue]);
+              }
+              const decan = tarotPipDecan(a.name);
+              if (decan) {
+                await setAssignmentValues(newId, a.id, 'decan', [decan]);
+              }
+            }
+          } catch (err) {
+            console.error('Failed to seed Tarot numerology/decans:', err);
           }
         }
 
