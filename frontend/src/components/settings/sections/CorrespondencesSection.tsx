@@ -447,29 +447,29 @@ export default function CorrespondencesSection() {
     if (archetypes.length === 0) return;
 
     if (!window.confirm(
-      `Clear the "${displayGroupLabel(bulkGroup, activeNamingStyle)}" group's ${CORRESPONDENCE_FIELD_LABELS[bulkField]} values for all ${archetypes.length} cards?\n\nOther contributions (manual edits or other groups) are not affected.`
+      `Clear ${CORRESPONDENCE_FIELD_LABELS[bulkField]} for all ${archetypes.length} cards in "${displayGroupLabel(bulkGroup, activeNamingStyle)}"?\n\nThis removes every ${CORRESPONDENCE_FIELD_LABELS[bulkField]} value on those cards (manual edits and all bulk-group contributions). Card-level overrides on individual decks are not affected.`
     )) return;
 
     setBulkApplying(true);
     try {
-      // Run deletes sequentially so the DB's internal lock doesn't starve
-      // under parallel load, and any auto-derived cleanup (e.g. modality
-      // zodiac refresh) runs cleanly between deletes.
+      // Clear every assignment on the cell (regardless of source_group) for
+      // the cards in this group. Sequential to play nice with SQLite's
+      // write lock and any derivation hooks like modality→zodiac refresh.
       for (const a of archetypes) {
-        await deleteAssignment(selectedSystemId, a.id, bulkField, { sourceGroup: bulkGroup });
+        await deleteAssignment(selectedSystemId, a.id, bulkField, { all: true });
       }
 
       // Optimistically update the cached systemDetail so the UI reflects the
       // removal immediately. React Query's invalidate+refetch can lag enough
       // that the table doesn't visibly update until the user navigates away.
       const affectedIds = new Set(archetypes.map(a => a.id));
-      const isAutoDerivedClear = bulkField === 'modality'; // modality clear also wipes auto:modality zodiac
+      const isAutoDerivedClear = bulkField === 'modality' || bulkField === 'element';
       queryClient.setQueryData<{ assignments: CorrespondenceAssignment[] } & Record<string, unknown>>(
         ['correspondence-system', selectedSystemId],
         (old) => {
           if (!old) return old;
           const filtered = old.assignments.filter(a => {
-            if (a.source_group === bulkGroup && a.field_name === bulkField && affectedIds.has(a.archetype_id)) {
+            if (a.field_name === bulkField && affectedIds.has(a.archetype_id)) {
               return false;
             }
             if (isAutoDerivedClear && a.source_group === 'auto:modality' && a.field_name === 'zodiac_sign' && affectedIds.has(a.archetype_id)) {
