@@ -1,8 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCard, deleteCard } from '../../api/cards';
+import { getCardCorrespondences } from '../../api/correspondences';
 import { cardPreviewUrl } from '../../api/images';
 import { useToast } from '../../context/ToastContext';
-import type { Card, Tag, CardGroup } from '../../types';
+import type { Card, Tag, CardGroup, ResolvedCorrespondence } from '../../types';
+import { CORRESPONDENCE_FIELDS, CORRESPONDENCE_FIELD_LABELS } from '../../types';
 import Modal from '../common/Modal';
 import RichTextViewer from '../common/RichTextViewer';
 import './CardViewModal.css';
@@ -38,6 +40,17 @@ export default function CardViewModal({ cardId, cardIds, onClose, onNavigate, on
     queryFn: () => getCard(cardId!),
     enabled: cardId !== null,
   });
+
+  const { data: correspondences = [] } = useQuery<ResolvedCorrespondence[]>({
+    queryKey: ['card-correspondences', cardId],
+    queryFn: () => getCardCorrespondences(cardId!),
+    enabled: cardId !== null,
+  });
+
+  // Only show correspondence fields that resolved to a value
+  const populatedCorrespondences = CORRESPONDENCE_FIELDS
+    .map(f => correspondences.find(c => c.field_name === f))
+    .filter((c): c is ResolvedCorrespondence => !!c && c.values.length > 0);
 
   if (cardId === null) return null;
 
@@ -125,6 +138,19 @@ export default function CardViewModal({ cardId, cardIds, onClose, onNavigate, on
               )}
               <InfoRow label="Sort Order" value={String(card.card_order)} />
             </div>
+
+            {populatedCorrespondences.length > 0 && (
+              <div className="card-view__section">
+                <h3 className="card-view__section-title">Correspondences</h3>
+                {populatedCorrespondences.map(c => (
+                  <InfoRow
+                    key={c.field_name}
+                    label={CORRESPONDENCE_FIELD_LABELS[c.field_name] || c.field_name}
+                    value={c.values.join(', ')}
+                  />
+                ))}
+              </div>
+            )}
 
             {card.notes && (
               <div className="card-view__section">
