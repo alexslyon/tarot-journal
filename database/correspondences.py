@@ -640,17 +640,27 @@ class CorrespondencesMixin:
         return cursor.fetchall()
 
     def set_deck_correspondence_overrides(self, deck_id: int, archetype_id: int,
-                                          field_name: str, values: list):
-        """Replace all deck-level override rows for (deck, archetype, field)
-        with the given values.
+                                          field_name: str, values: list,
+                                          source_group: str = None):
+        """Replace deck-level override rows for (deck, archetype, field, source_group)
+        with the given values. Pass source_group=None to replace only NULL-sourced
+        (individual) rows; pass a label to replace only that group's contribution.
         """
         if field_name not in CORRESPONDENCE_FIELDS:
             raise ValueError(f"Invalid field name: {field_name}")
         cursor = self.conn.cursor()
-        cursor.execute('''
-            DELETE FROM deck_correspondence_overrides
-            WHERE deck_id = ? AND archetype_id = ? AND field_name = ?
-        ''', (deck_id, archetype_id, field_name))
+        if source_group is None:
+            cursor.execute('''
+                DELETE FROM deck_correspondence_overrides
+                WHERE deck_id = ? AND archetype_id = ? AND field_name = ?
+                  AND source_group IS NULL
+            ''', (deck_id, archetype_id, field_name))
+        else:
+            cursor.execute('''
+                DELETE FROM deck_correspondence_overrides
+                WHERE deck_id = ? AND archetype_id = ? AND field_name = ?
+                  AND source_group = ?
+            ''', (deck_id, archetype_id, field_name, source_group))
         seen = set()
         for v in values:
             if not v or v in seen:
@@ -658,19 +668,60 @@ class CorrespondencesMixin:
             seen.add(v)
             cursor.execute('''
                 INSERT INTO deck_correspondence_overrides
-                    (deck_id, archetype_id, field_name, field_value)
-                VALUES (?, ?, ?, ?)
-            ''', (deck_id, archetype_id, field_name, v))
+                    (deck_id, archetype_id, field_name, field_value, source_group)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (deck_id, archetype_id, field_name, v, source_group))
         self._commit()
 
     def delete_deck_correspondence_override(self, deck_id: int,
                                             archetype_id: int,
-                                            field_name: str):
+                                            field_name: str,
+                                            source_group: str = None,
+                                            delete_all_sources: bool = False):
+        """Delete deck override rows.
+
+        By default, deletes only the NULL-sourced rows for this cell. Pass
+        source_group to delete a specific group's contribution, or
+        delete_all_sources=True to wipe every row for this cell.
+        """
         cursor = self.conn.cursor()
-        cursor.execute('''
-            DELETE FROM deck_correspondence_overrides
-            WHERE deck_id = ? AND archetype_id = ? AND field_name = ?
-        ''', (deck_id, archetype_id, field_name))
+        if delete_all_sources:
+            cursor.execute('''
+                DELETE FROM deck_correspondence_overrides
+                WHERE deck_id = ? AND archetype_id = ? AND field_name = ?
+            ''', (deck_id, archetype_id, field_name))
+        elif source_group is not None:
+            cursor.execute('''
+                DELETE FROM deck_correspondence_overrides
+                WHERE deck_id = ? AND archetype_id = ? AND field_name = ?
+                  AND source_group = ?
+            ''', (deck_id, archetype_id, field_name, source_group))
+        else:
+            cursor.execute('''
+                DELETE FROM deck_correspondence_overrides
+                WHERE deck_id = ? AND archetype_id = ? AND field_name = ?
+                  AND source_group IS NULL
+            ''', (deck_id, archetype_id, field_name))
+        self._commit()
+
+    def delete_deck_correspondence_group(self, deck_id: int,
+                                         source_group: str,
+                                         field_name: str = None):
+        """Delete every deck override row belonging to a group (optionally
+        scoped to a single field). Used when the user removes a bulk group
+        override from the deck page.
+        """
+        cursor = self.conn.cursor()
+        if field_name:
+            cursor.execute('''
+                DELETE FROM deck_correspondence_overrides
+                WHERE deck_id = ? AND source_group = ? AND field_name = ?
+            ''', (deck_id, source_group, field_name))
+        else:
+            cursor.execute('''
+                DELETE FROM deck_correspondence_overrides
+                WHERE deck_id = ? AND source_group = ?
+            ''', (deck_id, source_group))
         self._commit()
 
     # === Resolved Correspondences (Three-Tier Inheritance) ===

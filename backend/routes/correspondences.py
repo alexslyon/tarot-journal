@@ -337,19 +337,26 @@ def list_deck_correspondence_overrides(deck_id):
 @correspondences_bp.route('/api/decks/<int:deck_id>/correspondence-overrides', methods=['PUT'])
 @require_json
 def set_deck_correspondence_override(deck_id, data):
-    """Set a deck-level override. Body: {archetype_id, field_name, values: []}"""
+    """Set a deck-level override.
+    Body: {archetype_id, field_name, values: [], source_group?: str}
+    """
     db = current_app.config['DB']
     archetype_id = data.get('archetype_id')
     field_name = data.get('field_name')
     values = data.get('values') or []
     values = [v.strip() for v in values if v and v.strip()]
+    source_group = data.get('source_group')
     if archetype_id is None or not field_name:
         return jsonify({'error': 'archetype_id and field_name are required'}), 400
     if not values:
-        db.delete_deck_correspondence_override(deck_id, archetype_id, field_name)
+        db.delete_deck_correspondence_override(
+            deck_id, archetype_id, field_name, source_group=source_group,
+        )
     else:
         try:
-            db.set_deck_correspondence_overrides(deck_id, archetype_id, field_name, values)
+            db.set_deck_correspondence_overrides(
+                deck_id, archetype_id, field_name, values, source_group=source_group,
+            )
         except ValueError as e:
             return jsonify({'error': str(e)}), 400
     return jsonify({'ok': True})
@@ -360,8 +367,35 @@ def set_deck_correspondence_override(deck_id, data):
     methods=['DELETE']
 )
 def delete_deck_correspondence_override_route(deck_id, archetype_id, field_name):
+    """Delete a deck override row for a single archetype/field.
+
+    Query params: source_group (optional) — scope to a specific group;
+                  all=true — wipe every source for this cell.
+    """
     db = current_app.config['DB']
-    db.delete_deck_correspondence_override(deck_id, archetype_id, field_name)
+    source_group = request.args.get('source_group')
+    delete_all = request.args.get('all') == 'true'
+    db.delete_deck_correspondence_override(
+        deck_id, archetype_id, field_name,
+        source_group=source_group, delete_all_sources=delete_all,
+    )
+    return jsonify({'ok': True})
+
+
+@correspondences_bp.route(
+    '/api/decks/<int:deck_id>/correspondence-overrides/group',
+    methods=['DELETE']
+)
+def delete_deck_correspondence_group_route(deck_id):
+    """Delete every row for a given group (optionally scoped to a field).
+    Query params: source_group (required), field_name (optional).
+    """
+    db = current_app.config['DB']
+    source_group = request.args.get('source_group')
+    field_name = request.args.get('field_name')
+    if not source_group:
+        return jsonify({'error': 'source_group is required'}), 400
+    db.delete_deck_correspondence_group(deck_id, source_group, field_name=field_name)
     return jsonify({'ok': True})
 
 

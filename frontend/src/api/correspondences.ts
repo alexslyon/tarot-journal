@@ -140,6 +140,7 @@ export interface DeckCorrespondenceOverride {
   card_type: string | null;
   field_name: string;
   field_value: string;
+  source_group: string | null;
 }
 
 export async function getDeckCorrespondenceOverrides(deckId: number): Promise<DeckCorrespondenceOverride[]> {
@@ -152,11 +153,13 @@ export async function setDeckCorrespondenceOverride(
   archetypeId: number,
   fieldName: string,
   values: string[],
+  sourceGroup?: string,
 ) {
   await api.put(`/api/decks/${deckId}/correspondence-overrides`, {
     archetype_id: archetypeId,
     field_name: fieldName,
     values,
+    source_group: sourceGroup ?? null,
   });
 }
 
@@ -164,8 +167,25 @@ export async function deleteDeckCorrespondenceOverride(
   deckId: number,
   archetypeId: number,
   fieldName: string,
+  options?: { sourceGroup?: string; all?: boolean },
 ) {
-  await api.delete(`/api/decks/${deckId}/correspondence-overrides/${archetypeId}/${fieldName}`);
+  const params = new URLSearchParams();
+  if (options?.sourceGroup) params.set('source_group', options.sourceGroup);
+  if (options?.all) params.set('all', 'true');
+  const qs = params.toString() ? `?${params}` : '';
+  await api.delete(
+    `/api/decks/${deckId}/correspondence-overrides/${archetypeId}/${fieldName}${qs}`,
+  );
+}
+
+export async function deleteDeckCorrespondenceGroup(
+  deckId: number,
+  sourceGroup: string,
+  fieldName?: string,
+) {
+  const params = new URLSearchParams({ source_group: sourceGroup });
+  if (fieldName) params.set('field_name', fieldName);
+  await api.delete(`/api/decks/${deckId}/correspondence-overrides/group?${params}`);
 }
 
 // === Cross-System Queries ===
