@@ -485,8 +485,9 @@ export default function CorrespondencesSection() {
         },
       );
 
-      // Still invalidate so we'll eventually reconcile with the authoritative backend data
-      queryClient.invalidateQueries({
+      // Force a refetch so the authoritative backend data replaces the
+      // optimistic snapshot (and so any derived rows we missed are correct).
+      await queryClient.refetchQueries({
         queryKey: ['correspondence-system', selectedSystemId],
       });
       showMsg(`Cleared "${displayGroupLabel(bulkGroup, activeNamingStyle)}" ${CORRESPONDENCE_FIELD_LABELS[bulkField]} for ${archetypes.length} cards`, 'success');
