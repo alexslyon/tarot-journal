@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getDeckCorrespondenceOverrides,
   setDeckCorrespondenceOverride,
-  deleteDeckCorrespondenceOverride,
+  deleteDeckCorrespondenceGroup,
   getArchetypes,
   getFieldOptions,
   type DeckCorrespondenceOverride,
@@ -13,6 +13,7 @@ import {
 import { CORRESPONDENCE_FIELDS, CORRESPONDENCE_FIELD_LABELS } from '../../types';
 import MultiValueSelect from '../common/MultiValueSelect';
 import FreeTextValue from '../common/FreeTextValue';
+import { getBulkGroups, getBulkCategories, filterArchetypesByGroup } from '../../utils/bulkGroups';
 import './DeckCorrespondenceOverrides.css';
 
 interface DeckCorrespondenceOverridesProps {
@@ -20,12 +21,12 @@ interface DeckCorrespondenceOverridesProps {
   cartomancyType?: string;
 }
 
-/** Group existing overrides by (archetype, field) key for display. */
+/** One visible row: all values any card received for this (group, field). */
 type GroupedOverride = {
-  archetype_id: number;
-  archetype_name: string;
+  source_group: string;
   field_name: string;
   values: string[];
+  card_count: number;
 };
 
 export default function DeckCorrespondenceOverrides({
@@ -33,10 +34,12 @@ export default function DeckCorrespondenceOverrides({
   cartomancyType = 'Tarot',
 }: DeckCorrespondenceOverridesProps) {
   const queryClient = useQueryClient();
-  const [showAdd, setShowAdd] = useState(false);
-  const [newArchetypeId, setNewArchetypeId] = useState<number | ''>('');
-  const [newField, setNewField] = useState<string>(CORRESPONDENCE_FIELDS[0]);
-  const [newValues, setNewValues] = useState<string[]>([]);
+
+  const [showBulkAdd, setShowBulkAdd] = useState(false);
+  const [bulkGroup, setBulkGroup] = useState('');
+  const [bulkField, setBulkField] = useState<string>(CORRESPONDENCE_FIELDS[0]);
+  const [bulkValues, setBulkValues] = useState<string[]>([]);
+  const [bulkApplying, setBulkApplying] = useState(false);
 
   const { data: overrides = [] } = useQuery<DeckCorrespondenceOverride[]>({
     queryKey: ['deck-correspondence-overrides', deckId],
@@ -59,25 +62,44 @@ export default function DeckCorrespondenceOverrides({
     optionsByField.get(opt.field_name)!.push(opt.option_value);
   }
 
-  // Group override rows by (archetype, field)
+  const BULK_GROUPS = getBulkGroups(cartomancyType);
+  const BULK_CATEGORIES = getBulkCategories(BULK_GROUPS);
+
+  // Roll up override rows by (source_group, field). All rows share the same
+  // set of values across archetypes (bulk apply writes them identically), so
+  // we just collect distinct values and count the archetypes affected.
   const grouped = new Map<string, GroupedOverride>();
   for (const o of overrides) {
-    const key = `${o.archetype_id}:${o.field_name}`;
+    if (!o.source_group) continue; // legacy per-archetype rows are hidden
+    const key = `${o.source_group}:${o.field_name}`;
     if (!grouped.has(key)) {
       grouped.set(key, {
-        archetype_id: o.archetype_id,
-        archetype_name: o.archetype_name,
+        source_group: o.source_group,
         field_name: o.field_name,
         values: [],
+        card_count: 0,
       });
     }
-    grouped.get(key)!.values.push(o.field_value);
+    const g = grouped.get(key)!;
+    if (!g.values.includes(o.field_value)) g.values.push(o.field_value);
+  }
+  // Count distinct archetypes per group+field
+  const cardCounts = new Map<string, Set<number>>();
+  for (const o of overrides) {
+    if (!o.source_group) continue;
+    const key = `${o.source_group}:${o.field_name}`;
+    if (!cardCounts.has(key)) cardCounts.set(key, new Set());
+    cardCounts.get(key)!.add(o.archetype_id);
+  }
+  for (const [key, g] of grouped) {
+    g.card_count = cardCounts.get(key)?.size ?? 0;
   }
 
-  const sortedArchetypes = [...archetypes].sort((a, b) => {
-    const aRank = parseInt(a.rank || '0', 10);
-    const bRank = parseInt(b.rank || '0', 10);
-    return aRank - bRank;
+  const groupedList = [...grouped.values()].sort((a, b) => {
+    if (a.source_group !== b.source_group) {
+      return a.source_group.localeCompare(b.source_group);
+    }
+    return a.field_name.localeCompare(b.field_name);
   });
 
   const invalidate = () => {
@@ -85,54 +107,67 @@ export default function DeckCorrespondenceOverrides({
     queryClient.invalidateQueries({ queryKey: ['card-correspondences'] });
   };
 
-  const handleAdd = async () => {
-    if (!newArchetypeId || !newField || newValues.length === 0) return;
-    await setDeckCorrespondenceOverride(deckId, newArchetypeId, newField, newValues);
-    invalidate();
-    setShowAdd(false);
-    setNewArchetypeId('');
-    setNewField(CORRESPONDENCE_FIELDS[0]);
-    setNewValues([]);
-  };
-
-  const handleUpdate = async (archetypeId: number, fieldName: string, values: string[]) => {
+  const handleUpdateGroup = async (
+    groupLabel: string,
+    fieldName: string,
+    values: string[],
+  ) => {
+    const targets = filterArchetypesByGroup(archetypes, BULK_GROUPS, groupLabel);
+    if (targets.length === 0) return;
     if (values.length === 0) {
-      await deleteDeckCorrespondenceOverride(deckId, archetypeId, fieldName);
+      await deleteDeckCorrespondenceGroup(deckId, groupLabel, fieldName);
     } else {
-      await setDeckCorrespondenceOverride(deckId, archetypeId, fieldName, values);
+      for (const a of targets) {
+        await setDeckCorrespondenceOverride(deckId, a.id, fieldName, values, groupLabel);
+      }
     }
     invalidate();
   };
 
-  const handleRemove = async (archetypeId: number, fieldName: string) => {
-    await deleteDeckCorrespondenceOverride(deckId, archetypeId, fieldName);
+  const handleRemoveGroup = async (groupLabel: string, fieldName: string) => {
+    await deleteDeckCorrespondenceGroup(deckId, groupLabel, fieldName);
     invalidate();
   };
 
-  const groupedList = [...grouped.values()].sort((a, b) => {
-    if (a.archetype_name !== b.archetype_name) {
-      return a.archetype_name.localeCompare(b.archetype_name);
+  const handleBulkAdd = async () => {
+    if (!bulkGroup || !bulkField || bulkValues.length === 0) return;
+    const targets = filterArchetypesByGroup(archetypes, BULK_GROUPS, bulkGroup);
+    if (targets.length === 0) return;
+    setBulkApplying(true);
+    try {
+      for (const a of targets) {
+        await setDeckCorrespondenceOverride(deckId, a.id, bulkField, bulkValues, bulkGroup);
+      }
+      invalidate();
+      setShowBulkAdd(false);
+      setBulkGroup('');
+      setBulkField(CORRESPONDENCE_FIELDS[0]);
+      setBulkValues([]);
+    } finally {
+      setBulkApplying(false);
     }
-    return a.field_name.localeCompare(b.field_name);
-  });
+  };
 
   return (
     <div className="deck-corr-overrides">
       <p className="deck-corr-overrides__hint">
-        Deck-level overrides apply to all cards in this deck with the given
-        archetype. They take precedence over the correspondence system but can
-        still be overridden on individual cards.
+        Deck-level overrides apply to a whole group of cards (all Wands, all
+        Pages, etc.) and take precedence over the correspondence system.
+        Individual cards can still override them.
       </p>
 
-      {groupedList.length === 0 && !showAdd && (
-        <p className="deck-corr-overrides__empty">No overrides for this deck.</p>
+      {groupedList.length === 0 && !showBulkAdd && (
+        <p className="deck-corr-overrides__empty">No group overrides for this deck.</p>
       )}
 
       {groupedList.length > 0 && (
         <div className="deck-corr-overrides__list">
           {groupedList.map(g => (
-            <div key={`${g.archetype_id}:${g.field_name}`} className="deck-corr-overrides__row">
-              <span className="deck-corr-overrides__archetype">{g.archetype_name}</span>
+            <div key={`${g.source_group}:${g.field_name}`} className="deck-corr-overrides__row">
+              <span className="deck-corr-overrides__archetype">
+                {g.source_group}
+                <span className="deck-corr-overrides__count"> · {g.card_count} cards</span>
+              </span>
               <span className="deck-corr-overrides__field">
                 {CORRESPONDENCE_FIELD_LABELS[g.field_name] || g.field_name}
               </span>
@@ -140,14 +175,14 @@ export default function DeckCorrespondenceOverrides({
                 {g.field_name === 'numerology' ? (
                   <FreeTextValue
                     values={g.values}
-                    onCommit={vals => handleUpdate(g.archetype_id, g.field_name, vals)}
+                    onCommit={vals => handleUpdateGroup(g.source_group, g.field_name, vals)}
                     compact
                   />
                 ) : (
                   <MultiValueSelect
                     values={g.values}
                     options={optionsByField.get(g.field_name) || []}
-                    onCommit={vals => handleUpdate(g.archetype_id, g.field_name, vals)}
+                    onCommit={vals => handleUpdateGroup(g.source_group, g.field_name, vals)}
                     compact
                   />
                 )}
@@ -155,8 +190,8 @@ export default function DeckCorrespondenceOverrides({
               <button
                 type="button"
                 className="deck-corr-overrides__remove-btn"
-                onClick={() => handleRemove(g.archetype_id, g.field_name)}
-                title="Remove this override"
+                onClick={() => handleRemoveGroup(g.source_group, g.field_name)}
+                title="Remove this group override"
               >
                 ×
               </button>
@@ -165,36 +200,37 @@ export default function DeckCorrespondenceOverrides({
         </div>
       )}
 
-      {showAdd ? (
+      {showBulkAdd ? (
         <div className="deck-corr-overrides__add-form">
           <div className="deck-corr-overrides__add-row">
-            <select
-              value={newArchetypeId}
-              onChange={e => setNewArchetypeId(e.target.value ? Number(e.target.value) : '')}
-            >
-              <option value="">Choose card...</option>
-              {sortedArchetypes.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
+            <select value={bulkGroup} onChange={e => setBulkGroup(e.target.value)}>
+              <option value="">Choose group...</option>
+              {BULK_CATEGORIES.map(cat => (
+                <optgroup key={cat} label={cat}>
+                  {BULK_GROUPS.filter(g => g.category === cat).map(g => (
+                    <option key={g.label} value={g.label}>{g.label}</option>
+                  ))}
+                </optgroup>
               ))}
             </select>
-            <select value={newField} onChange={e => setNewField(e.target.value)}>
+            <select value={bulkField} onChange={e => setBulkField(e.target.value)}>
               {CORRESPONDENCE_FIELDS.map(f => (
                 <option key={f} value={f}>{CORRESPONDENCE_FIELD_LABELS[f]}</option>
               ))}
             </select>
             <div className="deck-corr-overrides__add-values">
-              {newField === 'numerology' ? (
+              {bulkField === 'numerology' ? (
                 <FreeTextValue
-                  values={newValues}
-                  onCommit={setNewValues}
+                  values={bulkValues}
+                  onCommit={setBulkValues}
                   compact
                   placeholder="Values..."
                 />
               ) : (
                 <MultiValueSelect
-                  values={newValues}
-                  options={optionsByField.get(newField) || []}
-                  onCommit={setNewValues}
+                  values={bulkValues}
+                  options={optionsByField.get(bulkField) || []}
+                  onCommit={setBulkValues}
                   compact
                   placeholder="Values..."
                 />
@@ -202,24 +238,28 @@ export default function DeckCorrespondenceOverrides({
             </div>
           </div>
           <div className="deck-corr-overrides__add-actions">
-            <button type="button" onClick={() => { setShowAdd(false); setNewArchetypeId(''); setNewValues([]); }}>
+            <button
+              type="button"
+              onClick={() => { setShowBulkAdd(false); setBulkGroup(''); setBulkValues([]); }}
+              disabled={bulkApplying}
+            >
               Cancel
             </button>
             <button
               type="button"
               className="deck-corr-overrides__save-btn"
-              onClick={handleAdd}
-              disabled={!newArchetypeId || newValues.length === 0}
+              onClick={handleBulkAdd}
+              disabled={!bulkGroup || bulkValues.length === 0 || bulkApplying}
             >
-              Add
+              {bulkApplying ? 'Applying...' : 'Apply to Group'}
             </button>
           </div>
         </div>
-      ) : (
-        <button type="button" className="deck-corr-overrides__add-btn" onClick={() => setShowAdd(true)}>
-          + Add Override
+      ) : BULK_GROUPS.length > 0 ? (
+        <button type="button" className="deck-corr-overrides__add-btn" onClick={() => setShowBulkAdd(true)}>
+          + Add Group Override
         </button>
-      )}
+      ) : null}
     </div>
   );
 }

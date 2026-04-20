@@ -616,13 +616,30 @@ class CoreMixin:
                     'chakra', 'modality'
                 )),
                 field_value TEXT,
+                source_group TEXT,
                 FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE,
                 FOREIGN KEY (archetype_id) REFERENCES card_archetypes(id) ON DELETE CASCADE
             )
         ''')
+        # Add source_group column if upgrading from a pre-source_group schema.
+        # Drop any NULL-sourced legacy rows at the same time — pre-feature
+        # individual-archetype overrides that the new UI can't surface.
+        cursor.execute("PRAGMA table_info(deck_correspondence_overrides)")
+        deck_ovr_cols = [r[1] for r in cursor.fetchall()]
+        if 'source_group' not in deck_ovr_cols:
+            cursor.execute(
+                'ALTER TABLE deck_correspondence_overrides ADD COLUMN source_group TEXT'
+            )
+            cursor.execute(
+                'DELETE FROM deck_correspondence_overrides WHERE source_group IS NULL'
+            )
+        # Unique index includes source_group so the same value from different
+        # groups (e.g. Wands and Aces both setting Fire on Ace of Wands) can
+        # coexist as independent contributions.
+        cursor.execute('DROP INDEX IF EXISTS idx_deck_corr_overrides_unique_value')
         cursor.execute('''
             CREATE UNIQUE INDEX IF NOT EXISTS idx_deck_corr_overrides_unique_value
-            ON deck_correspondence_overrides(deck_id, archetype_id, field_name, field_value)
+            ON deck_correspondence_overrides(deck_id, archetype_id, field_name, field_value, source_group)
         ''')
         cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_deck_corr_overrides_deck

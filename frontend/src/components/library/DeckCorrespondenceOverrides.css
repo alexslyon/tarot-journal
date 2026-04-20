@@ -103,3 +103,10 @@
 .deck-corr-overrides__add-btn:hover {
   background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
 }
+
+.deck-corr-overrides__count {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  font-weight: 400;
+  margin-left: 4px;
+}
