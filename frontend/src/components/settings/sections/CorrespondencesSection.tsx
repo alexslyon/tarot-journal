@@ -16,6 +16,7 @@ import {
   type FieldOption,
 } from '../../../api/correspondences';
 import MultiValueSelect from '../../common/MultiValueSelect';
+import FreeTextValue from '../../common/FreeTextValue';
 import type {
   CorrespondenceSystem,
   CorrespondenceAssignment,
@@ -816,12 +817,20 @@ export default function CorrespondencesSection() {
 
                   <div className="corr-bulk__field" style={{ flex: 1 }}>
                     <label className="settings-tab__label">Value(s)</label>
-                    <MultiValueSelect
-                      values={bulkValues}
-                      options={(optionsByField.get(bulkField) || []).map(o => o.option_value)}
-                      onCommit={setBulkValues}
-                      placeholder="Select value(s)..."
-                    />
+                    {bulkField === 'numerology' ? (
+                      <FreeTextValue
+                        values={bulkValues}
+                        onCommit={setBulkValues}
+                        placeholder="Enter value(s)..."
+                      />
+                    ) : (
+                      <MultiValueSelect
+                        values={bulkValues}
+                        options={(optionsByField.get(bulkField) || []).map(o => o.option_value)}
+                        onCommit={setBulkValues}
+                        placeholder="Select value(s)..."
+                      />
+                    )}
                   </div>
 
                   <div className="corr-bulk__field corr-bulk__actions" style={{ alignSelf: 'flex-end' }}>
@@ -909,13 +918,22 @@ export default function CorrespondencesSection() {
                         const cellKey = `${f}:${cellValues.join('|')}`;
                         return (
                           <td key={f}>
-                            <MultiValueSelect
-                              key={cellKey}
-                              values={cellValues}
-                              options={(optionsByField.get(f) || []).map(o => o.option_value)}
-                              onCommit={vals => handleSetCellValues(arch.id, f, vals)}
-                              compact
-                            />
+                            {f === 'numerology' ? (
+                              <FreeTextValue
+                                key={cellKey}
+                                values={cellValues}
+                                onCommit={vals => handleSetCellValues(arch.id, f, vals)}
+                                compact
+                              />
+                            ) : (
+                              <MultiValueSelect
+                                key={cellKey}
+                                values={cellValues}
+                                options={(optionsByField.get(f) || []).map(o => o.option_value)}
+                                onCommit={vals => handleSetCellValues(arch.id, f, vals)}
+                                compact
+                              />
+                            )}
                           </td>
                         );
                       })}

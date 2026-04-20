@@ -3,6 +3,7 @@ import { getCardCorrespondences, setCardOverrides, getFieldOptions, type FieldOp
 import type { ResolvedCorrespondence } from '../../types';
 import { CORRESPONDENCE_FIELDS, CORRESPONDENCE_FIELD_LABELS } from '../../types';
 import MultiValueSelect from '../common/MultiValueSelect';
+import FreeTextValue from '../common/FreeTextValue';
 import './CardCorrespondences.css';
 
 interface CardCorrespondencesProps {
@@ -81,12 +82,20 @@ export default function CardCorrespondences({ cardId }: CardCorrespondencesProps
                 {isInherited && <span className="card-corr__badge card-corr__badge--inherited">inherited</span>}
               </label>
               <div className="card-corr__select-row">
-                <MultiValueSelect
-                  values={values}
-                  options={opts}
-                  onCommit={vals => commitOverride(fieldName, vals)}
-                  compact
-                />
+                {fieldName === 'numerology' ? (
+                  <FreeTextValue
+                    values={values}
+                    onCommit={vals => commitOverride(fieldName, vals)}
+                    compact
+                  />
+                ) : (
+                  <MultiValueSelect
+                    values={values}
+                    options={opts}
+                    onCommit={vals => commitOverride(fieldName, vals)}
+                    compact
+                  />
+                )}
                 {isOverride && (
                   <button
                     className="card-corr__revert-btn"
