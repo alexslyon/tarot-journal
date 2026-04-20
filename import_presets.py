@@ -1447,19 +1447,20 @@ class ImportPresets:
                 7: ('The Lovers', 'VI'),
                 8: ('The Chariot', 'VII'),
             }
+            # Canonical RWS archetype names (see note in _get_tarot_metadata).
             if use_thoth_ordering:
                 major_by_position.update({
-                    9: ('Justice / Adjustment', 'VIII'),
+                    9: ('Justice', 'VIII'),
                     10: ('The Hermit', 'IX'),
                     11: ('Wheel of Fortune', 'X'),
-                    12: ('Strength / Lust', 'XI'),
+                    12: ('Strength', 'XI'),
                 })
             else:
                 major_by_position.update({
-                    9: ('Strength / Lust', 'VIII'),
+                    9: ('Strength', 'VIII'),
                     10: ('The Hermit', 'IX'),
                     11: ('Wheel of Fortune', 'X'),
-                    12: ('Justice / Adjustment', 'XI'),
+                    12: ('Justice', 'XI'),
                 })
             major_by_position.update({
                 13: ('The Hanged Man', 'XII'),
@@ -1470,8 +1471,8 @@ class ImportPresets:
                 18: ('The Star', 'XVII'),
                 19: ('The Moon', 'XVIII'),
                 20: ('The Sun', 'XIX'),
-                21: ('Judgement / The Aeon', 'XX'),
-                22: ('The World / The Universe', 'XXI'),
+                21: ('Judgement', 'XX'),
+                22: ('The World', 'XXI'),
             })
             if position in major_by_position:
                 name, rank = major_by_position[position]
@@ -1756,17 +1757,21 @@ class ImportPresets:
             strength_rank = 'VIII'
             justice_rank = 'XI'
 
+        # Canonical RWS archetype names — the card_archetypes table stores the
+        # RWS form ("The Magician", "Strength") even for cards displayed under
+        # Thoth names. Display renaming happens at render time via the system's
+        # naming_style.
         major_arcana_names = {
             'the fool': ('The Fool', '0', 'Major Arcana'),
             'fool': ('The Fool', '0', 'Major Arcana'),
-            'the magician': ('The Magician / The Magus', 'I', 'Major Arcana'),
-            'magician': ('The Magician / The Magus', 'I', 'Major Arcana'),
-            'the magus': ('The Magician / The Magus', 'I', 'Major Arcana'),
-            'magus': ('The Magician / The Magus', 'I', 'Major Arcana'),
-            'the high priestess': ('The High Priestess / The Priestess', 'II', 'Major Arcana'),
-            'high priestess': ('The High Priestess / The Priestess', 'II', 'Major Arcana'),
-            'the priestess': ('The High Priestess / The Priestess', 'II', 'Major Arcana'),
-            'priestess': ('The High Priestess / The Priestess', 'II', 'Major Arcana'),
+            'the magician': ('The Magician', 'I', 'Major Arcana'),
+            'magician': ('The Magician', 'I', 'Major Arcana'),
+            'the magus': ('The Magician', 'I', 'Major Arcana'),
+            'magus': ('The Magician', 'I', 'Major Arcana'),
+            'the high priestess': ('The High Priestess', 'II', 'Major Arcana'),
+            'high priestess': ('The High Priestess', 'II', 'Major Arcana'),
+            'the priestess': ('The High Priestess', 'II', 'Major Arcana'),
+            'priestess': ('The High Priestess', 'II', 'Major Arcana'),
             'the empress': ('The Empress', 'III', 'Major Arcana'),
             'empress': ('The Empress', 'III', 'Major Arcana'),
             'the emperor': ('The Emperor', 'IV', 'Major Arcana'),
@@ -1777,21 +1782,21 @@ class ImportPresets:
             'lovers': ('The Lovers', 'VI', 'Major Arcana'),
             'the chariot': ('The Chariot', 'VII', 'Major Arcana'),
             'chariot': ('The Chariot', 'VII', 'Major Arcana'),
-            'strength': ('Strength / Lust', strength_rank, 'Major Arcana'),
-            'lust': ('Strength / Lust', strength_rank, 'Major Arcana'),
+            'strength': ('Strength', strength_rank, 'Major Arcana'),
+            'lust': ('Strength', strength_rank, 'Major Arcana'),
             'the hermit': ('The Hermit', 'IX', 'Major Arcana'),
             'hermit': ('The Hermit', 'IX', 'Major Arcana'),
-            'wheel of fortune': ('Wheel of Fortune / Fortune', 'X', 'Major Arcana'),
-            'fortune': ('Wheel of Fortune / Fortune', 'X', 'Major Arcana'),
-            'the wheel': ('Wheel of Fortune / Fortune', 'X', 'Major Arcana'),
-            'wheel': ('Wheel of Fortune / Fortune', 'X', 'Major Arcana'),
-            'justice': ('Justice / Adjustment', justice_rank, 'Major Arcana'),
-            'adjustment': ('Justice / Adjustment', justice_rank, 'Major Arcana'),
+            'wheel of fortune': ('Wheel of Fortune', 'X', 'Major Arcana'),
+            'fortune': ('Wheel of Fortune', 'X', 'Major Arcana'),
+            'the wheel': ('Wheel of Fortune', 'X', 'Major Arcana'),
+            'wheel': ('Wheel of Fortune', 'X', 'Major Arcana'),
+            'justice': ('Justice', justice_rank, 'Major Arcana'),
+            'adjustment': ('Justice', justice_rank, 'Major Arcana'),
             'the hanged man': ('The Hanged Man', 'XII', 'Major Arcana'),
             'hanged man': ('The Hanged Man', 'XII', 'Major Arcana'),
             'death': ('Death', 'XIII', 'Major Arcana'),
-            'temperance': ('Temperance / Art', 'XIV', 'Major Arcana'),
-            'art': ('Temperance / Art', 'XIV', 'Major Arcana'),
+            'temperance': ('Temperance', 'XIV', 'Major Arcana'),
+            'art': ('Temperance', 'XIV', 'Major Arcana'),
             'the devil': ('The Devil', 'XV', 'Major Arcana'),
             'devil': ('The Devil', 'XV', 'Major Arcana'),
             'the tower': ('The Tower', 'XVI', 'Major Arcana'),
@@ -1802,14 +1807,14 @@ class ImportPresets:
             'moon': ('The Moon', 'XVIII', 'Major Arcana'),
             'the sun': ('The Sun', 'XIX', 'Major Arcana'),
             'sun': ('The Sun', 'XIX', 'Major Arcana'),
-            'judgement': ('Judgement / The Aeon', 'XX', 'Major Arcana'),
-            'judgment': ('Judgement / The Aeon', 'XX', 'Major Arcana'),
-            'the aeon': ('Judgement / The Aeon', 'XX', 'Major Arcana'),
-            'aeon': ('Judgement / The Aeon', 'XX', 'Major Arcana'),
-            'the world': ('The World / The Universe', 'XXI', 'Major Arcana'),
-            'world': ('The World / The Universe', 'XXI', 'Major Arcana'),
-            'the universe': ('The World / The Universe', 'XXI', 'Major Arcana'),
-            'universe': ('The World / The Universe', 'XXI', 'Major Arcana'),
+            'judgement': ('Judgement', 'XX', 'Major Arcana'),
+            'judgment': ('Judgement', 'XX', 'Major Arcana'),
+            'the aeon': ('Judgement', 'XX', 'Major Arcana'),
+            'aeon': ('Judgement', 'XX', 'Major Arcana'),
+            'the world': ('The World', 'XXI', 'Major Arcana'),
+            'world': ('The World', 'XXI', 'Major Arcana'),
+            'the universe': ('The World', 'XXI', 'Major Arcana'),
+            'universe': ('The World', 'XXI', 'Major Arcana'),
         }
 
         if name_lower in major_arcana_names:

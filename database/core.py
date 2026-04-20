@@ -813,6 +813,27 @@ class CoreMixin:
                 )
             self.set_setting('i_ching_hexagram_format_migration_done', 'true')
 
+        # One-time migration: collapse dual-named Tarot archetypes to canonical
+        # RWS names so they match the card_archetypes table (the Thoth/Marseille
+        # display name is applied at render time via naming_style).
+        if self.get_setting('tarot_dual_archetype_migration_done') != 'true':
+            dual_to_canonical = {
+                'The Magician / The Magus': 'The Magician',
+                'The High Priestess / The Priestess': 'The High Priestess',
+                'Strength / Lust': 'Strength',
+                'Wheel of Fortune / Fortune': 'Wheel of Fortune',
+                'Justice / Adjustment': 'Justice',
+                'Temperance / Art': 'Temperance',
+                'Judgement / The Aeon': 'Judgement',
+                'The World / The Universe': 'The World',
+            }
+            for old, new in dual_to_canonical.items():
+                cursor.execute(
+                    'UPDATE cards SET archetype = ? WHERE archetype = ?',
+                    (new, old)
+                )
+            self.set_setting('tarot_dual_archetype_migration_done', 'true')
+
         self._commit()
 
         # Run one-time correspondence field migration (after commit so tables exist)
