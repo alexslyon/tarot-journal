@@ -901,16 +901,24 @@ export default function CorrespondencesSection() {
                       <td className="corr-systems__td--card">
                         <span className="corr-systems__card-name">{displayName}</span>
                       </td>
-                      {CORRESPONDENCE_FIELDS.map(f => (
-                        <td key={f}>
-                          <MultiValueSelect
-                            values={fields?.get(f) || []}
-                            options={(optionsByField.get(f) || []).map(o => o.option_value)}
-                            onCommit={vals => handleSetCellValues(arch.id, f, vals)}
-                            compact
-                          />
-                        </td>
-                      ))}
+                      {CORRESPONDENCE_FIELDS.map(f => {
+                        const cellValues = fields?.get(f) || [];
+                        // Include values in the key so React remounts the
+                        // MultiValueSelect when the cell's contents change —
+                        // protects against any stale internal draft state.
+                        const cellKey = `${f}:${cellValues.join('|')}`;
+                        return (
+                          <td key={f}>
+                            <MultiValueSelect
+                              key={cellKey}
+                              values={cellValues}
+                              options={(optionsByField.get(f) || []).map(o => o.option_value)}
+                              onCommit={vals => handleSetCellValues(arch.id, f, vals)}
+                              compact
+                            />
+                          </td>
+                        );
+                      })}
                     </tr>
                   );
                 })}
