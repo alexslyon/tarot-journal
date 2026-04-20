@@ -124,15 +124,17 @@ export default function CorrespondencesSection() {
         newId = result.id;
 
         // Seed Lenormand systems with each card's number (1-36) and its
-        // playing-card pip rank (skipped for court cards) as numerology values
+        // playing-card pip rank (skipped for court cards) as numerology values.
+        // Run sequentially — parallel PUTs race against SQLite's write lock
+        // and some writes get dropped silently.
         if (newCartomancyType === 'Lenormand') {
           try {
             const lenArchetypes = await getArchetypes('Lenormand');
-            await Promise.all(lenArchetypes.map(a => {
+            for (const a of lenArchetypes) {
               const values = lenormandDefaultNumerology(a.name, a.rank);
-              if (values.length === 0) return Promise.resolve();
-              return setAssignmentValues(newId, a.id, 'numerology', values);
-            }));
+              if (values.length === 0) continue;
+              await setAssignmentValues(newId, a.id, 'numerology', values);
+            }
           } catch (err) {
             console.error('Failed to seed Lenormand numerology:', err);
           }
