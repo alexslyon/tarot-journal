@@ -12,6 +12,7 @@ import {
 } from '../../api/correspondences';
 import { CORRESPONDENCE_FIELDS, CORRESPONDENCE_FIELD_LABELS } from '../../types';
 import MultiValueSelect from '../common/MultiValueSelect';
+import FreeTextValue from '../common/FreeTextValue';
 import './DeckCorrespondenceOverrides.css';
 
 interface DeckCorrespondenceOverridesProps {
@@ -136,12 +137,20 @@ export default function DeckCorrespondenceOverrides({
                 {CORRESPONDENCE_FIELD_LABELS[g.field_name] || g.field_name}
               </span>
               <div className="deck-corr-overrides__values">
-                <MultiValueSelect
-                  values={g.values}
-                  options={optionsByField.get(g.field_name) || []}
-                  onCommit={vals => handleUpdate(g.archetype_id, g.field_name, vals)}
-                  compact
-                />
+                {g.field_name === 'numerology' ? (
+                  <FreeTextValue
+                    values={g.values}
+                    onCommit={vals => handleUpdate(g.archetype_id, g.field_name, vals)}
+                    compact
+                  />
+                ) : (
+                  <MultiValueSelect
+                    values={g.values}
+                    options={optionsByField.get(g.field_name) || []}
+                    onCommit={vals => handleUpdate(g.archetype_id, g.field_name, vals)}
+                    compact
+                  />
+                )}
               </div>
               <button
                 type="button"
@@ -174,13 +183,22 @@ export default function DeckCorrespondenceOverrides({
               ))}
             </select>
             <div className="deck-corr-overrides__add-values">
-              <MultiValueSelect
-                values={newValues}
-                options={optionsByField.get(newField) || []}
-                onCommit={setNewValues}
-                compact
-                placeholder="Values..."
-              />
+              {newField === 'numerology' ? (
+                <FreeTextValue
+                  values={newValues}
+                  onCommit={setNewValues}
+                  compact
+                  placeholder="Values..."
+                />
+              ) : (
+                <MultiValueSelect
+                  values={newValues}
+                  options={optionsByField.get(newField) || []}
+                  onCommit={setNewValues}
+                  compact
+                  placeholder="Values..."
+                />
+              )}
             </div>
           </div>
           <div className="deck-corr-overrides__add-actions">
