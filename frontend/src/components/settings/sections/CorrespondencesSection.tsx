@@ -27,7 +27,7 @@ import {
 } from '../../../types';
 import { detectGroupPatterns, patternsByCategory, type PatternCategorySection } from '../../../utils/correspondencePatterns';
 import { displayArchetypeName, archetypeSortKey, displayGroupLabel } from '../../../utils/tarotNaming';
-import { LENORMAND_PLAYING_CARD, lenormandDefaultNumerology } from '../../../utils/lenormand';
+import { LENORMAND_PLAYING_CARD, lenormandDefaultNumerology, PIP_RANK_TO_NUMBER } from '../../../utils/lenormand';
 import FieldOptionsEditor from './FieldOptionsEditor';
 import '../SettingsTab.css';
 import './CorrespondencesSection.css';
@@ -137,6 +137,21 @@ export default function CorrespondencesSection() {
             }
           } catch (err) {
             console.error('Failed to seed Lenormand numerology:', err);
+          }
+        }
+
+        // Seed Playing Cards systems with each card's pip rank (Ace=1, 2-10)
+        // as numerology. Jacks, Queens, Kings, and Jokers are skipped.
+        if (newCartomancyType === 'Playing Cards') {
+          try {
+            const pcArchetypes = await getArchetypes('Playing Cards');
+            for (const a of pcArchetypes) {
+              const pipNum = a.rank ? PIP_RANK_TO_NUMBER[a.rank] : undefined;
+              if (!pipNum) continue;
+              await setAssignmentValues(newId, a.id, 'numerology', [pipNum]);
+            }
+          } catch (err) {
+            console.error('Failed to seed Playing Cards numerology:', err);
           }
         }
 
