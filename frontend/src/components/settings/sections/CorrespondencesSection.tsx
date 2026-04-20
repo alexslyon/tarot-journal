@@ -220,7 +220,11 @@ export default function CorrespondencesSection() {
   }, [systemDetail]);
 
   // === Bulk assign groups ===
-  const BULK_GROUPS: { label: string; category: string; filter: (a: Archetype) => boolean }[] = [
+  // Groups are defined per cartomancy type so the dropdown matches the
+  // selected system's deck — Lenormand doesn't have suits or courts, etc.
+  type BulkGroup = { label: string; category: string; filter: (a: Archetype) => boolean };
+
+  const TAROT_BULK_GROUPS: BulkGroup[] = [
     { label: 'Major Arcana', category: 'Card Type', filter: a => a.card_type === 'major' },
     { label: 'Minor Arcana', category: 'Card Type', filter: a => a.card_type === 'minor' },
     { label: 'Wands', category: 'Suits', filter: a => a.suit === 'Wands' },
@@ -252,6 +256,105 @@ export default function CorrespondencesSection() {
       return rankNum >= 1 && rankNum <= 10;
     }},
   ];
+
+  const PLAYING_CARDS_BULK_GROUPS: BulkGroup[] = [
+    { label: 'Hearts', category: 'Suits', filter: a => a.suit === 'Hearts' },
+    { label: 'Diamonds', category: 'Suits', filter: a => a.suit === 'Diamonds' },
+    { label: 'Clubs', category: 'Suits', filter: a => a.suit === 'Clubs' },
+    { label: 'Spades', category: 'Suits', filter: a => a.suit === 'Spades' },
+    { label: 'Aces', category: 'Ranks', filter: a => a.rank === 'Ace' },
+    { label: 'Twos', category: 'Ranks', filter: a => a.rank === 'Two' },
+    { label: 'Threes', category: 'Ranks', filter: a => a.rank === 'Three' },
+    { label: 'Fours', category: 'Ranks', filter: a => a.rank === 'Four' },
+    { label: 'Fives', category: 'Ranks', filter: a => a.rank === 'Five' },
+    { label: 'Sixes', category: 'Ranks', filter: a => a.rank === 'Six' },
+    { label: 'Sevens', category: 'Ranks', filter: a => a.rank === 'Seven' },
+    { label: 'Eights', category: 'Ranks', filter: a => a.rank === 'Eight' },
+    { label: 'Nines', category: 'Ranks', filter: a => a.rank === 'Nine' },
+    { label: 'Tens', category: 'Ranks', filter: a => a.rank === 'Ten' },
+    { label: 'Jacks', category: 'Ranks', filter: a => a.rank === 'Jack' },
+    { label: 'Queens', category: 'Ranks', filter: a => a.rank === 'Queen' },
+    { label: 'Kings', category: 'Ranks', filter: a => a.rank === 'King' },
+    { label: 'Jokers', category: 'Ranks', filter: a => a.rank === 'Joker' },
+  ];
+
+  // Lenormand cards each have a traditional playing-card inset. Group by
+  // that inset's suit and rank so "Aces" in Lenormand = Ring/Man/Woman/Sun, etc.
+  const LENORMAND_PLAYING_CARD: Record<string, { suit: string; rank: string }> = {
+    'Rider':      { suit: 'Hearts',   rank: 'Nine' },
+    'Clover':     { suit: 'Diamonds', rank: 'Six' },
+    'Ship':       { suit: 'Spades',   rank: 'Ten' },
+    'House':      { suit: 'Hearts',   rank: 'King' },
+    'Tree':       { suit: 'Hearts',   rank: 'Seven' },
+    'Clouds':     { suit: 'Clubs',    rank: 'King' },
+    'Snake':      { suit: 'Clubs',    rank: 'Queen' },
+    'Coffin':     { suit: 'Diamonds', rank: 'Nine' },
+    'Bouquet':    { suit: 'Spades',   rank: 'Queen' },
+    'Scythe':     { suit: 'Diamonds', rank: 'Jack' },
+    'Whip':       { suit: 'Clubs',    rank: 'Jack' },
+    'Birds':      { suit: 'Diamonds', rank: 'Seven' },
+    'Child':      { suit: 'Spades',   rank: 'Jack' },
+    'Fox':        { suit: 'Clubs',    rank: 'Nine' },
+    'Bear':       { suit: 'Clubs',    rank: 'Ten' },
+    'Stars':      { suit: 'Hearts',   rank: 'Six' },
+    'Stork':      { suit: 'Hearts',   rank: 'Queen' },
+    'Dog':        { suit: 'Hearts',   rank: 'Ten' },
+    'Tower':      { suit: 'Spades',   rank: 'Six' },
+    'Garden':     { suit: 'Spades',   rank: 'Eight' },
+    'Mountain':   { suit: 'Clubs',    rank: 'Eight' },
+    'Crossroads': { suit: 'Diamonds', rank: 'Queen' },
+    'Mice':       { suit: 'Clubs',    rank: 'Seven' },
+    'Heart':      { suit: 'Hearts',   rank: 'Jack' },
+    'Ring':       { suit: 'Clubs',    rank: 'Ace' },
+    'Book':       { suit: 'Diamonds', rank: 'Ten' },
+    'Letter':     { suit: 'Spades',   rank: 'Seven' },
+    'Man':        { suit: 'Hearts',   rank: 'Ace' },
+    'Woman':      { suit: 'Spades',   rank: 'Ace' },
+    'Lily':       { suit: 'Spades',   rank: 'King' },
+    'Sun':        { suit: 'Diamonds', rank: 'Ace' },
+    'Moon':       { suit: 'Hearts',   rank: 'Eight' },
+    'Key':        { suit: 'Diamonds', rank: 'Eight' },
+    'Fish':       { suit: 'Diamonds', rank: 'King' },
+    'Anchor':     { suit: 'Spades',   rank: 'Nine' },
+    'Cross':      { suit: 'Clubs',    rank: 'Six' },
+  };
+
+  const LENORMAND_BULK_GROUPS: BulkGroup[] = [
+    { label: 'Hearts', category: 'Suits',
+      filter: a => LENORMAND_PLAYING_CARD[a.name]?.suit === 'Hearts' },
+    { label: 'Diamonds', category: 'Suits',
+      filter: a => LENORMAND_PLAYING_CARD[a.name]?.suit === 'Diamonds' },
+    { label: 'Clubs', category: 'Suits',
+      filter: a => LENORMAND_PLAYING_CARD[a.name]?.suit === 'Clubs' },
+    { label: 'Spades', category: 'Suits',
+      filter: a => LENORMAND_PLAYING_CARD[a.name]?.suit === 'Spades' },
+    { label: 'Aces', category: 'Ranks',
+      filter: a => LENORMAND_PLAYING_CARD[a.name]?.rank === 'Ace' },
+    { label: 'Sixes', category: 'Ranks',
+      filter: a => LENORMAND_PLAYING_CARD[a.name]?.rank === 'Six' },
+    { label: 'Sevens', category: 'Ranks',
+      filter: a => LENORMAND_PLAYING_CARD[a.name]?.rank === 'Seven' },
+    { label: 'Eights', category: 'Ranks',
+      filter: a => LENORMAND_PLAYING_CARD[a.name]?.rank === 'Eight' },
+    { label: 'Nines', category: 'Ranks',
+      filter: a => LENORMAND_PLAYING_CARD[a.name]?.rank === 'Nine' },
+    { label: 'Tens', category: 'Ranks',
+      filter: a => LENORMAND_PLAYING_CARD[a.name]?.rank === 'Ten' },
+    { label: 'Jacks', category: 'Ranks',
+      filter: a => LENORMAND_PLAYING_CARD[a.name]?.rank === 'Jack' },
+    { label: 'Queens', category: 'Ranks',
+      filter: a => LENORMAND_PLAYING_CARD[a.name]?.rank === 'Queen' },
+    { label: 'Kings', category: 'Ranks',
+      filter: a => LENORMAND_PLAYING_CARD[a.name]?.rank === 'King' },
+  ];
+
+  const GROUPS_BY_TYPE: Record<string, BulkGroup[]> = {
+    'Tarot': TAROT_BULK_GROUPS,
+    'Playing Cards': PLAYING_CARDS_BULK_GROUPS,
+    'Lenormand': LENORMAND_BULK_GROUPS,
+  };
+
+  const BULK_GROUPS = GROUPS_BY_TYPE[activeCartomancyType] || [];
 
   // Build ordered category list from BULK_GROUPS
   const BULK_CATEGORIES: string[] = [];
@@ -679,8 +782,16 @@ export default function CorrespondencesSection() {
                 <div className="corr-bulk__row">
                   <div className="corr-bulk__field">
                     <label className="settings-tab__label">Group</label>
-                    <select value={bulkGroup} onChange={e => setBulkGroup(e.target.value)}>
-                      <option value="">Select a group...</option>
+                    <select
+                      value={bulkGroup}
+                      onChange={e => setBulkGroup(e.target.value)}
+                      disabled={BULK_GROUPS.length === 0}
+                    >
+                      <option value="">
+                        {BULK_GROUPS.length === 0
+                          ? `No preset groups for ${activeCartomancyType}`
+                          : 'Select a group...'}
+                      </option>
                       {BULK_CATEGORIES.map(cat => (
                         <optgroup key={cat} label={cat}>
                           {BULK_GROUPS.filter(g => g.category === cat).map(g => (
@@ -739,7 +850,7 @@ export default function CorrespondencesSection() {
                   </p>
                 )}
 
-                {bulkField === 'zodiac_sign' && (
+                {bulkField === 'zodiac_sign' && activeCartomancyType === 'Tarot' && (
                   <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
                     <button
                       className="settings-tab__save-btn"
