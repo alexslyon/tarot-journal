@@ -79,9 +79,9 @@ export function displayGroupLabel(
 }
 
 /**
- * Under Marseille / Pre-Golden Dawn ordering, Justice is #8 and Strength is
- * #11 (the reverse of RWS). Return the numeric rank that should be displayed
- * for a given archetype under the selected naming style.
+ * Under Marseille and Thoth (both follow Golden Dawn ordering), Justice is #8
+ * and Strength is #11 (the reverse of RWS). Return the numeric rank that should
+ * be displayed for a given archetype under the selected naming style.
  */
 export function displayArchetypeRank(
   name: string,
@@ -89,7 +89,7 @@ export function displayArchetypeRank(
   namingStyle: string | null | undefined,
 ): string {
   if (!rank) return '';
-  if (namingStyle === 'Marseille') {
+  if (namingStyle === 'Marseille' || namingStyle === 'Thoth') {
     if (name === 'Strength') return '11';
     if (name === 'Justice') return '8';
   }
@@ -98,8 +98,8 @@ export function displayArchetypeRank(
 
 /**
  * Compute the sort key for an archetype under the selected naming style.
- * For Marseille we swap Strength (8 → 11) and Justice (11 → 8). Minor
- * arcana ranks are unchanged across all styles.
+ * For Marseille and Thoth we swap Strength (8 → 11) and Justice (11 → 8).
+ * Minor arcana ranks are unchanged across all styles.
  */
 export function archetypeSortKey(
   name: string,
@@ -107,7 +107,7 @@ export function archetypeSortKey(
   namingStyle: string | null | undefined,
 ): number {
   const n = parseInt(rank || '0', 10);
-  if (namingStyle === 'Marseille') {
+  if (namingStyle === 'Marseille' || namingStyle === 'Thoth') {
     if (name === 'Strength') return 11;
     if (name === 'Justice') return 8;
   }

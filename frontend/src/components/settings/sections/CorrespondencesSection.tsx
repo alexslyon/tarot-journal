@@ -26,7 +26,7 @@ import {
   CORRESPONDENCE_FIELD_LABELS,
 } from '../../../types';
 import { detectGroupPatterns, patternsByCategory, type PatternCategorySection } from '../../../utils/correspondencePatterns';
-import { displayArchetypeName, archetypeSortKey, displayGroupLabel } from '../../../utils/tarotNaming';
+import { displayArchetypeName, archetypeSortKey, displayArchetypeRank, displayGroupLabel } from '../../../utils/tarotNaming';
 import { LENORMAND_PLAYING_CARD, lenormandDefaultNumerology, PIP_RANK_TO_NUMBER } from '../../../utils/lenormand';
 import { tarotPipNumerology, tarotPipDecan } from '../../../utils/tarotPips';
 import FieldOptionsEditor from './FieldOptionsEditor';
@@ -164,7 +164,9 @@ export default function CorrespondencesSection() {
             const tarotArchetypes = await getArchetypes('Tarot');
             for (const a of tarotArchetypes) {
               const numerologyValue =
-                a.card_type === 'major' ? a.rank : tarotPipNumerology(a.name);
+                a.card_type === 'major'
+                  ? displayArchetypeRank(a.name, a.rank, newNamingStyle)
+                  : tarotPipNumerology(a.name);
               if (numerologyValue) {
                 await setAssignmentValues(newId, a.id, 'numerology', [numerologyValue]);
               }
