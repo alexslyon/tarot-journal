@@ -27,6 +27,7 @@ import {
 } from '../../../types';
 import { detectGroupPatterns, patternsByCategory, type PatternCategorySection } from '../../../utils/correspondencePatterns';
 import { displayArchetypeName, archetypeSortKey, displayGroupLabel } from '../../../utils/tarotNaming';
+import { LENORMAND_PLAYING_CARD, lenormandDefaultNumerology } from '../../../utils/lenormand';
 import FieldOptionsEditor from './FieldOptionsEditor';
 import '../SettingsTab.css';
 import './CorrespondencesSection.css';
@@ -121,6 +122,22 @@ export default function CorrespondencesSection() {
           naming_style: newCartomancyType === 'Tarot' ? newNamingStyle : undefined,
         });
         newId = result.id;
+
+        // Seed Lenormand systems with each card's number (1-36) and its
+        // playing-card pip rank (skipped for court cards) as numerology values
+        if (newCartomancyType === 'Lenormand') {
+          try {
+            const lenArchetypes = await getArchetypes('Lenormand');
+            await Promise.all(lenArchetypes.map(a => {
+              const values = lenormandDefaultNumerology(a.name, a.rank);
+              if (values.length === 0) return Promise.resolve();
+              return setAssignmentValues(newId, a.id, 'numerology', values);
+            }));
+          } catch (err) {
+            console.error('Failed to seed Lenormand numerology:', err);
+          }
+        }
+
         showMsg('System created', 'success');
       }
       invalidate();
@@ -281,45 +298,6 @@ export default function CorrespondencesSection() {
 
   // Lenormand cards each have a traditional playing-card inset. Group by
   // that inset's suit and rank so "Aces" in Lenormand = Ring/Man/Woman/Sun, etc.
-  const LENORMAND_PLAYING_CARD: Record<string, { suit: string; rank: string }> = {
-    'Rider':      { suit: 'Hearts',   rank: 'Nine' },
-    'Clover':     { suit: 'Diamonds', rank: 'Six' },
-    'Ship':       { suit: 'Spades',   rank: 'Ten' },
-    'House':      { suit: 'Hearts',   rank: 'King' },
-    'Tree':       { suit: 'Hearts',   rank: 'Seven' },
-    'Clouds':     { suit: 'Clubs',    rank: 'King' },
-    'Snake':      { suit: 'Clubs',    rank: 'Queen' },
-    'Coffin':     { suit: 'Diamonds', rank: 'Nine' },
-    'Bouquet':    { suit: 'Spades',   rank: 'Queen' },
-    'Scythe':     { suit: 'Diamonds', rank: 'Jack' },
-    'Whip':       { suit: 'Clubs',    rank: 'Jack' },
-    'Birds':      { suit: 'Diamonds', rank: 'Seven' },
-    'Child':      { suit: 'Spades',   rank: 'Jack' },
-    'Fox':        { suit: 'Clubs',    rank: 'Nine' },
-    'Bear':       { suit: 'Clubs',    rank: 'Ten' },
-    'Stars':      { suit: 'Hearts',   rank: 'Six' },
-    'Stork':      { suit: 'Hearts',   rank: 'Queen' },
-    'Dog':        { suit: 'Hearts',   rank: 'Ten' },
-    'Tower':      { suit: 'Spades',   rank: 'Six' },
-    'Garden':     { suit: 'Spades',   rank: 'Eight' },
-    'Mountain':   { suit: 'Clubs',    rank: 'Eight' },
-    'Crossroads': { suit: 'Diamonds', rank: 'Queen' },
-    'Mice':       { suit: 'Clubs',    rank: 'Seven' },
-    'Heart':      { suit: 'Hearts',   rank: 'Jack' },
-    'Ring':       { suit: 'Clubs',    rank: 'Ace' },
-    'Book':       { suit: 'Diamonds', rank: 'Ten' },
-    'Letter':     { suit: 'Spades',   rank: 'Seven' },
-    'Man':        { suit: 'Hearts',   rank: 'Ace' },
-    'Woman':      { suit: 'Spades',   rank: 'Ace' },
-    'Lily':       { suit: 'Spades',   rank: 'King' },
-    'Sun':        { suit: 'Diamonds', rank: 'Ace' },
-    'Moon':       { suit: 'Hearts',   rank: 'Eight' },
-    'Key':        { suit: 'Diamonds', rank: 'Eight' },
-    'Fish':       { suit: 'Diamonds', rank: 'King' },
-    'Anchor':     { suit: 'Spades',   rank: 'Nine' },
-    'Cross':      { suit: 'Clubs',    rank: 'Six' },
-  };
-
   const LENORMAND_BULK_GROUPS: BulkGroup[] = [
     { label: 'Hearts', category: 'Suits',
       filter: a => LENORMAND_PLAYING_CARD[a.name]?.suit === 'Hearts' },
