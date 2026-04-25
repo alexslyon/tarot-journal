@@ -67,13 +67,22 @@ export function displayArchetypeName(
   return name;
 }
 
+// Court rank group labels (plural) under Thoth: Pages → Princesses,
+// Knights → Princes, Queens stay Queens, Kings → Knights.
+const THOTH_COURT_GROUP_OVERRIDES: Record<string, string> = {
+  'Pages': 'Princesses',
+  'Knights': 'Princes',
+  'Kings': 'Knights',
+};
+
 /** Translate a group/suit label for display under the given style. */
 export function displayGroupLabel(
   label: string,
   namingStyle: string | null | undefined,
 ): string {
-  if (namingStyle === 'Thoth' && THOTH_SUIT_OVERRIDES[label]) {
-    return THOTH_SUIT_OVERRIDES[label];
+  if (namingStyle === 'Thoth') {
+    if (THOTH_SUIT_OVERRIDES[label]) return THOTH_SUIT_OVERRIDES[label];
+    if (THOTH_COURT_GROUP_OVERRIDES[label]) return THOTH_COURT_GROUP_OVERRIDES[label];
   }
   return label;
 }

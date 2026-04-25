@@ -14,11 +14,13 @@ import { CORRESPONDENCE_FIELDS, CORRESPONDENCE_FIELD_LABELS } from '../../types'
 import MultiValueSelect from '../common/MultiValueSelect';
 import FreeTextValue from '../common/FreeTextValue';
 import { getBulkGroups, getBulkCategories, filterArchetypesByGroup } from '../../utils/bulkGroups';
+import { displayGroupLabel } from '../../utils/tarotNaming';
 import './DeckCorrespondenceOverrides.css';
 
 interface DeckCorrespondenceOverridesProps {
   deckId: number;
   cartomancyType?: string;
+  namingStyle?: string | null;
 }
 
 /** One visible row: all values any card received for this (group, field). */
@@ -32,6 +34,7 @@ type GroupedOverride = {
 export default function DeckCorrespondenceOverrides({
   deckId,
   cartomancyType = 'Tarot',
+  namingStyle = null,
 }: DeckCorrespondenceOverridesProps) {
   const queryClient = useQueryClient();
 
@@ -165,7 +168,7 @@ export default function DeckCorrespondenceOverrides({
           {groupedList.map(g => (
             <div key={`${g.source_group}:${g.field_name}`} className="deck-corr-overrides__row">
               <span className="deck-corr-overrides__archetype">
-                {g.source_group}
+                {displayGroupLabel(g.source_group, namingStyle)}
                 <span className="deck-corr-overrides__count"> · {g.card_count} cards</span>
               </span>
               <span className="deck-corr-overrides__field">
@@ -208,7 +211,9 @@ export default function DeckCorrespondenceOverrides({
               {BULK_CATEGORIES.map(cat => (
                 <optgroup key={cat} label={cat}>
                   {BULK_GROUPS.filter(g => g.category === cat).map(g => (
-                    <option key={g.label} value={g.label}>{g.label}</option>
+                    <option key={g.label} value={g.label}>
+                      {displayGroupLabel(g.label, namingStyle)}
+                    </option>
                   ))}
                 </optgroup>
               ))}
