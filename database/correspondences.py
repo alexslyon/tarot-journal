@@ -79,11 +79,15 @@ class CorrespondencesMixin:
 
     def get_correspondence_systems(self):
         cursor = self.conn.cursor()
+        # archetype_count = total archetypes available for this cartomancy
+        # type (what the editor table shows as rows). The earlier "distinct
+        # archetypes with at least one assignment" definition was misleading
+        # — courts seeded with no values would silently shrink the count.
         cursor.execute('''
             SELECT cs.*,
-                   (SELECT COUNT(DISTINCT archetype_id)
-                    FROM correspondence_assignments
-                    WHERE system_id = cs.id) AS archetype_count,
+                   (SELECT COUNT(*)
+                    FROM card_archetypes
+                    WHERE cartomancy_type = cs.cartomancy_type) AS archetype_count,
                    (SELECT COUNT(*)
                     FROM correspondence_assignments
                     WHERE system_id = cs.id) AS assignment_count
