@@ -522,6 +522,9 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
                   <DeckCorrespondenceOverrides
                     deckId={deckId}
                     cartomancyType={overridesCartomancyType}
+                    namingStyle={
+                      corrSystems.find(s => s.id === corrSystemId)?.naming_style ?? null
+                    }
                   />
                 </div>
               )}
