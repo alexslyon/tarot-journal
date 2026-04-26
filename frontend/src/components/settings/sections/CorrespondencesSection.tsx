@@ -30,6 +30,7 @@ import { displayArchetypeName, archetypeSortKey, displayArchetypeRank, displayGr
 import { lenormandDefaultNumerology, PIP_RANK_TO_NUMBER } from '../../../utils/lenormand';
 import { tarotPipNumerology, tarotPipDecan } from '../../../utils/tarotPips';
 import { getBulkGroups, getBulkCategories, filterArchetypesByGroup } from '../../../utils/bulkGroups';
+import { expandNumerologyOnAdd } from '../../../utils/numerology';
 import FieldOptionsEditor from './FieldOptionsEditor';
 import '../SettingsTab.css';
 import './CorrespondencesSection.css';
@@ -793,7 +794,7 @@ export default function CorrespondencesSection() {
                     {bulkField === 'numerology' ? (
                       <FreeTextValue
                         values={bulkValues}
-                        onCommit={setBulkValues}
+                        onCommit={vals => setBulkValues(expandNumerologyOnAdd(bulkValues, vals))}
                         placeholder="Enter value(s)..."
                       />
                     ) : (
@@ -910,7 +911,7 @@ export default function CorrespondencesSection() {
                               <FreeTextValue
                                 key={cellKey}
                                 values={cellValues}
-                                onCommit={vals => handleSetCellValues(arch.id, f, vals)}
+                                onCommit={vals => handleSetCellValues(arch.id, f, expandNumerologyOnAdd(cellValues, vals))}
                                 compact
                               />
                             ) : (

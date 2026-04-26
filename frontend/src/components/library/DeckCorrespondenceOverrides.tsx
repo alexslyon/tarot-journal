@@ -15,6 +15,7 @@ import MultiValueSelect from '../common/MultiValueSelect';
 import FreeTextValue from '../common/FreeTextValue';
 import { getBulkGroups, getBulkCategories, filterArchetypesByGroup } from '../../utils/bulkGroups';
 import { displayGroupLabel } from '../../utils/tarotNaming';
+import { expandNumerologyOnAdd } from '../../utils/numerology';
 import './DeckCorrespondenceOverrides.css';
 
 interface DeckCorrespondenceOverridesProps {
@@ -178,7 +179,7 @@ export default function DeckCorrespondenceOverrides({
                 {g.field_name === 'numerology' ? (
                   <FreeTextValue
                     values={g.values}
-                    onCommit={vals => handleUpdateGroup(g.source_group, g.field_name, vals)}
+                    onCommit={vals => handleUpdateGroup(g.source_group, g.field_name, expandNumerologyOnAdd(g.values, vals))}
                     compact
                   />
                 ) : (
@@ -227,7 +228,7 @@ export default function DeckCorrespondenceOverrides({
               {bulkField === 'numerology' ? (
                 <FreeTextValue
                   values={bulkValues}
-                  onCommit={setBulkValues}
+                  onCommit={vals => setBulkValues(expandNumerologyOnAdd(bulkValues, vals))}
                   compact
                   placeholder="Values..."
                 />
