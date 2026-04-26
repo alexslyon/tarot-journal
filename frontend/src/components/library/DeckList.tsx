@@ -33,10 +33,13 @@ export default function DeckList({ selectedDeckId, onSelectDeck, onEditDeck, onI
     ? decks.filter((d) => d.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : decks;
 
+  // Strip a leading "The " when sorting names so "The Fool" sorts as "Fool".
+  const nameSortKey = (name: string) => name.replace(/^the\s+/i, '');
+
   const sortedDecks = [...filteredDecks].sort((a, b) => {
     let cmp = 0;
     if (sortBy === 'name') {
-      cmp = a.name.localeCompare(b.name);
+      cmp = nameSortKey(a.name).localeCompare(nameSortKey(b.name));
     } else if (sortBy === 'type') {
       cmp = (a.cartomancy_type || '').localeCompare(b.cartomancy_type || '');
     } else if (sortBy === 'cards') {
