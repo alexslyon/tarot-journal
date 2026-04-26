@@ -242,6 +242,24 @@ export const CORRESPONDENCE_FIELD_LABELS: Record<string, string> = {
   astrological_house: 'Astrological House',
 };
 
+// === Lenormand Combinations ===
+
+export interface LenormandSource {
+  id: number;
+  name: string;
+  created_at: string;
+}
+
+export interface LenormandMeaning {
+  id: number;
+  combination_id: number;
+  meaning: string;
+  source_id: number | null;
+  source_name: string | null;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface ThemeColors {
   bg_primary: string;
   bg_secondary: string;

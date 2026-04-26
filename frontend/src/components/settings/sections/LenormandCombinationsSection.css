@@ -1,0 +1,261 @@
+/* === Sources panel === */
+
+.lenormand-comb__source-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lenormand-comb__source-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--bg-primary);
+  border-radius: 3px;
+}
+
+.lenormand-comb__source-name {
+  flex: 1;
+  color: var(--text-primary);
+}
+
+.lenormand-comb__source-input {
+  flex: 1;
+}
+
+.lenormand-comb__source-add {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.lenormand-comb__add-source-btn {
+  font-size: var(--font-size-body);
+  color: var(--accent) !important;
+  background: none !important;
+  border: 1px dashed var(--accent) !important;
+  width: 100%;
+  padding: 6px !important;
+  cursor: pointer;
+}
+.lenormand-comb__add-source-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+}
+
+.lenormand-comb__empty {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  font-style: italic;
+  margin: 0 0 8px;
+}
+
+.lenormand-comb__warn {
+  font-size: var(--font-size-small);
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  border-radius: 3px;
+  padding: 8px 10px;
+  margin: 0 0 12px;
+}
+
+/* === Delete dialog === */
+
+.lenormand-comb__dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.lenormand-comb__dialog {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+  max-width: 480px;
+  width: 90%;
+  color: var(--text-primary);
+}
+
+.lenormand-comb__dialog h4 {
+  margin: 0 0 8px;
+}
+
+.lenormand-comb__dialog p {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+}
+
+.lenormand-comb__dialog-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.lenormand-comb__dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+/* === Card pickers === */
+
+.lenormand-comb__pickers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.lenormand-comb__picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lenormand-comb__picker select {
+  width: 100%;
+}
+
+.lenormand-comb__picker-image {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  min-height: 180px;
+  overflow: hidden;
+}
+
+.lenormand-comb__picker-image img {
+  max-width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+}
+
+.lenormand-comb__placeholder {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  padding: 16px;
+  text-align: center;
+}
+
+/* === Meanings editor === */
+
+.lenormand-comb__editor {
+  margin-top: 8px;
+}
+
+.lenormand-comb__meanings {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lenormand-comb__meaning-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: grab;
+}
+
+.lenormand-comb__meaning-row:active {
+  cursor: grabbing;
+}
+
+.lenormand-comb__meaning-row--dragging {
+  opacity: 0.5;
+}
+
+.lenormand-comb__meaning-row--drag-over {
+  border-top: 2px solid var(--accent);
+}
+
+.lenormand-comb__drag-handle {
+  color: var(--text-dim);
+  font-weight: bold;
+  letter-spacing: -2px;
+  user-select: none;
+  padding-top: 4px;
+}
+
+.lenormand-comb__meaning-content,
+.lenormand-comb__meaning-edit {
+  flex: 1;
+  min-width: 0;
+}
+
+.lenormand-comb__meaning-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: var(--font-size-small);
+}
+
+.lenormand-comb__meaning-source {
+  flex: 1;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.lenormand-comb__meaning-add,
+.lenormand-comb__meaning-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lenormand-comb__meaning-add-actions,
+.lenormand-comb__meaning-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.lenormand-comb__source-select {
+  width: 100%;
+}
+
+.lenormand-comb__add-meaning-btn {
+  font-size: var(--font-size-body);
+  color: var(--accent) !important;
+  background: none !important;
+  border: 1px dashed var(--accent) !important;
+  width: 100%;
+  padding: 6px !important;
+  cursor: pointer;
+}
+.lenormand-comb__add-meaning-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+}
+
+.lenormand-comb__save-btn {
+  background: var(--accent) !important;
+  color: var(--text-primary) !important;
+}
+
+.lenormand-comb__source-edit {
+  font-size: var(--font-size-small);
+}
