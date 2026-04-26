@@ -3,6 +3,7 @@ Database core: initialization, migrations, and transaction management.
 """
 
 import atexit
+import re
 import sqlite3
 import threading
 from contextlib import contextmanager
@@ -12,6 +13,26 @@ from app_config import get_config
 
 logger = get_logger('database')
 _cfg = get_config()
+
+
+_DIGITS_ONLY = re.compile(r'^\d+$')
+
+
+def _numerology_reductions(value: str) -> list:
+    """Mirror of frontend/src/utils/numerology.ts:numerologyReductions.
+
+    Returns the digit-sum reduction chain for a numeric string (e.g.
+    "156" -> ["12", "3"]). Non-numeric values return []. Single-digit
+    inputs return [] since they're already irreducible.
+    """
+    if not value or not _DIGITS_ONLY.match(value) or len(value) <= 1:
+        return []
+    out = []
+    current = value
+    while len(current) > 1:
+        current = str(sum(int(c) for c in current))
+        out.append(current)
+    return out
 
 
 class CoreMixin:
@@ -958,6 +979,50 @@ class CoreMixin:
                     (new, old)
                 )
             self.set_setting('tarot_dual_archetype_migration_done', 'true')
+
+        # One-time backfill: every existing numerology value should also have
+        # its digit-sum reductions present (so "156" gains "12" and "3").
+        # Going forward, the UI auto-expands new entries; this catches values
+        # entered before that behavior existed. INSERT OR IGNORE relies on the
+        # uniqueness constraints to skip reductions that already exist.
+        if self.get_setting('numerology_reductions_backfill_done') != 'true':
+            cursor.execute('''
+                SELECT system_id, archetype_id, source_group, field_value
+                FROM correspondence_assignments
+                WHERE field_name = 'numerology'
+            ''')
+            for r in cursor.fetchall():
+                for reduction in _numerology_reductions(r['field_value']):
+                    cursor.execute('''
+                        INSERT OR IGNORE INTO correspondence_assignments
+                            (system_id, archetype_id, field_name, field_value, source_group)
+                        VALUES (?, ?, 'numerology', ?, ?)
+                    ''', (r['system_id'], r['archetype_id'], reduction, r['source_group']))
+            cursor.execute('''
+                SELECT deck_id, archetype_id, source_group, field_value
+                FROM deck_correspondence_overrides
+                WHERE field_name = 'numerology'
+            ''')
+            for r in cursor.fetchall():
+                for reduction in _numerology_reductions(r['field_value']):
+                    cursor.execute('''
+                        INSERT OR IGNORE INTO deck_correspondence_overrides
+                            (deck_id, archetype_id, field_name, field_value, source_group)
+                        VALUES (?, ?, 'numerology', ?, ?)
+                    ''', (r['deck_id'], r['archetype_id'], reduction, r['source_group']))
+            cursor.execute('''
+                SELECT card_id, field_value
+                FROM card_correspondence_overrides
+                WHERE field_name = 'numerology'
+            ''')
+            for r in cursor.fetchall():
+                for reduction in _numerology_reductions(r['field_value']):
+                    cursor.execute('''
+                        INSERT OR IGNORE INTO card_correspondence_overrides
+                            (card_id, field_name, field_value)
+                        VALUES (?, 'numerology', ?)
+                    ''', (r['card_id'], reduction))
+            self.set_setting('numerology_reductions_backfill_done', 'true')
 
         self._commit()
 

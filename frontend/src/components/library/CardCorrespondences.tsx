@@ -4,6 +4,7 @@ import type { ResolvedCorrespondence } from '../../types';
 import { CORRESPONDENCE_FIELDS, CORRESPONDENCE_FIELD_LABELS } from '../../types';
 import MultiValueSelect from '../common/MultiValueSelect';
 import FreeTextValue from '../common/FreeTextValue';
+import { expandNumerologyOnAdd } from '../../utils/numerology';
 import './CardCorrespondences.css';
 
 interface CardCorrespondencesProps {
@@ -85,7 +86,7 @@ export default function CardCorrespondences({ cardId }: CardCorrespondencesProps
                 {fieldName === 'numerology' ? (
                   <FreeTextValue
                     values={values}
-                    onCommit={vals => commitOverride(fieldName, vals)}
+                    onCommit={vals => commitOverride(fieldName, expandNumerologyOnAdd(values, vals))}
                     compact
                   />
                 ) : (
