@@ -128,6 +128,20 @@
   border-bottom: 1px solid var(--border);
 }
 
+.corr-systems__table th[draggable="true"] {
+  cursor: grab;
+  user-select: none;
+}
+.corr-systems__table th[draggable="true"]:active {
+  cursor: grabbing;
+}
+.corr-systems__th--dragging {
+  opacity: 0.5;
+}
+.corr-systems__th--drag-over {
+  box-shadow: inset 2px 0 0 0 var(--accent);
+}
+
 .corr-systems__th--card {
   min-width: 140px;
   position: sticky;

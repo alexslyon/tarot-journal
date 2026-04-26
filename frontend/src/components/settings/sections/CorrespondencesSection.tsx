@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getCorrespondenceSystems,
@@ -56,6 +56,62 @@ export default function CorrespondencesSection() {
   const [bulkApplying, setBulkApplying] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
   const [showOptionsEditor, setShowOptionsEditor] = useState(false);
+
+  // User-controlled column order for the editor table. Persisted in
+  // localStorage so the layout sticks across sessions. Any field that's
+  // been added to CORRESPONDENCE_FIELDS since the order was saved gets
+  // appended at the end.
+  const COLUMN_ORDER_STORAGE_KEY = 'corr-editor-column-order';
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(COLUMN_ORDER_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as string[];
+        const known = parsed.filter(f => (CORRESPONDENCE_FIELDS as readonly string[]).includes(f));
+        const missing = CORRESPONDENCE_FIELDS.filter(f => !known.includes(f));
+        return [...known, ...missing];
+      }
+    } catch { /* ignore */ }
+    return [...CORRESPONDENCE_FIELDS];
+  });
+  useEffect(() => {
+    try { localStorage.setItem(COLUMN_ORDER_STORAGE_KEY, JSON.stringify(columnOrder)); }
+    catch { /* ignore */ }
+  }, [columnOrder]);
+
+  const [draggedField, setDraggedField] = useState<string | null>(null);
+  const [dragOverField, setDragOverField] = useState<string | null>(null);
+
+  const handleColumnDragStart = (e: React.DragEvent, field: string) => {
+    setDraggedField(field);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const handleColumnDragOver = (e: React.DragEvent, field: string) => {
+    if (!draggedField || draggedField === field) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverField !== field) setDragOverField(field);
+  };
+  const handleColumnDrop = (e: React.DragEvent, targetField: string) => {
+    e.preventDefault();
+    if (draggedField && draggedField !== targetField) {
+      setColumnOrder(prev => {
+        const next = [...prev];
+        const fromIdx = next.indexOf(draggedField);
+        const toIdx = next.indexOf(targetField);
+        if (fromIdx === -1 || toIdx === -1) return prev;
+        next.splice(fromIdx, 1);
+        next.splice(toIdx, 0, draggedField);
+        return next;
+      });
+    }
+    setDraggedField(null);
+    setDragOverField(null);
+  };
+  const handleColumnDragEnd = () => {
+    setDraggedField(null);
+    setDragOverField(null);
+  };
 
   const { data: systems = [] } = useQuery<CorrespondenceSystem[]>({
     queryKey: ['correspondence-systems'],
@@ -807,14 +863,29 @@ export default function CorrespondencesSection() {
             />
           </div>
 
-          {/* Assignment Table */}
+          {/* Assignment Table — column headers are draggable to reorder */}
           <div className="corr-systems__table-wrap">
             <table className="corr-systems__table">
               <thead>
                 <tr>
                   <th className="corr-systems__th--card">Card</th>
-                  {CORRESPONDENCE_FIELDS.map(f => (
-                    <th key={f}>{CORRESPONDENCE_FIELD_LABELS[f]}</th>
+                  {columnOrder.map(f => (
+                    <th
+                      key={f}
+                      draggable
+                      onDragStart={e => handleColumnDragStart(e, f)}
+                      onDragOver={e => handleColumnDragOver(e, f)}
+                      onDrop={e => handleColumnDrop(e, f)}
+                      onDragEnd={handleColumnDragEnd}
+                      onDragLeave={() => dragOverField === f && setDragOverField(null)}
+                      className={[
+                        draggedField === f ? 'corr-systems__th--dragging' : '',
+                        dragOverField === f ? 'corr-systems__th--drag-over' : '',
+                      ].filter(Boolean).join(' ')}
+                      title="Drag to reorder columns"
+                    >
+                      {CORRESPONDENCE_FIELD_LABELS[f] || f}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -827,7 +898,7 @@ export default function CorrespondencesSection() {
                       <td className="corr-systems__td--card">
                         <span className="corr-systems__card-name">{displayName}</span>
                       </td>
-                      {CORRESPONDENCE_FIELDS.map(f => {
+                      {columnOrder.map(f => {
                         const cellValues = fields?.get(f) || [];
                         // Include values in the key so React remounts the
                         // MultiValueSelect when the cell's contents change —
