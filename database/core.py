@@ -496,8 +496,9 @@ class CoreMixin:
             self.conn.commit()
             self.conn.execute('PRAGMA foreign_keys = ON')
 
-        # Migration: recreate correspondence tables if CHECK constraint is missing 'chakra'
-        # or if source_group column is missing (needed for multi-value support)
+        # Migration: recreate correspondence tables when the CHECK constraint
+        # is missing a newer field, or when source_group / unique-index changes
+        # are needed for multi-value support.
         cursor.execute("SELECT sql FROM sqlite_master WHERE name='correspondence_assignments'")
         row = cursor.fetchone()
         needs_recreate = False
@@ -505,15 +506,27 @@ class CoreMixin:
             existing_sql = row[0] or ''
             if ('chakra' not in existing_sql
                     or 'source_group' not in existing_sql
-                    or 'modality' not in existing_sql):
+                    or 'modality' not in existing_sql
+                    or 'astrological_house' not in existing_sql):
                 needs_recreate = True
 
         # Also check card_correspondence_overrides — drop the old UNIQUE(card_id, field_name)
-        # constraint so card overrides can be multi-value.
+        # constraint so card overrides can be multi-value, and add astrological_house.
         cursor.execute("SELECT sql FROM sqlite_master WHERE name='card_correspondence_overrides'")
         cco_row = cursor.fetchone()
-        if cco_row and 'UNIQUE(card_id, field_name)' in (cco_row[0] or ''):
-            needs_recreate = True
+        if cco_row:
+            cco_sql = cco_row[0] or ''
+            if ('UNIQUE(card_id, field_name)' in cco_sql
+                    or 'astrological_house' not in cco_sql):
+                needs_recreate = True
+
+        # And deck_correspondence_overrides — needs to learn astrological_house too.
+        cursor.execute("SELECT sql FROM sqlite_master WHERE name='deck_correspondence_overrides'")
+        dco_row = cursor.fetchone()
+        deck_overrides_needs_recreate = bool(
+            dco_row and 'astrological_house' not in (dco_row[0] or '')
+        )
+
         if needs_recreate:
             cursor.execute('SELECT * FROM correspondence_assignments')
             saved_assignments = [dict(r) for r in cursor.fetchall()]
@@ -522,6 +535,11 @@ class CoreMixin:
             cursor.execute('DROP TABLE IF EXISTS correspondence_assignments')
             cursor.execute('DROP TABLE IF EXISTS card_correspondence_overrides')
             self._needs_corr_restore = (saved_assignments, saved_overrides)
+
+        if deck_overrides_needs_recreate:
+            cursor.execute('SELECT * FROM deck_correspondence_overrides')
+            self._needs_deck_overrides_restore = [dict(r) for r in cursor.fetchall()]
+            cursor.execute('DROP TABLE IF EXISTS deck_correspondence_overrides')
 
         # Correspondence systems (RWS, Thoth, Golden Dawn, user-defined)
         cursor.execute('''
@@ -556,7 +574,7 @@ class CoreMixin:
                 field_name TEXT NOT NULL CHECK(field_name IN (
                     'element', 'planet', 'zodiac_sign', 'decan',
                     'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram',
-                    'chakra', 'modality'
+                    'chakra', 'modality', 'astrological_house'
                 )),
                 field_value TEXT NOT NULL,
                 source_group TEXT,
@@ -588,7 +606,7 @@ class CoreMixin:
                 field_name TEXT NOT NULL CHECK(field_name IN (
                     'element', 'planet', 'zodiac_sign', 'decan',
                     'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram',
-                    'chakra', 'modality'
+                    'chakra', 'modality', 'astrological_house'
                 )),
                 field_value TEXT,
                 FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE
@@ -613,7 +631,7 @@ class CoreMixin:
                 field_name TEXT NOT NULL CHECK(field_name IN (
                     'element', 'planet', 'zodiac_sign', 'decan',
                     'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram',
-                    'chakra', 'modality'
+                    'chakra', 'modality', 'astrological_house'
                 )),
                 field_value TEXT,
                 source_group TEXT,
@@ -646,14 +664,18 @@ class CoreMixin:
             ON deck_correspondence_overrides(deck_id)
         ''')
 
-        # Migration: recreate field options table if CHECK constraint is missing 'modality'
+        # Migration: recreate field options table when the CHECK constraint
+        # is missing a newer field.
         cursor.execute("SELECT sql FROM sqlite_master WHERE name='correspondence_field_options'")
         fo_row = cursor.fetchone()
-        if fo_row and 'modality' not in (fo_row[0] or ''):
-            cursor.execute('SELECT * FROM correspondence_field_options')
-            saved_options = [dict(r) for r in cursor.fetchall()]
-            cursor.execute('DROP TABLE IF EXISTS correspondence_field_options')
-            self._needs_options_restore = saved_options
+        if fo_row:
+            fo_sql = fo_row[0] or ''
+            if ('modality' not in fo_sql
+                    or 'astrological_house' not in fo_sql):
+                cursor.execute('SELECT * FROM correspondence_field_options')
+                saved_options = [dict(r) for r in cursor.fetchall()]
+                cursor.execute('DROP TABLE IF EXISTS correspondence_field_options')
+                self._needs_options_restore = saved_options
 
         # Correspondence field options: the allowed values for each correspondence field
         # (Element, Planet, Zodiac, etc). Global list, shared across all systems.
@@ -663,7 +685,7 @@ class CoreMixin:
                 field_name TEXT NOT NULL CHECK(field_name IN (
                     'element', 'planet', 'zodiac_sign', 'decan',
                     'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram',
-                    'chakra', 'modality'
+                    'chakra', 'modality', 'astrological_house'
                 )),
                 option_value TEXT NOT NULL,
                 sort_order INTEGER DEFAULT 0,
@@ -741,6 +763,21 @@ class CoreMixin:
                 ''', (o['field_name'], o['option_value'], o['sort_order']))
             del self._needs_options_restore
 
+        # Restore deck-level overrides after CHECK constraint migration
+        if hasattr(self, '_needs_deck_overrides_restore'):
+            self.conn.commit()
+            self.conn.execute('PRAGMA foreign_keys = OFF')
+            for o in self._needs_deck_overrides_restore:
+                cursor.execute('''
+                    INSERT OR IGNORE INTO deck_correspondence_overrides
+                        (deck_id, archetype_id, field_name, field_value, source_group)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (o['deck_id'], o['archetype_id'], o['field_name'],
+                      o['field_value'], o.get('source_group')))
+            self.conn.commit()
+            self.conn.execute('PRAGMA foreign_keys = ON')
+            del self._needs_deck_overrides_restore
+
         # Seed card archetypes if table is empty
         cursor.execute('SELECT COUNT(*) FROM card_archetypes')
         if cursor.fetchone()[0] == 0:
@@ -811,12 +848,16 @@ class CoreMixin:
                 )
             self.set_setting('source_group_label_migration_done', 'true')
 
-        # Seed correspondence field options if table is empty, or if modality is missing
+        # Seed correspondence field options if table is empty, or if a newer
+        # field's options haven't been added yet. INSERT OR IGNORE in the
+        # seeder makes it safe to re-run.
         cursor.execute('SELECT COUNT(*) FROM correspondence_field_options')
         total_options = cursor.fetchone()[0]
         cursor.execute("SELECT COUNT(*) FROM correspondence_field_options WHERE field_name = 'modality'")
         modality_count = cursor.fetchone()[0]
-        if total_options == 0 or modality_count == 0:
+        cursor.execute("SELECT COUNT(*) FROM correspondence_field_options WHERE field_name = 'astrological_house'")
+        house_count = cursor.fetchone()[0]
+        if total_options == 0 or modality_count == 0 or house_count == 0:
             from database.correspondence_seed import seed_field_options
             seed_field_options(cursor)
 
