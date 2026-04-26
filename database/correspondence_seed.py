@@ -201,6 +201,38 @@ def _insert_assignment(cursor, system_id, archetype_id, field_name, field_value)
     ''', (system_id, archetype_id, field_name, field_value))
 
 
+def seed_i_ching_correspondences(cursor):
+    """Create the I Ching Default system mapping each archetype to its hexagram.
+
+    Joins on rank (1-64) so the mapping is robust against archetype-name
+    edits — every I Ching archetype gets the matching I_CHING_HEXAGRAMS entry.
+    """
+    cursor.execute('''
+        INSERT INTO correspondence_systems
+            (name, description, is_builtin, cartomancy_type)
+        VALUES (?, ?, 1, 'I Ching')
+    ''', (
+        'I Ching Default',
+        'Each I Ching card mapped to its corresponding hexagram.',
+    ))
+    system_id = cursor.lastrowid
+
+    cursor.execute(
+        "SELECT id, rank FROM card_archetypes WHERE cartomancy_type = 'I Ching'"
+    )
+    for arch_id, rank in cursor.fetchall():
+        try:
+            n = int(rank)
+        except (TypeError, ValueError):
+            continue
+        if not 1 <= n <= 64:
+            continue
+        _insert_assignment(
+            cursor, system_id, arch_id, 'i_ching_hexagram',
+            I_CHING_HEXAGRAMS[n - 1],
+        )
+
+
 I_CHING_HEXAGRAMS = [
     '1 \u4dc0 The Creative',
     '2 \u4dc1 The Receptive',
