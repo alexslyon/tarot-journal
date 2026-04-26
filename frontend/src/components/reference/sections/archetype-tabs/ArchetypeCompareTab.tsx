@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getDecks, getCartomancyTypes } from '../../../../api/decks';
-import { getCards } from '../../../../api/cards';
+import { getCards, getCard } from '../../../../api/cards';
 import { cardPreviewUrl } from '../../../../api/images';
 import { getCardCorrespondences } from '../../../../api/correspondences';
 import { getArchetypeNotes } from '../../../../api/archetypeNotes';
@@ -19,6 +19,20 @@ import type {
 } from '../../../../types';
 import type { Archetype } from '../../../../api/correspondences';
 import './ArchetypeCompareTab.css';
+
+// The card detail endpoint returns these joined extras alongside the Card row.
+interface CardDetail extends Card {
+  card_custom_fields?: Array<{
+    field_name: string;
+    field_value: string | null;
+    field_type: string;
+  }>;
+}
+
+function plainTextHasContent(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return value.replace(/<[^>]*>/g, '').trim().length > 0;
+}
 
 interface Props {
   archetype: Archetype;
@@ -133,6 +147,30 @@ function CompareColumn({
     return m;
   }, [corrs]);
 
+  // Full card detail for custom fields. The basic deck listing doesn't carry
+  // them; we have to fetch each card individually.
+  const { data: cardDetail } = useQuery<CardDetail>({
+    queryKey: ['card-detail', matchingCard?.id],
+    queryFn: () => getCard(matchingCard!.id),
+    enabled: matchingCard?.id != null,
+  });
+  const customFields = useMemo(() => {
+    if (!cardDetail) return [] as { field_name: string; field_value: string }[];
+    // Legacy JSON blob in card.custom_fields
+    let legacy: Record<string, string> = {};
+    if (cardDetail.custom_fields) {
+      try { legacy = JSON.parse(cardDetail.custom_fields); }
+      catch { /* ignore parse errors on legacy data */ }
+    }
+    const legacyEntries = Object.entries(legacy)
+      .filter(([_, v]) => plainTextHasContent(v))
+      .map(([field_name, field_value]) => ({ field_name, field_value }));
+    const tableEntries = (cardDetail.card_custom_fields || [])
+      .filter(f => plainTextHasContent(f.field_value))
+      .map(f => ({ field_name: f.field_name, field_value: f.field_value || '' }));
+    return [...legacyEntries, ...tableEntries];
+  }, [cardDetail]);
+
   // Group notes by field for display, same shape as the Notes sub-tab.
   const noteFields = useMemo(() => {
     const m = new Map<number, { fieldName: string; fieldOrder: number; entries: ArchetypeNoteEntry[] }>();
@@ -197,6 +235,17 @@ function CompareColumn({
             );
           })}
         </dl>
+      )}
+
+      {customFields.length > 0 && (
+        <div className="archetype-compare__custom">
+          {customFields.map((f, i) => (
+            <div key={`${f.field_name}-${i}`} className="archetype-compare__custom-field">
+              <h5>{f.field_name}</h5>
+              <RichTextViewer content={f.field_value} />
+            </div>
+          ))}
+        </div>
       )}
 
       {noteFields.length > 0 && (
