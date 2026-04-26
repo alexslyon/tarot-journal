@@ -5,22 +5,25 @@ import { getCards } from '../../../../api/cards';
 import { cardPreviewUrl } from '../../../../api/images';
 import type { Archetype } from '../../../../api/correspondences';
 import type { Deck, Card, CartomancyType } from '../../../../types';
-import './ArchetypeImageTab.css';
+import './ArchetypeCardImage.css';
 
 interface Props {
   archetype: Archetype;
   cartomancyType: string;
+  /** Optional className passed through to the outer container so consumers
+   *  can compose layouts (e.g. side-by-side with the tab content). */
+  className?: string;
 }
 
 /**
- * Saved last-deck-per-archetype, so picking a deck for "The Fool" remembers it
- * across sessions and across navigation between archetypes.
+ * Shows the selected card from a deck of choice. Used as the top banner of
+ * the Languages, Correspondences, and Notes sub-tabs. Deck selection is
+ * remembered per archetype across sessions, shared across all consumers.
  */
 const STORAGE_KEY = (archetypeId: number) =>
   `archetypes-viewer.image.deck.${archetypeId}`;
 
-export default function ArchetypeImageTab({ archetype, cartomancyType }: Props) {
-  // Look up the cartomancy type id so we can filter decks server-side.
+export default function ArchetypeCardImage({ archetype, cartomancyType, className }: Props) {
   const { data: types = [] } = useQuery<CartomancyType[]>({
     queryKey: ['cartomancy-types'],
     queryFn: getCartomancyTypes,
@@ -36,7 +39,6 @@ export default function ArchetypeImageTab({ archetype, cartomancyType }: Props) 
     enabled: typeId != null,
   });
 
-  // Saved selection per archetype, with a fallback to the first available deck.
   const [deckId, setDeckId] = useState<number | null>(null);
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY(archetype.id));
@@ -55,7 +57,6 @@ export default function ArchetypeImageTab({ archetype, cartomancyType }: Props) 
     }
   }, [archetype.id, deckId]);
 
-  // Find the matching card in the selected deck via the archetype name.
   const { data: deckCards = [] } = useQuery<Card[]>({
     queryKey: ['cards', deckId],
     queryFn: () => (deckId != null ? getCards(deckId) : Promise.resolve([])),
@@ -68,41 +69,38 @@ export default function ArchetypeImageTab({ archetype, cartomancyType }: Props) 
 
   if (decks.length === 0) {
     return (
-      <div className="archetype-image">
-        <p className="archetype-image__empty">
-          No {cartomancyType} decks in your library yet. Add a deck to view its
-          cards here.
+      <aside className={`archetype-card-image ${className || ''}`}>
+        <p className="archetype-card-image__empty">
+          No {cartomancyType} decks in your library yet.
         </p>
-      </div>
+      </aside>
     );
   }
 
   return (
-    <div className="archetype-image">
-      <div className="archetype-image__deck-row">
-        <label className="archetype-image__label">Deck</label>
-        <select
-          value={deckId ?? ''}
-          onChange={e => setDeckId(e.target.value ? Number(e.target.value) : null)}
-        >
-          {decks.map(d => (
-            <option key={d.id} value={d.id}>{d.name}</option>
-          ))}
-        </select>
-      </div>
-      <div className="archetype-image__viewer">
+    <aside className={`archetype-card-image ${className || ''}`}>
+      <div className="archetype-card-image__viewer">
         {matchingCard ? (
           <img
-            className="archetype-image__img"
+            className="archetype-card-image__img"
             src={cardPreviewUrl(matchingCard.id)}
-            alt={`${archetype.name} from ${decks.find(d => d.id === deckId)?.name ?? ''}`}
+            alt={archetype.name}
           />
         ) : (
-          <div className="archetype-image__placeholder">
-            This deck doesn't have a card matching "{archetype.name}".
+          <div className="archetype-card-image__placeholder">
+            No matching card in this deck.
           </div>
         )}
       </div>
-    </div>
+      <select
+        className="archetype-card-image__deck"
+        value={deckId ?? ''}
+        onChange={e => setDeckId(e.target.value ? Number(e.target.value) : null)}
+      >
+        {decks.map(d => (
+          <option key={d.id} value={d.id}>{d.name}</option>
+        ))}
+      </select>
+    </aside>
   );
 }

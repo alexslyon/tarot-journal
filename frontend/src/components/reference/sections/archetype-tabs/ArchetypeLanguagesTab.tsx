@@ -4,6 +4,7 @@ import {
   getArchetypeNames,
   getArchetypeNamesForType,
 } from '../../../../api/archetypeLanguages';
+import ArchetypeCardImage from './ArchetypeCardImage';
 import type { Archetype } from '../../../../api/correspondences';
 import type { ArchetypeLanguageName } from '../../../../types';
 import './ArchetypeLanguagesTab.css';
@@ -67,8 +68,17 @@ export default function ArchetypeLanguagesTab({
       </div>
 
       {mode === 'card' ? (
-        <CardModeView archetype={archetype} />
+        <div className="archetype-langs__body">
+          <ArchetypeCardImage
+            archetype={archetype}
+            cartomancyType={cartomancyType}
+          />
+          <div className="archetype-langs__main">
+            <CardModeView archetype={archetype} />
+          </div>
+        </div>
       ) : (
+        // Table mode benefits from full width — image is hidden in this mode.
         <TableModeView
           cartomancyType={cartomancyType}
           archetypes={archetypes}

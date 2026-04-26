@@ -3,6 +3,18 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.archetype-corr__body {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.archetype-corr__main {
+  flex: 1;
+  min-width: 0;
   max-width: 720px;
 }
 

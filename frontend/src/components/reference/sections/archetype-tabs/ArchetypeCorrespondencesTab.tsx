@@ -11,6 +11,7 @@ import {
   type CorrespondenceSystem,
   type CorrespondenceAssignment,
 } from '../../../../types';
+import ArchetypeCardImage from './ArchetypeCardImage';
 import './ArchetypeCorrespondencesTab.css';
 
 interface Props {
@@ -108,24 +109,32 @@ export default function ArchetypeCorrespondencesTab({
         )}
       </div>
 
-      {populatedFields.length === 0 ? (
-        <p className="archetype-corr__empty">
-          No correspondence values set for {archetype.name} in this system.
-        </p>
-      ) : (
-        <dl className="archetype-corr__list">
-          {populatedFields.map(f => (
-            <div key={f} className="archetype-corr__row">
-              <dt className="archetype-corr__field">
-                {CORRESPONDENCE_FIELD_LABELS[f] || f}
-              </dt>
-              <dd className="archetype-corr__values">
-                {(valuesByField.get(f) || []).join(', ')}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      )}
+      <div className="archetype-corr__body">
+        <ArchetypeCardImage
+          archetype={archetype}
+          cartomancyType={cartomancyType}
+        />
+        <div className="archetype-corr__main">
+          {populatedFields.length === 0 ? (
+            <p className="archetype-corr__empty">
+              No correspondence values set for {archetype.name} in this system.
+            </p>
+          ) : (
+            <dl className="archetype-corr__list">
+              {populatedFields.map(f => (
+                <div key={f} className="archetype-corr__row">
+                  <dt className="archetype-corr__field">
+                    {CORRESPONDENCE_FIELD_LABELS[f] || f}
+                  </dt>
+                  <dd className="archetype-corr__values">
+                    {(valuesByField.get(f) || []).join(', ')}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

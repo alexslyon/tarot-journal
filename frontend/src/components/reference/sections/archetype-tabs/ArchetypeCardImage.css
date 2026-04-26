@@ -1,0 +1,52 @@
+/* Default look: a vertical sidebar with the image on top and the deck
+ * selector beneath. Consumers pair it with their main content via flex
+ * (see ArchetypeLanguagesTab.css etc.). */
+
+.archetype-card-image {
+  flex: 0 0 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-self: flex-start;
+}
+
+.archetype-card-image__viewer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  min-height: 320px;
+  overflow: hidden;
+}
+
+.archetype-card-image__img {
+  max-width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+}
+
+.archetype-card-image__placeholder {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  text-align: center;
+  padding: 16px;
+}
+
+.archetype-card-image__deck {
+  width: 100%;
+}
+
+.archetype-card-image__empty {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  font-style: italic;
+  text-align: center;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: 0;
+}

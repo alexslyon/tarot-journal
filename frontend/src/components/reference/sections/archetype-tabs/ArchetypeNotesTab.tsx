@@ -2,12 +2,14 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getArchetypeNotes } from '../../../../api/archetypeNotes';
 import RichTextViewer from '../../../common/RichTextViewer';
+import ArchetypeCardImage from './ArchetypeCardImage';
 import type { Archetype } from '../../../../api/correspondences';
 import type { ArchetypeNoteEntry } from '../../../../types';
 import './ArchetypeNotesTab.css';
 
 interface Props {
   archetype: Archetype;
+  cartomancyType: string;
   onNavigateToSettings?: (
     section: string,
     payload?: { archetypeId?: number; fieldId?: number },
@@ -24,7 +26,7 @@ interface FieldGroup {
 
 const UNSOURCED_KEY = '__other__';
 
-export default function ArchetypeNotesTab({ archetype, onNavigateToSettings }: Props) {
+export default function ArchetypeNotesTab({ archetype, cartomancyType, onNavigateToSettings }: Props) {
   const { data: rawEntries = [] } = useQuery<ArchetypeNoteEntry[]>({
     queryKey: ['archetype-notes', archetype.id],
     queryFn: () => getArchetypeNotes(archetype.id),
@@ -91,32 +93,40 @@ export default function ArchetypeNotesTab({ archetype, onNavigateToSettings }: P
         )}
       </div>
 
-      {populatedGroups.length === 0 ? (
-        <p className="archetype-notes__empty">
-          No notes for {archetype.name} yet.
-          {onNavigateToSettings && ' Click "Edit in Settings" to add some.'}
-        </p>
-      ) : (
-        populatedGroups.map(fg => (
-          <section key={fg.fieldId} className="archetype-notes__field">
-            <h4 className="archetype-notes__field-name">{fg.fieldName}</h4>
-            {fg.sourceOrder.map(sourceKey => (
-              <div key={sourceKey} className="archetype-notes__source-block">
-                <h5 className="archetype-notes__source-label">
-                  {sourceKey === UNSOURCED_KEY ? 'Other' : sourceKey}
-                </h5>
-                <ul className="archetype-notes__entries">
-                  {fg.bySource.get(sourceKey)!.map(e => (
-                    <li key={e.id} className="archetype-notes__entry">
-                      <RichTextViewer content={e.content} />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </section>
-        ))
-      )}
+      <div className="archetype-notes__body">
+        <ArchetypeCardImage
+          archetype={archetype}
+          cartomancyType={cartomancyType}
+        />
+        <div className="archetype-notes__main">
+          {populatedGroups.length === 0 ? (
+            <p className="archetype-notes__empty">
+              No notes for {archetype.name} yet.
+              {onNavigateToSettings && ' Click "Edit in Settings" to add some.'}
+            </p>
+          ) : (
+            populatedGroups.map(fg => (
+              <section key={fg.fieldId} className="archetype-notes__field">
+                <h4 className="archetype-notes__field-name">{fg.fieldName}</h4>
+                {fg.sourceOrder.map(sourceKey => (
+                  <div key={sourceKey} className="archetype-notes__source-block">
+                    <h5 className="archetype-notes__source-label">
+                      {sourceKey === UNSOURCED_KEY ? 'Other' : sourceKey}
+                    </h5>
+                    <ul className="archetype-notes__entries">
+                      {fg.bySource.get(sourceKey)!.map(e => (
+                        <li key={e.id} className="archetype-notes__entry">
+                          <RichTextViewer content={e.content} />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </section>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }

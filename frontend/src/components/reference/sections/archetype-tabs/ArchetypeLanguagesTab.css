@@ -5,6 +5,21 @@
   gap: 16px;
 }
 
+.archetype-langs__body {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.archetype-langs__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .archetype-langs__header {
   display: flex;
   align-items: center;
