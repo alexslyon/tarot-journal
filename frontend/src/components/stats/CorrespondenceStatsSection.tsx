@@ -17,6 +17,23 @@ const CHART_COLORS = [
   '#cc99cd', '#f99157', '#6699cc',
 ];
 
+// Semantic colors for fields where each value has a conventional association.
+// Falls back to the indexed CHART_COLORS for fields not listed here.
+const VALUE_COLORS: Record<string, Record<string, string>> = {
+  element: {
+    Fire: '#e06c75',    // red
+    Water: '#61afef',   // blue
+    Air: '#e5c07b',     // yellow
+    Earth: '#98c379',   // green
+    Aether: '#c678dd',  // purple
+    Spirit: '#d19a66',  // orange
+  },
+};
+
+function colorForCell(field: string, value: string, index: number): string {
+  return VALUE_COLORS[field]?.[value] || CHART_COLORS[index % CHART_COLORS.length];
+}
+
 interface CorrespondenceStatsSectionProps {
   defaultField?: string;
 }
@@ -108,8 +125,8 @@ export default function CorrespondenceStatsSection({ defaultField = 'element' }:
                 }
                 labelLine={{ stroke: 'var(--text-dim)' }}
               >
-                {frequency.map((_, i) => (
-                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                {frequency.map((entry, i) => (
+                  <Cell key={i} fill={colorForCell(selectedField, entry.value, i)} />
                 ))}
               </Pie>
               <Tooltip content={<FrequencyTooltip />} />
@@ -141,8 +158,8 @@ export default function CorrespondenceStatsSection({ defaultField = 'element' }:
               />
               <Tooltip content={<FrequencyTooltip />} cursor={{ fill: 'var(--bg-tertiary)' }} />
               <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={20}>
-                {frequency.map((_, i) => (
-                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                {frequency.map((entry, i) => (
+                  <Cell key={i} fill={colorForCell(selectedField, entry.value, i)} />
                 ))}
               </Bar>
             </BarChart>
