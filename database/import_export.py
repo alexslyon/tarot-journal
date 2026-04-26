@@ -482,43 +482,42 @@ class ImportExportMixin:
             "image_count": len(image_paths) if include_images else 0
         }
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
+        # Flush any pending writes so the DB on disk is up to date.
+        self.conn.commit()
 
-            # Copy database (always flush, even inside a transaction)
-            self.conn.commit()
-            db_backup_path = temp_path / "tarot_journal.db"
-            shutil.copy2(self.db_path, db_backup_path)
+        # Build the archive in one pass. ZIP_DEFLATED is reserved for the DB
+        # and small JSON entries that compress well; image entries are stored
+        # uncompressed because JPEG/PNG/WebP gain nothing from re-deflation
+        # and re-deflating an 80 GB image library was the actual cause of the
+        # backup hanging for users with large collections.
+        presets_path = script_dir / "import_presets.json"
+        presets_included = presets_path.exists()
+        images_added = 0
 
-            # Copy import_presets.json if it exists
-            presets_path = script_dir / "import_presets.json"
-            presets_included = False
-            if presets_path.exists():
-                shutil.copy2(presets_path, temp_path / "import_presets.json")
-                presets_included = True
+        with zipfile.ZipFile(filepath, 'w', allowZip64=True) as zf:
+            zf.writestr(
+                "manifest.json",
+                json.dumps(manifest, indent=2),
+                compress_type=zipfile.ZIP_DEFLATED,
+            )
+            zf.write(self.db_path, "tarot_journal.db",
+                     compress_type=zipfile.ZIP_DEFLATED)
+            if presets_included:
+                zf.write(presets_path, "import_presets.json",
+                         compress_type=zipfile.ZIP_DEFLATED)
 
-            # Write manifest
-            with open(temp_path / "manifest.json", 'w') as f:
-                json.dump(manifest, f, indent=2)
-
-            # Create ZIP file
-            with zipfile.ZipFile(filepath, 'w', zipfile.ZIP_DEFLATED) as zf:
-                zf.write(temp_path / "manifest.json", "manifest.json")
-                zf.write(db_backup_path, "tarot_journal.db")
-
-                if presets_included:
-                    zf.write(temp_path / "import_presets.json", "import_presets.json")
-
-                # Add images if requested
-                images_added = 0
-                if include_images:
-                    for img_path in image_paths:
-                        img_file = Path(img_path)
-                        if img_file.exists():
-                            # Store with relative path under images/
-                            archive_path = f"images/{img_file.parent.name}/{img_file.name}"
-                            zf.write(img_file, archive_path)
-                            images_added += 1
+            if include_images:
+                for img_path in image_paths:
+                    img_file = Path(img_path)
+                    if not img_file.exists():
+                        continue
+                    archive_path = f"images/{img_file.parent.name}/{img_file.name}"
+                    zf.write(img_file, archive_path,
+                             compress_type=zipfile.ZIP_STORED)
+                    images_added += 1
+                    if images_added % 500 == 0:
+                        logger.info("Backup progress: %d/%d images written",
+                                    images_added, len(image_paths))
 
         # Store last backup time in settings
         self.set_setting("last_backup_time", datetime.now().isoformat())
