@@ -1,0 +1,119 @@
+.lenormand-comb-view__warn {
+  font-size: var(--font-size-small);
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  border-radius: 3px;
+  padding: 8px 10px;
+  margin: 0 0 12px;
+}
+
+.lenormand-comb-view__pickers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.lenormand-comb-view__picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lenormand-comb-view__picker-label {
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
+}
+
+.lenormand-comb-view__picker select {
+  width: 100%;
+}
+
+.lenormand-comb-view__picker-image {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  min-height: 220px;
+  overflow: hidden;
+}
+
+.lenormand-comb-view__picker-image img {
+  max-width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+}
+
+.lenormand-comb-view__placeholder {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  padding: 16px;
+  text-align: center;
+}
+
+.lenormand-comb-view__empty {
+  padding: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.lenormand-comb-view__empty p {
+  margin: 0 0 8px;
+  color: var(--text-dim);
+}
+
+.lenormand-comb-view__edit-link {
+  background: none !important;
+  color: var(--accent) !important;
+  border: 1px solid var(--accent) !important;
+  padding: 6px 12px !important;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.lenormand-comb-view__edit-link:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+}
+
+.lenormand-comb-view__results {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lenormand-comb-view__group {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+}
+
+.lenormand-comb-view__group-label {
+  font-size: var(--font-size-body);
+  color: var(--accent);
+  margin: 0 0 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+
+.lenormand-comb-view__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lenormand-comb-view__item {
+  color: var(--text-primary);
+}

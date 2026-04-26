@@ -14,6 +14,7 @@ from .profiles import ProfilesMixin
 from .settings import SettingsMixin
 from .import_export import ImportExportMixin
 from .correspondences import CorrespondencesMixin
+from .lenormand_combinations import LenormandCombinationsMixin
 
 
 class Database(
@@ -27,6 +28,7 @@ class Database(
     SettingsMixin,
     ImportExportMixin,
     CorrespondencesMixin,
+    LenormandCombinationsMixin,
 ):
     """
     Main database class combining all functionality.

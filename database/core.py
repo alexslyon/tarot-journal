@@ -694,6 +694,52 @@ class CoreMixin:
         ''')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_corr_field_options_field ON correspondence_field_options(field_name, sort_order)')
 
+        # Lenormand combinations reference data — the Reference tab feature
+        # for looking up meanings of any ordered Lenormand pair (e.g. Dog+Ring).
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS lenormand_sources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        # An ordered card pair. Same-card pairs are forbidden, and we only
+        # create rows on demand when at least one meaning is being added.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS lenormand_combinations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                card_1 INTEGER NOT NULL CHECK(card_1 BETWEEN 1 AND 36),
+                card_2 INTEGER NOT NULL CHECK(card_2 BETWEEN 1 AND 36),
+                CHECK(card_1 != card_2),
+                UNIQUE(card_1, card_2)
+            )
+        ''')
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_lenormand_combinations_pair '
+            'ON lenormand_combinations(card_1, card_2)'
+        )
+
+        # One row per meaning. Multiple meanings can share a combination, and
+        # source_id is nullable so unsourced meanings are allowed. Cascade
+        # deletes from combinations so we can drop empty combinations cleanly.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS lenormand_meanings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                combination_id INTEGER NOT NULL,
+                meaning TEXT NOT NULL,
+                source_id INTEGER,
+                sort_order INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (combination_id) REFERENCES lenormand_combinations(id) ON DELETE CASCADE,
+                FOREIGN KEY (source_id) REFERENCES lenormand_sources(id) ON DELETE SET NULL
+            )
+        ''')
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_lenormand_meanings_combination '
+            'ON lenormand_meanings(combination_id, sort_order)'
+        )
+
         # Migration: add correspondence_system_id to decks
         cursor.execute("PRAGMA table_info(decks)")
         deck_cols = [col[1] for col in cursor.fetchall()]

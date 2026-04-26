@@ -6,6 +6,7 @@ import ImportPresetsSection from './sections/ImportPresetsSection';
 import BackupSection from './sections/BackupSection';
 import CacheSection from './sections/CacheSection';
 import CorrespondencesSection from './sections/CorrespondencesSection';
+import LenormandCombinationsSection from './sections/LenormandCombinationsSection';
 import './SettingsLayout.css';
 
 export type SettingsSectionId =
@@ -13,6 +14,7 @@ export type SettingsSectionId =
   | 'profiles'
   | 'tags'
   | 'correspondences'
+  | 'lenormand-combinations'
   | 'import-presets'
   | 'backup'
   | 'cache';
@@ -22,6 +24,7 @@ const SECTIONS: { id: SettingsSectionId; label: string }[] = [
   { id: 'profiles', label: 'Profiles' },
   { id: 'tags', label: 'Tags' },
   { id: 'correspondences', label: 'Correspondences' },
+  { id: 'lenormand-combinations', label: 'Lenormand Combinations' },
   { id: 'import-presets', label: 'Import Presets' },
   { id: 'backup', label: 'Backup & Restore' },
   { id: 'cache', label: 'Thumbnail Cache' },
@@ -29,10 +32,17 @@ const SECTIONS: { id: SettingsSectionId; label: string }[] = [
 
 interface SettingsLayoutProps {
   initialSection?: string;
+  /** Optional pre-selected card pair for the Lenormand Combinations editor
+   *  (used by the Reference deep-link). */
+  initialLenormandCombination?: { card_1: number; card_2: number };
   onSectionViewed?: () => void;
 }
 
-export default function SettingsLayout({ initialSection, onSectionViewed }: SettingsLayoutProps) {
+export default function SettingsLayout({
+  initialSection,
+  initialLenormandCombination,
+  onSectionViewed,
+}: SettingsLayoutProps) {
   const [activeSection, setActiveSection] = useState<SettingsSectionId>('general');
 
   useEffect(() => {
@@ -60,6 +70,11 @@ export default function SettingsLayout({ initialSection, onSectionViewed }: Sett
         {activeSection === 'profiles' && <ProfilesSection />}
         {activeSection === 'tags' && <TagsSection />}
         {activeSection === 'correspondences' && <CorrespondencesSection />}
+        {activeSection === 'lenormand-combinations' && (
+          <LenormandCombinationsSection
+            initialCards={initialLenormandCombination}
+          />
+        )}
         {activeSection === 'import-presets' && <ImportPresetsSection />}
         {activeSection === 'backup' && <BackupSection />}
         {activeSection === 'cache' && <CacheSection />}

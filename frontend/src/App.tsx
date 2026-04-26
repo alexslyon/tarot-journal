@@ -20,9 +20,14 @@ const queryClient = new QueryClient({
   },
 });
 
+interface SettingsDeepLinkPayload {
+  lenormandCombination?: { card_1: number; card_2: number };
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('library');
   const [settingsSection, setSettingsSection] = useState<string | undefined>();
+  const [settingsPayload, setSettingsPayload] = useState<SettingsDeepLinkPayload | undefined>();
 
   const handleTabChange = useCallback((tab: TabId, section?: string) => {
     setActiveTab(tab);
@@ -33,11 +38,16 @@ export default function App() {
 
   const handleSettingsSectionViewed = useCallback(() => {
     setSettingsSection(undefined);
+    setSettingsPayload(undefined);
   }, []);
 
-  const handleNavigateToSettings = useCallback((section: string) => {
-    handleTabChange('settings', section);
-  }, [handleTabChange]);
+  const handleNavigateToSettings = useCallback(
+    (section: string, payload?: SettingsDeepLinkPayload) => {
+      setSettingsPayload(payload);
+      handleTabChange('settings', section);
+    },
+    [handleTabChange],
+  );
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -56,6 +66,7 @@ export default function App() {
               {activeTab === 'settings' && (
                 <SettingsTab
                   initialSection={settingsSection}
+                  initialLenormandCombination={settingsPayload?.lenormandCombination}
                   onSectionViewed={handleSettingsSectionViewed}
                 />
               )}
