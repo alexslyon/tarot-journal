@@ -33,8 +33,10 @@ export default function BackupSection() {
       URL.revokeObjectURL(url);
       queryClient.invalidateQueries({ queryKey: ['settings-defaults'] });
       showMsg('Backup created successfully', 'success');
-    } catch {
-      showMsg('Backup failed', 'error');
+    } catch (err) {
+      console.error('Backup failed:', err);
+      const detail = err instanceof Error ? err.message : String(err);
+      showMsg(`Backup failed: ${detail}`, 'error');
     } finally {
       setBackingUp(false);
     }
