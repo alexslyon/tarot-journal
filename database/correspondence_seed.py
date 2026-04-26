@@ -332,6 +332,21 @@ def seed_field_options(cursor):
             'Root', 'Sacral', 'Solar Plexus', 'Heart', 'Throat', 'Third Eye', 'Crown',
         ],
         'modality': ['Cardinal', 'Fixed', 'Mutable'],
+        # Standard 12 astrological houses with the most common keyword for each.
+        'astrological_house': [
+            '1st House (Self)',
+            '2nd House (Possessions)',
+            '3rd House (Communication)',
+            '4th House (Home)',
+            '5th House (Pleasure)',
+            '6th House (Health)',
+            '7th House (Partnership)',
+            '8th House (Transformation)',
+            '9th House (Philosophy)',
+            '10th House (Career)',
+            '11th House (Friendship)',
+            '12th House (Subconscious)',
+        ],
     }
 
     for field_name, values in options.items():

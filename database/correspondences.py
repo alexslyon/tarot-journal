@@ -12,7 +12,7 @@ import re
 CORRESPONDENCE_FIELDS = (
     'element', 'planet', 'zodiac_sign', 'decan',
     'hebrew_letter', 'numerology', 'rune', 'i_ching_hexagram',
-    'chakra', 'modality',
+    'chakra', 'modality', 'astrological_house',
 )
 
 ZODIAC_SIGNS = {
