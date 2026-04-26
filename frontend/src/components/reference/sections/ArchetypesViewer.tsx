@@ -3,17 +3,15 @@ import { useQuery } from '@tanstack/react-query';
 import { getArchetypes, type Archetype } from '../../../api/correspondences';
 import { getCartomancyTypes } from '../../../api/decks';
 import type { CartomancyType } from '../../../types';
-import ArchetypeImageTab from './archetype-tabs/ArchetypeImageTab';
 import ArchetypeLanguagesTab from './archetype-tabs/ArchetypeLanguagesTab';
 import ArchetypeCorrespondencesTab from './archetype-tabs/ArchetypeCorrespondencesTab';
 import ArchetypeNotesTab from './archetype-tabs/ArchetypeNotesTab';
 import ArchetypeCompareTab from './archetype-tabs/ArchetypeCompareTab';
 import './ArchetypesViewer.css';
 
-type SubTabId = 'image' | 'languages' | 'correspondences' | 'notes' | 'compare';
+type SubTabId = 'languages' | 'correspondences' | 'notes' | 'compare';
 
 const SUB_TABS: { id: SubTabId; label: string }[] = [
-  { id: 'image', label: 'Image' },
   { id: 'languages', label: 'Languages' },
   { id: 'correspondences', label: 'Correspondences' },
   { id: 'notes', label: 'Notes' },
@@ -96,7 +94,7 @@ export default function ArchetypesViewer({ onNavigateToSettings }: ArchetypesVie
   // === Sub-tab ===
   const [subTab, setSubTab] = useState<SubTabId>(() => {
     const saved = localStorage.getItem(STORAGE.subTab);
-    return SUB_TABS.some(t => t.id === saved) ? (saved as SubTabId) : 'image';
+    return SUB_TABS.some(t => t.id === saved) ? (saved as SubTabId) : 'languages';
   });
   useEffect(() => {
     localStorage.setItem(STORAGE.subTab, subTab);
@@ -146,12 +144,6 @@ export default function ArchetypesViewer({ onNavigateToSettings }: ArchetypesVie
       </nav>
 
       <div className="archetypes-viewer__content">
-        {selectedArchetype && subTab === 'image' && (
-          <ArchetypeImageTab
-            archetype={selectedArchetype}
-            cartomancyType={cartomancyType}
-          />
-        )}
         {selectedArchetype && subTab === 'languages' && (
           <ArchetypeLanguagesTab
             archetype={selectedArchetype}
@@ -170,6 +162,7 @@ export default function ArchetypesViewer({ onNavigateToSettings }: ArchetypesVie
         {selectedArchetype && subTab === 'notes' && (
           <ArchetypeNotesTab
             archetype={selectedArchetype}
+            cartomancyType={cartomancyType}
             onNavigateToSettings={onNavigateToSettings}
           />
         )}
