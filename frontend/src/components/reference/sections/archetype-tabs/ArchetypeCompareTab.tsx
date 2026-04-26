@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getDecks, getCartomancyTypes } from '../../../../api/decks';
 import { getCards, getCard } from '../../../../api/cards';
+import { getDefaults } from '../../../../api/settings';
 import { cardPreviewUrl } from '../../../../api/images';
 import { getCardCorrespondences } from '../../../../api/correspondences';
 import { getArchetypeNotes } from '../../../../api/archetypeNotes';
@@ -39,8 +40,10 @@ interface Props {
   cartomancyType: string;
 }
 
-const STORAGE = (which: 'left' | 'right', archetypeId: number) =>
-  `archetypes-viewer.compare.${which}.${archetypeId}`;
+// Per-side deck choice is remembered by cartomancy type so it persists as
+// the user flips between archetypes within the same type.
+const STORAGE = (which: 'left' | 'right', cartomancyType: string) =>
+  `archetypes-viewer.compare.${which}.${cartomancyType}`;
 
 export default function ArchetypeCompareTab({ archetype, cartomancyType }: Props) {
   const { data: types = [] } = useQuery<CartomancyType[]>({
@@ -65,6 +68,13 @@ export default function ArchetypeCompareTab({ archetype, cartomancyType }: Props
     queryFn: () => getArchetypeNotes(archetype.id),
   });
 
+  const { data: defaults } = useQuery({
+    queryKey: ['settings-defaults'],
+    queryFn: getDefaults,
+  });
+  const defaultDeckId =
+    (defaults?.default_decks && defaults.default_decks[cartomancyType]) || null;
+
   if (decks.length < 2) {
     return (
       <div className="archetype-compare archetype-compare--empty">
@@ -78,14 +88,18 @@ export default function ArchetypeCompareTab({ archetype, cartomancyType }: Props
       <CompareColumn
         side="left"
         archetype={archetype}
+        cartomancyType={cartomancyType}
         decks={decks}
         notes={notes}
+        defaultDeckId={defaultDeckId}
       />
       <CompareColumn
         side="right"
         archetype={archetype}
+        cartomancyType={cartomancyType}
         decks={decks}
         notes={notes}
+        defaultDeckId={defaultDeckId}
       />
     </div>
   );
@@ -98,33 +112,50 @@ export default function ArchetypeCompareTab({ archetype, cartomancyType }: Props
 function CompareColumn({
   side,
   archetype,
+  cartomancyType,
   decks,
   notes,
+  defaultDeckId,
 }: {
   side: 'left' | 'right';
   archetype: Archetype;
+  cartomancyType: string;
   decks: Deck[];
   notes: ArchetypeNoteEntry[];
+  defaultDeckId: number | null;
 }) {
   const [deckId, setDeckId] = useState<number | null>(null);
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE(side, archetype.id));
+    // Re-evaluate only on cartomancy/decks/default changes — the deck choice
+    // sticks across archetype switches.
+    const saved = localStorage.getItem(STORAGE(side, cartomancyType));
     const savedNum = saved ? Number(saved) : null;
     if (savedNum && decks.some(d => d.id === savedNum)) {
       setDeckId(savedNum);
-    } else if (decks.length > 0) {
-      // Default the right column to the second deck so the user gets a
-      // useful default comparison out of the box.
-      setDeckId(decks[side === 'left' ? 0 : Math.min(1, decks.length - 1)].id);
-    } else {
-      setDeckId(null);
+      return;
     }
-  }, [archetype.id, decks, side]);
+    if (decks.length === 0) {
+      setDeckId(null);
+      return;
+    }
+    // Left column prefers the cartomancy type's default deck; right column
+    // prefers any deck other than the default so the user sees two distinct
+    // cards by default rather than the same one twice.
+    if (side === 'left') {
+      const left = defaultDeckId && decks.some(d => d.id === defaultDeckId)
+        ? defaultDeckId
+        : decks[0].id;
+      setDeckId(left);
+    } else {
+      const otherThanDefault = decks.find(d => d.id !== defaultDeckId);
+      setDeckId((otherThanDefault ?? decks[Math.min(1, decks.length - 1)]).id);
+    }
+  }, [cartomancyType, decks, side, defaultDeckId]);
   useEffect(() => {
     if (deckId != null) {
-      localStorage.setItem(STORAGE(side, archetype.id), String(deckId));
+      localStorage.setItem(STORAGE(side, cartomancyType), String(deckId));
     }
-  }, [archetype.id, deckId, side]);
+  }, [cartomancyType, deckId, side]);
 
   const { data: deckCards = [] } = useQuery<Card[]>({
     queryKey: ['cards', deckId],
