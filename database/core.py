@@ -715,15 +715,36 @@ class CoreMixin:
         ''')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_corr_field_options_field ON correspondence_field_options(field_name, sort_order)')
 
-        # Lenormand combinations reference data — the Reference tab feature
-        # for looking up meanings of any ordered Lenormand pair (e.g. Dog+Ring).
+        # Reference sources — shared across all Reference features (Lenormand
+        # combinations, archetype notes, etc). Originally introduced as
+        # `lenormand_sources` for the Lenormand combinations feature; renamed
+        # in place so older databases pick up the new shape on next startup.
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='lenormand_sources'")
+        has_old_sources = cursor.fetchone() is not None
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='reference_sources'")
+        has_new_sources = cursor.fetchone() is not None
+        if has_old_sources and not has_new_sources:
+            cursor.execute('ALTER TABLE lenormand_sources RENAME TO reference_sources')
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS lenormand_sources (
+            CREATE TABLE IF NOT EXISTS reference_sources (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+
+        # If lenormand_meanings still has a foreign key referencing the old
+        # lenormand_sources name, recreate the table so the FK points at
+        # reference_sources. Stash the rows for restore below.
+        cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='lenormand_meanings'")
+        lm_row = cursor.fetchone()
+        lm_needs_recreate = bool(
+            lm_row and 'lenormand_sources' in (lm_row[0] or '')
+        )
+        if lm_needs_recreate:
+            cursor.execute('SELECT * FROM lenormand_meanings')
+            self._needs_lenormand_meanings_restore = [dict(r) for r in cursor.fetchall()]
+            cursor.execute('DROP TABLE lenormand_meanings')
 
         # An ordered card pair. Same-card pairs are forbidden, and we only
         # create rows on demand when at least one meaning is being added.
@@ -753,13 +774,102 @@ class CoreMixin:
                 sort_order INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (combination_id) REFERENCES lenormand_combinations(id) ON DELETE CASCADE,
-                FOREIGN KEY (source_id) REFERENCES lenormand_sources(id) ON DELETE SET NULL
+                FOREIGN KEY (source_id) REFERENCES reference_sources(id) ON DELETE SET NULL
             )
         ''')
         cursor.execute(
             'CREATE INDEX IF NOT EXISTS idx_lenormand_meanings_combination '
             'ON lenormand_meanings(combination_id, sort_order)'
         )
+
+        # === Archetypes feature: per-archetype reference content ===
+        # User-defined languages list (display order via sort_order).
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS archetype_language_languages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_archetype_languages_sort '
+            'ON archetype_language_languages(sort_order)'
+        )
+
+        # Card names per (archetype, language). Multi-row per pair allowed —
+        # romanization and ipa are optional metadata for each name.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS archetype_language_names (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                archetype_id INTEGER NOT NULL,
+                language_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                romanization TEXT,
+                ipa TEXT,
+                sort_order INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (archetype_id) REFERENCES card_archetypes(id) ON DELETE CASCADE,
+                FOREIGN KEY (language_id) REFERENCES archetype_language_languages(id) ON DELETE CASCADE
+            )
+        ''')
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_archetype_lang_names_arch '
+            'ON archetype_language_names(archetype_id, language_id, sort_order)'
+        )
+
+        # Notes field definitions per archetype. archetype_id is nullable so
+        # we can later migrate to per-cartomancy-type shared definitions
+        # without a schema rewrite (see PLANNING_ARCHETYPES.md).
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS archetype_notes_field_defs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                archetype_id INTEGER,
+                field_name TEXT NOT NULL,
+                field_order INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (archetype_id) REFERENCES card_archetypes(id) ON DELETE CASCADE
+            )
+        ''')
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_archetype_notes_fields_arch '
+            'ON archetype_notes_field_defs(archetype_id, field_order)'
+        )
+
+        # Notes entries within a field. Multiple per field, optionally
+        # source-tagged via the shared reference_sources table.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS archetype_notes_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                field_def_id INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                source_id INTEGER,
+                sort_order INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (field_def_id) REFERENCES archetype_notes_field_defs(id) ON DELETE CASCADE,
+                FOREIGN KEY (source_id) REFERENCES reference_sources(id) ON DELETE SET NULL
+            )
+        ''')
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_archetype_notes_entries_field '
+            'ON archetype_notes_entries(field_def_id, sort_order)'
+        )
+
+        # Restore lenormand_meanings rows after the FK migration above.
+        if hasattr(self, '_needs_lenormand_meanings_restore'):
+            self.conn.commit()
+            self.conn.execute('PRAGMA foreign_keys = OFF')
+            for r in self._needs_lenormand_meanings_restore:
+                cursor.execute('''
+                    INSERT INTO lenormand_meanings
+                        (id, combination_id, meaning, source_id, sort_order, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (r['id'], r['combination_id'], r['meaning'],
+                      r.get('source_id'), r.get('sort_order', 0),
+                      r.get('created_at')))
+            self.conn.commit()
+            self.conn.execute('PRAGMA foreign_keys = ON')
+            del self._needs_lenormand_meanings_restore
 
         # Migration: add correspondence_system_id to decks
         cursor.execute("PRAGMA table_info(decks)")

@@ -7,6 +7,9 @@ import BackupSection from './sections/BackupSection';
 import CacheSection from './sections/CacheSection';
 import CorrespondencesSection from './sections/CorrespondencesSection';
 import LenormandCombinationsSection from './sections/LenormandCombinationsSection';
+import ArchetypeNotesSection from './sections/ArchetypeNotesSection';
+import ArchetypeLanguagesSection from './sections/ArchetypeLanguagesSection';
+import ReferenceSourcesSection from './sections/ReferenceSourcesSection';
 import './SettingsLayout.css';
 
 export type SettingsSectionId =
@@ -14,7 +17,10 @@ export type SettingsSectionId =
   | 'profiles'
   | 'tags'
   | 'correspondences'
+  | 'archetype-notes'
+  | 'archetype-languages'
   | 'lenormand-combinations'
+  | 'reference-sources'
   | 'import-presets'
   | 'backup'
   | 'cache';
@@ -24,7 +30,10 @@ const SECTIONS: { id: SettingsSectionId; label: string }[] = [
   { id: 'profiles', label: 'Profiles' },
   { id: 'tags', label: 'Tags' },
   { id: 'correspondences', label: 'Correspondences' },
+  { id: 'archetype-notes', label: 'Archetype Notes' },
+  { id: 'archetype-languages', label: 'Archetype Languages' },
   { id: 'lenormand-combinations', label: 'Lenormand Combinations' },
+  { id: 'reference-sources', label: 'Reference Sources' },
   { id: 'import-presets', label: 'Import Presets' },
   { id: 'backup', label: 'Backup & Restore' },
   { id: 'cache', label: 'Thumbnail Cache' },
@@ -32,15 +41,17 @@ const SECTIONS: { id: SettingsSectionId; label: string }[] = [
 
 interface SettingsLayoutProps {
   initialSection?: string;
-  /** Optional pre-selected card pair for the Lenormand Combinations editor
-   *  (used by the Reference deep-link). */
+  /** Optional pre-selected card pair for the Lenormand Combinations editor. */
   initialLenormandCombination?: { card_1: number; card_2: number };
+  /** Optional pre-selected archetype id for Archetype Notes / Languages editors. */
+  initialArchetypeId?: number;
   onSectionViewed?: () => void;
 }
 
 export default function SettingsLayout({
   initialSection,
   initialLenormandCombination,
+  initialArchetypeId,
   onSectionViewed,
 }: SettingsLayoutProps) {
   const [activeSection, setActiveSection] = useState<SettingsSectionId>('general');
@@ -70,11 +81,18 @@ export default function SettingsLayout({
         {activeSection === 'profiles' && <ProfilesSection />}
         {activeSection === 'tags' && <TagsSection />}
         {activeSection === 'correspondences' && <CorrespondencesSection />}
+        {activeSection === 'archetype-notes' && (
+          <ArchetypeNotesSection initialArchetypeId={initialArchetypeId} />
+        )}
+        {activeSection === 'archetype-languages' && (
+          <ArchetypeLanguagesSection initialArchetypeId={initialArchetypeId} />
+        )}
         {activeSection === 'lenormand-combinations' && (
           <LenormandCombinationsSection
             initialCards={initialLenormandCombination}
           />
         )}
+        {activeSection === 'reference-sources' && <ReferenceSourcesSection />}
         {activeSection === 'import-presets' && <ImportPresetsSection />}
         {activeSection === 'backup' && <BackupSection />}
         {activeSection === 'cache' && <CacheSection />}

@@ -1,0 +1,115 @@
+.archetype-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 20px;
+}
+
+.archetype-compare--empty {
+  display: block;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.archetype-compare__col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  min-width: 0;
+}
+
+.archetype-compare__deck-row select {
+  width: 100%;
+}
+
+.archetype-compare__image-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  min-height: 240px;
+  padding: 8px;
+  overflow: hidden;
+}
+
+.archetype-compare__image {
+  max-width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+}
+
+.archetype-compare__no-image {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  text-align: center;
+  padding: 16px;
+}
+
+.archetype-compare__corr {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  font-size: var(--font-size-small);
+}
+
+.archetype-compare__corr-row {
+  display: contents;
+}
+
+.archetype-compare__corr-row dt {
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-size: 0.85em;
+  margin: 0;
+}
+
+.archetype-compare__corr-row dd {
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.archetype-compare__notes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.archetype-compare__note-field {
+  background: var(--bg-primary);
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
+.archetype-compare__note-field h5 {
+  margin: 0 0 4px;
+  color: var(--accent);
+  font-size: var(--font-size-small);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.archetype-compare__note-field ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.archetype-compare__note-source {
+  font-size: var(--font-size-small);
+  font-style: italic;
+  color: var(--text-dim);
+  margin-left: 6px;
+}

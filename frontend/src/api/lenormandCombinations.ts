@@ -1,31 +1,8 @@
 import api from './client';
-import type { LenormandSource, LenormandMeaning } from '../types';
+import type { LenormandMeaning } from '../types';
 
-// === Sources ===
-
-export async function getLenormandSources(): Promise<LenormandSource[]> {
-  const res = await api.get('/api/lenormand/sources');
-  return res.data;
-}
-
-export async function createLenormandSource(name: string): Promise<{ id: number }> {
-  const res = await api.post('/api/lenormand/sources', { name });
-  return res.data;
-}
-
-export async function updateLenormandSource(sourceId: number, name: string) {
-  await api.put(`/api/lenormand/sources/${sourceId}`, { name });
-}
-
-export async function deleteLenormandSource(
-  sourceId: number,
-  reassignTo?: number,
-) {
-  const params = new URLSearchParams();
-  if (reassignTo != null) params.set('reassign_to', String(reassignTo));
-  const qs = params.toString() ? `?${params}` : '';
-  await api.delete(`/api/lenormand/sources/${sourceId}${qs}`);
-}
+// Sources are managed via the shared `referenceSources` API — see
+// frontend/src/api/referenceSources.ts.
 
 // === Meanings ===
 

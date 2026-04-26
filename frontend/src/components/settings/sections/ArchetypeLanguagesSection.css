@@ -1,0 +1,180 @@
+.archetype-langs-edit__pickers {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.archetype-langs-edit__picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.archetype-langs-edit__empty {
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: var(--font-size-small);
+  margin: 8px 0;
+}
+
+/* Languages list */
+.archetype-langs-edit__lang-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.archetype-langs-edit__lang-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: grab;
+}
+.archetype-langs-edit__lang-row:active { cursor: grabbing; }
+.archetype-langs-edit__lang-row--dragging { opacity: 0.5; }
+.archetype-langs-edit__lang-row--drag-over { border-top: 2px solid var(--accent); }
+
+.archetype-langs-edit__lang-name {
+  flex: 1;
+  color: var(--text-primary);
+}
+
+.archetype-langs-edit__lang-input {
+  flex: 1;
+}
+
+.archetype-langs-edit__add-form {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.archetype-langs-edit__add-btn,
+.archetype-langs-edit__add-name-btn {
+  font-size: var(--font-size-body);
+  color: var(--accent) !important;
+  background: none !important;
+  border: 1px dashed var(--accent) !important;
+  width: 100%;
+  padding: 6px !important;
+  cursor: pointer;
+}
+.archetype-langs-edit__add-btn:hover,
+.archetype-langs-edit__add-name-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+}
+
+.archetype-langs-edit__drag {
+  color: var(--text-dim);
+  font-weight: bold;
+  letter-spacing: -2px;
+  user-select: none;
+  padding: 0 4px;
+  cursor: grab;
+}
+
+/* Names editor */
+.archetype-langs-edit__names {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.archetype-langs-edit__lang-group {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
+.archetype-langs-edit__lang-group-name {
+  margin: 0 0 8px;
+  font-size: var(--font-size-body);
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+
+.archetype-langs-edit__name-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.archetype-langs-edit__name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: grab;
+}
+.archetype-langs-edit__name-row:active { cursor: grabbing; }
+.archetype-langs-edit__name-row--dragging { opacity: 0.5; }
+.archetype-langs-edit__name-row--drag-over { border-top: 2px solid var(--accent); }
+
+.archetype-langs-edit__name-view {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.archetype-langs-edit__name-text {
+  color: var(--text-primary);
+}
+
+.archetype-langs-edit__name-meta {
+  display: flex;
+  gap: 8px;
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+}
+
+.archetype-langs-edit__name-ipa {
+  font-family: 'Doulos SIL', 'Charis SIL', 'Gentium', serif;
+}
+
+.archetype-langs-edit__name-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.archetype-langs-edit__name-add,
+.archetype-langs-edit__name-edit {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.archetype-langs-edit__name-add input,
+.archetype-langs-edit__name-edit input {
+  font-size: var(--font-size-body);
+}
+
+.archetype-langs-edit__name-add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.archetype-langs-edit__save-btn {
+  background: var(--accent) !important;
+  color: var(--text-primary) !important;
+}

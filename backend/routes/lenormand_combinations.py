@@ -1,58 +1,12 @@
 """
-Lenormand combination endpoints -- CRUD for sources, combinations, and meanings.
+Lenormand combination endpoints — CRUD for combinations and meanings. The
+sources list lives in the shared /api/reference/sources blueprint.
 """
 
 from flask import Blueprint, jsonify, request, current_app
 from backend.utils import row_to_dict, require_json
 
 lenormand_bp = Blueprint('lenormand_combinations', __name__)
-
-
-# === Sources ===
-
-@lenormand_bp.route('/api/lenormand/sources')
-def list_sources():
-    db = current_app.config['DB']
-    rows = db.get_lenormand_sources()
-    return jsonify([row_to_dict(r) for r in rows])
-
-
-@lenormand_bp.route('/api/lenormand/sources', methods=['POST'])
-@require_json
-def create_source(data):
-    db = current_app.config['DB']
-    name = (data.get('name') or '').strip()
-    if not name:
-        return jsonify({'error': 'Name is required'}), 400
-    try:
-        new_id = db.create_lenormand_source(name)
-    except Exception as e:
-        # UNIQUE constraint violation falls through here as a generic error.
-        return jsonify({'error': f'Could not create source: {e}'}), 400
-    return jsonify({'id': new_id})
-
-
-@lenormand_bp.route('/api/lenormand/sources/<int:source_id>', methods=['PUT'])
-@require_json
-def update_source(source_id, data):
-    db = current_app.config['DB']
-    name = (data.get('name') or '').strip()
-    if not name:
-        return jsonify({'error': 'Name is required'}), 400
-    db.update_lenormand_source(source_id, name)
-    return jsonify({'ok': True})
-
-
-@lenormand_bp.route('/api/lenormand/sources/<int:source_id>', methods=['DELETE'])
-def delete_source(source_id):
-    """Delete a source. Optional ?reassign_to=<id> reassigns dependent meanings;
-    omitting it sets them to unsourced.
-    """
-    db = current_app.config['DB']
-    reassign_to = request.args.get('reassign_to')
-    reassign_id = int(reassign_to) if reassign_to else None
-    db.delete_lenormand_source(source_id, reassign_to=reassign_id)
-    return jsonify({'ok': True})
 
 
 # === Meanings (combination-keyed) ===

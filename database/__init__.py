@@ -14,7 +14,10 @@ from .profiles import ProfilesMixin
 from .settings import SettingsMixin
 from .import_export import ImportExportMixin
 from .correspondences import CorrespondencesMixin
+from .reference_sources import ReferenceSourcesMixin
 from .lenormand_combinations import LenormandCombinationsMixin
+from .archetype_languages import ArchetypeLanguagesMixin
+from .archetype_notes import ArchetypeNotesMixin
 
 
 class Database(
@@ -28,7 +31,10 @@ class Database(
     SettingsMixin,
     ImportExportMixin,
     CorrespondencesMixin,
+    ReferenceSourcesMixin,
     LenormandCombinationsMixin,
+    ArchetypeLanguagesMixin,
+    ArchetypeNotesMixin,
 ):
     """
     Main database class combining all functionality.

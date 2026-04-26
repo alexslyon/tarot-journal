@@ -242,13 +242,19 @@ export const CORRESPONDENCE_FIELD_LABELS: Record<string, string> = {
   astrological_house: 'Astrological House',
 };
 
-// === Lenormand Combinations ===
+// === Reference Sources (shared across Lenormand combinations + archetype notes) ===
 
-export interface LenormandSource {
+export interface ReferenceSource {
   id: number;
   name: string;
   created_at: string;
 }
+
+/** @deprecated kept temporarily as an alias of ReferenceSource so existing
+ *  Lenormand combinations code keeps compiling; switch to ReferenceSource. */
+export type LenormandSource = ReferenceSource;
+
+// === Lenormand Combinations ===
 
 export interface LenormandMeaning {
   id: number;
@@ -258,6 +264,54 @@ export interface LenormandMeaning {
   source_name: string | null;
   sort_order: number;
   created_at: string;
+}
+
+// === Archetype Languages ===
+
+export interface ArchetypeLanguage {
+  id: number;
+  name: string;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface ArchetypeLanguageName {
+  id: number;
+  archetype_id: number;
+  language_id: number;
+  name: string;
+  romanization: string | null;
+  ipa: string | null;
+  sort_order: number;
+  created_at: string;
+  language_name: string;
+  language_sort_order: number;
+  /** Present only on the per-cartomancy-type fetch. */
+  archetype_name?: string;
+  archetype_rank?: string | null;
+}
+
+// === Archetype Notes ===
+
+export interface ArchetypeNoteField {
+  id: number;
+  archetype_id: number | null;
+  field_name: string;
+  field_order: number;
+  created_at: string;
+}
+
+export interface ArchetypeNoteEntry {
+  id: number;
+  field_def_id: number;
+  content: string;
+  source_id: number | null;
+  source_name: string | null;
+  sort_order: number;
+  created_at: string;
+  /** Only present on the per-archetype joined fetch. */
+  field_name?: string;
+  field_order?: number;
 }
 
 export interface ThemeColors {

@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
 import CorrespondencesViewer from './sections/CorrespondencesViewer';
 import LenormandCombinationsViewer from './sections/LenormandCombinationsViewer';
+import ArchetypesViewer from './sections/ArchetypesViewer';
 import './ReferenceTab.css';
 
-type ReferenceSectionId = 'correspondences' | 'lenormand-combinations';
+type ReferenceSectionId =
+  | 'archetypes'
+  | 'correspondences'
+  | 'lenormand-combinations';
 
 const SECTIONS: { id: ReferenceSectionId; label: string }[] = [
+  { id: 'archetypes', label: 'Archetypes' },
   { id: 'correspondences', label: 'Correspondences' },
   { id: 'lenormand-combinations', label: 'Lenormand Combinations' },
 ];
@@ -14,7 +19,11 @@ interface ReferenceTabProps {
   /** Navigate to Settings — first arg is the section id, second is optional payload. */
   onNavigateToSettings?: (
     section: string,
-    payload?: { lenormandCombination?: { card_1: number; card_2: number } },
+    payload?: {
+      lenormandCombination?: { card_1: number; card_2: number };
+      archetypeId?: number;
+      fieldId?: number;
+    },
   ) => void;
   /** External request to open a specific reference section (deep link). */
   initialSection?: ReferenceSectionId;
@@ -26,7 +35,7 @@ export default function ReferenceTab({
   initialSection,
   onSectionViewed,
 }: ReferenceTabProps) {
-  const [activeSection, setActiveSection] = useState<ReferenceSectionId>('correspondences');
+  const [activeSection, setActiveSection] = useState<ReferenceSectionId>('archetypes');
 
   useEffect(() => {
     if (initialSection && SECTIONS.some(s => s.id === initialSection)) {
@@ -49,6 +58,15 @@ export default function ReferenceTab({
         ))}
       </nav>
       <div className="reference-layout__content">
+        {activeSection === 'archetypes' && (
+          <ArchetypesViewer
+            onNavigateToSettings={
+              onNavigateToSettings
+                ? (section, payload) => onNavigateToSettings(section, payload)
+                : undefined
+            }
+          />
+        )}
         {activeSection === 'correspondences' && (
           <CorrespondencesViewer
             onEditCorrespondences={
