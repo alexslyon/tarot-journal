@@ -2,61 +2,18 @@
 Database operations for Lenormand card-combination meanings.
 
 Schema overview:
-- lenormand_sources: reusable source labels (books, websites, "Personal notes").
 - lenormand_combinations: ordered (card_1, card_2) pair, created on demand.
-- lenormand_meanings: individual meaning entries, optionally tagged with a source.
+- lenormand_meanings: individual meaning entries, optionally tagged with a
+  source from the shared reference_sources table.
 
 Card identities are canonical Lenormand numbers 1-36; names and images are
 looked up at display time from the user's selected default Lenormand deck and
-are not stored here.
+are not stored here. Sources live in the shared ReferenceSourcesMixin.
 """
 
 
 class LenormandCombinationsMixin:
     """Mixin providing CRUD for Lenormand combination meanings."""
-
-    # === Sources ===
-
-    def get_lenormand_sources(self):
-        cursor = self.conn.cursor()
-        cursor.execute('SELECT * FROM lenormand_sources ORDER BY name')
-        return cursor.fetchall()
-
-    def create_lenormand_source(self, name: str) -> int:
-        cursor = self.conn.cursor()
-        cursor.execute(
-            'INSERT INTO lenormand_sources (name) VALUES (?)',
-            (name.strip(),)
-        )
-        self._commit()
-        return cursor.lastrowid
-
-    def update_lenormand_source(self, source_id: int, name: str):
-        cursor = self.conn.cursor()
-        cursor.execute(
-            'UPDATE lenormand_sources SET name = ? WHERE id = ?',
-            (name.strip(), source_id)
-        )
-        self._commit()
-
-    def delete_lenormand_source(self, source_id: int, reassign_to: int = None):
-        """Delete a source. If meanings reference it, either reassign them to
-        another source (reassign_to=<id>) or set them to unsourced (reassign_to=None).
-        Never deletes the meanings themselves.
-        """
-        cursor = self.conn.cursor()
-        if reassign_to is not None:
-            cursor.execute(
-                'UPDATE lenormand_meanings SET source_id = ? WHERE source_id = ?',
-                (reassign_to, source_id)
-            )
-        else:
-            cursor.execute(
-                'UPDATE lenormand_meanings SET source_id = NULL WHERE source_id = ?',
-                (source_id,)
-            )
-        cursor.execute('DELETE FROM lenormand_sources WHERE id = ?', (source_id,))
-        self._commit()
 
     # === Combinations / meanings ===
 
@@ -88,7 +45,7 @@ class LenormandCombinationsMixin:
                    s.name AS source_name
             FROM lenormand_meanings m
             JOIN lenormand_combinations c ON c.id = m.combination_id
-            LEFT JOIN lenormand_sources s ON s.id = m.source_id
+            LEFT JOIN reference_sources s ON s.id = m.source_id
             WHERE c.card_1 = ? AND c.card_2 = ?
             ORDER BY m.sort_order, m.id
         ''', (card_1, card_2))

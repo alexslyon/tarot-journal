@@ -17,7 +17,10 @@ def register_blueprints(app):
     from backend.routes.stats import stats_bp
     from backend.routes.settings import settings_bp
     from backend.routes.correspondences import correspondences_bp
+    from backend.routes.reference_sources import reference_sources_bp
     from backend.routes.lenormand_combinations import lenormand_bp
+    from backend.routes.archetype_languages import archetype_languages_bp
+    from backend.routes.archetype_notes import archetype_notes_bp
     from backend.routes.anki_export import anki_export_bp
 
     app.register_blueprint(health_bp)
@@ -33,5 +36,8 @@ def register_blueprints(app):
     app.register_blueprint(stats_bp)
     app.register_blueprint(settings_bp)
     app.register_blueprint(correspondences_bp)
+    app.register_blueprint(reference_sources_bp)
     app.register_blueprint(lenormand_bp)
+    app.register_blueprint(archetype_languages_bp)
+    app.register_blueprint(archetype_notes_bp)
     app.register_blueprint(anki_export_bp)

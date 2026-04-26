@@ -1,13 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  getLenormandMeanings,
-  getLenormandSources,
-} from '../../../api/lenormandCombinations';
+import { getLenormandMeanings } from '../../../api/lenormandCombinations';
+import { getReferenceSources } from '../../../api/referenceSources';
 import { cardPreviewUrl } from '../../../api/images';
 import RichTextViewer from '../../common/RichTextViewer';
 import { useLenormandCardList, type LenormandCardEntry } from '../../../utils/useLenormandCardList';
-import type { LenormandSource, LenormandMeaning } from '../../../types';
+import type { ReferenceSource, LenormandMeaning } from '../../../types';
 import './LenormandCombinationsViewer.css';
 
 interface ViewerProps {
@@ -21,9 +19,9 @@ export default function LenormandCombinationsViewer({ onEditCombination }: Viewe
   const [card1, setCard1] = useState<number | null>(null);
   const [card2, setCard2] = useState<number | null>(null);
 
-  const { data: sources = [] } = useQuery<LenormandSource[]>({
-    queryKey: ['lenormand-sources'],
-    queryFn: getLenormandSources,
+  const { data: sources = [] } = useQuery<ReferenceSource[]>({
+    queryKey: ['reference-sources'],
+    queryFn: getReferenceSources,
   });
 
   const { data: meanings = [] } = useQuery<LenormandMeaning[]>({

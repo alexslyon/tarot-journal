@@ -1,22 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  getLenormandSources,
-  createLenormandSource,
-  updateLenormandSource,
-  deleteLenormandSource,
   getLenormandMeanings,
   createLenormandMeaning,
   updateLenormandMeaning,
   deleteLenormandMeaning,
   reorderLenormandMeanings,
 } from '../../../api/lenormandCombinations';
+import { getReferenceSources } from '../../../api/referenceSources';
 import { cardPreviewUrl } from '../../../api/images';
 import RichTextEditor from '../../common/RichTextEditor';
 import RichTextViewer from '../../common/RichTextViewer';
 import { useToast } from '../../../context/ToastContext';
 import { useLenormandCardList, type LenormandCardEntry } from '../../../utils/useLenormandCardList';
-import type { LenormandSource, LenormandMeaning } from '../../../types';
+import type { ReferenceSource, LenormandMeaning } from '../../../types';
 import '../SettingsTab.css';
 import './LenormandCombinationsSection.css';
 
@@ -49,13 +46,11 @@ export default function LenormandCombinationsSection({
     }
   }, [initialCards, onInitialApplied]);
 
-  // === Sources ===
-  const { data: sources = [] } = useQuery<LenormandSource[]>({
-    queryKey: ['lenormand-sources'],
-    queryFn: getLenormandSources,
+  // === Sources (read-only here; managed in the Reference Sources section) ===
+  const { data: sources = [] } = useQuery<ReferenceSource[]>({
+    queryKey: ['reference-sources'],
+    queryFn: getReferenceSources,
   });
-  const invalidateSources = () =>
-    queryClient.invalidateQueries({ queryKey: ['lenormand-sources'] });
 
   // === Meanings for the selected combination ===
   const meaningsKey = ['lenormand-meanings', card1, card2];
@@ -75,14 +70,10 @@ export default function LenormandCombinationsSection({
         matters — Dog + Ring is different from Ring + Dog.
       </p>
 
-      <SourcesPanel
-        sources={sources}
-        onChanged={() => {
-          invalidateSources();
-          invalidateMeanings();
-        }}
-        showToast={showToast}
-      />
+      <p className="settings-tab__hint">
+        Sources are managed in <strong>Reference Sources</strong>. Pick from
+        them when adding a meaning below.
+      </p>
 
       <section className="settings-tab__section">
         <h3 className="settings-tab__section-title">Combinations</h3>
@@ -123,203 +114,6 @@ export default function LenormandCombinationsSection({
           />
         )}
       </section>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Sources panel
-// ---------------------------------------------------------------------------
-
-function SourcesPanel({
-  sources,
-  onChanged,
-  showToast,
-}: {
-  sources: LenormandSource[];
-  onChanged: () => void;
-  showToast: (msg: string) => void;
-}) {
-  const [adding, setAdding] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editingName, setEditingName] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<LenormandSource | null>(null);
-
-  const handleAdd = async () => {
-    if (!newName.trim()) return;
-    try {
-      await createLenormandSource(newName.trim());
-      setNewName('');
-      setAdding(false);
-      onChanged();
-    } catch {
-      showToast('Could not add source (name may already exist).');
-    }
-  };
-
-  const handleSaveEdit = async () => {
-    if (editingId == null || !editingName.trim()) return;
-    try {
-      await updateLenormandSource(editingId, editingName.trim());
-      setEditingId(null);
-      setEditingName('');
-      onChanged();
-    } catch {
-      showToast('Could not rename source.');
-    }
-  };
-
-  return (
-    <section className="settings-tab__section">
-      <h3 className="settings-tab__section-title">Sources</h3>
-      <p className="settings-tab__hint">
-        Reusable labels for where a meaning came from — books, websites, or
-        your own notes.
-      </p>
-
-      {sources.length === 0 && !adding && (
-        <p className="lenormand-comb__empty">No sources yet.</p>
-      )}
-
-      {sources.length > 0 && (
-        <ul className="lenormand-comb__source-list">
-          {sources.map(s => (
-            <li key={s.id} className="lenormand-comb__source-row">
-              {editingId === s.id ? (
-                <>
-                  <input
-                    autoFocus
-                    value={editingName}
-                    onChange={e => setEditingName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleSaveEdit()}
-                    className="lenormand-comb__source-input"
-                  />
-                  <button onClick={handleSaveEdit}>Save</button>
-                  <button onClick={() => { setEditingId(null); setEditingName(''); }}>
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span className="lenormand-comb__source-name">{s.name}</span>
-                  <button
-                    onClick={() => { setEditingId(s.id); setEditingName(s.name); }}
-                    className="lenormand-comb__source-edit"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => setDeleteTarget(s)}
-                    className="danger"
-                  >
-                    Delete
-                  </button>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {adding ? (
-        <div className="lenormand-comb__source-add">
-          <input
-            autoFocus
-            placeholder="Source name (e.g. 'Caitlín Matthews, Lenormand Handbook')"
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
-            className="lenormand-comb__source-input"
-          />
-          <button onClick={handleAdd} disabled={!newName.trim()}>Add</button>
-          <button onClick={() => { setAdding(false); setNewName(''); }}>Cancel</button>
-        </div>
-      ) : (
-        <button onClick={() => setAdding(true)} className="lenormand-comb__add-source-btn">
-          + Add Source
-        </button>
-      )}
-
-      {deleteTarget && (
-        <DeleteSourceDialog
-          source={deleteTarget}
-          otherSources={sources.filter(s => s.id !== deleteTarget.id)}
-          onClose={() => setDeleteTarget(null)}
-          onDeleted={() => {
-            setDeleteTarget(null);
-            onChanged();
-          }}
-          showToast={showToast}
-        />
-      )}
-    </section>
-  );
-}
-
-function DeleteSourceDialog({
-  source,
-  otherSources,
-  onClose,
-  onDeleted,
-  showToast,
-}: {
-  source: LenormandSource;
-  otherSources: LenormandSource[];
-  onClose: () => void;
-  onDeleted: () => void;
-  showToast: (msg: string) => void;
-}) {
-  const [reassignTo, setReassignTo] = useState<'unsource' | number>('unsource');
-
-  const handleDelete = async () => {
-    try {
-      await deleteLenormandSource(
-        source.id,
-        reassignTo === 'unsource' ? undefined : reassignTo,
-      );
-      onDeleted();
-    } catch {
-      showToast('Could not delete source.');
-    }
-  };
-
-  return (
-    <div className="lenormand-comb__dialog-backdrop" onClick={onClose}>
-      <div
-        className="lenormand-comb__dialog"
-        onClick={e => e.stopPropagation()}
-      >
-        <h4>Delete source "{source.name}"?</h4>
-        <p>
-          Existing meanings using this source will be kept. Choose what to do
-          with their source label:
-        </p>
-        <label className="lenormand-comb__dialog-option">
-          <input
-            type="radio"
-            name="reassign"
-            checked={reassignTo === 'unsource'}
-            onChange={() => setReassignTo('unsource')}
-          />
-          Make those meanings unsourced
-        </label>
-        {otherSources.map(s => (
-          <label key={s.id} className="lenormand-comb__dialog-option">
-            <input
-              type="radio"
-              name="reassign"
-              checked={reassignTo === s.id}
-              onChange={() => setReassignTo(s.id)}
-            />
-            Reassign to "{s.name}"
-          </label>
-        ))}
-        <div className="lenormand-comb__dialog-actions">
-          <button onClick={onClose}>Cancel</button>
-          <button onClick={handleDelete} className="danger">Delete</button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -384,7 +178,7 @@ function MeaningsEditor({
   card1: number;
   card2: number;
   meanings: LenormandMeaning[];
-  sources: LenormandSource[];
+  sources: ReferenceSource[];
   onChanged: () => void;
   showToast: (msg: string) => void;
 }) {
@@ -521,7 +315,7 @@ function MeaningRow({
   onDragEnd,
 }: {
   meaning: LenormandMeaning;
-  sources: LenormandSource[];
+  sources: ReferenceSource[];
   onChanged: () => void;
   showToast: (msg: string) => void;
   draggedId: number | null;
