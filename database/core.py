@@ -756,11 +756,32 @@ class CoreMixin:
             if row and row[0] == 'Ace':  # Old schema used 'Ace', new uses '101'
                 self._migrate_tarot_numbering(cursor)
 
+            # Top-up: if a cartomancy type's archetypes were never seeded
+            # (older DBs predate I Ching being added), run the seeder to
+            # add the missing ones. INSERT OR IGNORE skips existing rows.
+            cursor.execute(
+                "SELECT COUNT(*) FROM card_archetypes WHERE cartomancy_type = 'I Ching'"
+            )
+            if cursor.fetchone()[0] == 0:
+                self._seed_card_archetypes(cursor)
+
         # Seed correspondence systems if table is empty
         cursor.execute('SELECT COUNT(*) FROM correspondence_systems')
         if cursor.fetchone()[0] == 0:
             from database.correspondence_seed import seed_rws_correspondences
             seed_rws_correspondences(cursor)
+
+        # One-time seed: built-in "I Ching Default" system mapping each
+        # archetype to its hexagram. Guard with a setting so we don't
+        # re-create it after a user deletes it.
+        if self.get_setting('i_ching_default_seeded') != 'true':
+            cursor.execute(
+                "SELECT 1 FROM correspondence_systems WHERE name = 'I Ching Default'"
+            )
+            if not cursor.fetchone():
+                from database.correspondence_seed import seed_i_ching_correspondences
+                seed_i_ching_correspondences(cursor)
+            self.set_setting('i_ching_default_seeded', 'true')
 
         # One-time migration: rename legacy source_group labels (remove "All " prefix)
         if self.get_setting('source_group_label_migration_done') != 'true':
@@ -921,6 +942,31 @@ class CoreMixin:
         # Jokers
         archetypes.append(('Red Joker', 'Playing Cards', 'Joker', None, 'playing'))
         archetypes.append(('Black Joker', 'Playing Cards', 'Joker', None, 'playing'))
+
+        # I Ching (64 hexagrams). English names match the import preset's
+        # short Wilhelm-Baynes form so cards imported via that preset find
+        # matching archetypes.
+        i_ching_names = [
+            'The Creative', 'The Receptive', 'Difficulty at the Beginning',
+            'Youthful Folly', 'Waiting', 'Conflict', 'The Army',
+            'Holding Together', 'Small Taming', 'Treading', 'Peace',
+            'Standstill', 'Fellowship', 'Great Possession', 'Modesty',
+            'Enthusiasm', 'Following', 'Work on the Decayed', 'Approach',
+            'Contemplation', 'Biting Through', 'Grace', 'Splitting Apart',
+            'Return', 'Innocence', 'Great Taming', 'Nourishment',
+            'Great Excess', 'The Abysmal', 'The Clinging', 'Influence',
+            'Duration', 'Retreat', 'Great Power', 'Progress',
+            'Darkening of the Light', 'The Family', 'Opposition',
+            'Obstruction', 'Deliverance', 'Decrease', 'Increase',
+            'Breakthrough', 'Coming to Meet', 'Gathering Together',
+            'Pushing Upward', 'Oppression', 'The Well', 'Revolution',
+            'The Cauldron', 'The Arousing', 'Keeping Still', 'Development',
+            'The Marrying Maiden', 'Abundance', 'The Wanderer', 'The Gentle',
+            'The Joyous', 'Dispersion', 'Limitation', 'Inner Truth',
+            'Small Excess', 'After Completion', 'Before Completion',
+        ]
+        for i, name in enumerate(i_ching_names, start=1):
+            archetypes.append((name, 'I Ching', str(i), None, 'i_ching'))
 
         # Insert all archetypes
         cursor.executemany('''
