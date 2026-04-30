@@ -1930,17 +1930,26 @@ class ImportPresets:
                     # Get the standard rank name based on sort position
                     rank_name = court_rank_by_position.get(sort_offset, court_name.title())
 
-                    # Build archetype - for Thoth, use the Thoth court names with (Thoth) suffix
+                    # Build archetype. For all decks (including Thoth) we emit
+                    # the canonical RWS archetype name for the slot — that's
+                    # what the seeded card_archetypes table contains, and it
+                    # lets notes/correspondences attached to e.g. "Knight of
+                    # Wands" automatically apply to a Thoth deck's slot-12
+                    # card too. The card's display name (set elsewhere via
+                    # _apply_custom_court_names) keeps the deck-specific
+                    # label like "Prince of Wands".
                     if is_thoth:
-                        # Map position to Thoth archetype name
-                        thoth_archetype_names = {
-                            'princess': 'Princess', 'prince': 'Prince',
-                            'queen': 'Queen', 'knight': 'Knight'
+                        rws_rank_for_thoth_position = {
+                            'princess': 'Page',
+                            'prince': 'Knight',
+                            'queen': 'Queen',
+                            'knight': 'King',
                         }
-                        archetype_rank = thoth_archetype_names.get(position, court_name.title())
-                        archetype = f"{archetype_rank} of {archetype_suit} (Thoth)"
+                        archetype_rank = rws_rank_for_thoth_position.get(
+                            position, court_name.title()
+                        )
+                        archetype = f"{archetype_rank} of {archetype_suit}"
                     else:
-                        # For non-Thoth, use the archetype mapping system
                         archetype = self._get_court_archetype(
                             position, archetype_suit, court_name.title(), archetype_mapping
                         )
