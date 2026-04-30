@@ -129,6 +129,11 @@ export interface CardUsed {
   card_id?: number;
   /** Current name from database (if card was renamed after entry was created) */
   current_name?: string;
+  // Enriched server-side for the Reading Breakdown when card_id resolves:
+  archetype?: string | null;
+  rank?: string | null;
+  suit?: string | null;
+  cartomancy_type?: string | null;
 }
 
 /** EntryReading with cards_used parsed from JSON string to typed array */

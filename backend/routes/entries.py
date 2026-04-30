@@ -51,12 +51,20 @@ def _enrich_cards_with_ids(db, cards):
             if deck_id and name:
                 cards_needing_name_lookup.append((deck_id, name))
 
-    # Batch lookup cards by ID (to verify they exist and get current name)
+    # Batch lookup cards by ID (to verify they exist and get current name).
+    # Also pulls archetype/rank/suit + the deck's primary cartomancy_type so
+    # the Reading Breakdown UI can categorize cards without a per-card fetch.
     id_to_card = {}
     if cards_with_id:
         placeholders = ','.join('?' * len(cards_with_id))
         rows = db.conn.execute(
-            f'SELECT id, deck_id, name FROM cards WHERE id IN ({placeholders})',
+            f'''
+            SELECT c.id, c.deck_id, c.name, c.archetype, c.rank, c.suit,
+                   (SELECT ct.name FROM cartomancy_types ct
+                    JOIN deck_type_assignments dta ON dta.type_id = ct.id
+                    WHERE dta.deck_id = c.deck_id LIMIT 1) AS cartomancy_type
+            FROM cards c WHERE c.id IN ({placeholders})
+            ''',
             cards_with_id
         ).fetchall()
         id_to_card = {row['id']: row for row in rows}
@@ -81,6 +89,11 @@ def _enrich_cards_with_ids(db, cards):
             if db_card:
                 # Card still exists - use current name from database
                 card['current_name'] = db_card['name']
+                # Surface metadata for the Reading Breakdown
+                card['archetype'] = db_card['archetype']
+                card['rank'] = db_card['rank']
+                card['suit'] = db_card['suit']
+                card['cartomancy_type'] = db_card['cartomancy_type']
             # If card was deleted, keep original data but card_id won't resolve to thumbnail
         else:
             # Legacy entry without card_id - try name lookup
