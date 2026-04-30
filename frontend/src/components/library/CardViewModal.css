@@ -77,6 +77,12 @@
 .card-view__value {
   color: var(--text-primary);
   word-break: break-word;
+  /* Hebrew letters and other mixed-script values need system-ui to pick the
+   * right glyph; explicit LTR keeps layout predictable when an RTL script
+   * (Hebrew, Arabic) lands inside an otherwise LTR row. */
+  font-family: system-ui, -apple-system, 'Arial Hebrew', sans-serif;
+  direction: ltr;
+  text-align: left;
 }
 
 .card-view__notes {
