@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import RichTextViewer from '../common/RichTextViewer';
 import SpreadDisplay from './SpreadDisplay';
 import FollowUpNotes from './FollowUpNotes';
+import ReadingBreakdown from './ReadingBreakdown';
 import CardViewModal from '../library/CardViewModal';
 import CardEditModal from '../library/CardEditModal';
 import type { JournalEntryFull } from '../../types';
@@ -138,6 +139,9 @@ export default function EntryViewer({ entryId, onEdit, onDeleted }: EntryViewerP
             ))}
           </div>
         )}
+
+        {/* Reading Breakdown — collapsible category-count panel */}
+        {entry.readings.length > 0 && <ReadingBreakdown entry={entry} />}
 
         {/* Notes / Content */}
         {entry.content && (
