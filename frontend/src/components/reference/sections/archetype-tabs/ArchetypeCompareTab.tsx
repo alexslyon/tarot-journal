@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getDecks, getCartomancyTypes } from '../../../../api/decks';
 import { getCards, getCard } from '../../../../api/cards';
@@ -71,6 +71,11 @@ export default function ArchetypeCompareTab({ archetype, cartomancyType }: Props
   const defaultDeckId =
     (defaults?.default_decks && defaults.default_decks[cartomancyType]) || null;
 
+  // Cross-column awareness: each column publishes its current card archetype
+  // upward so the other column can prefer it on a deck switch.
+  const [leftArchetype, setLeftArchetype] = useState<string | null>(null);
+  const [rightArchetype, setRightArchetype] = useState<string | null>(null);
+
   if (decks.length < 2) {
     return (
       <div className="archetype-compare archetype-compare--empty">
@@ -79,6 +84,10 @@ export default function ArchetypeCompareTab({ archetype, cartomancyType }: Props
     );
   }
 
+  // Each column reports its currently-displayed card's archetype name so the
+  // other column can use it as the match target on a deck switch. (When you
+  // change deck B, you almost always want B to land on the same card you're
+  // already looking at in column A, even if that's not the parent archetype.)
   return (
     <div className="archetype-compare">
       <CompareColumn
@@ -87,6 +96,8 @@ export default function ArchetypeCompareTab({ archetype, cartomancyType }: Props
         cartomancyType={cartomancyType}
         decks={decks}
         defaultDeckId={defaultDeckId}
+        otherArchetypeName={rightArchetype}
+        onSelectedArchetypeChange={setLeftArchetype}
       />
       <CompareColumn
         side="right"
@@ -94,6 +105,8 @@ export default function ArchetypeCompareTab({ archetype, cartomancyType }: Props
         cartomancyType={cartomancyType}
         decks={decks}
         defaultDeckId={defaultDeckId}
+        otherArchetypeName={leftArchetype}
+        onSelectedArchetypeChange={setRightArchetype}
       />
     </div>
   );
@@ -109,12 +122,19 @@ function CompareColumn({
   cartomancyType,
   decks,
   defaultDeckId,
+  otherArchetypeName,
+  onSelectedArchetypeChange,
 }: {
   side: 'left' | 'right';
   archetype: Archetype;
   cartomancyType: string;
   decks: Deck[];
   defaultDeckId: number | null;
+  /** Archetype name currently displayed in the other column, used as match
+   *  target on a deck switch so columns stay aligned. */
+  otherArchetypeName: string | null;
+  /** Callback to publish this column's current card archetype upward. */
+  onSelectedArchetypeChange: (name: string | null) => void;
 }) {
   const [deckId, setDeckId] = useState<number | null>(null);
   useEffect(() => {
@@ -155,25 +175,48 @@ function CompareColumn({
     enabled: deckId != null,
   });
 
-  // Card pick: defaults to the card whose archetype matches the parent
-  // selection, falls back to the first card. Reset whenever the deck or the
-  // parent archetype changes — manual picks are intentionally session-local
-  // so the user can compare arbitrary pairs without persisted state getting
-  // in the way of the simpler "follow the archetype" flow.
+  // Card pick: defaults are recomputed on two triggers:
+  //   - parent archetype change → match parent (both columns realign).
+  //   - deck change → match the *other column's* card if possible, so picking
+  //     a new deck on one side lands on the same card you're already viewing
+  //     on the other side. Falls back to parent archetype, then first card.
+  // Manual picks are intentionally session-local — they stick until the
+  // next deck/archetype change.
+  //
+  // otherArchetypeName is read via a ref so the other column changing its
+  // pick mid-session doesn't kick this column's selection.
   const [cardId, setCardId] = useState<number | null>(null);
+  const otherArchetypeRef = useRef(otherArchetypeName);
+  useEffect(() => {
+    otherArchetypeRef.current = otherArchetypeName;
+  }, [otherArchetypeName]);
+
+  const prevArchetypeRef = useRef(archetype.name);
   useEffect(() => {
     if (deckCards.length === 0) {
       setCardId(null);
+      prevArchetypeRef.current = archetype.name;
       return;
     }
-    const match = deckCards.find(c => c.archetype === archetype.name);
+    const parentChanged = prevArchetypeRef.current !== archetype.name;
+    const target = parentChanged
+      ? archetype.name
+      : (otherArchetypeRef.current || archetype.name);
+    const match = deckCards.find(c => c.archetype === target);
     setCardId((match ?? deckCards[0]).id);
+    prevArchetypeRef.current = archetype.name;
   }, [deckCards, archetype.name]);
 
   const selectedCard = useMemo(
     () => deckCards.find(c => c.id === cardId) || null,
     [deckCards, cardId],
   );
+
+  // Publish this column's archetype upward so the other column can use it
+  // as the match target when its deck changes.
+  useEffect(() => {
+    onSelectedArchetypeChange(selectedCard?.archetype ?? null);
+  }, [selectedCard?.archetype, onSelectedArchetypeChange]);
 
   const { data: corrs = [] } = useQuery<ResolvedCorrespondence[]>({
     queryKey: ['card-correspondences', selectedCard?.id],
