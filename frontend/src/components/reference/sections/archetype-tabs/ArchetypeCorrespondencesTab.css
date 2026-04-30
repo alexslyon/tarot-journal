@@ -76,6 +76,11 @@
 .archetype-corr__values {
   color: var(--text-primary);
   margin: 0;
+  /* Hebrew letters render correctly with this font stack + explicit LTR. */
+  font-family: system-ui, -apple-system, 'Arial Hebrew', sans-serif;
+  direction: ltr;
+  text-align: left;
+  line-height: 1.6;
 }
 
 .archetype-corr__empty {

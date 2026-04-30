@@ -136,6 +136,10 @@
 
 .archetype-langs-edit__name-text {
   color: var(--text-primary);
+  font-family: system-ui, -apple-system, 'Arial Hebrew', sans-serif;
+  direction: ltr;
+  text-align: left;
+  line-height: 1.6;
 }
 
 .archetype-langs-edit__name-meta {
