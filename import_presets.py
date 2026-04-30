@@ -332,7 +332,7 @@ PRE_GOLDEN_DAWN_TAROT.update({
 })
 
 # Thoth Tarot - Crowley/Harris deck with different card names and court cards
-# Major Arcana: Strength→Lust, Justice→Adjustment, Judgement→The Aeon, The World→The Universe
+# Major Arcana: Strength→Lust, Justice→Adjustment, Temperance→Art, Judgement→The Aeon, The World→The Universe
 # Court Cards: King→Knight, Queen→Queen, Knight→Prince, Page→Princess
 THOTH_TAROT = dict(STANDARD_TAROT)
 THOTH_TAROT.update({
@@ -346,6 +346,7 @@ THOTH_TAROT.update({
     "11": "Lust",
     "strength": "Lust", "lust": "Lust",
     "justice": "Adjustment", "adjustment": "Adjustment",
+    "14": "Art", "temperance": "Art", "art": "Art",
     "20": "The Aeon", "judgement": "The Aeon", "judgment": "The Aeon", "aeon": "The Aeon",
     "21": "The Universe", "world": "The Universe", "universe": "The Universe",
     
