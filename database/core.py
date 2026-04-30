@@ -1090,6 +1090,33 @@ class CoreMixin:
                 )
             self.set_setting('tarot_dual_archetype_migration_done', 'true')
 
+        # One-time migration: rewrite Thoth-suffixed minor-arcana archetypes
+        # to their canonical RWS slot equivalents so they share an archetype
+        # row with the same slot in any RWS deck. (See _get_tarot_metadata
+        # for the matching slot mapping in newly-imported decks.)
+        # Slot mapping: Princess→Page (11), Prince→Knight (12),
+        #   Queen→Queen (13), Knight (Thoth)→King (14).
+        # The card's display name (cards.name) is unchanged — it keeps the
+        # Thoth label like "Prince of Wands". Only the archetype linkage is
+        # canonicalized.
+        if self.get_setting('tarot_thoth_archetype_canonical_migration_done') != 'true':
+            thoth_rank_to_canonical = {
+                'Princess': 'Page',
+                'Prince': 'Knight',
+                'Queen': 'Queen',
+                'Knight': 'King',
+            }
+            suits = ['Wands', 'Cups', 'Swords', 'Pentacles']
+            for thoth_rank, canonical_rank in thoth_rank_to_canonical.items():
+                for suit in suits:
+                    old_name = f'{thoth_rank} of {suit} (Thoth)'
+                    new_name = f'{canonical_rank} of {suit}'
+                    cursor.execute(
+                        'UPDATE cards SET archetype = ? WHERE archetype = ?',
+                        (new_name, old_name)
+                    )
+            self.set_setting('tarot_thoth_archetype_canonical_migration_done', 'true')
+
         # One-time backfill: every existing numerology value should also have
         # its digit-sum reductions present (so "156" gains "12" and "3").
         # Going forward, the UI auto-expands new entries; this catches values
