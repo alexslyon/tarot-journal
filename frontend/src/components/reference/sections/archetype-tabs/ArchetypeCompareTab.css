@@ -76,6 +76,10 @@
 .archetype-compare__corr-row dd {
   color: var(--text-primary);
   margin: 0;
+  font-family: system-ui, -apple-system, 'Arial Hebrew', sans-serif;
+  direction: ltr;
+  text-align: left;
+  line-height: 1.6;
 }
 
 .archetype-compare__custom {

@@ -107,6 +107,12 @@
 
 .archetype-langs__name-text {
   color: var(--text-primary);
+  /* Mixed-script support (Hebrew, Arabic, etc.) — system-ui is best at
+   * picking the right glyph; LTR + left align keeps layout predictable. */
+  font-family: system-ui, -apple-system, 'Arial Hebrew', sans-serif;
+  direction: ltr;
+  text-align: left;
+  line-height: 1.6;
 }
 
 .archetype-langs__name-meta {
@@ -186,6 +192,10 @@
 
 .archetype-langs__cell-name {
   color: var(--text-primary);
+  font-family: system-ui, -apple-system, 'Arial Hebrew', sans-serif;
+  direction: ltr;
+  text-align: left;
+  line-height: 1.6;
 }
 
 .archetype-langs__cell-meta {
