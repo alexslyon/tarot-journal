@@ -1300,7 +1300,7 @@ class ImportPresets:
                 mapped_name = self.map_filename_to_card(filepath.name, preset_name, custom_suit_names)
                 # Apply court card name customization
                 if custom_court_names:
-                    mapped_name = self._apply_custom_court_names(mapped_name, custom_court_names)
+                    mapped_name = self._apply_custom_court_names(mapped_name, custom_court_names, preset_name)
 
                 # Get metadata from the mapped name
                 preset = self.get_preset(preset_name)
@@ -1872,12 +1872,21 @@ class ImportPresets:
                 'king': ('king', 14),
             }
 
-        # Add custom court names if provided
+        # Add custom court names if provided. The position values must match
+        # the vocabulary used to initialize court_card_info above — Thoth uses
+        # princess/prince/queen/knight as position keys, RWS uses page/knight/
+        # queen/king. Mixing them corrupts the slot lookup downstream (e.g.
+        # "Prince of Cups" would resolve to position='knight' and produce a
+        # "Knight of Cups (Thoth)" archetype).
         if custom_court_names:
-            court_card_info[custom_court_names.get('page', '').lower()] = ('page', 11)
-            court_card_info[custom_court_names.get('knight', '').lower()] = ('knight', 12)
-            court_card_info[custom_court_names.get('queen', '').lower()] = ('queen', 13)
-            court_card_info[custom_court_names.get('king', '').lower()] = ('king', 14)
+            if is_thoth:
+                slot_positions = ('princess', 'prince', 'queen', 'knight')
+            else:
+                slot_positions = ('page', 'knight', 'queen', 'king')
+            court_card_info[custom_court_names.get('page', '').lower()] = (slot_positions[0], 11)
+            court_card_info[custom_court_names.get('knight', '').lower()] = (slot_positions[1], 12)
+            court_card_info[custom_court_names.get('queen', '').lower()] = (slot_positions[2], 13)
+            court_card_info[custom_court_names.get('king', '').lower()] = (slot_positions[3], 14)
             # Remove empty string key if any custom name was empty
             court_card_info.pop('', None)
 
@@ -1988,21 +1997,36 @@ class ImportPresets:
 
         return f"{archetype_rank} of {suit}"
 
-    def _apply_custom_court_names(self, card_name: str, custom_court_names: dict) -> str:
+    def _apply_custom_court_names(self, card_name: str, custom_court_names: dict,
+                                   preset_name: str = None) -> str:
         """Replace standard court card names with custom ones in a card name.
 
         custom_court_names: dict with keys 'page', 'knight', 'queen', 'king'
+        preset_name: needed because the same word ("Knight") means different slots
+            depending on the source vocabulary — slot 12 in RWS, slot 14 in Thoth.
         """
         if not custom_court_names:
             return card_name
 
-        # Map of standard names to their position key
-        standard_to_position = {
-            'Page': 'page', 'Princess': 'page', 'Valet': 'page',
-            'Knight': 'knight', 'Prince': 'knight', 'Cavalier': 'knight',
-            'Queen': 'queen',
-            'King': 'king',
-        }
+        is_thoth = preset_name and 'thoth' in preset_name.lower()
+
+        # The input card name uses one of three court-rank vocabularies. Each
+        # vocabulary maps its rank words to slot keys differently — most
+        # importantly, "Knight" is slot 12 in RWS but slot 14 in Thoth.
+        if is_thoth:
+            standard_to_position = {
+                'Princess': 'page',
+                'Prince': 'knight',
+                'Queen': 'queen',
+                'Knight': 'king',
+            }
+        else:
+            standard_to_position = {
+                'Page': 'page', 'Princess': 'page', 'Valet': 'page',
+                'Knight': 'knight', 'Prince': 'knight', 'Cavalier': 'knight',
+                'Queen': 'queen',
+                'King': 'king',
+            }
 
         for standard_name, position in standard_to_position.items():
             if f'{standard_name} of ' in card_name:
