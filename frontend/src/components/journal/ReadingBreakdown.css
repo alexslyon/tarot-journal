@@ -227,6 +227,14 @@
   font-size: var(--font-size-small);
 }
 
+.reading-breakdown__chip-value {
+  /* Hebrew letters and other mixed-script values need system-ui to pick
+   * the right glyph; explicit LTR keeps layout predictable. */
+  font-family: system-ui, -apple-system, 'Arial Hebrew', sans-serif;
+  direction: ltr;
+  text-align: left;
+}
+
 .reading-breakdown__chip-count {
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
