@@ -18,11 +18,9 @@ const SUB_TABS: { id: SubTabId; label: string }[] = [
   { id: 'compare', label: 'Compare' },
 ];
 
-// Cartomancy types we currently support in the Archetypes viewer. Tarot only
-// initially per the planning doc — list is centralized so adding others later
-// is one edit. Anything in cartomancy_types not on this list is skipped from
-// the dropdown.
-const SUPPORTED_TYPES = ['Tarot'];
+// Cartomancy types we currently support in the Archetypes viewer.
+// Anything in cartomancy_types not on this list is skipped from the dropdown.
+const SUPPORTED_TYPES = ['Tarot', 'Lenormand'];
 
 interface ArchetypesViewerProps {
   /** Navigate to a Settings section with optional payload (deep-link). */
