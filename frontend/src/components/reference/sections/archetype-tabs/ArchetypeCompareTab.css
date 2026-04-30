@@ -22,7 +22,13 @@
   min-width: 0;
 }
 
-.archetype-compare__deck-row select {
+.archetype-compare__selectors {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.archetype-compare__selectors select {
   width: 100%;
 }
 

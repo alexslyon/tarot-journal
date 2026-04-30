@@ -5,6 +5,7 @@ import { getCards, getCard } from '../../../../api/cards';
 import { getDefaults } from '../../../../api/settings';
 import { cardPreviewUrl } from '../../../../api/images';
 import { getCardCorrespondences } from '../../../../api/correspondences';
+import { getArchetypes } from '../../../../api/correspondences';
 import { getArchetypeNotes } from '../../../../api/archetypeNotes';
 import RichTextViewer from '../../../common/RichTextViewer';
 import {
@@ -41,7 +42,9 @@ interface Props {
 }
 
 // Per-side deck choice is remembered by cartomancy type so it persists as
-// the user flips between archetypes within the same type.
+// the user flips between archetypes within the same type. Card choice is
+// not persisted — each column re-derives its default card from the parent
+// archetype every time the deck or archetype changes.
 const STORAGE = (which: 'left' | 'right', cartomancyType: string) =>
   `archetypes-viewer.compare.${which}.${cartomancyType}`;
 
@@ -59,13 +62,6 @@ export default function ArchetypeCompareTab({ archetype, cartomancyType }: Props
     queryKey: ['decks', typeId],
     queryFn: () => getDecks(typeId),
     enabled: typeId != null,
-  });
-
-  // Notes are per-archetype (deck-independent), so they're shared across
-  // both columns — fetch once and pass to both.
-  const { data: notes = [] } = useQuery<ArchetypeNoteEntry[]>({
-    queryKey: ['archetype-notes', archetype.id],
-    queryFn: () => getArchetypeNotes(archetype.id),
   });
 
   const { data: defaults } = useQuery({
@@ -90,7 +86,6 @@ export default function ArchetypeCompareTab({ archetype, cartomancyType }: Props
         archetype={archetype}
         cartomancyType={cartomancyType}
         decks={decks}
-        notes={notes}
         defaultDeckId={defaultDeckId}
       />
       <CompareColumn
@@ -98,7 +93,6 @@ export default function ArchetypeCompareTab({ archetype, cartomancyType }: Props
         archetype={archetype}
         cartomancyType={cartomancyType}
         decks={decks}
-        notes={notes}
         defaultDeckId={defaultDeckId}
       />
     </div>
@@ -114,14 +108,12 @@ function CompareColumn({
   archetype,
   cartomancyType,
   decks,
-  notes,
   defaultDeckId,
 }: {
   side: 'left' | 'right';
   archetype: Archetype;
   cartomancyType: string;
   decks: Deck[];
-  notes: ArchetypeNoteEntry[];
   defaultDeckId: number | null;
 }) {
   const [deckId, setDeckId] = useState<number | null>(null);
@@ -162,15 +154,31 @@ function CompareColumn({
     queryFn: () => (deckId != null ? getCards(deckId) : Promise.resolve([])),
     enabled: deckId != null,
   });
-  const matchingCard = useMemo(
-    () => deckCards.find(c => c.archetype === archetype.name) || null,
-    [deckCards, archetype.name],
+
+  // Card pick: defaults to the card whose archetype matches the parent
+  // selection, falls back to the first card. Reset whenever the deck or the
+  // parent archetype changes — manual picks are intentionally session-local
+  // so the user can compare arbitrary pairs without persisted state getting
+  // in the way of the simpler "follow the archetype" flow.
+  const [cardId, setCardId] = useState<number | null>(null);
+  useEffect(() => {
+    if (deckCards.length === 0) {
+      setCardId(null);
+      return;
+    }
+    const match = deckCards.find(c => c.archetype === archetype.name);
+    setCardId((match ?? deckCards[0]).id);
+  }, [deckCards, archetype.name]);
+
+  const selectedCard = useMemo(
+    () => deckCards.find(c => c.id === cardId) || null,
+    [deckCards, cardId],
   );
 
   const { data: corrs = [] } = useQuery<ResolvedCorrespondence[]>({
-    queryKey: ['card-correspondences', matchingCard?.id],
-    queryFn: () => getCardCorrespondences(matchingCard!.id),
-    enabled: matchingCard?.id != null,
+    queryKey: ['card-correspondences', selectedCard?.id],
+    queryFn: () => getCardCorrespondences(selectedCard!.id),
+    enabled: selectedCard?.id != null,
   });
   const corrMap = useMemo(() => {
     const m = new Map<string, ResolvedCorrespondence>();
@@ -181,9 +189,9 @@ function CompareColumn({
   // Full card detail for custom fields. The basic deck listing doesn't carry
   // them; we have to fetch each card individually.
   const { data: cardDetail } = useQuery<CardDetail>({
-    queryKey: ['card-detail', matchingCard?.id],
-    queryFn: () => getCard(matchingCard!.id),
-    enabled: matchingCard?.id != null,
+    queryKey: ['card-detail', selectedCard?.id],
+    queryFn: () => getCard(selectedCard!.id),
+    enabled: selectedCard?.id != null,
   });
   const customFields = useMemo(() => {
     if (!cardDetail) return [] as { field_name: string; field_value: string }[];
@@ -201,6 +209,27 @@ function CompareColumn({
       .map(f => ({ field_name: f.field_name, field_value: f.field_value || '' }));
     return [...legacyEntries, ...tableEntries];
   }, [cardDetail]);
+
+  // Notes are tied to whichever archetype this column's card belongs to —
+  // when the columns hold cards with different archetypes (the whole point
+  // of arbitrary card comparison), each column shows its own card's notes.
+  // Resolve archetype id by looking up the card's archetype name in the
+  // cached archetypes list for this cartomancy type.
+  const { data: archetypes = [] } = useQuery<Archetype[]>({
+    queryKey: ['archetypes', cartomancyType],
+    queryFn: () => getArchetypes(cartomancyType),
+  });
+  const cardArchetypeId = useMemo(() => {
+    if (!selectedCard?.archetype) return null;
+    const match = archetypes.find(a => a.name === selectedCard.archetype);
+    return match?.id ?? null;
+  }, [archetypes, selectedCard?.archetype]);
+
+  const { data: notes = [] } = useQuery<ArchetypeNoteEntry[]>({
+    queryKey: ['archetype-notes', cardArchetypeId],
+    queryFn: () => getArchetypeNotes(cardArchetypeId!),
+    enabled: cardArchetypeId != null,
+  });
 
   // Group notes by field for display, same shape as the Notes sub-tab.
   const noteFields = useMemo(() => {
@@ -227,8 +256,9 @@ function CompareColumn({
 
   return (
     <div className="archetype-compare__col">
-      <div className="archetype-compare__deck-row">
+      <div className="archetype-compare__selectors">
         <select
+          className="archetype-compare__deck-select"
           value={deckId ?? ''}
           onChange={e => setDeckId(e.target.value ? Number(e.target.value) : null)}
         >
@@ -236,23 +266,34 @@ function CompareColumn({
             <option key={d.id} value={d.id}>{d.name}</option>
           ))}
         </select>
+        <select
+          className="archetype-compare__card-select"
+          value={cardId ?? ''}
+          onChange={e => setCardId(e.target.value ? Number(e.target.value) : null)}
+          disabled={deckCards.length === 0}
+        >
+          {deckCards.length === 0 && <option value="">No cards</option>}
+          {deckCards.map(c => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
       </div>
 
       <div className="archetype-compare__image-wrap">
-        {matchingCard ? (
+        {selectedCard ? (
           <img
             className="archetype-compare__image"
-            src={cardPreviewUrl(matchingCard.id)}
-            alt={archetype.name}
+            src={cardPreviewUrl(selectedCard.id)}
+            alt={selectedCard.name}
           />
         ) : (
           <div className="archetype-compare__no-image">
-            This deck doesn't have "{archetype.name}".
+            This deck has no cards.
           </div>
         )}
       </div>
 
-      {matchingCard && (
+      {selectedCard && (
         <dl className="archetype-compare__corr">
           {CORRESPONDENCE_FIELDS.map(f => {
             const c = corrMap.get(f);
