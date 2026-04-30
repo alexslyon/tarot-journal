@@ -70,6 +70,14 @@ export async function deleteEntry(entryId: number): Promise<void> {
   await api.delete(`/api/entries/${entryId}`);
 }
 
+/** Persist Reading Breakdown panel state for an entry. */
+export async function setEntryBreakdownSettings(
+  entryId: number,
+  settings: Record<string, unknown>,
+): Promise<void> {
+  await api.patch(`/api/entries/${entryId}/breakdown-settings`, settings);
+}
+
 // ── Readings ─────────────────────────────────────────────────
 
 export async function getEntryReadings(entryId: number): Promise<EntryReadingParsed[]> {

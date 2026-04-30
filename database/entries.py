@@ -197,6 +197,16 @@ class EntriesMixin:
             cursor.execute(f'UPDATE journal_entries SET {", ".join(updates)} WHERE id = ?', params)
             self._commit()
 
+    def set_entry_breakdown_settings(self, entry_id: int, settings_json: str):
+        """Persist Reading Breakdown panel state. Doesn't bump updated_at —
+        this is UI preference, not content."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'UPDATE journal_entries SET breakdown_settings = ? WHERE id = ?',
+            (settings_json, entry_id)
+        )
+        self._commit()
+
     def delete_entry(self, entry_id: int):
         cursor = self.conn.cursor()
         cursor.execute('DELETE FROM journal_entries WHERE id = ?', (entry_id,))

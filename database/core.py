@@ -223,6 +223,11 @@ class CoreMixin:
             cursor.execute('ALTER TABLE journal_entries ADD COLUMN location_lat REAL')
         if 'location_lon' not in columns:
             cursor.execute('ALTER TABLE journal_entries ADD COLUMN location_lon REAL')
+        if 'breakdown_settings' not in columns:
+            # Per-entry settings JSON for the Reading Breakdown panel:
+            # { open: bool, last_tab: 'all' | <reading_id>,
+            #   visible: { <field_name>: bool, ... } }
+            cursor.execute('ALTER TABLE journal_entries ADD COLUMN breakdown_settings TEXT')
 
         # Entry readings (links entries to spreads and cards used)
         cursor.execute('''

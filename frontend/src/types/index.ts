@@ -93,6 +93,18 @@ export interface JournalEntry {
   location_lon: number | null;
   querent_id: number | null;
   reader_id: number | null;
+  /** JSON-encoded BreakdownSettings; null until first save. */
+  breakdown_settings: string | null;
+}
+
+/** Per-entry UI state for the Reading Breakdown panel. */
+export interface BreakdownSettings {
+  /** Whether the panel is expanded. */
+  open: boolean;
+  /** Last-viewed tab — "all" for the aggregate, otherwise an EntryReading.id. */
+  last_tab: 'all' | number;
+  /** Per-correspondence-type visibility toggles. Missing keys default to true. */
+  visible: Record<string, boolean>;
 }
 
 export interface EntryReading {

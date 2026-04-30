@@ -220,6 +220,19 @@ def update_entry(entry_id, data):
     return jsonify({'ok': True})
 
 
+@entries_bp.route('/api/entries/<int:entry_id>/breakdown-settings', methods=['PATCH'])
+@require_json
+def set_entry_breakdown_settings(entry_id, data):
+    """Persist Reading Breakdown panel state. Body is the settings JSON.
+    Stored as-is on journal_entries.breakdown_settings; doesn't bump updated_at."""
+    db = current_app.config['DB']
+    if not db.get_entry(entry_id):
+        return jsonify({'error': 'Entry not found'}), 404
+    import json
+    db.set_entry_breakdown_settings(entry_id, json.dumps(data))
+    return jsonify({'ok': True})
+
+
 @entries_bp.route('/api/entries/<int:entry_id>', methods=['DELETE'])
 def delete_entry(entry_id):
     db = current_app.config['DB']
