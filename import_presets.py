@@ -336,9 +336,16 @@ PRE_GOLDEN_DAWN_TAROT.update({
 # Court Cards: King→Knight, Queen→Queen, Knight→Prince, Page→Princess
 THOTH_TAROT = dict(STANDARD_TAROT)
 THOTH_TAROT.update({
-    # Major Arcana name changes
-    "08": "Lust", "8": "Lust", "strength": "Lust", "lust": "Lust",
-    "11": "Adjustment", "justice": "Adjustment", "adjustment": "Adjustment",
+    # Major Arcana name changes. Thoth follows pre-Golden-Dawn (Marseille)
+    # ordering for slots 8 and 11 — the card printed with VIII is Adjustment,
+    # the card printed with XI is Lust. (RWS swapped them; Thoth/Marseille
+    # did not.) So a file named purely "08" represents Adjustment, "11"
+    # represents Lust. The "strength"/"justice" keys still map to their
+    # Thoth-renamed counterparts — those are the conceptual card names.
+    "08": "Adjustment", "8": "Adjustment",
+    "11": "Lust",
+    "strength": "Lust", "lust": "Lust",
+    "justice": "Adjustment", "adjustment": "Adjustment",
     "20": "The Aeon", "judgement": "The Aeon", "judgment": "The Aeon", "aeon": "The Aeon",
     "21": "The Universe", "world": "The Universe", "universe": "The Universe",
     
