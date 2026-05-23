@@ -28,7 +28,7 @@ import type {
 import '../SettingsTab.css';
 import './ArchetypeNotesSection.css';
 
-const SUPPORTED_TYPES = ['Tarot'];
+const SUPPORTED_TYPES = ['Tarot', 'Lenormand'];
 
 interface Props {
   /** Pre-select this archetype on first render (deep-link from Reference). */
