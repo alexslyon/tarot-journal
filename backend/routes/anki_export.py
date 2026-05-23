@@ -4,6 +4,7 @@ and images that can be imported directly into Anki.
 """
 
 import io
+import json
 import os
 import zipfile
 
@@ -67,20 +68,50 @@ def anki_export(deck_id, data):
             if c['value']
         }
 
-    # Get custom fields for all cards
+    # Get custom fields for all cards. Two sources, both still in active use:
+    #   1) Legacy cards.custom_fields JSON column (older decks like Supra Oracle
+    #      have data here).
+    #   2) card_custom_fields table (newer storage).
+    # Merge per card with the table taking precedence on key collisions.
     card_custom_fields = {}
     for card in cards:
+        legacy = {}
+        raw = card.get('custom_fields')
+        if raw:
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, dict):
+                    legacy = {k: ('' if v is None else str(v)) for k, v in parsed.items()}
+            except (ValueError, TypeError):
+                pass
+
         cursor = db.conn.cursor()
         cursor.execute(
             'SELECT field_name, field_value FROM card_custom_fields WHERE card_id = ?',
             (card['id'],)
         )
-        card_custom_fields[card['id']] = {
-            r['field_name']: r['field_value'] for r in cursor.fetchall()
+        table_fields = {
+            r['field_name']: (r['field_value'] or '')
+            for r in cursor.fetchall()
         }
+
+        card_custom_fields[card['id']] = {**legacy, **table_fields}
 
     # Correspondence field names (for detecting which fields are correspondences)
     from database.correspondences import CORRESPONDENCE_FIELDS
+
+    def sanitize(value):
+        """Make a value safe to drop into a tab-separated, newline-delimited
+        row. Newlines become <br> (Anki renders them via #html:true), tabs
+        become spaces so columns don't shift. Multi-paragraph card
+        descriptions are the main reason this exists."""
+        if value is None:
+            return ''
+        s = str(value)
+        s = s.replace('\r\n', '\n').replace('\r', '\n')
+        s = s.replace('\n', '<br>')
+        s = s.replace('\t', ' ')
+        return s
 
     # Build the zip in memory
     buf = io.BytesIO()
@@ -125,16 +156,16 @@ def anki_export(deck_id, data):
                     else:
                         row.append('')
                 elif f == 'name':
-                    row.append(card.get('name', ''))
+                    row.append(sanitize(card.get('name')))
                 elif f == 'sort_number':
-                    row.append(str(card.get('card_order', '') or ''))
+                    row.append(sanitize(card.get('card_order')))
                 elif f == 'notes':
-                    row.append(card.get('notes', '') or '')
+                    row.append(sanitize(card.get('notes')))
                 elif f in CORRESPONDENCE_FIELDS:
-                    row.append(corr.get(f, ''))
+                    row.append(sanitize(corr.get(f)))
                 else:
                     # Custom field
-                    row.append(custom.get(f, ''))
+                    row.append(sanitize(custom.get(f)))
 
             lines.append('\t'.join(row))
 
