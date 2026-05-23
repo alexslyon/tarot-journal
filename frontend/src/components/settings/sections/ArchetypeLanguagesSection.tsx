@@ -24,7 +24,7 @@ import type {
 import '../SettingsTab.css';
 import './ArchetypeLanguagesSection.css';
 
-const SUPPORTED_TYPES = ['Tarot'];
+const SUPPORTED_TYPES = ['Tarot', 'Lenormand'];
 
 interface Props {
   initialArchetypeId?: number;
