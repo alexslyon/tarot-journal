@@ -1159,6 +1159,63 @@ class CoreMixin:
                 )
             self.set_setting('kipper_archetype_normalization_done', 'true')
 
+        # One-time migration: normalize Playing Cards joker archetypes to
+        # canonical Red Joker / Black Joker. Most decks store both jokers
+        # with the bare archetype string "Joker", which matches neither
+        # seeded row. Disambiguation rules, in order:
+        #   1) display name contains "Red"   -> Red Joker
+        #   2) display name contains "Black" -> Black Joker
+        #   3) card_order = 1 -> Red Joker, card_order = 2 -> Black Joker
+        # Scoped to Playing Cards decks. Man/Woman extras (Cartomancer
+        # Clarity card_order 501/502) are left dangling — they're outside
+        # the canonical 54-card vocabulary.
+        if self.get_setting('playing_cards_joker_normalization_done') != 'true':
+            cursor.execute(
+                '''
+                UPDATE cards SET archetype = 'Red Joker'
+                WHERE archetype = 'Joker'
+                  AND LOWER(name) LIKE '%red%'
+                  AND deck_id IN (
+                    SELECT d.id FROM decks d
+                    JOIN deck_type_assignments dta ON dta.deck_id = d.id
+                    JOIN cartomancy_types ct ON ct.id = dta.type_id
+                    WHERE ct.name = 'Playing Cards'
+                  )
+                '''
+            )
+            cursor.execute(
+                '''
+                UPDATE cards SET archetype = 'Black Joker'
+                WHERE archetype = 'Joker'
+                  AND LOWER(name) LIKE '%black%'
+                  AND deck_id IN (
+                    SELECT d.id FROM decks d
+                    JOIN deck_type_assignments dta ON dta.deck_id = d.id
+                    JOIN cartomancy_types ct ON ct.id = dta.type_id
+                    WHERE ct.name = 'Playing Cards'
+                  )
+                '''
+            )
+            # Positional fallback for color-neutral names (e.g. "Joker 1",
+            # "Joker 2", or thematic replacements like Cartomancer Clarity's
+            # Unconsciousness/Consciousness).
+            for order, canonical in ((1, 'Red Joker'), (2, 'Black Joker')):
+                cursor.execute(
+                    '''
+                    UPDATE cards SET archetype = ?
+                    WHERE archetype = 'Joker'
+                      AND card_order = ?
+                      AND deck_id IN (
+                        SELECT d.id FROM decks d
+                        JOIN deck_type_assignments dta ON dta.deck_id = d.id
+                        JOIN cartomancy_types ct ON ct.id = dta.type_id
+                        WHERE ct.name = 'Playing Cards'
+                      )
+                    ''',
+                    (canonical, order)
+                )
+            self.set_setting('playing_cards_joker_normalization_done', 'true')
+
         # One-time backfill: every existing numerology value should also have
         # its digit-sum reductions present (so "156" gains "12" and "3").
         # Going forward, the UI auto-expands new entries; this catches values
