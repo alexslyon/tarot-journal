@@ -382,12 +382,28 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
                 {deckCards.length > 0 ? (
                   <select
                     className="reading-editor__card-select"
-                    value={card.name}
-                    onChange={(e) => updateCard(idx, 'name', e.target.value)}
+                    value={
+                      card.card_id
+                        ?? (card.name ? deckCards.find(c => c.name === card.name)?.id ?? '' : '')
+                    }
+                    onChange={(e) => {
+                      const selectedId = e.target.value ? Number(e.target.value) : undefined;
+                      const selectedCard = selectedId
+                        ? deckCards.find(c => c.id === selectedId)
+                        : undefined;
+                      const newCards = [...value.cards];
+                      newCards[idx] = {
+                        ...newCards[idx],
+                        name: selectedCard?.name ?? '',
+                        card_id: selectedCard?.id,
+                        position_index: idx,
+                      };
+                      onChange({ ...value, cards: newCards });
+                    }}
                   >
                     <option value="">— select card —</option>
                     {deckCards.map((c) => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
+                      <option key={c.id} value={c.id}>{labelForCard(c, deckCards)}</option>
                     ))}
                   </select>
                 ) : (
@@ -519,11 +535,27 @@ function VisualSpreadEditor({
     return deckCardsMap.get(deckId) || [];
   };
 
-  // Find card_id for a given card name within a deck
+  // Find card_id for a given card name within a deck. Returns the first
+  // match — only used as a legacy fallback when an entry doesn't already
+  // have card_id saved (newer entries store the explicit id chosen at edit
+  // time, which correctly disambiguates duplicate-name variants).
   const getCardId = (name: string, deckId: number | undefined): number | undefined => {
     const deckCards = getCardsForDeck(deckId);
     const found = deckCards.find(c => c.name === name);
     return found?.id;
+  };
+
+  // Some decks (e.g. Terra Volatile) contain multiple distinct cards with
+  // the same name. Pick a stable per-id suffix so each variant is
+  // independently selectable in the dropdown.
+  const labelForCard = (
+    card: { id: number; name: string },
+    allCards: { id: number; name: string }[],
+  ): string => {
+    const sameName = allCards.filter(c => c.name === card.name);
+    if (sameName.length <= 1) return card.name;
+    const variantIdx = sameName.findIndex(c => c.id === card.id) + 1;
+    return `${card.name} (variant ${variantIdx})`;
   };
 
   // Get the slot for a position
@@ -547,7 +579,10 @@ function VisualSpreadEditor({
         {positions.map((pos, idx) => {
           const card = cards[idx];
           const posDeckId = getDeckIdForPosition(pos);
-          const cardId = card?.name ? getCardId(card.name, posDeckId) : undefined;
+          // Prefer the saved card_id (disambiguates same-name variants);
+          // fall back to name lookup only for legacy entries.
+          const cardId = card?.card_id
+            ?? (card?.name ? getCardId(card.name, posDeckId) : undefined);
           const slotWidth = (pos.width || 80) * scale;
           const slotHeight = (pos.height || 120) * scale;
           const slot = getSlotForPosition(pos);
@@ -602,16 +637,23 @@ function VisualSpreadEditor({
                   <span className="reading-editor__slot-badge">{slot.key}</span>
                 )}
               </span>
-              {/* Card selector for this position */}
+              {/* Card selector for this position. Value is the card id so
+                  same-name variants (e.g. multiple "Two of Cups" in Terra
+                  Volatile) are independently selectable. */}
               <select
                 className="reading-editor__card-select"
-                value={card?.name || ''}
+                value={
+                  card?.card_id
+                    ?? (card?.name ? getCardId(card.name, posDeckId) ?? '' : '')
+                }
                 onChange={(e) => {
-                  const selectedName = e.target.value;
-                  const selectedCard = currentDeckCards.find(c => c.name === selectedName);
+                  const selectedId = e.target.value ? Number(e.target.value) : undefined;
+                  const selectedCard = selectedId
+                    ? currentDeckCards.find(c => c.id === selectedId)
+                    : undefined;
                   const deck = decks.find(d => d.id === posDeckId);
                   onUpdateCard(idx, {
-                    name: selectedName,
+                    name: selectedCard?.name ?? '',
                     card_id: selectedCard?.id,
                     deck_id: posDeckId,
                     deck_name: deck?.name,
@@ -621,7 +663,7 @@ function VisualSpreadEditor({
               >
                 <option value="">{posDeckId ? '— select card —' : '— select deck above —'}</option>
                 {currentDeckCards.map((c) => (
-                  <option key={c.id} value={c.name}>{c.name}</option>
+                  <option key={c.id} value={c.id}>{labelForCard(c, currentDeckCards)}</option>
                 ))}
               </select>
               <label className="reading-editor__reversed">
