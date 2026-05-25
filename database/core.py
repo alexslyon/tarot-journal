@@ -1123,6 +1123,42 @@ class CoreMixin:
                     )
             self.set_setting('tarot_thoth_archetype_canonical_migration_done', 'true')
 
+        # One-time migration: normalize Kipper archetypes to canonical names.
+        # Some imported decks (Seaborn Kipper, Wahrsage Karten Original Kipper)
+        # use slight variants of the standard Kipper card names — typos
+        # ("High Honors" vs "High Honours"), synonyms ("Meeting" vs
+        # "Rendezvous"), or shorter forms ("Court" vs "Judiciary"). The card's
+        # display name (cards.name) is untouched; only the archetype linkage
+        # column is canonicalized. Scoped to decks tagged as Kipper so a
+        # similarly-spelled string in another cartomancy type isn't touched.
+        if self.get_setting('kipper_archetype_normalization_done') != 'true':
+            kipper_renames = {
+                'Meeting': 'Rendezvous',
+                'Gain Money': 'Lots of Money',
+                'Rich Man': 'Rich Good Gentleman',
+                'Official Person': 'Military Person',
+                'High Honors': 'High Honours',
+                'Expectation': 'Expectations',
+                'Court': 'Judiciary',
+                'Short Illness': 'Illness',
+                'Work': 'Occupation',
+            }
+            for old_name, new_name in kipper_renames.items():
+                cursor.execute(
+                    '''
+                    UPDATE cards SET archetype = ?
+                    WHERE archetype = ?
+                      AND deck_id IN (
+                        SELECT d.id FROM decks d
+                        JOIN deck_type_assignments dta ON dta.deck_id = d.id
+                        JOIN cartomancy_types ct ON ct.id = dta.type_id
+                        WHERE ct.name = 'Kipper'
+                      )
+                    ''',
+                    (new_name, old_name)
+                )
+            self.set_setting('kipper_archetype_normalization_done', 'true')
+
         # One-time backfill: every existing numerology value should also have
         # its digit-sum reductions present (so "156" gains "12" and "3").
         # Going forward, the UI auto-expands new entries; this catches values
