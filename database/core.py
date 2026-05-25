@@ -976,12 +976,13 @@ class CoreMixin:
                 self._migrate_tarot_numbering(cursor)
 
             # Top-up: if a cartomancy type's archetypes were never seeded
-            # (older DBs predate I Ching being added), run the seeder to
-            # add the missing ones. INSERT OR IGNORE skips existing rows.
+            # (older DBs predate I Ching being added, or Kipper which came
+            # later), run the seeder to add the missing ones. INSERT OR
+            # IGNORE skips existing rows.
             cursor.execute(
-                "SELECT COUNT(*) FROM card_archetypes WHERE cartomancy_type = 'I Ching'"
+                "SELECT COUNT(*) FROM card_archetypes WHERE cartomancy_type IN ('I Ching', 'Kipper')"
             )
-            if cursor.fetchone()[0] == 0:
+            if cursor.fetchone()[0] < 100:  # 64 I Ching + 36 Kipper
                 self._seed_card_archetypes(cursor)
 
         # Seed correspondence systems if table is empty
@@ -1236,6 +1237,22 @@ class CoreMixin:
         # Jokers
         archetypes.append(('Red Joker', 'Playing Cards', 'Joker', None, 'playing'))
         archetypes.append(('Black Joker', 'Playing Cards', 'Joker', None, 'playing'))
+
+        # Kipper (36). Names match the import preset's
+        # _get_kipper_metadata_by_position list so cards imported via that
+        # preset find matching archetypes.
+        kipper_cards = [
+            'Main Male', 'Main Female', 'Marriage', 'Rendezvous', 'Good Gentleman',
+            'Good Lady', 'Pleasant Letter', 'False Person', 'A Change', 'A Journey',
+            'Lots of Money', 'Rich Girl', 'Rich Good Gentleman', 'Sad News',
+            'Success in Love', 'His Thoughts', 'A Gift', 'A Small Child', 'A Funeral',
+            'House', 'Living Room', 'Military Person', 'Court House', 'Theft',
+            'High Honours', 'Great Fortune', 'Unexpected Money', 'Expectations',
+            'Prison', 'Judiciary', 'Illness', 'Grief and Adversity', 'Gloomy Thoughts',
+            'Occupation', 'A Long Way', 'Hope, Great Water',
+        ]
+        for i, name in enumerate(kipper_cards, start=1):
+            archetypes.append((name, 'Kipper', str(i), None, 'kipper'))
 
         # I Ching (64 hexagrams). English names match the import preset's
         # short Wilhelm-Baynes form so cards imported via that preset find
