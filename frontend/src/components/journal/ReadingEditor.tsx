@@ -446,6 +446,19 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
  * Calculate image style for card display, handling both position rotation and card reversal.
  * When a position is rotated 90°, we need to swap the image dimensions so it fills the slot correctly.
  */
+// Some decks (e.g. Terra Volatile) contain multiple distinct cards with
+// the same name. Append a stable per-id suffix so each variant is
+// independently selectable in <select> dropdowns.
+function labelForCard(
+  card: { id: number; name: string },
+  allCards: { id: number; name: string }[],
+): string {
+  const sameName = allCards.filter(c => c.name === card.name);
+  if (sameName.length <= 1) return card.name;
+  const variantIdx = sameName.findIndex(c => c.id === card.id) + 1;
+  return `${card.name} (variant ${variantIdx})`;
+}
+
 function getCardImageStyle(
   positionRotated: boolean | undefined,
   cardReversed: boolean | undefined,
@@ -545,18 +558,6 @@ function VisualSpreadEditor({
     return found?.id;
   };
 
-  // Some decks (e.g. Terra Volatile) contain multiple distinct cards with
-  // the same name. Pick a stable per-id suffix so each variant is
-  // independently selectable in the dropdown.
-  const labelForCard = (
-    card: { id: number; name: string },
-    allCards: { id: number; name: string }[],
-  ): string => {
-    const sameName = allCards.filter(c => c.name === card.name);
-    if (sameName.length <= 1) return card.name;
-    const variantIdx = sameName.findIndex(c => c.id === card.id) + 1;
-    return `${card.name} (variant ${variantIdx})`;
-  };
 
   // Get the slot for a position
   const getSlotForPosition = (pos: SpreadPosition): DeckSlot | undefined => {
