@@ -6,11 +6,12 @@ import {
   getDeckTypes, setDeckTypes, updateDeckSuitNames, updateDeckCourtNames,
   getDeckGroups, addDeckGroup, updateDeckGroup, deleteDeckGroup,
 } from '../../api/decks';
+import { getCards, updateCard } from '../../api/cards';
 import { getDeckTags } from '../../api/tags';
-import { deckBackUrl } from '../../api/images';
+import { deckBackUrl, cardThumbnailUrl } from '../../api/images';
 import { exportDeckUrl } from '../../api/importExport';
 import { getCorrespondenceSystems } from '../../api/correspondences';
-import type { Deck, Tag, DeckCustomField, CardGroup, CorrespondenceSystem } from '../../types';
+import type { Card, Deck, Tag, DeckCustomField, CardGroup, CorrespondenceSystem } from '../../types';
 import DeckCorrespondenceOverrides from './DeckCorrespondenceOverrides';
 import { ensureHtml } from '../../utils/formatting';
 import { useToast } from '../../context/ToastContext';
@@ -97,6 +98,57 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
     queryFn: getCorrespondenceSystems,
     enabled: deckId !== null,
   });
+
+  // Cards in this deck — used for the Variants section to surface and
+  // re-order groups of same-name cards. Shares the cache with elsewhere
+  // in the app via the ['cards', deckId] key.
+  const { data: deckCards = [] } = useQuery<Card[]>({
+    queryKey: ['cards', deckId],
+    queryFn: () => (deckId != null ? getCards(deckId) : Promise.resolve([])),
+    enabled: deckId !== null,
+  });
+
+  // Same-name groups (only when 2+ cards share a name) sorted by their
+  // current card_order. The entry editor's variant labels are derived
+  // from this same order so swapping here flows through.
+  const variantGroups = useMemo(() => {
+    const byName = new Map<string, Card[]>();
+    for (const c of deckCards) {
+      const arr = byName.get(c.name);
+      if (arr) arr.push(c);
+      else byName.set(c.name, [c]);
+    }
+    return [...byName.entries()]
+      .filter(([, list]) => list.length > 1)
+      .map(([name, list]) => ({
+        name,
+        cards: [...list].sort((a, b) => a.card_order - b.card_order),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [deckCards]);
+
+  // Swap card_order between two cards. Works for same-name pairs as well
+  // as any two cards; we expose it only for variant siblings.
+  const [variantBusy, setVariantBusy] = useState(false);
+  const swapCardOrder = async (a: Card, b: Card) => {
+    if (variantBusy) return;
+    setVariantBusy(true);
+    try {
+      // SQLite has no transactional swap via two separate PUTs, so move
+      // one card to a temporary out-of-band order first to dodge any
+      // UNIQUE constraint on card_order (defensive; there isn't one
+      // today but cheap insurance).
+      await updateCard(a.id, { card_order: -1 - a.card_order });
+      await updateCard(b.id, { card_order: a.card_order });
+      await updateCard(a.id, { card_order: b.card_order });
+      queryClient.invalidateQueries({ queryKey: ['cards', deckId] });
+    } catch (err) {
+      console.error('Failed to reorder variants:', err);
+      showToast('Failed to reorder variants.');
+    } finally {
+      setVariantBusy(false);
+    }
+  };
 
   // Standard suit/court keys (lowercase for database) with default display names
   const TAROT_SUIT_DEFAULTS: Record<string, string> = {
@@ -829,6 +881,70 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
                 </div>
               ) : null}
             </div>
+
+            {variantGroups.length > 0 && (
+              <div className="deck-edit__section">
+                <h3 className="deck-edit__section-title">Card Variants</h3>
+                <p className="deck-edit__section-hint">
+                  Cards sharing a name appear as numbered variants in the
+                  reading editor. Reorder here to control which is "variant
+                  1", "variant 2", etc. (Adjusts each card's sort order in
+                  the deck — same-name cards reorder, others stay put.)
+                </p>
+                <div className="deck-edit__variant-groups">
+                  {variantGroups.map(group => (
+                    <div key={group.name} className="deck-edit__variant-group">
+                      <h4 className="deck-edit__variant-group-name">{group.name}</h4>
+                      <ul className="deck-edit__variant-list">
+                        {group.cards.map((card, idx) => (
+                          <li key={card.id} className="deck-edit__variant-row">
+                            <span className="deck-edit__variant-index">
+                              variant {idx + 1}
+                            </span>
+                            {card.image_path ? (
+                              <img
+                                className="deck-edit__variant-thumb"
+                                src={cardThumbnailUrl(card.id)}
+                                alt={card.name}
+                              />
+                            ) : (
+                              <div className="deck-edit__variant-thumb deck-edit__variant-thumb--empty">
+                                —
+                              </div>
+                            )}
+                            <span className="deck-edit__variant-order">
+                              order {card.card_order}
+                            </span>
+                            <div className="deck-edit__variant-buttons">
+                              <button
+                                type="button"
+                                className="deck-edit__variant-btn"
+                                disabled={idx === 0 || variantBusy}
+                                onClick={() => swapCardOrder(card, group.cards[idx - 1])}
+                                title="Move up"
+                                aria-label={`Move ${card.name} variant ${idx + 1} up`}
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                className="deck-edit__variant-btn"
+                                disabled={idx === group.cards.length - 1 || variantBusy}
+                                onClick={() => swapCardOrder(card, group.cards[idx + 1])}
+                                title="Move down"
+                                aria-label={`Move ${card.name} variant ${idx + 1} down`}
+                              >
+                                ↓
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {confirmingDelete ? (
