@@ -387,3 +387,98 @@
   background: var(--bg-input);
   border-color: var(--accent-dim);
 }
+
+/* Card Variants section — surfaces same-name groups so the user can
+   reassign which card is variant 1, 2, etc. */
+.deck-edit__variant-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.deck-edit__variant-group {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.deck-edit__variant-group-name {
+  margin: 0 0 6px;
+  font-size: var(--font-size-small);
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.deck-edit__variant-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.deck-edit__variant-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+}
+
+.deck-edit__variant-index {
+  flex: 0 0 70px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+}
+
+.deck-edit__variant-thumb {
+  width: 32px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 3px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+}
+
+.deck-edit__variant-thumb--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+}
+
+.deck-edit__variant-order {
+  flex: 1;
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.deck-edit__variant-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.deck-edit__variant-btn {
+  padding: 2px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: var(--font-size-small);
+}
+
+.deck-edit__variant-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.deck-edit__variant-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
