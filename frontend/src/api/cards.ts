@@ -25,7 +25,10 @@ export async function deleteCard(cardId: number) {
   await api.delete(`/api/cards/${cardId}`);
 }
 
-export async function updateCard(cardId: number, data: Partial<Pick<Card, 'name' | 'card_order'>>) {
+export async function updateCard(
+  cardId: number,
+  data: Partial<Pick<Card, 'name' | 'card_order' | 'variant_order'>>,
+) {
   await api.put(`/api/cards/${cardId}`, data);
 }
 

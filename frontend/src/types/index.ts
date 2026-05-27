@@ -34,6 +34,10 @@ export interface Card {
   name: string;
   image_path: string | null;
   card_order: number;
+  /** Within-name-group ordering for the reading editor's variant picker.
+   *  Independent of card_order so users can reorder same-name variants
+   *  without disturbing deck display order. Null = use insertion order. */
+  variant_order: number | null;
   archetype: string | null;
   rank: string | null;
   suit: string | null;

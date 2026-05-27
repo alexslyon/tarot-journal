@@ -108,9 +108,9 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
     enabled: deckId !== null,
   });
 
-  // Same-name groups (only when 2+ cards share a name) sorted by their
-  // current card_order. The entry editor's variant labels are derived
-  // from this same order so swapping here flows through.
+  // Same-name groups (only when 2+ cards share a name). Sorted by the
+  // optional variant_order field (cards without one fall to the end by id
+  // — matches the entry editor's compareVariants tiebreak).
   const variantGroups = useMemo(() => {
     const byName = new Map<string, Card[]>();
     for (const c of deckCards) {
@@ -118,40 +118,34 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
       if (arr) arr.push(c);
       else byName.set(c.name, [c]);
     }
+    const cmp = (a: Card, b: Card) => {
+      const av = a.variant_order;
+      const bv = b.variant_order;
+      if (av != null && bv != null) return av - bv;
+      if (av != null) return -1;
+      if (bv != null) return 1;
+      return a.id - b.id;
+    };
     return [...byName.entries()]
       .filter(([, list]) => list.length > 1)
-      .map(([name, list]) => ({
-        name,
-        cards: [...list].sort((a, b) => a.card_order - b.card_order),
-      }))
+      .map(([name, list]) => ({ name, cards: [...list].sort(cmp) }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [deckCards]);
 
-  // Reorder a same-name group. Assigns strictly increasing contiguous
-  // card_order values starting from the group's current minimum, so the
-  // entry editor's variant-by-position derivation lands deterministically.
-  //
-  // Why renumber vs. pairwise swap: same-name cards in some decks (e.g.
-  // Terra Volatile) all share an identical card_order value, so a swap
-  // is a no-op. Renumbering forces distinct orders within the group.
-  // Other cards in the deck whose orders fall in the same range aren't
-  // touched; card_order has no UNIQUE constraint, so collisions are OK
-  // (variants within a *different* name group sort the same way they did
-  // before).
+  // Reorder a same-name group by writing variant_order (1, 2, 3, …) on
+  // each card. Leaves card_order alone so deck display position is
+  // preserved — important for decks that intentionally assign the same
+  // card_order to every same-name card (Terra Volatile et al.).
   const [variantBusy, setVariantBusy] = useState(false);
   const reorderVariantGroup = async (newOrder: Card[]) => {
     if (variantBusy) return;
     setVariantBusy(true);
     try {
-      const base = Math.min(...newOrder.map(c => c.card_order));
-      // Two-phase to dodge any same-deck card_order collisions during
-      // the in-between state: move everything out to a negative band
-      // first, then assign final values.
       for (let i = 0; i < newOrder.length; i++) {
-        await updateCard(newOrder[i].id, { card_order: -1 - i - base });
-      }
-      for (let i = 0; i < newOrder.length; i++) {
-        await updateCard(newOrder[i].id, { card_order: base + i });
+        const want = i + 1;
+        if (newOrder[i].variant_order !== want) {
+          await updateCard(newOrder[i].id, { variant_order: want });
+        }
       }
       queryClient.invalidateQueries({ queryKey: ['cards', deckId] });
     } catch (err) {
@@ -908,8 +902,8 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
                 <p className="deck-edit__section-hint">
                   Cards sharing a name appear as numbered variants in the
                   reading editor. Reorder here to control which is "variant
-                  1", "variant 2", etc. (Adjusts each card's sort order in
-                  the deck — same-name cards reorder, others stay put.)
+                  1", "variant 2", etc. Only the variant order changes —
+                  each card's deck sort position (card_order) stays put.
                 </p>
                 <div className="deck-edit__variant-groups">
                   {variantGroups.map(group => (
@@ -933,7 +927,10 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
                               </div>
                             )}
                             <span className="deck-edit__variant-order">
-                              order {card.card_order}
+                              card_order {card.card_order}
+                              {card.variant_order != null && (
+                                <> · variant_order {card.variant_order}</>
+                              )}
                             </span>
                             <div className="deck-edit__variant-buttons">
                               <button

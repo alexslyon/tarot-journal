@@ -86,6 +86,7 @@ def update_card(card_id, data):
         name=data.get('name'),
         image_path=data.get('image_path'),
         card_order=data.get('card_order'),
+        variant_order=data.get('variant_order'),
     )
     return jsonify({'ok': True})
 
