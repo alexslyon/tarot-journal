@@ -76,10 +76,40 @@ export default function ArchetypeCardImage({ archetype, cartomancyType, classNam
     queryFn: () => (deckId != null ? getCards(deckId) : Promise.resolve([])),
     enabled: deckId != null,
   });
-  const matchingCard = useMemo(
-    () => deckCards.find(c => c.archetype === archetype.name) || null,
-    [deckCards, archetype.name],
-  );
+  // All cards in the deck that map to this archetype — multiple in decks
+  // like Terra Volatile (named variants) or Playing Cards (consolidated
+  // Joker). Sorted by variant_order (nulls last by id) to match the deck
+  // edit modal's Variants section.
+  const matchingCards = useMemo(() => {
+    return [...deckCards]
+      .filter(c => c.archetype === archetype.name)
+      .sort((a, b) => {
+        const av = a.variant_order;
+        const bv = b.variant_order;
+        if (av != null && bv != null) return av - bv;
+        if (av != null) return -1;
+        if (bv != null) return 1;
+        return a.id - b.id;
+      });
+  }, [deckCards, archetype.name]);
+  // Reset variant index when the archetype or deck changes so flipping
+  // through archetypes lands on variant 1 each time. Clamp if the count
+  // shrinks (e.g. user just deleted a card).
+  const [siblingIdx, setSiblingIdx] = useState(0);
+  useEffect(() => {
+    setSiblingIdx(0);
+  }, [archetype.id, deckId]);
+  const safeIdx = matchingCards.length === 0
+    ? -1
+    : Math.min(siblingIdx, matchingCards.length - 1);
+  const matchingCard = safeIdx >= 0 ? matchingCards[safeIdx] : null;
+  const cycleSibling = (direction: -1 | 1) => {
+    if (matchingCards.length < 2) return;
+    setSiblingIdx(i => {
+      const n = matchingCards.length;
+      return ((i % n) + direction + n) % n;
+    });
+  };
 
   if (decks.length === 0) {
     return (
@@ -104,6 +134,31 @@ export default function ArchetypeCardImage({ archetype, cartomancyType, classNam
           <div className="archetype-card-image__placeholder">
             No matching card in this deck.
           </div>
+        )}
+        {matchingCards.length > 1 && (
+          <>
+            <button
+              type="button"
+              className="archetype-card-image__sibling-btn archetype-card-image__sibling-btn--prev"
+              onClick={() => cycleSibling(-1)}
+              aria-label="Previous variant"
+              title="Previous variant"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              className="archetype-card-image__sibling-btn archetype-card-image__sibling-btn--next"
+              onClick={() => cycleSibling(1)}
+              aria-label="Next variant"
+              title="Next variant"
+            >
+              ›
+            </button>
+            <span className="archetype-card-image__sibling-counter">
+              {safeIdx + 1} / {matchingCards.length}
+            </span>
+          </>
         )}
       </div>
       <select
