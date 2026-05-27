@@ -212,6 +212,33 @@ function CompareColumn({
     [deckCards, cardId],
   );
 
+  // Siblings = other cards in this deck that share the selected card's
+  // archetype. When > 1 we render left/right arrows to cycle through them
+  // so users can see Terra Volatile-style art variants or Playing Cards
+  // Red/Black jokers (both mapped to the same archetype) without picking
+  // each from the card dropdown.
+  const siblings = useMemo(() => {
+    if (!selectedCard?.archetype) return [] as typeof deckCards;
+    return [...deckCards]
+      .filter(c => c.archetype === selectedCard.archetype)
+      .sort((a, b) => {
+        const av = a.variant_order;
+        const bv = b.variant_order;
+        if (av != null && bv != null) return av - bv;
+        if (av != null) return -1;
+        if (bv != null) return 1;
+        return a.id - b.id;
+      });
+  }, [deckCards, selectedCard?.archetype]);
+  const siblingIdx = selectedCard
+    ? siblings.findIndex(c => c.id === selectedCard.id)
+    : -1;
+  const cycleSibling = (direction: -1 | 1) => {
+    if (siblings.length < 2 || siblingIdx < 0) return;
+    const next = (siblingIdx + direction + siblings.length) % siblings.length;
+    setCardId(siblings[next].id);
+  };
+
   // Publish this column's archetype upward so the other column can use it
   // as the match target when its deck changes.
   useEffect(() => {
@@ -333,6 +360,31 @@ function CompareColumn({
           <div className="archetype-compare__no-image">
             This deck has no cards.
           </div>
+        )}
+        {siblings.length > 1 && (
+          <>
+            <button
+              type="button"
+              className="archetype-compare__sibling-btn archetype-compare__sibling-btn--prev"
+              onClick={() => cycleSibling(-1)}
+              aria-label="Previous variant"
+              title="Previous variant"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              className="archetype-compare__sibling-btn archetype-compare__sibling-btn--next"
+              onClick={() => cycleSibling(1)}
+              aria-label="Next variant"
+              title="Next variant"
+            >
+              ›
+            </button>
+            <span className="archetype-compare__sibling-counter">
+              {siblingIdx + 1} / {siblings.length}
+            </span>
+          </>
         )}
       </div>
 
