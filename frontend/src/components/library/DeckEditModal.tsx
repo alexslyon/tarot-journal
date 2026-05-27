@@ -127,20 +127,32 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [deckCards]);
 
-  // Swap card_order between two cards. Works for same-name pairs as well
-  // as any two cards; we expose it only for variant siblings.
+  // Reorder a same-name group. Assigns strictly increasing contiguous
+  // card_order values starting from the group's current minimum, so the
+  // entry editor's variant-by-position derivation lands deterministically.
+  //
+  // Why renumber vs. pairwise swap: same-name cards in some decks (e.g.
+  // Terra Volatile) all share an identical card_order value, so a swap
+  // is a no-op. Renumbering forces distinct orders within the group.
+  // Other cards in the deck whose orders fall in the same range aren't
+  // touched; card_order has no UNIQUE constraint, so collisions are OK
+  // (variants within a *different* name group sort the same way they did
+  // before).
   const [variantBusy, setVariantBusy] = useState(false);
-  const swapCardOrder = async (a: Card, b: Card) => {
+  const reorderVariantGroup = async (newOrder: Card[]) => {
     if (variantBusy) return;
     setVariantBusy(true);
     try {
-      // SQLite has no transactional swap via two separate PUTs, so move
-      // one card to a temporary out-of-band order first to dodge any
-      // UNIQUE constraint on card_order (defensive; there isn't one
-      // today but cheap insurance).
-      await updateCard(a.id, { card_order: -1 - a.card_order });
-      await updateCard(b.id, { card_order: a.card_order });
-      await updateCard(a.id, { card_order: b.card_order });
+      const base = Math.min(...newOrder.map(c => c.card_order));
+      // Two-phase to dodge any same-deck card_order collisions during
+      // the in-between state: move everything out to a negative band
+      // first, then assign final values.
+      for (let i = 0; i < newOrder.length; i++) {
+        await updateCard(newOrder[i].id, { card_order: -1 - i - base });
+      }
+      for (let i = 0; i < newOrder.length; i++) {
+        await updateCard(newOrder[i].id, { card_order: base + i });
+      }
       queryClient.invalidateQueries({ queryKey: ['cards', deckId] });
     } catch (err) {
       console.error('Failed to reorder variants:', err);
@@ -148,6 +160,14 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
     } finally {
       setVariantBusy(false);
     }
+  };
+
+  const moveVariant = (group: Card[], idx: number, direction: -1 | 1) => {
+    const target = idx + direction;
+    if (target < 0 || target >= group.length) return;
+    const next = [...group];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    return reorderVariantGroup(next);
   };
 
   // Standard suit/court keys (lowercase for database) with default display names
@@ -920,7 +940,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
                                 type="button"
                                 className="deck-edit__variant-btn"
                                 disabled={idx === 0 || variantBusy}
-                                onClick={() => swapCardOrder(card, group.cards[idx - 1])}
+                                onClick={() => moveVariant(group.cards, idx, -1)}
                                 title="Move up"
                                 aria-label={`Move ${card.name} variant ${idx + 1} up`}
                               >
@@ -930,7 +950,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
                                 type="button"
                                 className="deck-edit__variant-btn"
                                 disabled={idx === group.cards.length - 1 || variantBusy}
-                                onClick={() => swapCardOrder(card, group.cards[idx + 1])}
+                                onClick={() => moveVariant(group.cards, idx, 1)}
                                 title="Move down"
                                 aria-label={`Move ${card.name} variant ${idx + 1} down`}
                               >
