@@ -452,8 +452,18 @@
   font-size: var(--font-size-small);
 }
 
-.deck-edit__variant-order {
+.deck-edit__variant-name {
   flex: 1;
+  color: var(--text-primary);
+  font-size: var(--font-size-small);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deck-edit__variant-order {
+  flex: 0 0 auto;
   color: var(--text-dim);
   font-size: var(--font-size-small);
   font-variant-numeric: tabular-nums;
