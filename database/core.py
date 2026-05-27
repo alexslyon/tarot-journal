@@ -166,6 +166,12 @@ class CoreMixin:
             cursor.execute('ALTER TABLE cards ADD COLUMN notes TEXT')
         if 'custom_fields' not in card_columns:
             cursor.execute('ALTER TABLE cards ADD COLUMN custom_fields TEXT')
+        if 'variant_order' not in card_columns:
+            # Optional within-name-group ordering used by the entry editor's
+            # variant picker. Lets users reorder same-name cards (Terra
+            # Volatile et al.) without touching card_order, which controls
+            # deck display position.
+            cursor.execute('ALTER TABLE cards ADD COLUMN variant_order INTEGER')
 
         # Spreads table (saved spread layouts)
         cursor.execute('''

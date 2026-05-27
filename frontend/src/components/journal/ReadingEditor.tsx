@@ -448,14 +448,26 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
  */
 // Some decks (e.g. Terra Volatile) contain multiple distinct cards with
 // the same name. Append a stable per-id suffix so each variant is
-// independently selectable in <select> dropdowns.
-function labelForCard(
-  card: { id: number; name: string },
-  allCards: { id: number; name: string }[],
-): string {
+// independently selectable in <select> dropdowns. Variant order is
+// driven by the cards' variant_order field when set (managed via the
+// deck edit modal's Variants section) so same-name cards sharing a
+// card_order can still be reliably distinguished and reordered.
+type VariantCard = { id: number; name: string; variant_order?: number | null };
+
+function compareVariants(a: VariantCard, b: VariantCard): number {
+  const av = a.variant_order;
+  const bv = b.variant_order;
+  if (av != null && bv != null) return av - bv;
+  if (av != null) return -1; // assigned variant_order sorts before unset
+  if (bv != null) return 1;
+  return a.id - b.id; // deterministic fallback (insertion order)
+}
+
+function labelForCard(card: VariantCard, allCards: VariantCard[]): string {
   const sameName = allCards.filter(c => c.name === card.name);
   if (sameName.length <= 1) return card.name;
-  const variantIdx = sameName.findIndex(c => c.id === card.id) + 1;
+  const ordered = [...sameName].sort(compareVariants);
+  const variantIdx = ordered.findIndex(c => c.id === card.id) + 1;
   return `${card.name} (variant ${variantIdx})`;
 }
 
