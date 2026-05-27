@@ -11,6 +11,7 @@
 }
 
 .archetype-card-image__viewer {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -20,6 +21,47 @@
   padding: 8px;
   min-height: 320px;
   overflow: hidden;
+}
+
+/* Sibling cycling — visible only when 2+ cards in the deck share the
+ * displayed archetype. Mirrors the Compare tab's overlay. */
+.archetype-card-image__sibling-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 1.4em;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+  user-select: none;
+}
+
+.archetype-card-image__sibling-btn:hover {
+  background: rgba(0, 0, 0, 0.65);
+  border-color: var(--accent);
+}
+
+.archetype-card-image__sibling-btn--prev { left: 6px; }
+.archetype-card-image__sibling-btn--next { right: 6px; }
+
+.archetype-card-image__sibling-counter {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
+  padding: 1px 6px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
 }
 
 .archetype-card-image__img {
