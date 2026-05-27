@@ -1222,6 +1222,87 @@ class CoreMixin:
                 )
             self.set_setting('playing_cards_joker_normalization_done', 'true')
 
+        # One-time migration: consolidate separate Red Joker / Black Joker
+        # archetypes into a single canonical "Joker" with variant_order
+        # distinguishing them (1 = Red, 2 = Black). Transfers any FK
+        # references (notes / correspondences / languages / deck overrides)
+        # from the old archetype rows onto the new one, then deletes the
+        # old rows. Same-name variants share an archetype's
+        # notes/correspondences but can still be visually reordered via
+        # the deck edit modal's Variants section.
+        if self.get_setting('playing_cards_joker_consolidation_done') != 'true':
+            cursor.execute(
+                "INSERT OR IGNORE INTO card_archetypes (name, cartomancy_type, rank, suit, card_type) "
+                "VALUES ('Joker', 'Playing Cards', 'Joker', NULL, 'playing')"
+            )
+            joker_id = cursor.execute(
+                "SELECT id FROM card_archetypes WHERE name='Joker' AND cartomancy_type='Playing Cards'"
+            ).fetchone()
+            joker_id = joker_id[0] if joker_id else None
+
+            old_ids = [
+                r[0] for r in cursor.execute(
+                    "SELECT id FROM card_archetypes "
+                    "WHERE name IN ('Red Joker', 'Black Joker') "
+                    "  AND cartomancy_type='Playing Cards'"
+                ).fetchall()
+            ]
+            if joker_id is not None and old_ids:
+                placeholders = ','.join('?' * len(old_ids))
+                # Transfer FKs. INSERT OR IGNORE handles UNIQUE collisions
+                # by keeping the existing (Joker) row, then we delete the
+                # leftover old rows.
+                for table in (
+                    'correspondence_assignments',
+                    'deck_correspondence_overrides',
+                    'archetype_language_names',
+                    'archetype_notes_field_defs',
+                ):
+                    cursor.execute(
+                        f'UPDATE OR IGNORE {table} SET archetype_id = ? '
+                        f'WHERE archetype_id IN ({placeholders})',
+                        [joker_id, *old_ids]
+                    )
+                    cursor.execute(
+                        f'DELETE FROM {table} WHERE archetype_id IN ({placeholders})',
+                        old_ids
+                    )
+
+            # Cards: Red Joker -> Joker var 1, Black Joker -> Joker var 2.
+            cursor.execute(
+                '''
+                UPDATE cards SET archetype = 'Joker', variant_order = 1
+                WHERE archetype = 'Red Joker'
+                  AND deck_id IN (
+                    SELECT d.id FROM decks d
+                    JOIN deck_type_assignments dta ON dta.deck_id = d.id
+                    JOIN cartomancy_types ct ON ct.id = dta.type_id
+                    WHERE ct.name = 'Playing Cards'
+                  )
+                '''
+            )
+            cursor.execute(
+                '''
+                UPDATE cards SET archetype = 'Joker', variant_order = 2
+                WHERE archetype = 'Black Joker'
+                  AND deck_id IN (
+                    SELECT d.id FROM decks d
+                    JOIN deck_type_assignments dta ON dta.deck_id = d.id
+                    JOIN cartomancy_types ct ON ct.id = dta.type_id
+                    WHERE ct.name = 'Playing Cards'
+                  )
+                '''
+            )
+
+            if old_ids:
+                placeholders = ','.join('?' * len(old_ids))
+                cursor.execute(
+                    f'DELETE FROM card_archetypes WHERE id IN ({placeholders})',
+                    old_ids
+                )
+
+            self.set_setting('playing_cards_joker_consolidation_done', 'true')
+
         # One-time backfill: every existing numerology value should also have
         # its digit-sum reductions present (so "156" gains "12" and "3").
         # Going forward, the UI auto-expands new entries; this catches values
@@ -1334,8 +1415,10 @@ class CoreMixin:
                 archetypes.append((name, 'Playing Cards', rank, suit, 'playing'))
 
         # Jokers
-        archetypes.append(('Red Joker', 'Playing Cards', 'Joker', None, 'playing'))
-        archetypes.append(('Black Joker', 'Playing Cards', 'Joker', None, 'playing'))
+        # One Joker archetype rather than separate Red/Black rows; deck-
+        # specific cards distinguish themselves via variant_order
+        # (1 = traditionally Red, 2 = traditionally Black).
+        archetypes.append(('Joker', 'Playing Cards', 'Joker', None, 'playing'))
 
         # Kipper (36). Names match the import preset's
         # _get_kipper_metadata_by_position list so cards imported via that
