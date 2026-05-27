@@ -24,12 +24,14 @@ class CardsMixin:
     # === Cards ===
     def get_cards(self, deck_id: int):
         cursor = self.conn.cursor()
-        # variant_order tiebreaks same-name same-card_order cards (Terra
-        # Volatile and similar). The `IS NULL` expression keeps unset
-        # variants sorting after assigned ones.
+        # Within a card_order tier, sort by variant_order (NULLs last) so
+        # users can choose the in-slot ordering of cards sharing a slot —
+        # whether they share a name (Terra Volatile's three "Two of Cups")
+        # or just a slot (Terra Volatile's slot 0: The Fool / The Fooless
+        # / Chaos). Name is the final tiebreak when nothing's been set.
         cursor.execute(
             'SELECT * FROM cards WHERE deck_id = ? '
-            'ORDER BY card_order, name, variant_order IS NULL, variant_order, id',
+            'ORDER BY card_order, variant_order IS NULL, variant_order, name, id',
             (deck_id,)
         )
         return cursor.fetchall()

@@ -108,15 +108,18 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
     enabled: deckId !== null,
   });
 
-  // Same-name groups (only when 2+ cards share a name). Sorted by the
-  // optional variant_order field (cards without one fall to the end by id
-  // — matches the entry editor's compareVariants tiebreak).
+  // Same-slot groups: cards sharing a card_order, regardless of whether
+  // they also share a name. This covers Terra Volatile's two patterns —
+  // genuine duplicates (three "Two of Cups" at card_order=202) and slot-
+  // variants under different names (The Fool / The Fooless / Chaos at
+  // card_order=0). Within a group cards are sorted by variant_order
+  // (nulls last by id) — same tiebreak the entry editor uses.
   const variantGroups = useMemo(() => {
-    const byName = new Map<string, Card[]>();
+    const byOrder = new Map<number, Card[]>();
     for (const c of deckCards) {
-      const arr = byName.get(c.name);
+      const arr = byOrder.get(c.card_order);
       if (arr) arr.push(c);
-      else byName.set(c.name, [c]);
+      else byOrder.set(c.card_order, [c]);
     }
     const cmp = (a: Card, b: Card) => {
       const av = a.variant_order;
@@ -126,10 +129,19 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
       if (bv != null) return 1;
       return a.id - b.id;
     };
-    return [...byName.entries()]
+    return [...byOrder.entries()]
       .filter(([, list]) => list.length > 1)
-      .map(([name, list]) => ({ name, cards: [...list].sort(cmp) }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .map(([order, list]) => {
+        const sorted = [...list].sort(cmp);
+        const names = new Set(sorted.map(c => c.name));
+        // Header uses the shared name when all cards in the slot
+        // happen to share one; otherwise just identifies the slot.
+        const label = names.size === 1
+          ? `${sorted[0].name} (card_order ${order})`
+          : `card_order ${order}`;
+        return { order, label, cards: sorted };
+      })
+      .sort((a, b) => a.order - b.order);
   }, [deckCards]);
 
   // Reorder a same-name group by writing variant_order (1, 2, 3, …) on
@@ -907,8 +919,8 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
                 </p>
                 <div className="deck-edit__variant-groups">
                   {variantGroups.map(group => (
-                    <div key={group.name} className="deck-edit__variant-group">
-                      <h4 className="deck-edit__variant-group-name">{group.name}</h4>
+                    <div key={group.order} className="deck-edit__variant-group">
+                      <h4 className="deck-edit__variant-group-name">{group.label}</h4>
                       <ul className="deck-edit__variant-list">
                         {group.cards.map((card, idx) => (
                           <li key={card.id} className="deck-edit__variant-row">
@@ -926,10 +938,13 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
                                 —
                               </div>
                             )}
+                            <span className="deck-edit__variant-name">
+                              {card.name}
+                            </span>
                             <span className="deck-edit__variant-order">
-                              card_order {card.card_order}
+                              co {card.card_order}
                               {card.variant_order != null && (
-                                <> · variant_order {card.variant_order}</>
+                                <> · vo {card.variant_order}</>
                               )}
                             </span>
                             <div className="deck-edit__variant-buttons">
