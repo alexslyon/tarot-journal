@@ -24,8 +24,12 @@ class CardsMixin:
     # === Cards ===
     def get_cards(self, deck_id: int):
         cursor = self.conn.cursor()
+        # variant_order tiebreaks same-name same-card_order cards (Terra
+        # Volatile and similar). The `IS NULL` expression keeps unset
+        # variants sorting after assigned ones.
         cursor.execute(
-            'SELECT * FROM cards WHERE deck_id = ? ORDER BY card_order, name',
+            'SELECT * FROM cards WHERE deck_id = ? '
+            'ORDER BY card_order, name, variant_order IS NULL, variant_order, id',
             (deck_id,)
         )
         return cursor.fetchall()
