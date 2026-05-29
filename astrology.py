@@ -29,6 +29,11 @@ logger = logging.getLogger(__name__)
 
 # Display-name -> Kerykeion single-letter code. The display strings here
 # are what's shown in the Settings dropdown and stored in app_settings.
+# Bump when the SVG post-processing or output schema changes; folded
+# into compute_input_hash so existing cached charts regenerate next
+# view rather than needing a manual Regenerate click.
+CHART_RENDERER_VERSION = 2
+
 HOUSE_SYSTEM_CODES = {
     'Placidus': 'P',
     'Whole Sign': 'W',
@@ -92,6 +97,7 @@ def compute_input_hash(
             'house_system': house_system,
             'solar': bool(solar_chart),
             'place': place_label or '',
+            'renderer': CHART_RENDERER_VERSION,
         },
         sort_keys=True,
     )
@@ -174,6 +180,17 @@ def generate_chart(
         svg_path = _find_svg(tmp)
         with open(svg_path, 'r', encoding='utf-8') as fh:
             svg = fh.read()
+    # Kerykeion always formats the top-left location label as
+    # "{city}, {nation}" and silently forces nation='GB' when blank, so
+    # SVGs end with junk like "Palo Alto, California, US, GB". Overwrite
+    # that one labeled element with the exact place_label.
+    if place_label:
+        svg = re.sub(
+            r"(<text[^>]*kr:node='Top_Left_Text_1'[^>]*>)[^<]*(</text>)",
+            lambda m: m.group(1) + _escape_xml(place_label) + m.group(2),
+            svg,
+            count=1,
+        )
 
     return {
         'svg': svg,
@@ -182,6 +199,16 @@ def generate_chart(
         'solar_chart': bool(not time_iso and solar_chart_fallback),
         'timezone': tz_str,
     }
+
+
+def _escape_xml(s: str) -> str:
+    return (
+        s.replace('&', '&amp;')
+         .replace('<', '&lt;')
+         .replace('>', '&gt;')
+         .replace("'", '&apos;')
+         .replace('"', '&quot;')
+    )
 
 
 def _find_svg(directory: str) -> str:
