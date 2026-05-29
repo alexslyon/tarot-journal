@@ -6,6 +6,7 @@ import RichTextViewer from '../common/RichTextViewer';
 import SpreadDisplay from './SpreadDisplay';
 import FollowUpNotes from './FollowUpNotes';
 import ReadingBreakdown from './ReadingBreakdown';
+import ChartModal from '../astrology/ChartModal';
 import CardViewModal from '../library/CardViewModal';
 import CardEditModal from '../library/CardEditModal';
 import type { JournalEntryFull } from '../../types';
@@ -24,6 +25,7 @@ export default function EntryViewer({ entryId, onEdit, onDeleted }: EntryViewerP
   const { showToast } = useToast();
   const [viewingCardId, setViewingCardId] = useState<number | null>(null);
   const [editingCardId, setEditingCardId] = useState<number | null>(null);
+  const [chartOpen, setChartOpen] = useState(false);
 
   const { data: entry, isLoading, error } = useQuery<JournalEntryFull>({
     queryKey: ['entry', entryId],
@@ -76,6 +78,9 @@ export default function EntryViewer({ entryId, onEdit, onDeleted }: EntryViewerP
         <div className="entry-viewer__header">
           <h2 className="entry-viewer__title">{entry.title || 'Untitled Entry'}</h2>
           <div className="entry-viewer__actions">
+            <button onClick={() => setChartOpen(true)} title="Open event chart">
+              View Chart
+            </button>
             <button onClick={() => onEdit(entryId)}>Edit</button>
             <button className="danger" onClick={handleDelete}>Delete</button>
           </div>
@@ -182,6 +187,13 @@ export default function EntryViewer({ entryId, onEdit, onDeleted }: EntryViewerP
           onNavigate={setEditingCardId}
         />
       )}
+
+      {/* Event Chart Modal */}
+      <ChartModal
+        open={chartOpen}
+        onClose={() => setChartOpen(false)}
+        source={{ type: 'entry', id: entryId, name: entry.title }}
+      />
     </div>
   );
 }

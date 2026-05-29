@@ -331,6 +331,103 @@ def delete_follow_up_note(note_id):
     return jsonify({'ok': True})
 
 
+# === Astrology: entry event charts =======================================
+
+@entries_bp.route('/api/entries/<int:entry_id>/chart')
+def get_entry_chart(entry_id):
+    """Return an event chart for the entry (cached, lazy-generated).
+
+    Requires reading_datetime + location_lat + location_lon. No
+    solar-chart fallback for entries — reading_datetime always
+    includes a time, and a missing time on an event means the entry
+    is incomplete anyway.
+
+    Responses mirror /api/profiles/:id/chart.
+    """
+    import astrology
+
+    db = current_app.config['DB']
+    entry = db.get_entry(entry_id)
+    if not entry:
+        return jsonify({'error': 'Entry not found'}), 404
+    entry = row_to_dict(entry)
+
+    missing = []
+    if not entry.get('reading_datetime'):
+        missing.append('reading_datetime')
+    if entry.get('location_lat') is None:
+        missing.append('location_lat')
+    if entry.get('location_lon') is None:
+        missing.append('location_lon')
+    if missing:
+        return jsonify({
+            'error': 'Required fields are missing for an event chart.',
+            'missing': missing,
+        }), 400
+
+    # reading_datetime is stored ISO-ish: "YYYY-MM-DDTHH:MM:SS" or with
+    # microseconds, occasionally space-separated. Split on T or space.
+    dt = entry['reading_datetime']
+    if 'T' in dt:
+        date_iso, time_iso = dt.split('T', 1)
+    elif ' ' in dt:
+        date_iso, time_iso = dt.split(' ', 1)
+    else:
+        date_iso, time_iso = dt, '12:00:00'
+
+    house_system = db.get_house_system()
+    input_hash = astrology.compute_input_hash(
+        date_iso, time_iso,
+        entry['location_lat'], entry['location_lon'],
+        house_system,
+    )
+
+    cached = db.get_cached_chart('entry', entry_id)
+    if cached and cached.get('input_hash') == input_hash:
+        return jsonify({
+            'chart_svg': cached['chart_svg'],
+            'chart_data': cached['chart_data'],
+            'house_system': cached['house_system'],
+            'generated_at': cached['updated_at'],
+            'solar_chart': False,
+            'cached': True,
+        })
+
+    try:
+        result = astrology.generate_chart(
+            name=entry.get('title') or 'Reading',
+            date_iso=date_iso, time_iso=time_iso,
+            lat=entry['location_lat'], lon=entry['location_lon'],
+            house_system=house_system,
+        )
+    except Exception as e:
+        return jsonify({'error': f'Chart generation failed: {e}'}), 500
+
+    data_to_store = dict(result['data'])
+    data_to_store['timezone'] = result['timezone']
+    db.save_cached_chart(
+        'entry', entry_id, house_system, input_hash,
+        result['svg'], data_to_store,
+    )
+
+    return jsonify({
+        'chart_svg': result['svg'],
+        'chart_data': data_to_store,
+        'house_system': house_system,
+        'solar_chart': False,
+        'timezone': result['timezone'],
+        'cached': False,
+    })
+
+
+@entries_bp.route('/api/entries/<int:entry_id>/chart', methods=['DELETE'])
+def delete_entry_chart(entry_id):
+    """Force-clear the cached chart for an entry."""
+    db = current_app.config['DB']
+    db.delete_cached_chart('entry', entry_id)
+    return jsonify({'ok': True})
+
+
 # ── Entry Tags ────────────────────────────────────────────────
 
 @entries_bp.route('/api/entries/<int:entry_id>/tags')

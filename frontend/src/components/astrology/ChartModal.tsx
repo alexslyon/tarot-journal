@@ -4,6 +4,8 @@ import Modal from '../common/Modal';
 import {
   getProfileChart,
   deleteProfileChart,
+  getEntryChart,
+  deleteEntryChart,
   type ChartResponse,
 } from '../../api/charts';
 import { useToast } from '../../context/ToastContext';
@@ -12,9 +14,10 @@ import './ChartModal.css';
 interface Props {
   open: boolean;
   onClose: () => void;
-  /** Chart source. `entry` will be wired up in phase 3 — the modal
-   *  itself is source-agnostic; only the fetcher differs. */
-  source: { type: 'profile'; id: number; name?: string | null };
+  /** Chart source — modal is source-agnostic, only the fetcher differs. */
+  source:
+    | { type: 'profile'; id: number; name?: string | null }
+    | { type: 'entry'; id: number; name?: string | null };
 }
 
 interface ChartErrorBody {
@@ -59,9 +62,12 @@ export default function ChartModal({ open, onClose, source }: Props) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
+  const fetcher = source.type === 'profile' ? getProfileChart : getEntryChart;
+  const deleter = source.type === 'profile' ? deleteProfileChart : deleteEntryChart;
+
   const { data, error, isLoading, isFetching } = useQuery<ChartResponse, Error>({
     queryKey: ['chart', source.type, source.id],
-    queryFn: () => getProfileChart(source.id),
+    queryFn: () => fetcher(source.id),
     enabled: open,
     retry: false,
     // Cache the chart for the session — the input_hash on the backend
@@ -70,7 +76,7 @@ export default function ChartModal({ open, onClose, source }: Props) {
   });
 
   const regen = useMutation({
-    mutationFn: () => deleteProfileChart(source.id),
+    mutationFn: () => deleter(source.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chart', source.type, source.id] });
     },
