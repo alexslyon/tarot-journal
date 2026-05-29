@@ -341,7 +341,7 @@ export default function GeneralSection() {
         <div className="settings-tab__field">
           <label className="settings-tab__label">House System</label>
           <select
-            value={defaults?.astrology_house_system ?? 'Placidus'}
+            value={defaults?.astrology_house_system ?? 'Whole Sign'}
             onChange={(e) => handleDefaultChange('astrology_house_system', e.target.value)}
           >
             {HOUSE_SYSTEMS.map(h => (

@@ -41,7 +41,7 @@ HOUSE_SYSTEM_CODES = {
     'Alcabitius': 'B',
     'Topocentric': 'T',
 }
-DEFAULT_HOUSE_SYSTEM = 'Placidus'
+DEFAULT_HOUSE_SYSTEM = 'Whole Sign'
 
 # Single shared TimezoneFinder; constructing one loads ~50MB of polygons
 # into memory, so we don't want to do that per-call.
