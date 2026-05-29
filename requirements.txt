@@ -1,2 +1,8 @@
 Pillow
 wxPython>=4.2.0
+
+# Astrology charts (Phase 1 of the chart-integration feature). Kerykeion
+# bundles Swiss Ephemeris data; timezonefinder is used to resolve a
+# timezone string from stored lat/lon at generation time.
+kerykeion>=5.12
+timezonefinder>=8.2
