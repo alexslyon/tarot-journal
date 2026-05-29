@@ -22,6 +22,7 @@ def register_blueprints(app):
     from backend.routes.archetype_languages import archetype_languages_bp
     from backend.routes.archetype_notes import archetype_notes_bp
     from backend.routes.anki_export import anki_export_bp
+    from backend.routes.geocode import geocode_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(types_bp)
@@ -41,3 +42,4 @@ def register_blueprints(app):
     app.register_blueprint(archetype_languages_bp)
     app.register_blueprint(archetype_notes_bp)
     app.register_blueprint(anki_export_bp)
+    app.register_blueprint(geocode_bp)

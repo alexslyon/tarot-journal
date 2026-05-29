@@ -180,3 +180,21 @@
   color: var(--text-dim);
   font-size: var(--font-size-heading);
 }
+
+.profiles-tab__place-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.profiles-tab__place-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.profiles-tab__place-coords {
+  margin-top: 4px;
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}
