@@ -9,6 +9,7 @@ import {
 } from '../../api/profiles';
 import { useToast } from '../../context/ToastContext';
 import type { Profile } from '../../types';
+import ChartModal from '../astrology/ChartModal';
 import './ProfilesTab.css';
 
 export default function ProfilesTab() {
@@ -16,6 +17,7 @@ export default function ProfilesTab() {
   const { showToast } = useToast();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isNew, setIsNew] = useState(false);
+  const [chartOpen, setChartOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [error, setError] = useState('');
@@ -294,6 +296,15 @@ export default function ProfilesTab() {
               </div>
 
               <div className="profiles-tab__footer">
+                {!isNew && selectedProfile && (
+                  <button
+                    className="profiles-tab__chart-btn"
+                    onClick={() => setChartOpen(true)}
+                    title="Open natal chart"
+                  >
+                    View Chart
+                  </button>
+                )}
                 {!isNew && (
                   <button className="profiles-tab__delete-btn" onClick={handleDelete}>
                     Delete
@@ -321,6 +332,14 @@ export default function ProfilesTab() {
           )}
         </Panel>
       </Group>
+
+      {selectedProfile && (
+        <ChartModal
+          open={chartOpen}
+          onClose={() => setChartOpen(false)}
+          source={{ type: 'profile', id: selectedProfile.id, name: selectedProfile.name }}
+        />
+      )}
     </div>
   );
 }

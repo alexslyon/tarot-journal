@@ -81,6 +81,8 @@ def get_defaults():
         'default_querent_same_as_reader': db.get_default_querent_same_as_reader(),
         'default_decks': default_decks,
         'last_backup_time': db.get_setting('last_backup_time'),
+        'astrology_house_system': db.get_house_system(),
+        'astrology_allow_solar_chart': db.get_allow_solar_chart(),
     })
 
 
@@ -99,6 +101,12 @@ def update_defaults():
         for type_name, deck_id in data['default_decks'].items():
             if deck_id is not None:
                 db.set_default_deck(type_name, deck_id)
+    if 'astrology_house_system' in data:
+        # Changing the house system invalidates all cached charts on
+        # next view (via the input_hash mismatch). No bulk regen.
+        db.set_house_system(data['astrology_house_system'])
+    if 'astrology_allow_solar_chart' in data:
+        db.set_allow_solar_chart(bool(data['astrology_allow_solar_chart']))
 
     return jsonify({'ok': True})
 

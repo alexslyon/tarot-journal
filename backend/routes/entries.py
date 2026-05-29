@@ -437,6 +437,115 @@ def delete_profile(profile_id):
     return jsonify({'ok': True})
 
 
+# === Astrology: profile natal charts =====================================
+
+@entries_bp.route('/api/profiles/<int:profile_id>/chart')
+def get_profile_chart(profile_id):
+    """Return a natal chart for the profile (cached, lazy-generated).
+
+    Responses:
+      200 — { chart_svg, chart_data, house_system, generated_at,
+              solar_chart, timezone }
+      400 — { error, missing: [field, ...] } when required birth fields
+            are missing (or birth_time missing and solar fallback off)
+      404 — profile not found
+      500 — chart generation crashed (kerykeion edge case)
+    """
+    import astrology
+
+    db = current_app.config['DB']
+    profile = db.get_profile(profile_id)
+    if not profile:
+        return jsonify({'error': 'Profile not found'}), 404
+    profile = row_to_dict(profile)
+
+    missing = []
+    if not profile.get('birth_date'):
+        missing.append('birth_date')
+    if profile.get('birth_place_lat') is None:
+        missing.append('birth_place_lat')
+    if profile.get('birth_place_lon') is None:
+        missing.append('birth_place_lon')
+    if missing:
+        return jsonify({
+            'error': 'Required birth fields are missing.',
+            'missing': missing,
+        }), 400
+
+    allow_solar = db.get_allow_solar_chart()
+    if not profile.get('birth_time') and not allow_solar:
+        return jsonify({
+            'error': 'birth_time is missing and the "Generate solar charts when '
+                     'time is missing" setting is off.',
+            'missing': ['birth_time'],
+        }), 400
+
+    house_system = db.get_house_system()
+    input_hash = astrology.compute_input_hash(
+        profile['birth_date'],
+        profile.get('birth_time'),
+        profile['birth_place_lat'],
+        profile['birth_place_lon'],
+        house_system,
+        solar_chart=not profile.get('birth_time') and allow_solar,
+    )
+
+    cached = db.get_cached_chart('profile', profile_id)
+    if cached and cached.get('input_hash') == input_hash:
+        return jsonify({
+            'chart_svg': cached['chart_svg'],
+            'chart_data': cached['chart_data'],
+            'house_system': cached['house_system'],
+            'generated_at': cached['updated_at'],
+            'solar_chart': bool(
+                cached.get('chart_data', {}).get('solar_chart')
+            ) if isinstance(cached.get('chart_data'), dict) else False,
+            'cached': True,
+        })
+
+    try:
+        result = astrology.generate_chart(
+            name=profile.get('name') or 'Subject',
+            date_iso=profile['birth_date'],
+            time_iso=profile.get('birth_time'),
+            lat=profile['birth_place_lat'],
+            lon=profile['birth_place_lon'],
+            house_system=house_system,
+            solar_chart_fallback=allow_solar,
+        )
+    except ValueError as e:
+        return jsonify({'error': str(e), 'missing': ['birth_time']}), 400
+    except Exception as e:
+        return jsonify({'error': f'Chart generation failed: {e}'}), 500
+
+    # Persist the solar_chart flag alongside the kerykeion dump so the
+    # cache hit path can surface it without re-running generation.
+    data_to_store = dict(result['data'])
+    data_to_store['solar_chart'] = result['solar_chart']
+    data_to_store['timezone'] = result['timezone']
+    db.save_cached_chart(
+        'profile', profile_id, house_system, input_hash,
+        result['svg'], data_to_store,
+    )
+
+    return jsonify({
+        'chart_svg': result['svg'],
+        'chart_data': data_to_store,
+        'house_system': house_system,
+        'solar_chart': result['solar_chart'],
+        'timezone': result['timezone'],
+        'cached': False,
+    })
+
+
+@entries_bp.route('/api/profiles/<int:profile_id>/chart', methods=['DELETE'])
+def delete_profile_chart(profile_id):
+    """Force-clear the cached chart for a profile."""
+    db = current_app.config['DB']
+    db.delete_cached_chart('profile', profile_id)
+    return jsonify({'ok': True})
+
+
 # ── Export / Import ───────────────────────────────────────────
 
 @entries_bp.route('/api/entries/export')
