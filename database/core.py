@@ -866,6 +866,29 @@ class CoreMixin:
             'ON archetype_notes_entries(field_def_id, sort_order)'
         )
 
+        # Astrological chart cache. One row per (profile|entry) source —
+        # the SVG and structured chart_data are recomputed when input_hash
+        # (date/time/lat/lon/house_system) changes, so changes to a profile's
+        # birth fields automatically invalidate the cache on next view.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS chart_cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_type TEXT NOT NULL CHECK (source_type IN ('profile', 'entry')),
+                source_id INTEGER NOT NULL,
+                house_system TEXT NOT NULL,
+                chart_svg TEXT,
+                chart_data TEXT,
+                input_hash TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (source_type, source_id)
+            )
+        ''')
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_chart_cache_source '
+            'ON chart_cache(source_type, source_id)'
+        )
+
         # Restore lenormand_meanings rows after the FK migration above.
         if hasattr(self, '_needs_lenormand_meanings_restore'):
             self.conn.commit()

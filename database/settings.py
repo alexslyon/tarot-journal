@@ -62,6 +62,27 @@ class SettingsMixin:
         """Set whether default querent should be same as reader"""
         self.set_setting('default_querent_same_as_reader', '1' if same else '0')
 
+    # === Astrology charts ===
+    # The default house system is Placidus, the most common Western choice.
+    # Changing this invalidates every cached chart on next view via the
+    # input_hash comparison in the chart generator.
+    DEFAULT_HOUSE_SYSTEM = 'Placidus'
+
+    def get_house_system(self) -> str:
+        return self.get_setting('astrology_house_system') or self.DEFAULT_HOUSE_SYSTEM
+
+    def set_house_system(self, name: str):
+        self.set_setting('astrology_house_system', name)
+
+    def get_allow_solar_chart(self) -> bool:
+        """When True and a profile has birth_date+lat+lon but no birth_time,
+        a solar chart is generated at local noon with a disclaimer flag in
+        chart_data. When False, no chart is generated without a time."""
+        return self.get_setting('astrology_allow_solar_chart') == '1'
+
+    def set_allow_solar_chart(self, allow: bool):
+        self.set_setting('astrology_allow_solar_chart', '1' if allow else '0')
+
     # === Statistics ===
     def get_stats(self):
         cursor = self.conn.cursor()

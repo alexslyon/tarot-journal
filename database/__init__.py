@@ -18,6 +18,7 @@ from .reference_sources import ReferenceSourcesMixin
 from .lenormand_combinations import LenormandCombinationsMixin
 from .archetype_languages import ArchetypeLanguagesMixin
 from .archetype_notes import ArchetypeNotesMixin
+from .charts import ChartsMixin
 
 
 class Database(
@@ -35,6 +36,7 @@ class Database(
     LenormandCombinationsMixin,
     ArchetypeLanguagesMixin,
     ArchetypeNotesMixin,
+    ChartsMixin,
 ):
     """
     Main database class combining all functionality.
