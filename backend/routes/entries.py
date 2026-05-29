@@ -376,10 +376,12 @@ def get_entry_chart(entry_id):
         date_iso, time_iso = dt, '12:00:00'
 
     house_system = db.get_house_system()
+    place_label = entry.get('location_name') or ''
     input_hash = astrology.compute_input_hash(
         date_iso, time_iso,
         entry['location_lat'], entry['location_lon'],
         house_system,
+        place_label=place_label,
     )
 
     cached = db.get_cached_chart('entry', entry_id)
@@ -399,6 +401,7 @@ def get_entry_chart(entry_id):
             date_iso=date_iso, time_iso=time_iso,
             lat=entry['location_lat'], lon=entry['location_lon'],
             house_system=house_system,
+            place_label=place_label,
         )
     except Exception as e:
         return jsonify({'error': f'Chart generation failed: {e}'}), 500
@@ -578,6 +581,7 @@ def get_profile_chart(profile_id):
         }), 400
 
     house_system = db.get_house_system()
+    place_label = profile.get('birth_place_name') or ''
     input_hash = astrology.compute_input_hash(
         profile['birth_date'],
         profile.get('birth_time'),
@@ -585,6 +589,7 @@ def get_profile_chart(profile_id):
         profile['birth_place_lon'],
         house_system,
         solar_chart=not profile.get('birth_time') and allow_solar,
+        place_label=place_label,
     )
 
     cached = db.get_cached_chart('profile', profile_id)
@@ -609,6 +614,7 @@ def get_profile_chart(profile_id):
             lon=profile['birth_place_lon'],
             house_system=house_system,
             solar_chart_fallback=allow_solar,
+            place_label=place_label,
         )
     except ValueError as e:
         return jsonify({'error': str(e), 'missing': ['birth_time']}), 400

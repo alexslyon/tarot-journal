@@ -73,12 +73,15 @@ def compute_input_hash(
     lon: float,
     house_system: str,
     solar_chart: bool = False,
+    place_label: str = '',
 ) -> str:
     """Deterministic hash of every input that affects chart output.
 
     Used by the cache layer: when the current hash doesn't match the
     stored one, the chart is regenerated. `solar_chart` is included so
     flipping the "allow solar chart" setting properly invalidates.
+    `place_label` doesn't affect calculation but is baked into the SVG,
+    so it's part of the hash too.
     """
     payload = json.dumps(
         {
@@ -88,6 +91,7 @@ def compute_input_hash(
             'lon': round(float(lon), 6),
             'house_system': house_system,
             'solar': bool(solar_chart),
+            'place': place_label or '',
         },
         sort_keys=True,
     )
@@ -117,9 +121,16 @@ def generate_chart(
     lon: float,
     house_system: str,
     solar_chart_fallback: bool = False,
+    place_label: str = '',
 ) -> dict:
     """
     Generate a natal/event chart.
+
+    `place_label` is a free-text string passed to Kerykeion as the `city`
+    field — purely a display label on the rendered SVG, since lat/lon
+    drive the actual calculation. When empty, Kerykeion defaults to
+    "Greenwich, GB" which is misleading; callers should pass the user's
+    own place name (e.g. "Brooklyn, New York, US").
 
     Returns a dict:
         {
@@ -148,7 +159,8 @@ def generate_chart(
         hour=hour, minute=minute,
         lng=float(lon), lat=float(lat),
         tz_str=tz_str,
-        city='', nation='',
+        city=place_label or '—',
+        nation='',
         houses_system_identifier=code,
     )
 
