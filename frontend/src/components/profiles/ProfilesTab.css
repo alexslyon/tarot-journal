@@ -133,8 +133,11 @@
   border-top: 1px solid var(--border);
 }
 
-.profiles-tab__delete-btn {
+.profiles-tab__chart-btn {
   margin-right: auto;
+}
+
+.profiles-tab__delete-btn {
   color: var(--danger) !important;
   border-color: var(--danger) !important;
 }

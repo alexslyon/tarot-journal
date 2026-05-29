@@ -1,0 +1,103 @@
+.chart-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chart-modal__loading,
+.chart-modal__error {
+  color: var(--text-secondary);
+  padding: 24px 8px;
+  text-align: center;
+}
+
+.chart-modal__error p {
+  margin: 0 0 6px;
+  color: var(--text-primary);
+}
+
+.chart-modal__error-detail {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+}
+
+.chart-modal__svg {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-modal__svg svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.chart-modal__meta,
+.chart-modal__angles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 8px 4px;
+  font-size: var(--font-size-small);
+}
+
+.chart-modal__meta > div,
+.chart-modal__angles > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chart-modal__meta-label {
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-size: 0.82em;
+}
+
+.chart-modal__solar-note {
+  flex: 1 0 100%;
+  color: var(--text-dim);
+  font-style: italic;
+  background: var(--bg-primary);
+  border-left: 3px solid var(--accent-dim, var(--border));
+  padding: 6px 10px;
+  border-radius: 3px;
+}
+
+.chart-modal__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-small);
+}
+
+.chart-modal__table th,
+.chart-modal__table td {
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.chart-modal__table th {
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-size: 0.82em;
+  font-weight: normal;
+}
+
+.chart-modal__table tr:last-child td {
+  border-bottom: none;
+}
+
+.chart-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+}

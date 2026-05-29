@@ -7,6 +7,7 @@ import {
   updateTheme,
   getDefaults,
   updateDefaults,
+  HOUSE_SYSTEMS,
 } from '../../../api/settings';
 import { getProfiles } from '../../../api/profiles';
 import { getCartomancyTypes, getDecks } from '../../../api/decks';
@@ -135,7 +136,7 @@ export default function GeneralSection() {
     }
   };
 
-  const handleDefaultChange = async (field: string, value: number | null | boolean) => {
+  const handleDefaultChange = async (field: string, value: number | null | boolean | string) => {
     try {
       await updateDefaults({ [field]: value });
       queryClient.invalidateQueries({ queryKey: ['settings-defaults'] });
@@ -327,6 +328,41 @@ export default function GeneralSection() {
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* Astrology Section */}
+      <section className="settings-tab__section">
+        <h3 className="settings-tab__section-title">Astrology Charts</h3>
+        <p className="settings-tab__hint">
+          Settings for natal and event charts. Changing the house system
+          invalidates every cached chart on next view.
+        </p>
+        <div className="settings-tab__field">
+          <label className="settings-tab__label">House System</label>
+          <select
+            value={defaults?.astrology_house_system ?? 'Placidus'}
+            onChange={(e) => handleDefaultChange('astrology_house_system', e.target.value)}
+          >
+            {HOUSE_SYSTEMS.map(h => (
+              <option key={h} value={h}>{h}</option>
+            ))}
+          </select>
+        </div>
+        <div className="settings-tab__field">
+          <label className="settings-tab__checkbox-label">
+            <input
+              type="checkbox"
+              checked={defaults?.astrology_allow_solar_chart ?? false}
+              onChange={(e) => handleDefaultChange('astrology_allow_solar_chart', e.target.checked)}
+            />
+            <span>Generate solar charts when birth time is missing</span>
+          </label>
+          <p className="settings-tab__hint">
+            When on, profiles without a birth time get a chart cast at
+            local noon, with a note that house positions and Ascendant
+            are approximate. When off, no chart is generated.
+          </p>
         </div>
       </section>
     </div>

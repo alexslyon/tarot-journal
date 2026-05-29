@@ -31,7 +31,25 @@ export interface AppDefaults {
   default_querent_same_as_reader: boolean;
   default_decks: Record<string, number | null>;
   last_backup_time: string | null;
+  astrology_house_system: string;
+  astrology_allow_solar_chart: boolean;
 }
+
+/** Display names accepted by the astrology backend (mapped to Kerykeion
+ *  single-letter codes server-side). Keep this in sync with
+ *  astrology.HOUSE_SYSTEM_CODES. */
+export const HOUSE_SYSTEMS = [
+  'Placidus',
+  'Whole Sign',
+  'Equal',
+  'Koch',
+  'Regiomontanus',
+  'Campanus',
+  'Porphyry',
+  'Morinus',
+  'Alcabitius',
+  'Topocentric',
+] as const;
 
 export async function getDefaults(): Promise<AppDefaults> {
   const res = await api.get('/api/settings/defaults');
