@@ -44,8 +44,8 @@ export async function createEntry(data: {
   content?: string;
   reading_datetime?: string;
   location_name?: string;
-  location_lat?: number;
-  location_lon?: number;
+  location_lat?: number | null;
+  location_lon?: number | null;
   querent_id?: number | null;
   reader_id?: number | null;
 }): Promise<{ id: number }> {
@@ -58,8 +58,8 @@ export async function updateEntry(entryId: number, data: {
   content?: string;
   reading_datetime?: string;
   location_name?: string;
-  location_lat?: number;
-  location_lon?: number;
+  location_lat?: number | null;
+  location_lon?: number | null;
   querent_id?: number | null;
   reader_id?: number | null;
 }): Promise<void> {

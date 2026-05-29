@@ -17,6 +17,7 @@ import Modal from '../common/Modal';
 import RichTextEditor from '../common/RichTextEditor';
 import ReadingEditor, { type ReadingData } from './ReadingEditor';
 import type { JournalEntryFull, Tag, Profile } from '../../types';
+import PlaceLookupButton from '../common/PlaceLookupButton';
 import './EntryEditorModal.css';
 
 interface InitialFormState {
@@ -24,6 +25,8 @@ interface InitialFormState {
   dateMode: 'now' | 'custom';
   readingDatetime: string;
   locationName: string;
+  locationLat: number | null;
+  locationLon: number | null;
   querentIds: number[];
   readerId: number | null;
   content: string;
@@ -90,6 +93,8 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
   const [dateMode, setDateMode] = useState<'now' | 'custom'>('now');
   const [readingDatetime, setReadingDatetime] = useState(nowLocalISO());
   const [locationName, setLocationName] = useState('');
+  const [locationLat, setLocationLat] = useState<number | null>(null);
+  const [locationLon, setLocationLon] = useState<number | null>(null);
   const [querentIds, setQuerentIds] = useState<number[]>([]);
   const [readerId, setReaderId] = useState<number | null>(null);
   const [content, setContent] = useState('');
@@ -111,6 +116,8 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
         ? existingEntry.reading_datetime.replace(' ', 'T').slice(0, 16)
         : nowLocalISO();
       const locationVal = existingEntry.location_name || '';
+      const locationLatVal = existingEntry.location_lat ?? null;
+      const locationLonVal = existingEntry.location_lon ?? null;
       // Use querents array, or fall back to legacy querent_id if empty
       const querentIdsVal = existingEntry.querents?.length
         ? existingEntry.querents.map(q => q.id)
@@ -140,6 +147,8 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
       setDateMode(dateModeVal);
       setReadingDatetime(datetimeVal);
       setLocationName(locationVal);
+      setLocationLat(locationLatVal);
+      setLocationLon(locationLonVal);
       setQuerentIds(querentIdsVal);
       setReaderId(readerVal);
       setContent(contentVal);
@@ -152,6 +161,8 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
         dateMode: dateModeVal,
         readingDatetime: datetimeVal,
         locationName: locationVal,
+        locationLat: locationLatVal,
+        locationLon: locationLonVal,
         querentIds: querentIdsVal,
         readerId: readerVal,
         content: contentVal,
@@ -178,6 +189,8 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
       setDateMode('now');
       setReadingDatetime(datetimeVal);
       setLocationName('');
+      setLocationLat(null);
+      setLocationLon(null);
       setReaderId(defaultReader);
       setQuerentIds(defaultQuerentIds);
       setContent('');
@@ -192,6 +205,8 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
         dateMode: 'now',
         readingDatetime: datetimeVal,
         locationName: '',
+        locationLat: null,
+        locationLon: null,
         querentIds: defaultQuerentIds,
         readerId: defaultReader,
         content: '',
@@ -235,6 +250,8 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
         content: content || undefined,
         reading_datetime: datetime || undefined,
         location_name: locationName.trim() || undefined,
+        location_lat: locationLat,
+        location_lon: locationLon,
         // Legacy querent_id: first querent or null
         querent_id: validQuerentIds.length > 0 ? validQuerentIds[0] : null,
         reader_id: readerId,
@@ -351,6 +368,8 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
     if (dateMode !== initial.dateMode) return true;
     if (dateMode === 'custom' && readingDatetime !== initial.readingDatetime) return true;
     if (locationName !== initial.locationName) return true;
+    if (locationLat !== initial.locationLat) return true;
+    if (locationLon !== initial.locationLon) return true;
     if (readerId !== initial.readerId) return true;
     if (content !== initial.content) return true;
 
@@ -366,7 +385,7 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
     if (JSON.stringify(readings) !== JSON.stringify(initial.readings)) return true;
 
     return false;
-  }, [title, dateMode, readingDatetime, locationName, querentIds, readerId, content, selectedTagIds, readings]);
+  }, [title, dateMode, readingDatetime, locationName, locationLat, locationLon, querentIds, readerId, content, selectedTagIds, readings]);
 
   if (!open) return null;
 
@@ -425,12 +444,32 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
           {/* Location */}
           <div className="entry-editor__field">
             <label className="entry-editor__label">Location</label>
-            <input
-              type="text"
-              value={locationName}
-              onChange={(e) => setLocationName(e.target.value)}
-              placeholder="Where the reading took place (optional)"
-            />
+            <div className="entry-editor__place-row">
+              <input
+                type="text"
+                value={locationName}
+                onChange={(e) => {
+                  setLocationName(e.target.value);
+                  // Clear stale coords when name changes.
+                  setLocationLat(null);
+                  setLocationLon(null);
+                }}
+                placeholder="Where the reading took place (optional)"
+              />
+              <PlaceLookupButton
+                query={locationName}
+                onSelect={(m) => {
+                  setLocationName(m.display_name);
+                  setLocationLat(m.latitude);
+                  setLocationLon(m.longitude);
+                }}
+              />
+            </div>
+            {locationLat != null && locationLon != null && (
+              <div className="entry-editor__place-coords">
+                {locationLat.toFixed(3)}, {locationLon.toFixed(3)}
+              </div>
+            )}
           </div>
 
           {/* Querents / Reader */}

@@ -10,6 +10,7 @@ import {
 import { useToast } from '../../context/ToastContext';
 import type { Profile } from '../../types';
 import ChartModal from '../astrology/ChartModal';
+import PlaceLookupButton from '../common/PlaceLookupButton';
 import './ProfilesTab.css';
 
 export default function ProfilesTab() {
@@ -28,6 +29,8 @@ export default function ProfilesTab() {
   const [birthDate, setBirthDate] = useState('');
   const [birthTime, setBirthTime] = useState('');
   const [birthPlaceName, setBirthPlaceName] = useState('');
+  const [birthPlaceLat, setBirthPlaceLat] = useState<number | null>(null);
+  const [birthPlaceLon, setBirthPlaceLon] = useState<number | null>(null);
   const [querentOnly, setQuerentOnly] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
@@ -52,6 +55,8 @@ export default function ProfilesTab() {
       setBirthDate(selectedProfile.birth_date || '');
       setBirthTime(selectedProfile.birth_time || '');
       setBirthPlaceName(selectedProfile.birth_place_name || '');
+      setBirthPlaceLat(selectedProfile.birth_place_lat ?? null);
+      setBirthPlaceLon(selectedProfile.birth_place_lon ?? null);
       setQuerentOnly(selectedProfile.querent_only || false);
       setHidden(selectedProfile.hidden || false);
       setSaveStatus('idle');
@@ -73,6 +78,8 @@ export default function ProfilesTab() {
         birth_date: birthDate || null,
         birth_time: birthTime || null,
         birth_place_name: birthPlaceName.trim() || null,
+        birth_place_lat: birthPlaceLat,
+        birth_place_lon: birthPlaceLon,
         querent_only: querentOnly,
         hidden: hidden,
       });
@@ -83,7 +90,7 @@ export default function ProfilesTab() {
       showToast('Failed to save profile.');
       setSaveStatus('idle');
     }
-  }, [selectedId, isNew, name, gender, birthDate, birthTime, birthPlaceName, querentOnly, hidden, queryClient]);
+  }, [selectedId, isNew, name, gender, birthDate, birthTime, birthPlaceName, birthPlaceLat, birthPlaceLon, querentOnly, hidden, queryClient]);
 
   // Debounced auto-save effect
   useEffect(() => {
@@ -99,7 +106,7 @@ export default function ProfilesTab() {
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [name, gender, birthDate, birthTime, birthPlaceName, querentOnly, hidden, selectedId, isNew, doAutoSave]);
+  }, [name, gender, birthDate, birthTime, birthPlaceName, birthPlaceLat, birthPlaceLon, querentOnly, hidden, selectedId, isNew, doAutoSave]);
 
   const handleSelect = (profile: Profile) => {
     // Flush any pending auto-save immediately
@@ -123,6 +130,8 @@ export default function ProfilesTab() {
     setBirthDate('');
     setBirthTime('');
     setBirthPlaceName('');
+    setBirthPlaceLat(null);
+    setBirthPlaceLon(null);
     setQuerentOnly(false);
     setHidden(false);
     setSaveStatus('idle');
@@ -139,6 +148,8 @@ export default function ProfilesTab() {
         birth_date: birthDate || null,
         birth_time: birthTime || null,
         birth_place_name: birthPlaceName.trim() || null,
+        birth_place_lat: birthPlaceLat,
+        birth_place_lon: birthPlaceLon,
         querent_only: querentOnly,
         hidden: hidden,
       };
@@ -264,12 +275,33 @@ export default function ProfilesTab() {
 
                 <div className="profiles-tab__field">
                   <label className="profiles-tab__label">Birth Place</label>
-                  <input
-                    type="text"
-                    value={birthPlaceName}
-                    onChange={(e) => setBirthPlaceName(e.target.value)}
-                    placeholder="City, Country"
-                  />
+                  <div className="profiles-tab__place-row">
+                    <input
+                      type="text"
+                      value={birthPlaceName}
+                      onChange={(e) => {
+                        setBirthPlaceName(e.target.value);
+                        // Clear stale coords when the name changes — the
+                        // user should re-Look up to get matching lat/lon.
+                        setBirthPlaceLat(null);
+                        setBirthPlaceLon(null);
+                      }}
+                      placeholder="City, Country"
+                    />
+                    <PlaceLookupButton
+                      query={birthPlaceName}
+                      onSelect={(m) => {
+                        setBirthPlaceName(m.display_name);
+                        setBirthPlaceLat(m.latitude);
+                        setBirthPlaceLon(m.longitude);
+                      }}
+                    />
+                  </div>
+                  {birthPlaceLat != null && birthPlaceLon != null && (
+                    <div className="profiles-tab__place-coords">
+                      {birthPlaceLat.toFixed(3)}, {birthPlaceLon.toFixed(3)}
+                    </div>
+                  )}
                 </div>
 
                 <div className="profiles-tab__field profiles-tab__checkbox-field">

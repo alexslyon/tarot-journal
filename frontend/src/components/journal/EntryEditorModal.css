@@ -224,3 +224,21 @@
   color: var(--danger);
   font-size: var(--font-size-body);
 }
+
+.entry-editor__place-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.entry-editor__place-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.entry-editor__place-coords {
+  margin-top: 4px;
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}
