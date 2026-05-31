@@ -377,11 +377,13 @@ def get_entry_chart(entry_id):
 
     house_system = db.get_house_system()
     place_label = entry.get('location_name') or ''
+    chart_label = 'Reading Chart'
     input_hash = astrology.compute_input_hash(
         date_iso, time_iso,
         entry['location_lat'], entry['location_lon'],
         house_system,
         place_label=place_label,
+        chart_label=chart_label,
     )
 
     cached = db.get_cached_chart('entry', entry_id)
@@ -402,6 +404,7 @@ def get_entry_chart(entry_id):
             lat=entry['location_lat'], lon=entry['location_lon'],
             house_system=house_system,
             place_label=place_label,
+            chart_label=chart_label,
         )
     except Exception as e:
         return jsonify({'error': f'Chart generation failed: {e}'}), 500
