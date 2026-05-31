@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 # Bump when the SVG post-processing or output schema changes; folded
 # into compute_input_hash so existing cached charts regenerate next
 # view rather than needing a manual Regenerate click.
-CHART_RENDERER_VERSION = 2
+CHART_RENDERER_VERSION = 3
 
 HOUSE_SYSTEM_CODES = {
     'Placidus': 'P',
@@ -79,6 +79,7 @@ def compute_input_hash(
     house_system: str,
     solar_chart: bool = False,
     place_label: str = '',
+    chart_label: str = 'Birth Chart',
 ) -> str:
     """Deterministic hash of every input that affects chart output.
 
@@ -97,6 +98,7 @@ def compute_input_hash(
             'house_system': house_system,
             'solar': bool(solar_chart),
             'place': place_label or '',
+            'chart_label': chart_label or 'Birth Chart',
             'renderer': CHART_RENDERER_VERSION,
         },
         sort_keys=True,
@@ -128,6 +130,7 @@ def generate_chart(
     house_system: str,
     solar_chart_fallback: bool = False,
     place_label: str = '',
+    chart_label: str = 'Birth Chart',
 ) -> dict:
     """
     Generate a natal/event chart.
@@ -188,6 +191,24 @@ def generate_chart(
         svg = re.sub(
             r"(<text[^>]*kr:node='Top_Left_Text_1'[^>]*>)[^<]*(</text>)",
             lambda m: m.group(1) + _escape_xml(place_label) + m.group(2),
+            svg,
+            count=1,
+        )
+    # Kerykeion hard-codes the chart heading as "{name} - Birth Chart" in
+    # both the SVG <title> (accessibility) and the visible Chart_Title
+    # element. Swap in our own label so event charts (journal entries)
+    # read "Reading Chart" instead of "Birth Chart".
+    if chart_label and chart_label != 'Birth Chart':
+        new_heading = _escape_xml(f"{name or 'Subject'} - {chart_label}")
+        svg = re.sub(
+            r"<title>[^<]*</title>",
+            f"<title>{new_heading}</title>",
+            svg,
+            count=1,
+        )
+        svg = re.sub(
+            r"(<text[^>]*kr:node='Chart_Title'[^>]*>)[^<]*(</text>)",
+            lambda m: m.group(1) + new_heading + m.group(2),
             svg,
             count=1,
         )
