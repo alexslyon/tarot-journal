@@ -41,7 +41,7 @@ export default function ReferenceSourcesSection() {
     try {
       await createReferenceSource({
         name: newName.trim(),
-        cartomancy_type: newType,
+        cartomancy_types: [newType],
         authors: [],
       });
       setNewName('');
@@ -97,7 +97,7 @@ export default function ReferenceSourcesSection() {
                 <>
                   <span className="reference-sources__name">{s.name}</span>
                   <span className="reference-sources__type-badge">
-                    {s.cartomancy_type}
+                    {s.cartomancy_types.join(', ')}
                   </span>
                   <button onClick={() => { setEditingId(s.id); setEditingName(s.name); }}>
                     Rename

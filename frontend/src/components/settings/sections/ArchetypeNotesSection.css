@@ -269,3 +269,25 @@
   font-size: 0.82em;
   font-weight: 600;
 }
+
+/* === Cartomancy types multi-pick ============================== */
+
+.archetype-notes-edit__types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 6px 0;
+}
+
+.archetype-notes-edit__type-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-primary);
+  font-size: var(--font-size-small);
+  cursor: pointer;
+}
+
+.archetype-notes-edit__type-toggle input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+}

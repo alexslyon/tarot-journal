@@ -16,14 +16,25 @@ from datetime import datetime
 class ArchetypeSourceEntriesMixin:
     # === Source fields =======================================
 
-    def get_source_fields(self, source_id: int):
-        """All fields defined on a source, in display order."""
+    def get_source_fields(self, source_id: int, cartomancy_type: str = None):
+        """Fields defined on a source, optionally scoped to a single
+        cartomancy type. Returned in display order."""
         cursor = self.conn.cursor()
+        if cartomancy_type is not None:
+            return [
+                dict(r)
+                for r in cursor.execute(
+                    'SELECT * FROM source_fields '
+                    'WHERE source_id = ? AND cartomancy_type = ? '
+                    'ORDER BY sort_order, id',
+                    (source_id, cartomancy_type)
+                ).fetchall()
+            ]
         return [
             dict(r)
             for r in cursor.execute(
                 'SELECT * FROM source_fields WHERE source_id = ? '
-                'ORDER BY sort_order, id',
+                'ORDER BY cartomancy_type, sort_order, id',
                 (source_id,)
             ).fetchall()
         ]
@@ -35,19 +46,29 @@ class ArchetypeSourceEntriesMixin:
         ).fetchone()
         return dict(row) if row else None
 
-    def create_source_field(self, source_id: int, name: str) -> int:
-        """Append a new field to a source. Sort order goes to one past the
-        current max so the new field lands at the end of the list."""
+    def create_source_field(
+        self,
+        source_id: int,
+        name: str,
+        cartomancy_type: str,
+    ) -> int:
+        """Append a new field within a source's (cartomancy_type) bucket.
+
+        Sort order goes to one past the current max for that bucket so
+        each cartomancy_type's fields are independently ordered.
+        """
+        if not cartomancy_type or not cartomancy_type.strip():
+            raise ValueError('cartomancy_type is required')
         cursor = self.conn.cursor()
         next_order = cursor.execute(
             'SELECT COALESCE(MAX(sort_order), -1) + 1 '
-            'FROM source_fields WHERE source_id = ?',
-            (source_id,)
+            'FROM source_fields WHERE source_id = ? AND cartomancy_type = ?',
+            (source_id, cartomancy_type)
         ).fetchone()[0]
         cursor.execute(
-            'INSERT INTO source_fields (source_id, name, sort_order) '
-            'VALUES (?, ?, ?)',
-            (source_id, name.strip(), next_order)
+            'INSERT INTO source_fields (source_id, cartomancy_type, name, sort_order) '
+            'VALUES (?, ?, ?, ?)',
+            (source_id, cartomancy_type, name.strip(), next_order)
         )
         self._commit()
         return cursor.lastrowid
@@ -71,16 +92,24 @@ class ArchetypeSourceEntriesMixin:
         )
         self._commit()
 
-    def reorder_source_fields(self, source_id: int, field_ids: list):
-        """Set sort_order to match the position in field_ids. Any field
-        not in the list keeps its current position (rare; only happens
-        on partial reorders)."""
+    def reorder_source_fields(
+        self,
+        source_id: int,
+        cartomancy_type: str,
+        field_ids: list,
+    ):
+        """Set sort_order on the given fields to match list position.
+
+        Scoped to (source, cartomancy_type) so the caller can pass just
+        the fields visible in that bucket without having to know about
+        other types' fields.
+        """
         cursor = self.conn.cursor()
         for i, fid in enumerate(field_ids):
             cursor.execute(
                 'UPDATE source_fields SET sort_order = ? '
-                'WHERE id = ? AND source_id = ?',
-                (i, fid, source_id)
+                'WHERE id = ? AND source_id = ? AND cartomancy_type = ?',
+                (i, fid, source_id, cartomancy_type)
             )
         self._commit()
 
@@ -112,9 +141,9 @@ class ArchetypeSourceEntriesMixin:
                 e.updated_at,
                 f.name AS field_name,
                 f.sort_order AS field_sort_order,
+                f.cartomancy_type AS field_cartomancy_type,
                 s.id AS source_id,
-                s.name AS source_name,
-                s.cartomancy_type AS source_cartomancy_type
+                s.name AS source_name
             FROM archetype_source_entries e
             JOIN source_fields f ON f.id = e.field_id
             JOIN reference_sources s ON s.id = f.source_id
@@ -124,17 +153,20 @@ class ArchetypeSourceEntriesMixin:
         '''
         params: list = [archetype_id]
         if cartomancy_type is not None:
-            sql += ' AND s.cartomancy_type = ?'
+            sql += ' AND f.cartomancy_type = ?'
             params.append(cartomancy_type)
         sql += ' ORDER BY s.name, f.sort_order, f.id'
         return [dict(r) for r in cursor.execute(sql, params).fetchall()]
 
-    def get_source_entries_for_source(self, source_id: int):
-        """Every entry for any field under this source. Used by the
-        Settings authoring page to show what content already exists."""
+    def get_source_entries_for_source(
+        self,
+        source_id: int,
+        cartomancy_type: str = None,
+    ):
+        """Every entry for any field under this source, optionally
+        scoped to a single cartomancy_type bucket."""
         cursor = self.conn.cursor()
-        rows = cursor.execute(
-            '''
+        sql = '''
             SELECT
                 e.id AS entry_id,
                 e.archetype_id,
@@ -143,16 +175,20 @@ class ArchetypeSourceEntriesMixin:
                 e.updated_at,
                 f.name AS field_name,
                 f.sort_order AS field_sort_order,
+                f.cartomancy_type AS field_cartomancy_type,
                 a.name AS archetype_name,
                 a.rank AS archetype_rank
             FROM archetype_source_entries e
             JOIN source_fields f ON f.id = e.field_id
             JOIN card_archetypes a ON a.id = e.archetype_id
             WHERE f.source_id = ?
-            ORDER BY a.rank, f.sort_order
-            ''',
-            (source_id,)
-        ).fetchall()
+        '''
+        params: list = [source_id]
+        if cartomancy_type is not None:
+            sql += ' AND f.cartomancy_type = ?'
+            params.append(cartomancy_type)
+        sql += ' ORDER BY a.rank, f.sort_order'
+        rows = cursor.execute(sql, params).fetchall()
         return [dict(r) for r in rows]
 
     def get_source_entry(self, archetype_id: int, field_id: int):

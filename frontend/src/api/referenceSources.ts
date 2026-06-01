@@ -20,17 +20,18 @@ export async function getReferenceSource(sourceId: number): Promise<ReferenceSou
 
 export async function createReferenceSource(data: {
   name: string;
-  cartomancy_type: string;
+  cartomancy_types: string[];
   authors?: string[];
 }): Promise<{ id: number }> {
   const res = await api.post('/api/reference/sources', data);
   return res.data;
 }
 
-/** Partial update — pass only the keys you want to change. */
+/** Partial update — pass only the keys you want to change.
+ *  `cartomancy_types` is a full set-replace. */
 export async function updateReferenceSource(
   sourceId: number,
-  data: { name?: string; cartomancy_type?: string; authors?: string[] },
+  data: { name?: string; cartomancy_types?: string[]; authors?: string[] },
 ): Promise<void> {
   await api.put(`/api/reference/sources/${sourceId}`, data);
 }
@@ -58,16 +59,22 @@ export async function getReferenceSourceDependencies(
 
 // === Source fields ===
 
-export async function getSourceFields(sourceId: number): Promise<SourceField[]> {
-  const res = await api.get(`/api/reference/sources/${sourceId}/fields`);
+/** List a source's fields, optionally restricted to one cartomancy
+ *  type bucket. The Settings UI fetches the active type only. */
+export async function getSourceFields(
+  sourceId: number,
+  cartomancyType?: string,
+): Promise<SourceField[]> {
+  const params = cartomancyType ? { cartomancy_type: cartomancyType } : {};
+  const res = await api.get(`/api/reference/sources/${sourceId}/fields`, { params });
   return res.data;
 }
 
 export async function createSourceField(
   sourceId: number,
-  name: string,
+  data: { name: string; cartomancy_type: string },
 ): Promise<{ id: number }> {
-  const res = await api.post(`/api/reference/sources/${sourceId}/fields`, { name });
+  const res = await api.post(`/api/reference/sources/${sourceId}/fields`, data);
   return res.data;
 }
 
@@ -80,9 +87,11 @@ export async function updateSourceField(
 
 export async function reorderSourceFields(
   sourceId: number,
+  cartomancyType: string,
   fieldIds: number[],
 ): Promise<void> {
   await api.put(`/api/reference/sources/${sourceId}/fields/reorder`, {
+    cartomancy_type: cartomancyType,
     field_ids: fieldIds,
   });
 }
@@ -104,10 +113,14 @@ export async function getArchetypeSourceEntries(
   return res.data;
 }
 
-/** Every entry under a source. Used by the Settings authoring page
- *  where one source is being filled in across all its archetypes. */
-export async function getSourceEntries(sourceId: number): Promise<SourceAuthoringEntry[]> {
-  const res = await api.get(`/api/reference/sources/${sourceId}/entries`);
+/** Every entry under a source, optionally scoped to one cartomancy
+ *  type bucket. */
+export async function getSourceEntries(
+  sourceId: number,
+  cartomancyType?: string,
+): Promise<SourceAuthoringEntry[]> {
+  const params = cartomancyType ? { cartomancy_type: cartomancyType } : {};
+  const res = await api.get(`/api/reference/sources/${sourceId}/entries`, { params });
   return res.data;
 }
 
