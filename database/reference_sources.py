@@ -1,31 +1,34 @@
 """
-Reference sources — typed per cartomancy type. Each source is the
-column under which per-archetype content lives (see
-ArchetypeSourceEntriesMixin), plus an optional list of authors.
+Reference sources — many-to-many with cartomancy types via
+source_cartomancy_types. Each source carries its own authors list and
+exposes per-type field sets (see ArchetypeSourceEntriesMixin).
 
-Lenormand combinations still use this table the legacy way (per-pair
-meanings with a source attribution); only Archetype reference content
-moved onto the new (archetype_id, source_id) entry model.
+Lenormand combinations still consume source attribution the legacy
+way (per-pair meanings); the cartomancy_types junction isn't visible
+to them.
 """
 
 
 class ReferenceSourcesMixin:
-    """Reference sources + their authors. Author rows live in the
-    `source_authors` table and are returned as a list on get/list."""
 
     # === Sources =================================================
 
     def get_reference_sources(self, cartomancy_type: str = None):
-        """List sources, optionally filtered by cartomancy type.
+        """List sources, optionally restricted to those that cover the
+        given cartomancy type.
 
-        Each returned dict has its `authors` array hydrated so callers
-        don't need to do an N+1 fetch.
+        Each returned dict has `authors` and `cartomancy_types` hydrated
+        so the caller doesn't need follow-up fetches.
         """
         cursor = self.conn.cursor()
         if cartomancy_type is not None:
             cursor.execute(
-                'SELECT * FROM reference_sources WHERE cartomancy_type = ? '
-                'ORDER BY name',
+                '''
+                SELECT s.* FROM reference_sources s
+                JOIN source_cartomancy_types sct ON sct.source_id = s.id
+                WHERE sct.cartomancy_type = ?
+                ORDER BY s.name
+                ''',
                 (cartomancy_type,)
             )
         else:
@@ -41,11 +44,20 @@ class ReferenceSourcesMixin:
             f'WHERE source_id IN ({placeholders}) ORDER BY sort_order, id',
             ids
         ).fetchall()
+        type_rows = cursor.execute(
+            f'SELECT source_id, cartomancy_type FROM source_cartomancy_types '
+            f'WHERE source_id IN ({placeholders}) ORDER BY cartomancy_type',
+            ids
+        ).fetchall()
         authors_by_source: dict[int, list[str]] = {}
+        types_by_source: dict[int, list[str]] = {}
         for ar in author_rows:
             authors_by_source.setdefault(ar['source_id'], []).append(ar['name'])
+        for tr in type_rows:
+            types_by_source.setdefault(tr['source_id'], []).append(tr['cartomancy_type'])
         for r in rows:
             r['authors'] = authors_by_source.get(r['id'], [])
+            r['cartomancy_types'] = types_by_source.get(r['id'], [])
         return rows
 
     def get_reference_source(self, source_id: int):
@@ -66,22 +78,43 @@ class ReferenceSourcesMixin:
                 (source_id,)
             ).fetchall()
         ]
+        d['cartomancy_types'] = [
+            t['cartomancy_type']
+            for t in cursor.execute(
+                'SELECT cartomancy_type FROM source_cartomancy_types '
+                'WHERE source_id = ? ORDER BY cartomancy_type',
+                (source_id,)
+            ).fetchall()
+        ]
         return d
 
     def create_reference_source(
         self,
         name: str,
-        cartomancy_type: str,
+        cartomancy_types: list = None,
         authors: list = None,
     ) -> int:
-        """Create a source. cartomancy_type is required in the new model —
-        callers should pick from the seeded cartomancy_types list."""
+        """Create a source covering one or more cartomancy types.
+
+        At least one cartomancy type is required — callers should pick
+        from the seeded cartomancy_types list. Duplicate types are
+        deduped silently.
+        """
+        types = self._normalize_types(cartomancy_types)
+        if not types:
+            raise ValueError('At least one cartomancy type is required')
         cursor = self.conn.cursor()
         cursor.execute(
-            'INSERT INTO reference_sources (name, cartomancy_type) VALUES (?, ?)',
-            (name.strip(), cartomancy_type)
+            'INSERT INTO reference_sources (name) VALUES (?)',
+            (name.strip(),)
         )
         source_id = cursor.lastrowid
+        for t in types:
+            cursor.execute(
+                'INSERT OR IGNORE INTO source_cartomancy_types (source_id, cartomancy_type) '
+                'VALUES (?, ?)',
+                (source_id, t)
+            )
         self._set_source_authors(cursor, source_id, authors or [])
         self._commit()
         return source_id
@@ -90,28 +123,43 @@ class ReferenceSourcesMixin:
         self,
         source_id: int,
         name: str = None,
-        cartomancy_type: str = None,
+        cartomancy_types: list = None,
         authors: list = None,
     ):
-        """Update any subset of name / cartomancy_type / authors.
+        """Update any subset of name / cartomancy_types / authors.
 
-        Authors are upserted-as-a-set: passing a list replaces the
-        existing rows entirely. Pass None to leave them untouched.
+        For cartomancy_types and authors, passing a list does a full
+        set-replace of the existing rows. Pass None to leave them
+        alone. Cannot drop the last cartomancy type — at least one
+        must remain.
         """
         cursor = self.conn.cursor()
-        updates = []
-        params = []
         if name is not None:
-            updates.append('name = ?')
-            params.append(name.strip())
-        if cartomancy_type is not None:
-            updates.append('cartomancy_type = ?')
-            params.append(cartomancy_type)
-        if updates:
-            params.append(source_id)
             cursor.execute(
-                f'UPDATE reference_sources SET {", ".join(updates)} WHERE id = ?',
-                params
+                'UPDATE reference_sources SET name = ? WHERE id = ?',
+                (name.strip(), source_id)
+            )
+        if cartomancy_types is not None:
+            new_types = self._normalize_types(cartomancy_types)
+            if not new_types:
+                raise ValueError('At least one cartomancy type is required')
+            cursor.execute(
+                'DELETE FROM source_cartomancy_types WHERE source_id = ?',
+                (source_id,)
+            )
+            for t in new_types:
+                cursor.execute(
+                    'INSERT OR IGNORE INTO source_cartomancy_types (source_id, cartomancy_type) '
+                    'VALUES (?, ?)',
+                    (source_id, t)
+                )
+            # Fields scoped to a type that's no longer covered are
+            # orphaned — drop them along with their entries (CASCADE)
+            # so the source's effective field set stays in sync.
+            cursor.execute(
+                f'DELETE FROM source_fields WHERE source_id = ? '
+                f'AND cartomancy_type NOT IN ({",".join("?" * len(new_types))})',
+                [source_id, *new_types]
             )
         if authors is not None:
             self._set_source_authors(cursor, source_id, authors)
@@ -119,10 +167,8 @@ class ReferenceSourcesMixin:
 
     def delete_reference_source(self, source_id: int, reassign_to: int = None):
         """Delete a source. Lenormand-meaning rows are reassigned (or
-        nulled out) to preserve the meaning text. Archetype source
-        entries are deleted along with the source via the FK CASCADE
-        — they don't carry useful content without their source column.
-        """
+        nulled out) to preserve the meaning text. Source fields and
+        entries cascade away with the source via FK."""
         cursor = self.conn.cursor()
         if reassign_to is not None:
             cursor.execute(
@@ -138,9 +184,6 @@ class ReferenceSourcesMixin:
         self._commit()
 
     def count_reference_source_dependencies(self, source_id: int) -> dict:
-        """How many dependent rows reference this source. Entries are
-        joined through the source's fields since the entry table no
-        longer stores source_id directly."""
         cursor = self.conn.cursor()
         lenormand_count = cursor.execute(
             'SELECT COUNT(*) FROM lenormand_meanings WHERE source_id = ?',
@@ -164,16 +207,9 @@ class ReferenceSourcesMixin:
             'source_fields': field_count,
         }
 
-    # === Authors (internal helpers) ==============================
+    # === Internal helpers =======================================
 
     def _set_source_authors(self, cursor, source_id: int, authors: list):
-        """Replace the author rows for a source with the given list.
-
-        Empty strings and whitespace-only names are filtered out;
-        duplicates within a single update are deduped while preserving
-        first-occurrence order so the user can paste a quick list
-        without worrying about typos.
-        """
         cursor.execute('DELETE FROM source_authors WHERE source_id = ?', (source_id,))
         seen = set()
         sort_order = 0
@@ -190,3 +226,23 @@ class ReferenceSourcesMixin:
                 (source_id, name, sort_order)
             )
             sort_order += 1
+
+    @staticmethod
+    def _normalize_types(types) -> list:
+        """Strip + dedupe a list of cartomancy type names. Preserves
+        first-seen order."""
+        if not types:
+            return []
+        if not isinstance(types, list):
+            return []
+        out = []
+        seen = set()
+        for raw in types:
+            if not isinstance(raw, str):
+                continue
+            t = raw.strip()
+            if not t or t in seen:
+                continue
+            seen.add(t)
+            out.append(t)
+        return out

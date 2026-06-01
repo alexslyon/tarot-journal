@@ -124,7 +124,7 @@ export default function ArchetypeNotesSection({
     try {
       const { id } = await createReferenceSource({
         name,
-        cartomancy_type: cartomancyType,
+        cartomancy_types: [cartomancyType],
         authors: [],
       });
       setNewName('');
@@ -283,11 +283,13 @@ function SourceEditor({
   // source changes; debounced autosave on change.
   const [name, setName] = useState(source.name);
   const [authorsText, setAuthorsText] = useState(source.authors.join(', '));
+  const [coveredTypes, setCoveredTypes] = useState<string[]>(source.cartomancy_types);
   const sourceIdRef = useRef(source.id);
   useEffect(() => {
     sourceIdRef.current = source.id;
     setName(source.name);
     setAuthorsText(source.authors.join(', '));
+    setCoveredTypes(source.cartomancy_types);
     firstSaveSkipRef.current = true;
   }, [source.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -303,6 +305,7 @@ function SourceEditor({
     saveTimerRef.current = setTimeout(async () => {
       const trimmedName = name.trim();
       if (!trimmedName) return;
+      if (coveredTypes.length === 0) return; // can't save with no types
       const authors = authorsText
         .split(/[,;\n]/)
         .map(s => s.trim())
@@ -311,10 +314,14 @@ function SourceEditor({
         await updateReferenceSource(sourceIdRef.current, {
           name: trimmedName,
           authors,
+          cartomancy_types: coveredTypes,
         });
         queryClient.invalidateQueries({
           queryKey: ['reference-sources', cartomancyType],
         });
+        // Other type's source list may need a refresh too if the
+        // coverage changed.
+        queryClient.invalidateQueries({ queryKey: ['reference-sources'] });
       } catch (err) {
         console.error('Failed to save source metadata:', err);
         showToast('Failed to save source.');
@@ -323,7 +330,18 @@ function SourceEditor({
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [name, authorsText, cartomancyType, queryClient, showToast]);
+  }, [name, authorsText, coveredTypes, cartomancyType, queryClient, showToast]);
+
+  const toggleType = (type: string) => {
+    setCoveredTypes(prev => {
+      if (prev.includes(type)) {
+        // Don't allow removing the last type.
+        if (prev.length === 1) return prev;
+        return prev.filter(t => t !== type);
+      }
+      return [...prev, type];
+    });
+  };
 
   // === Per-archetype entries ================================
   const { data: archetypes = [] } = useQuery<Archetype[]>({
@@ -338,18 +356,20 @@ function SourceEditor({
     [archetypes],
   );
 
-  // Fields the source defines (e.g. Upright, Reversed, Symbolism)
+  // Fields the source defines for the active cartomancy_type bucket
+  // (e.g. Upright/Reversed for Tarot, Meaning for Lenormand). Scoped
+  // queries let one source carry different field sets per type.
   const { data: fields = [] } = useQuery<SourceField[]>({
-    queryKey: ['source-fields', source.id],
-    queryFn: () => getSourceFields(source.id),
+    queryKey: ['source-fields', source.id, cartomancyType],
+    queryFn: () => getSourceFields(source.id, cartomancyType),
   });
 
-  // Existing entries across all (archetype, field) cells under this
-  // source. Used both to flag archetypes that have any content (the
-  // sidebar dot) and to seed the per-field editors.
+  // Existing entries scoped to the active type. Used both to flag
+  // archetypes that have any content (the sidebar dot) and to seed
+  // each field editor.
   const { data: entries = [] } = useQuery<SourceAuthoringEntry[]>({
-    queryKey: ['source-entries', source.id],
-    queryFn: () => getSourceEntries(source.id),
+    queryKey: ['source-entries', source.id, cartomancyType],
+    queryFn: () => getSourceEntries(source.id, cartomancyType),
   });
   const entriesByArchetype = useMemo(() => {
     // archetype_id -> field_id -> content
@@ -419,16 +439,36 @@ function SourceEditor({
           </p>
         </div>
         <div className="archetype-notes-edit__field">
-          <label className="settings-tab__label">Cartomancy Type</label>
-          <input type="text" value={source.cartomancy_type} disabled />
+          <label className="settings-tab__label">Cartomancy Types</label>
+          <div className="archetype-notes-edit__types">
+            {SUPPORTED_TYPES.map(t => (
+              <label key={t} className="archetype-notes-edit__type-toggle">
+                <input
+                  type="checkbox"
+                  checked={coveredTypes.includes(t)}
+                  disabled={
+                    coveredTypes.length === 1 && coveredTypes.includes(t)
+                  }
+                  onChange={() => toggleType(t)}
+                />
+                <span>{t}</span>
+              </label>
+            ))}
+          </div>
           <p className="settings-tab__hint">
-            Locked after creation — delete + recreate to move a source between
-            types.
+            A source can cover more than one type. Each type has its own
+            field set — switch the picker at the top of this page to
+            edit a different type's fields. Dropping a type also
+            removes the fields and entries scoped to it.
           </p>
         </div>
       </div>
 
-      <FieldsManager source={source} fields={fields} />
+      <FieldsManager
+        source={source}
+        fields={fields}
+        cartomancyType={cartomancyType}
+      />
 
       <h3 className="archetype-notes-edit__heading">Per-card content</h3>
       {fields.length === 0 ? (
@@ -492,9 +532,11 @@ function SourceEditor({
 function FieldsManager({
   source,
   fields,
+  cartomancyType,
 }: {
   source: ReferenceSource;
   fields: SourceField[];
+  cartomancyType: string;
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -503,8 +545,6 @@ function FieldsManager({
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['source-fields', source.id] });
     queryClient.invalidateQueries({ queryKey: ['source-entries', source.id] });
-    // Archetype-side viewer queries also need refresh in case a field
-    // rename or delete changes what shows up there.
     queryClient.invalidateQueries({ queryKey: ['archetype-source-entries'] });
   }, [queryClient, source.id]);
 
@@ -512,14 +552,19 @@ function FieldsManager({
     const name = newName.trim();
     if (!name) return;
     try {
-      await createSourceField(source.id, name);
+      await createSourceField(source.id, {
+        name,
+        cartomancy_type: cartomancyType,
+      });
       setNewName('');
       invalidate();
     } catch (err) {
       console.error('Failed to create field:', err);
-      showToast('Could not add field (name may already be used on this source).');
+      showToast(
+        'Could not add field (name may already be used for this type on this source).',
+      );
     }
-  }, [newName, source.id, invalidate, showToast]);
+  }, [newName, source.id, cartomancyType, invalidate, showToast]);
 
   const handleDelete = useCallback(
     async (field: SourceField) => {
@@ -544,16 +589,20 @@ function FieldsManager({
 
   return (
     <div className="archetype-notes-edit__fields-manager">
-      <h3 className="archetype-notes-edit__heading">Fields</h3>
+      <h3 className="archetype-notes-edit__heading">
+        Fields for {cartomancyType}
+      </h3>
       <p className="settings-tab__hint">
-        Define which slots each card under this source should have
-        (e.g. "Upright Meaning", "Reversed", "Symbolism"). Cards with
-        empty content for a field don't appear in that field's column
-        on the Reference viewer.
+        Each cartomancy type this source covers has its own field set
+        (e.g. "Upright Meaning", "Reversed" for Tarot; "Meaning" for
+        Lenormand). Switch the Type picker at the top of the page to
+        edit a different type's fields.
       </p>
 
       {fields.length === 0 ? (
-        <p className="archetype-notes-edit__empty">No fields yet.</p>
+        <p className="archetype-notes-edit__empty">
+          No {cartomancyType} fields yet.
+        </p>
       ) : (
         <ul className="archetype-notes-edit__fields-list">
           {fields.map(f => (
@@ -566,7 +615,7 @@ function FieldsManager({
         <input
           type="text"
           value={newName}
-          placeholder="New field name (e.g. Upright Meaning)…"
+          placeholder={`New ${cartomancyType} field name…`}
           onChange={e => setNewName(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
         />

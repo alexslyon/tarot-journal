@@ -770,25 +770,51 @@ class CoreMixin:
             'ON source_authors(source_id, sort_order)'
         )
 
-        # Fields defined within a source. Each source can define any
-        # number of fields (Upright Meaning, Reversed, Symbolism, etc.);
-        # every archetype of the source's cartomancy type then gets a
-        # cell under each field. UNIQUE (source_id, name) prevents
-        # duplicate field names within a single source.
+        # Sources can cover multiple cartomancy types. The many-to-many
+        # lives in source_cartomancy_types; reference_sources.cartomancy_type
+        # is the pre-junction legacy column kept around so older code
+        # paths don't crash mid-migration.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS source_cartomancy_types (
+                source_id INTEGER NOT NULL,
+                cartomancy_type TEXT NOT NULL,
+                PRIMARY KEY (source_id, cartomancy_type),
+                FOREIGN KEY (source_id) REFERENCES reference_sources(id) ON DELETE CASCADE
+            )
+        ''')
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_source_cartomancy_types_type '
+            'ON source_cartomancy_types(cartomancy_type)'
+        )
+
+        # Fields defined within a source. Each field is scoped to a
+        # specific cartomancy type so a book covering Tarot + Lenormand
+        # can use different field sets per deck type. UNIQUE allows the
+        # same field name (e.g. "Meaning") to repeat across types
+        # within one source, but not within the same (source, type).
+        # If the old (source_id, name) UNIQUE is on disk it's recreated
+        # below in a one-shot migration.
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS source_fields (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 source_id INTEGER NOT NULL,
+                cartomancy_type TEXT,
                 name TEXT NOT NULL,
                 sort_order INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (source_id) REFERENCES reference_sources(id) ON DELETE CASCADE,
-                UNIQUE (source_id, name)
+                UNIQUE (source_id, cartomancy_type, name)
             )
         ''')
+        # Older DBs (this branch's prior commit) may have the column
+        # missing — add it before the index pickup tries to reference it.
+        cursor.execute('PRAGMA table_info(source_fields)')
+        sf_cols = {c[1] for c in cursor.fetchall()}
+        if 'cartomancy_type' not in sf_cols:
+            cursor.execute('ALTER TABLE source_fields ADD COLUMN cartomancy_type TEXT')
         cursor.execute(
             'CREATE INDEX IF NOT EXISTS idx_source_fields_source '
-            'ON source_fields(source_id, sort_order)'
+            'ON source_fields(source_id, cartomancy_type, sort_order)'
         )
 
         # Per-(archetype, field) content. Rows exist only when the user
@@ -1409,6 +1435,59 @@ class CoreMixin:
             cursor.execute('DROP TABLE IF EXISTS archetype_notes_entries')
             cursor.execute('DROP TABLE IF EXISTS archetype_notes_field_defs')
             self.set_setting('archetype_notes_tables_dropped', 'true')
+
+        # One-time migration: sources go many-to-many with cartomancy types
+        # via source_cartomancy_types, and source_fields get a per-field
+        # cartomancy_type. Backfill both from the legacy single column on
+        # reference_sources; any source/field stamped before this migration
+        # gets exactly one type.
+        if self.get_setting('source_multi_type_backfill_done') != 'true':
+            cursor.execute('PRAGMA table_info(reference_sources)')
+            rs_cols_now = {c[1] for c in cursor.fetchall()}
+            if 'cartomancy_type' in rs_cols_now:
+                cursor.execute(
+                    'INSERT OR IGNORE INTO source_cartomancy_types '
+                    '(source_id, cartomancy_type) '
+                    "SELECT id, cartomancy_type FROM reference_sources "
+                    'WHERE cartomancy_type IS NOT NULL AND TRIM(cartomancy_type) != ""'
+                )
+                cursor.execute(
+                    'UPDATE source_fields SET cartomancy_type = ('
+                    '  SELECT cartomancy_type FROM reference_sources '
+                    '  WHERE reference_sources.id = source_fields.source_id'
+                    ') WHERE cartomancy_type IS NULL'
+                )
+            self.set_setting('source_multi_type_backfill_done', 'true')
+
+        # One-time migration: the old source_fields UNIQUE (source_id, name)
+        # blocks the new (source_id, cartomancy_type, name) form. Rebuild
+        # the table if the legacy constraint is still on disk.
+        if self.get_setting('source_fields_unique_relaxed') != 'true':
+            cursor.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='source_fields'"
+            )
+            sf_sql = cursor.fetchone()
+            if sf_sql and 'UNIQUE (source_id, cartomancy_type, name)' not in (sf_sql[0] or ''):
+                cursor.executescript('''
+                    CREATE TABLE source_fields_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        source_id INTEGER NOT NULL,
+                        cartomancy_type TEXT,
+                        name TEXT NOT NULL,
+                        sort_order INTEGER DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (source_id) REFERENCES reference_sources(id) ON DELETE CASCADE,
+                        UNIQUE (source_id, cartomancy_type, name)
+                    );
+                    INSERT INTO source_fields_new (id, source_id, cartomancy_type, name, sort_order, created_at)
+                        SELECT id, source_id, cartomancy_type, name, sort_order, created_at
+                        FROM source_fields;
+                    DROP TABLE source_fields;
+                    ALTER TABLE source_fields_new RENAME TO source_fields;
+                    CREATE INDEX IF NOT EXISTS idx_source_fields_source
+                        ON source_fields(source_id, cartomancy_type, sort_order);
+                ''')
+            self.set_setting('source_fields_unique_relaxed', 'true')
 
         # One-time backfill: every existing numerology value should also have
         # its digit-sum reductions present (so "156" gains "12" and "3").

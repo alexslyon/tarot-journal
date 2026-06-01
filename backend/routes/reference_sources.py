@@ -43,16 +43,22 @@ def get_source(source_id):
 def create_source(data):
     db = current_app.config['DB']
     name = (data.get('name') or '').strip()
-    cartomancy_type = (data.get('cartomancy_type') or '').strip()
     if not name:
         return jsonify({'error': 'Name is required'}), 400
-    if not cartomancy_type:
-        return jsonify({'error': 'cartomancy_type is required'}), 400
+    cartomancy_types = data.get('cartomancy_types')
+    # Backwards-compat: accept a single cartomancy_type if that's what
+    # an older caller sends.
+    if cartomancy_types is None and data.get('cartomancy_type'):
+        cartomancy_types = [data['cartomancy_type']]
+    if not cartomancy_types or not isinstance(cartomancy_types, list):
+        return jsonify({'error': 'cartomancy_types is required'}), 400
     authors = data.get('authors') or []
     try:
         new_id = db.create_reference_source(
-            name, cartomancy_type=cartomancy_type, authors=authors,
+            name, cartomancy_types=cartomancy_types, authors=authors,
         )
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': f'Could not create source: {e}'}), 400
     return jsonify({'id': new_id})
@@ -65,16 +71,22 @@ def update_source(source_id, data):
     name = data.get('name')
     if name is not None and not str(name).strip():
         return jsonify({'error': 'Name cannot be blank'}), 400
-    ctype = data.get('cartomancy_type')
-    if ctype is not None and not str(ctype).strip():
-        return jsonify({'error': 'cartomancy_type cannot be blank'}), 400
+    cartomancy_types = data.get('cartomancy_types')
+    # Same single-value fallback as create for older callers.
+    if cartomancy_types is None and data.get('cartomancy_type'):
+        cartomancy_types = [data['cartomancy_type']]
+    if cartomancy_types is not None and not isinstance(cartomancy_types, list):
+        return jsonify({'error': 'cartomancy_types must be an array'}), 400
     authors = data.get('authors')
-    db.update_reference_source(
-        source_id,
-        name=name.strip() if isinstance(name, str) else None,
-        cartomancy_type=ctype.strip() if isinstance(ctype, str) else None,
-        authors=authors if isinstance(authors, list) else None,
-    )
+    try:
+        db.update_reference_source(
+            source_id,
+            name=name.strip() if isinstance(name, str) else None,
+            cartomancy_types=cartomancy_types,
+            authors=authors if isinstance(authors, list) else None,
+        )
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     return jsonify({'ok': True})
 
 
@@ -97,9 +109,12 @@ def source_dependencies(source_id):
 
 @reference_sources_bp.route('/api/reference/sources/<int:source_id>/fields')
 def list_fields(source_id):
-    """List the fields defined on a source, in display order."""
+    """List fields on a source. ?cartomancy_type=... scopes to one
+    bucket — the Settings UI uses that to show only the fields
+    relevant to the active editing type."""
     db = current_app.config['DB']
-    return jsonify(db.get_source_fields(source_id))
+    ctype = request.args.get('cartomancy_type')
+    return jsonify(db.get_source_fields(source_id, cartomancy_type=ctype))
 
 
 @reference_sources_bp.route('/api/reference/sources/<int:source_id>/fields', methods=['POST'])
@@ -107,10 +122,15 @@ def list_fields(source_id):
 def create_field(source_id, data):
     db = current_app.config['DB']
     name = (data.get('name') or '').strip()
+    cartomancy_type = (data.get('cartomancy_type') or '').strip()
     if not name:
         return jsonify({'error': 'Field name is required'}), 400
+    if not cartomancy_type:
+        return jsonify({'error': 'cartomancy_type is required'}), 400
     try:
-        new_id = db.create_source_field(source_id, name)
+        new_id = db.create_source_field(source_id, name, cartomancy_type)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': f'Could not create field: {e}'}), 400
     return jsonify({'id': new_id})
@@ -138,13 +158,17 @@ def update_field(field_id, data):
 )
 @require_json
 def reorder_fields(source_id, data):
-    """Body: {"field_ids": [id1, id2, ...]}. Reassigns sort_order to
+    """Body: {"cartomancy_type": "Tarot", "field_ids": [id1, id2, ...]}.
+    Reassigns sort_order within the given (source, type) bucket to
     match list position."""
     db = current_app.config['DB']
+    ctype = (data.get('cartomancy_type') or '').strip()
+    if not ctype:
+        return jsonify({'error': 'cartomancy_type is required'}), 400
     ids = data.get('field_ids') or []
     if not isinstance(ids, list):
         return jsonify({'error': 'field_ids must be an array'}), 400
-    db.reorder_source_fields(source_id, [int(x) for x in ids])
+    db.reorder_source_fields(source_id, ctype, [int(x) for x in ids])
     return jsonify({'ok': True})
 
 
@@ -170,10 +194,12 @@ def list_entries_for_archetype(archetype_id):
 
 @reference_sources_bp.route('/api/reference/sources/<int:source_id>/entries')
 def list_entries_for_source(source_id):
-    """Every entry across every field of a source. Used by the Settings
-    authoring page."""
+    """Every entry across every field of a source. ?cartomancy_type=...
+    scopes to one type bucket — the Settings authoring page passes the
+    active type so it can render the appropriate cell grid."""
     db = current_app.config['DB']
-    return jsonify(db.get_source_entries_for_source(source_id))
+    ctype = request.args.get('cartomancy_type')
+    return jsonify(db.get_source_entries_for_source(source_id, cartomancy_type=ctype))
 
 
 @reference_sources_bp.route(

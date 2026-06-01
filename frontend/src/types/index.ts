@@ -271,7 +271,10 @@ export const CORRESPONDENCE_FIELD_LABELS: Record<string, string> = {
 export interface ReferenceSource {
   id: number;
   name: string;
-  cartomancy_type: string;
+  /** Every cartomancy type this source covers. A single source can
+   *  belong to multiple types; the field set is then scoped per type
+   *  via SourceField.cartomancy_type. */
+  cartomancy_types: string[];
   /** Free-text author names; multi-author supported. */
   authors: string[];
   created_at: string;
@@ -281,10 +284,13 @@ export interface ReferenceSource {
  *  callers to ReferenceSource. */
 export type LenormandSource = ReferenceSource;
 
-/** A field defined on a reference source (e.g. "Upright Meaning"). */
+/** A field defined on a reference source (e.g. "Upright Meaning").
+ *  Each field is scoped to one cartomancy type within its source so a
+ *  cross-type source can have different field sets per deck type. */
 export interface SourceField {
   id: number;
   source_id: number;
+  cartomancy_type: string;
   name: string;
   sort_order: number;
   created_at: string;
@@ -300,9 +306,9 @@ export interface ArchetypeSourceEntry {
   updated_at: string;
   field_name: string;
   field_sort_order: number;
+  field_cartomancy_type: string;
   source_id: number;
   source_name: string;
-  source_cartomancy_type: string;
 }
 
 /** Hydrated for the Settings authoring page — one row per (archetype,
@@ -315,6 +321,7 @@ export interface SourceAuthoringEntry {
   updated_at: string;
   field_name: string;
   field_sort_order: number;
+  field_cartomancy_type: string;
   archetype_name: string;
   archetype_rank: string | null;
 }
