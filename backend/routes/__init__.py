@@ -20,7 +20,8 @@ def register_blueprints(app):
     from backend.routes.reference_sources import reference_sources_bp
     from backend.routes.lenormand_combinations import lenormand_bp
     from backend.routes.archetype_languages import archetype_languages_bp
-    from backend.routes.archetype_notes import archetype_notes_bp
+    # (archetype_notes routes removed — source entries now live on the
+    # reference_sources blueprint.)
     from backend.routes.anki_export import anki_export_bp
     from backend.routes.geocode import geocode_bp
 
@@ -40,6 +41,5 @@ def register_blueprints(app):
     app.register_blueprint(reference_sources_bp)
     app.register_blueprint(lenormand_bp)
     app.register_blueprint(archetype_languages_bp)
-    app.register_blueprint(archetype_notes_bp)
     app.register_blueprint(anki_export_bp)
     app.register_blueprint(geocode_bp)

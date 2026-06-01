@@ -12,13 +12,15 @@ import type { ReferenceSource } from '../../../types';
 import '../SettingsTab.css';
 import './ReferenceSourcesSection.css';
 
+const SUPPORTED_TYPES = ['Tarot', 'Lenormand', 'Playing Cards', 'Kipper', 'I Ching'];
+
 export default function ReferenceSourcesSection() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
   const { data: sources = [] } = useQuery<ReferenceSource[]>({
     queryKey: ['reference-sources'],
-    queryFn: getReferenceSources,
+    queryFn: () => getReferenceSources(),
   });
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['reference-sources'] });
@@ -29,6 +31,7 @@ export default function ReferenceSourcesSection() {
 
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newType, setNewType] = useState('Tarot');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<ReferenceSource | null>(null);
@@ -36,7 +39,11 @@ export default function ReferenceSourcesSection() {
   const handleAdd = async () => {
     if (!newName.trim()) return;
     try {
-      await createReferenceSource(newName.trim());
+      await createReferenceSource({
+        name: newName.trim(),
+        cartomancy_type: newType,
+        authors: [],
+      });
       setNewName('');
       setAdding(false);
       invalidate();
@@ -48,7 +55,7 @@ export default function ReferenceSourcesSection() {
   const handleSaveEdit = async () => {
     if (editingId == null || !editingName.trim()) return;
     try {
-      await updateReferenceSource(editingId, editingName.trim());
+      await updateReferenceSource(editingId, { name: editingName.trim() });
       setEditingId(null);
       setEditingName('');
       invalidate();
@@ -89,6 +96,9 @@ export default function ReferenceSourcesSection() {
               ) : (
                 <>
                   <span className="reference-sources__name">{s.name}</span>
+                  <span className="reference-sources__type-badge">
+                    {s.cartomancy_type}
+                  </span>
                   <button onClick={() => { setEditingId(s.id); setEditingName(s.name); }}>
                     Rename
                   </button>
@@ -111,6 +121,15 @@ export default function ReferenceSourcesSection() {
               onKeyDown={e => e.key === 'Enter' && handleAdd()}
               className="reference-sources__input"
             />
+            <select
+              value={newType}
+              onChange={e => setNewType(e.target.value)}
+              className="reference-sources__type-select"
+            >
+              {SUPPORTED_TYPES.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
             <button onClick={handleAdd} disabled={!newName.trim()}>Add</button>
             <button onClick={() => { setAdding(false); setNewName(''); }}>Cancel</button>
           </div>
@@ -150,12 +169,12 @@ function DeleteDialog({
   onDeleted: () => void;
   showToast: (msg: string) => void;
 }) {
-  const { data: deps = { lenormand_meanings: 0, archetype_notes_entries: 0 } } =
+  const { data: deps = { lenormand_meanings: 0, archetype_source_entries: 0 } } =
     useQuery({
       queryKey: ['reference-source-deps', source.id],
       queryFn: () => getReferenceSourceDependencies(source.id),
     });
-  const total = deps.lenormand_meanings + deps.archetype_notes_entries;
+  const total = deps.lenormand_meanings + deps.archetype_source_entries;
 
   const [reassignTo, setReassignTo] = useState<'unsource' | number>('unsource');
 
@@ -187,11 +206,11 @@ function DeleteDialog({
               {deps.lenormand_meanings > 0 && (
                 <> ({deps.lenormand_meanings} Lenormand meaning{deps.lenormand_meanings === 1 ? '' : 's'}</>
               )}
-              {deps.lenormand_meanings > 0 && deps.archetype_notes_entries > 0 && ', '}
-              {deps.archetype_notes_entries > 0 && (
-                <>{deps.archetype_notes_entries} archetype note{deps.archetype_notes_entries === 1 ? '' : 's'}</>
+              {deps.lenormand_meanings > 0 && deps.archetype_source_entries > 0 && ', '}
+              {deps.archetype_source_entries > 0 && (
+                <>{deps.archetype_source_entries} per-card entr{deps.archetype_source_entries === 1 ? 'y' : 'ies'}</>
               )}
-              {(deps.lenormand_meanings > 0 || deps.archetype_notes_entries > 0) && ')'}.
+              {(deps.lenormand_meanings > 0 || deps.archetype_source_entries > 0) && ')'}.
               The entries themselves will not be deleted — pick what should
               happen to their source label:
             </p>

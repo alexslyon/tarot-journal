@@ -743,6 +743,58 @@ class CoreMixin:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # Add cartomancy_type column for the source-as-typed-field model.
+        # NULL is allowed at the column level (older sources predate the
+        # column) but the application layer requires it on new sources.
+        cursor.execute('PRAGMA table_info(reference_sources)')
+        rs_cols = [c[1] for c in cursor.fetchall()]
+        if 'cartomancy_type' not in rs_cols:
+            cursor.execute(
+                'ALTER TABLE reference_sources ADD COLUMN cartomancy_type TEXT'
+            )
+
+        # Authors per source. Free-text names so a single registry isn't
+        # required up front — duplicate names across sources are matched
+        # by string equality if/when we want global author rollups later.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS source_authors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                FOREIGN KEY (source_id) REFERENCES reference_sources(id) ON DELETE CASCADE
+            )
+        ''')
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_source_authors_source '
+            'ON source_authors(source_id, sort_order)'
+        )
+
+        # Per-(archetype, source) content. Each source defined for a
+        # cartomancy type implicitly grants every archetype of that type
+        # a "field" under the source; rows exist only when the user has
+        # authored content. UNIQUE constraint guarantees at most one
+        # content blob per (archetype, source).
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS archetype_source_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                archetype_id INTEGER NOT NULL,
+                source_id INTEGER NOT NULL,
+                content TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (archetype_id) REFERENCES card_archetypes(id) ON DELETE CASCADE,
+                FOREIGN KEY (source_id) REFERENCES reference_sources(id) ON DELETE CASCADE,
+                UNIQUE (archetype_id, source_id)
+            )
+        ''')
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_archetype_source_entries_arch '
+            'ON archetype_source_entries(archetype_id)'
+        )
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_archetype_source_entries_source '
+            'ON archetype_source_entries(source_id)'
+        )
 
         # If lenormand_meanings still has a foreign key referencing the old
         # lenormand_sources name, recreate the table so the FK points at
@@ -829,42 +881,9 @@ class CoreMixin:
             'ON archetype_language_names(archetype_id, language_id, sort_order)'
         )
 
-        # Notes field definitions per archetype. archetype_id is nullable so
-        # we can later migrate to per-cartomancy-type shared definitions
-        # without a schema rewrite (see PLANNING_ARCHETYPES.md).
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS archetype_notes_field_defs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                archetype_id INTEGER,
-                field_name TEXT NOT NULL,
-                field_order INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (archetype_id) REFERENCES card_archetypes(id) ON DELETE CASCADE
-            )
-        ''')
-        cursor.execute(
-            'CREATE INDEX IF NOT EXISTS idx_archetype_notes_fields_arch '
-            'ON archetype_notes_field_defs(archetype_id, field_order)'
-        )
-
-        # Notes entries within a field. Multiple per field, optionally
-        # source-tagged via the shared reference_sources table.
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS archetype_notes_entries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                field_def_id INTEGER NOT NULL,
-                content TEXT NOT NULL,
-                source_id INTEGER,
-                sort_order INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (field_def_id) REFERENCES archetype_notes_field_defs(id) ON DELETE CASCADE,
-                FOREIGN KEY (source_id) REFERENCES reference_sources(id) ON DELETE SET NULL
-            )
-        ''')
-        cursor.execute(
-            'CREATE INDEX IF NOT EXISTS idx_archetype_notes_entries_field '
-            'ON archetype_notes_entries(field_def_id, sort_order)'
-        )
+        # (Legacy archetype_notes_field_defs + archetype_notes_entries
+        # tables were retired in favor of the source-as-typed-field model;
+        # see the one-shot drop migration above.)
 
         # Astrological chart cache. One row per (profile|entry) source —
         # the SVG and structured chart_data are recomputed when input_hash
@@ -1279,7 +1298,10 @@ class CoreMixin:
                     'correspondence_assignments',
                     'deck_correspondence_overrides',
                     'archetype_language_names',
-                    'archetype_notes_field_defs',
+                    # archetype_notes_field_defs was a target until the table
+                    # was retired; the only DBs that ever ran this migration
+                    # already finished with the flag set, so removing the
+                    # entry can't strand existing data.
                 ):
                     cursor.execute(
                         f'UPDATE OR IGNORE {table} SET archetype_id = ? '
@@ -1325,6 +1347,41 @@ class CoreMixin:
                 )
 
             self.set_setting('playing_cards_joker_consolidation_done', 'true')
+
+        # One-time migration: stamp cartomancy_type on pre-existing
+        # reference_sources rows (which predate the column). Best-effort
+        # name-guessing — Lenormand if the name contains "lenormand",
+        # Tarot otherwise. Users can re-assign in Settings if needed.
+        if self.get_setting('reference_sources_cartomancy_type_backfill_done') != 'true':
+            cursor.execute(
+                "SELECT id, name FROM reference_sources WHERE cartomancy_type IS NULL"
+            )
+            for row in cursor.fetchall():
+                name = (row['name'] or '').lower()
+                if 'lenormand' in name or 'kipper' in name:
+                    ctype = 'Lenormand' if 'lenormand' in name else 'Kipper'
+                elif 'iching' in name or 'i ching' in name or 'hexagram' in name:
+                    ctype = 'I Ching'
+                elif 'playing card' in name:
+                    ctype = 'Playing Cards'
+                else:
+                    ctype = 'Tarot'
+                cursor.execute(
+                    'UPDATE reference_sources SET cartomancy_type = ? WHERE id = ?',
+                    (ctype, row['id']),
+                )
+            self.set_setting('reference_sources_cartomancy_type_backfill_done', 'true')
+
+        # One-time migration: drop the legacy archetype_notes_field_defs +
+        # archetype_notes_entries tables. They've been replaced by the
+        # source-as-typed-field model (archetype_source_entries). The user
+        # had 0 authored entries when the change shipped — the only loss is
+        # the two field-name placeholders that aliased the corresponding
+        # reference_sources row.
+        if self.get_setting('archetype_notes_tables_dropped') != 'true':
+            cursor.execute('DROP TABLE IF EXISTS archetype_notes_entries')
+            cursor.execute('DROP TABLE IF EXISTS archetype_notes_field_defs')
+            self.set_setting('archetype_notes_tables_dropped', 'true')
 
         # One-time backfill: every existing numerology value should also have
         # its digit-sum reductions present (so "156" gains "12" and "3").

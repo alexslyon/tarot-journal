@@ -21,7 +21,7 @@ export default function LenormandCombinationsViewer({ onEditCombination }: Viewe
 
   const { data: sources = [] } = useQuery<ReferenceSource[]>({
     queryKey: ['reference-sources'],
-    queryFn: getReferenceSources,
+    queryFn: () => getReferenceSources(),
   });
 
   const { data: meanings = [] } = useQuery<LenormandMeaning[]>({

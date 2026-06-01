@@ -49,7 +49,7 @@ export default function LenormandCombinationsSection({
   // === Sources (read-only here; managed in the Reference Sources section) ===
   const { data: sources = [] } = useQuery<ReferenceSource[]>({
     queryKey: ['reference-sources'],
-    queryFn: getReferenceSources,
+    queryFn: () => getReferenceSources(),
   });
 
   // === Meanings for the selected combination ===
