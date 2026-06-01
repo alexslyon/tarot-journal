@@ -281,26 +281,40 @@ export interface ReferenceSource {
  *  callers to ReferenceSource. */
 export type LenormandSource = ReferenceSource;
 
+/** A field defined on a reference source (e.g. "Upright Meaning"). */
+export interface SourceField {
+  id: number;
+  source_id: number;
+  name: string;
+  sort_order: number;
+  created_at: string;
+}
+
 /** Hydrated for the Archetypes viewer — one row per non-empty
- *  (archetype, source) pair the active archetype owns. */
+ *  (archetype, source-field) cell the active archetype owns. */
 export interface ArchetypeSourceEntry {
   entry_id: number;
   archetype_id: number;
-  source_id: number;
+  field_id: number;
   content: string;
   updated_at: string;
+  field_name: string;
+  field_sort_order: number;
+  source_id: number;
   source_name: string;
   source_cartomancy_type: string;
 }
 
-/** Hydrated for the Settings authoring page — one row per archetype
- *  that has content under a particular source. */
+/** Hydrated for the Settings authoring page — one row per (archetype,
+ *  field) cell that has content under a source. */
 export interface SourceAuthoringEntry {
   entry_id: number;
   archetype_id: number;
-  source_id: number;
+  field_id: number;
   content: string;
   updated_at: string;
+  field_name: string;
+  field_sort_order: number;
   archetype_name: string;
   archetype_rank: string | null;
 }

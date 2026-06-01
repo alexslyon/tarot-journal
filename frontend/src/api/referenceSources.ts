@@ -1,5 +1,10 @@
 import api from './client';
-import type { ReferenceSource, ArchetypeSourceEntry, SourceAuthoringEntry } from '../types';
+import type {
+  ReferenceSource,
+  ArchetypeSourceEntry,
+  SourceAuthoringEntry,
+  SourceField,
+} from '../types';
 
 /** List sources, optionally scoped to a cartomancy type. */
 export async function getReferenceSources(cartomancyType?: string): Promise<ReferenceSource[]> {
@@ -42,9 +47,48 @@ export async function deleteReferenceSource(
 
 export async function getReferenceSourceDependencies(
   sourceId: number,
-): Promise<{ lenormand_meanings: number; archetype_source_entries: number }> {
+): Promise<{
+  lenormand_meanings: number;
+  archetype_source_entries: number;
+  source_fields: number;
+}> {
   const res = await api.get(`/api/reference/sources/${sourceId}/dependencies`);
   return res.data;
+}
+
+// === Source fields ===
+
+export async function getSourceFields(sourceId: number): Promise<SourceField[]> {
+  const res = await api.get(`/api/reference/sources/${sourceId}/fields`);
+  return res.data;
+}
+
+export async function createSourceField(
+  sourceId: number,
+  name: string,
+): Promise<{ id: number }> {
+  const res = await api.post(`/api/reference/sources/${sourceId}/fields`, { name });
+  return res.data;
+}
+
+export async function updateSourceField(
+  fieldId: number,
+  data: { name?: string; sort_order?: number },
+): Promise<void> {
+  await api.put(`/api/source-fields/${fieldId}`, data);
+}
+
+export async function reorderSourceFields(
+  sourceId: number,
+  fieldIds: number[],
+): Promise<void> {
+  await api.put(`/api/reference/sources/${sourceId}/fields/reorder`, {
+    field_ids: fieldIds,
+  });
+}
+
+export async function deleteSourceField(fieldId: number): Promise<void> {
+  await api.delete(`/api/source-fields/${fieldId}`);
 }
 
 // === Per-archetype source entries ===
@@ -67,22 +111,22 @@ export async function getSourceEntries(sourceId: number): Promise<SourceAuthorin
   return res.data;
 }
 
-/** Upsert content for an (archetype, source) pair. Blank/whitespace
- *  content deletes the row server-side. */
+/** Upsert content for a single (archetype, field) cell. Blank/whitespace
+ *  deletes the row server-side. */
 export async function setArchetypeSourceEntry(
   archetypeId: number,
-  sourceId: number,
+  fieldId: number,
   content: string,
 ): Promise<void> {
   await api.put(
-    `/api/archetypes/${archetypeId}/source-entries/${sourceId}`,
+    `/api/archetypes/${archetypeId}/source-fields/${fieldId}`,
     { content },
   );
 }
 
 export async function deleteArchetypeSourceEntry(
   archetypeId: number,
-  sourceId: number,
+  fieldId: number,
 ): Promise<void> {
-  await api.delete(`/api/archetypes/${archetypeId}/source-entries/${sourceId}`);
+  await api.delete(`/api/archetypes/${archetypeId}/source-fields/${fieldId}`);
 }

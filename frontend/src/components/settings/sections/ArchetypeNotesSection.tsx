@@ -24,6 +24,10 @@ import {
   getReferenceSourceDependencies,
   getSourceEntries,
   setArchetypeSourceEntry,
+  getSourceFields,
+  createSourceField,
+  updateSourceField,
+  deleteSourceField,
 } from '../../../api/referenceSources';
 import { getArchetypes, type Archetype } from '../../../api/correspondences';
 import { getCartomancyTypes } from '../../../api/decks';
@@ -32,6 +36,7 @@ import { useToast } from '../../../context/ToastContext';
 import type {
   ReferenceSource,
   SourceAuthoringEntry,
+  SourceField,
   CartomancyType,
 } from '../../../types';
 import '../SettingsTab.css';
@@ -333,13 +338,30 @@ function SourceEditor({
     [archetypes],
   );
 
+  // Fields the source defines (e.g. Upright, Reversed, Symbolism)
+  const { data: fields = [] } = useQuery<SourceField[]>({
+    queryKey: ['source-fields', source.id],
+    queryFn: () => getSourceFields(source.id),
+  });
+
+  // Existing entries across all (archetype, field) cells under this
+  // source. Used both to flag archetypes that have any content (the
+  // sidebar dot) and to seed the per-field editors.
   const { data: entries = [] } = useQuery<SourceAuthoringEntry[]>({
     queryKey: ['source-entries', source.id],
     queryFn: () => getSourceEntries(source.id),
   });
-  const entryByArchetype = useMemo(() => {
-    const m = new Map<number, string>();
-    for (const e of entries) m.set(e.archetype_id, e.content);
+  const entriesByArchetype = useMemo(() => {
+    // archetype_id -> field_id -> content
+    const m = new Map<number, Map<number, string>>();
+    for (const e of entries) {
+      let inner = m.get(e.archetype_id);
+      if (!inner) {
+        inner = new Map();
+        m.set(e.archetype_id, inner);
+      }
+      inner.set(e.field_id, e.content);
+    }
     return m;
   }, [entries]);
 
@@ -365,7 +387,9 @@ function SourceEditor({
   }, [sortedArchetypes, initialArchetypeId, activeArchetypeId]);
 
   const activeArchetype = sortedArchetypes.find(a => a.id === activeArchetypeId);
-  const draftSeed = activeArchetype ? entryByArchetype.get(activeArchetype.id) ?? '' : '';
+  const activeArchetypeEntries = activeArchetype
+    ? entriesByArchetype.get(activeArchetype.id) ?? new Map<number, string>()
+    : new Map<number, string>();
 
   return (
     <section className="settings-tab__section archetype-notes-edit__source-detail">
@@ -404,65 +428,246 @@ function SourceEditor({
         </div>
       </div>
 
-      <h3 className="archetype-notes-edit__heading">Per-card content</h3>
-      <div className="archetype-notes-edit__archetype-grid">
-        <ul className="archetype-notes-edit__archetype-list">
-          {sortedArchetypes.map(a => (
-            <li key={a.id}>
-              <button
-                type="button"
-                className={`archetype-notes-edit__archetype-pick ${
-                  a.id === activeArchetypeId
-                    ? 'archetype-notes-edit__archetype-pick--active'
-                    : ''
-                }`}
-                onClick={() => setActiveArchetypeId(a.id)}
-              >
-                <span>{a.name}</span>
-                {entryByArchetype.has(a.id) && (
-                  <span
-                    className="archetype-notes-edit__archetype-dot"
-                    aria-label="Has content"
-                  >
-                    •
-                  </span>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
+      <FieldsManager source={source} fields={fields} />
 
-        {activeArchetype && (
-          <ArchetypeContentEditor
-            key={`${source.id}-${activeArchetype.id}`}
-            archetype={activeArchetype}
-            sourceId={source.id}
-            initialContent={draftSeed}
-          />
-        )}
-      </div>
+      <h3 className="archetype-notes-edit__heading">Per-card content</h3>
+      {fields.length === 0 ? (
+        <p className="settings-tab__hint">
+          Add at least one field above to start authoring per-card content.
+        </p>
+      ) : (
+        <div className="archetype-notes-edit__archetype-grid">
+          <ul className="archetype-notes-edit__archetype-list">
+            {sortedArchetypes.map(a => (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  className={`archetype-notes-edit__archetype-pick ${
+                    a.id === activeArchetypeId
+                      ? 'archetype-notes-edit__archetype-pick--active'
+                      : ''
+                  }`}
+                  onClick={() => setActiveArchetypeId(a.id)}
+                >
+                  <span>{a.name}</span>
+                  {entriesByArchetype.has(a.id) && (
+                    <span
+                      className="archetype-notes-edit__archetype-dot"
+                      aria-label="Has content"
+                    >
+                      •
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {activeArchetype && (
+            <div className="archetype-notes-edit__editor-stack">
+              <h4 className="archetype-notes-edit__editor-title">
+                {activeArchetype.name}
+              </h4>
+              {fields.map(f => (
+                <ArchetypeFieldEditor
+                  key={`${activeArchetype.id}-${f.id}`}
+                  archetype={activeArchetype}
+                  sourceId={source.id}
+                  field={f}
+                  initialContent={activeArchetypeEntries.get(f.id) ?? ''}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }
 
 // =================================================================
-// ArchetypeContentEditor — debounced autosave for one cell
+// FieldsManager — add / rename / delete fields on a source
 // =================================================================
 
-function ArchetypeContentEditor({
+function FieldsManager({
+  source,
+  fields,
+}: {
+  source: ReferenceSource;
+  fields: SourceField[];
+}) {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  const [newName, setNewName] = useState('');
+
+  const invalidate = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['source-fields', source.id] });
+    queryClient.invalidateQueries({ queryKey: ['source-entries', source.id] });
+    // Archetype-side viewer queries also need refresh in case a field
+    // rename or delete changes what shows up there.
+    queryClient.invalidateQueries({ queryKey: ['archetype-source-entries'] });
+  }, [queryClient, source.id]);
+
+  const handleAdd = useCallback(async () => {
+    const name = newName.trim();
+    if (!name) return;
+    try {
+      await createSourceField(source.id, name);
+      setNewName('');
+      invalidate();
+    } catch (err) {
+      console.error('Failed to create field:', err);
+      showToast('Could not add field (name may already be used on this source).');
+    }
+  }, [newName, source.id, invalidate, showToast]);
+
+  const handleDelete = useCallback(
+    async (field: SourceField) => {
+      if (
+        !window.confirm(
+          `Delete the "${field.name}" field?\n\n` +
+            `All content authored under this field across every card will be removed. This cannot be undone.`,
+        )
+      ) {
+        return;
+      }
+      try {
+        await deleteSourceField(field.id);
+        invalidate();
+      } catch (err) {
+        console.error('Failed to delete field:', err);
+        showToast('Failed to delete field.');
+      }
+    },
+    [invalidate, showToast],
+  );
+
+  return (
+    <div className="archetype-notes-edit__fields-manager">
+      <h3 className="archetype-notes-edit__heading">Fields</h3>
+      <p className="settings-tab__hint">
+        Define which slots each card under this source should have
+        (e.g. "Upright Meaning", "Reversed", "Symbolism"). Cards with
+        empty content for a field don't appear in that field's column
+        on the Reference viewer.
+      </p>
+
+      {fields.length === 0 ? (
+        <p className="archetype-notes-edit__empty">No fields yet.</p>
+      ) : (
+        <ul className="archetype-notes-edit__fields-list">
+          {fields.map(f => (
+            <FieldRow key={f.id} field={f} onChanged={invalidate} onDelete={handleDelete} />
+          ))}
+        </ul>
+      )}
+
+      <div className="archetype-notes-edit__new-source">
+        <input
+          type="text"
+          value={newName}
+          placeholder="New field name (e.g. Upright Meaning)…"
+          onChange={e => setNewName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
+        />
+        <button type="button" onClick={handleAdd} disabled={!newName.trim()}>
+          + Add Field
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FieldRow({
+  field,
+  onChanged,
+  onDelete,
+}: {
+  field: SourceField;
+  onChanged: () => void;
+  onDelete: (f: SourceField) => void;
+}) {
+  const { showToast } = useToast();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(field.name);
+  useEffect(() => { setDraft(field.name); }, [field.name]);
+
+  const save = useCallback(async () => {
+    const name = draft.trim();
+    if (!name || name === field.name) {
+      setEditing(false);
+      setDraft(field.name);
+      return;
+    }
+    try {
+      await updateSourceField(field.id, { name });
+      setEditing(false);
+      onChanged();
+    } catch (err) {
+      console.error('Failed to rename field:', err);
+      showToast('Could not rename field.');
+    }
+  }, [draft, field.id, field.name, onChanged, showToast]);
+
+  return (
+    <li className="archetype-notes-edit__field-row">
+      {editing ? (
+        <>
+          <input
+            type="text"
+            autoFocus
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') save();
+              if (e.key === 'Escape') { setDraft(field.name); setEditing(false); }
+            }}
+          />
+          <button type="button" onClick={save}>Save</button>
+          <button
+            type="button"
+            onClick={() => { setDraft(field.name); setEditing(false); }}
+          >
+            Cancel
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="archetype-notes-edit__field-row-name">{field.name}</span>
+          <button type="button" onClick={() => setEditing(true)}>Rename</button>
+          <button
+            type="button"
+            className="archetype-notes-edit__source-delete"
+            onClick={() => onDelete(field)}
+          >
+            Delete
+          </button>
+        </>
+      )}
+    </li>
+  );
+}
+
+// =================================================================
+// ArchetypeFieldEditor — debounced autosave for one (archetype, field)
+// cell. One of these per field is stacked under the active archetype.
+// =================================================================
+
+function ArchetypeFieldEditor({
   archetype,
   sourceId,
+  field,
   initialContent,
 }: {
   archetype: Archetype;
   sourceId: number;
+  field: SourceField;
   initialContent: string;
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
   const [content, setContent] = useState(initialContent);
-  // Skip the autosave that the hydration triggers.
   const firstRunRef = useRef(true);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -474,7 +679,7 @@ function ArchetypeContentEditor({
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       try {
-        await setArchetypeSourceEntry(archetype.id, sourceId, content);
+        await setArchetypeSourceEntry(archetype.id, field.id, content);
         queryClient.invalidateQueries({
           queryKey: ['source-entries', sourceId],
         });
@@ -489,15 +694,12 @@ function ArchetypeContentEditor({
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [content, archetype.id, sourceId, queryClient, showToast]);
+  }, [content, archetype.id, field.id, sourceId, queryClient, showToast]);
 
   return (
-    <div className="archetype-notes-edit__editor">
-      <h4 className="archetype-notes-edit__editor-title">{archetype.name}</h4>
+    <div className="archetype-notes-edit__field-editor">
+      <h5 className="archetype-notes-edit__field-editor-name">{field.name}</h5>
       <RichTextEditor content={content} onChange={setContent} />
-      <p className="settings-tab__hint">
-        Leave blank to remove this card from the source's column.
-      </p>
     </div>
   );
 }
