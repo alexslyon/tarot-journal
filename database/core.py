@@ -770,21 +770,48 @@ class CoreMixin:
             'ON source_authors(source_id, sort_order)'
         )
 
-        # Per-(archetype, source) content. Each source defined for a
-        # cartomancy type implicitly grants every archetype of that type
-        # a "field" under the source; rows exist only when the user has
-        # authored content. UNIQUE constraint guarantees at most one
-        # content blob per (archetype, source).
+        # Fields defined within a source. Each source can define any
+        # number of fields (Upright Meaning, Reversed, Symbolism, etc.);
+        # every archetype of the source's cartomancy type then gets a
+        # cell under each field. UNIQUE (source_id, name) prevents
+        # duplicate field names within a single source.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS source_fields (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (source_id) REFERENCES reference_sources(id) ON DELETE CASCADE,
+                UNIQUE (source_id, name)
+            )
+        ''')
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_source_fields_source '
+            'ON source_fields(source_id, sort_order)'
+        )
+
+        # Per-(archetype, field) content. Rows exist only when the user
+        # has authored something — empty content is the same as no row,
+        # which is what the viewer's "absent = hidden" rule keys off of.
+        # If an older single-source schema is on disk (field_id was
+        # source_id), drop the table first so the new layout takes
+        # effect. The dropping migration further down handles preserved
+        # rows where possible.
+        cursor.execute("PRAGMA table_info(archetype_source_entries)")
+        existing_cols = {c[1] for c in cursor.fetchall()}
+        if existing_cols and 'field_id' not in existing_cols:
+            cursor.execute('DROP TABLE IF EXISTS archetype_source_entries')
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS archetype_source_entries (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 archetype_id INTEGER NOT NULL,
-                source_id INTEGER NOT NULL,
+                field_id INTEGER NOT NULL,
                 content TEXT,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (archetype_id) REFERENCES card_archetypes(id) ON DELETE CASCADE,
-                FOREIGN KEY (source_id) REFERENCES reference_sources(id) ON DELETE CASCADE,
-                UNIQUE (archetype_id, source_id)
+                FOREIGN KEY (field_id) REFERENCES source_fields(id) ON DELETE CASCADE,
+                UNIQUE (archetype_id, field_id)
             )
         ''')
         cursor.execute(
@@ -792,8 +819,8 @@ class CoreMixin:
             'ON archetype_source_entries(archetype_id)'
         )
         cursor.execute(
-            'CREATE INDEX IF NOT EXISTS idx_archetype_source_entries_source '
-            'ON archetype_source_entries(source_id)'
+            'CREATE INDEX IF NOT EXISTS idx_archetype_source_entries_field '
+            'ON archetype_source_entries(field_id)'
         )
 
         # If lenormand_meanings still has a foreign key referencing the old

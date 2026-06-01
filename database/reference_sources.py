@@ -138,20 +138,30 @@ class ReferenceSourcesMixin:
         self._commit()
 
     def count_reference_source_dependencies(self, source_id: int) -> dict:
-        """How many dependent rows reference this source. Surfaced in the
-        delete-confirmation UI."""
+        """How many dependent rows reference this source. Entries are
+        joined through the source's fields since the entry table no
+        longer stores source_id directly."""
         cursor = self.conn.cursor()
         lenormand_count = cursor.execute(
             'SELECT COUNT(*) FROM lenormand_meanings WHERE source_id = ?',
             (source_id,)
         ).fetchone()[0]
         entry_count = cursor.execute(
-            'SELECT COUNT(*) FROM archetype_source_entries WHERE source_id = ?',
+            '''
+            SELECT COUNT(*) FROM archetype_source_entries e
+            JOIN source_fields f ON f.id = e.field_id
+            WHERE f.source_id = ?
+            ''',
+            (source_id,)
+        ).fetchone()[0]
+        field_count = cursor.execute(
+            'SELECT COUNT(*) FROM source_fields WHERE source_id = ?',
             (source_id,)
         ).fetchone()[0]
         return {
             'lenormand_meanings': lenormand_count,
             'archetype_source_entries': entry_count,
+            'source_fields': field_count,
         }
 
     # === Authors (internal helpers) ==============================

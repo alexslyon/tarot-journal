@@ -396,7 +396,9 @@ function CompareColumn({
         <div className="archetype-compare__notes">
           {sourceEntries.map(e => (
             <section key={e.entry_id} className="archetype-compare__note-field">
-              <h5>{e.source_name}</h5>
+              <h5>
+                {e.source_name} <span style={{ opacity: 0.7 }}>· {e.field_name}</span>
+              </h5>
               <RichTextViewer content={e.content} />
             </section>
           ))}
