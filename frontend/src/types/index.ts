@@ -263,17 +263,47 @@ export const CORRESPONDENCE_FIELD_LABELS: Record<string, string> = {
   astrological_house: 'Astrological House',
 };
 
-// === Reference Sources (shared across Lenormand combinations + archetype notes) ===
+// === Reference Sources ===
+// Each source is typed (cartomancy_type) and implicitly grants every
+// archetype of that type a "field" under the source. Per-cell content
+// lives in archetype_source_entries.
 
 export interface ReferenceSource {
   id: number;
   name: string;
+  cartomancy_type: string;
+  /** Free-text author names; multi-author supported. */
+  authors: string[];
   created_at: string;
 }
 
-/** @deprecated kept temporarily as an alias of ReferenceSource so existing
- *  Lenormand combinations code keeps compiling; switch to ReferenceSource. */
+/** @deprecated alias used by older Lenormand-combinations code; switch
+ *  callers to ReferenceSource. */
 export type LenormandSource = ReferenceSource;
+
+/** Hydrated for the Archetypes viewer — one row per non-empty
+ *  (archetype, source) pair the active archetype owns. */
+export interface ArchetypeSourceEntry {
+  entry_id: number;
+  archetype_id: number;
+  source_id: number;
+  content: string;
+  updated_at: string;
+  source_name: string;
+  source_cartomancy_type: string;
+}
+
+/** Hydrated for the Settings authoring page — one row per archetype
+ *  that has content under a particular source. */
+export interface SourceAuthoringEntry {
+  entry_id: number;
+  archetype_id: number;
+  source_id: number;
+  content: string;
+  updated_at: string;
+  archetype_name: string;
+  archetype_rank: string | null;
+}
 
 // === Lenormand Combinations ===
 
@@ -312,28 +342,8 @@ export interface ArchetypeLanguageName {
   archetype_rank?: string | null;
 }
 
-// === Archetype Notes ===
-
-export interface ArchetypeNoteField {
-  id: number;
-  archetype_id: number | null;
-  field_name: string;
-  field_order: number;
-  created_at: string;
-}
-
-export interface ArchetypeNoteEntry {
-  id: number;
-  field_def_id: number;
-  content: string;
-  source_id: number | null;
-  source_name: string | null;
-  sort_order: number;
-  created_at: string;
-  /** Only present on the per-archetype joined fetch. */
-  field_name?: string;
-  field_order?: number;
-}
+// (ArchetypeNoteField + ArchetypeNoteEntry retired — the Notes tab now
+// shows ArchetypeSourceEntry rows from the source-as-typed-field model.)
 
 export interface ThemeColors {
   bg_primary: string;

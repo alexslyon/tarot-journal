@@ -6,7 +6,7 @@ import { getDefaults } from '../../../../api/settings';
 import { cardPreviewUrl } from '../../../../api/images';
 import { getCardCorrespondences } from '../../../../api/correspondences';
 import { getArchetypes } from '../../../../api/correspondences';
-import { getArchetypeNotes } from '../../../../api/archetypeNotes';
+import { getArchetypeSourceEntries } from '../../../../api/referenceSources';
 import RichTextViewer from '../../../common/RichTextViewer';
 import {
   CORRESPONDENCE_FIELDS,
@@ -17,7 +17,7 @@ import type {
   Card,
   CartomancyType,
   ResolvedCorrespondence,
-  ArchetypeNoteEntry,
+  ArchetypeSourceEntry,
 } from '../../../../types';
 import type { Archetype } from '../../../../api/correspondences';
 import './ArchetypeCompareTab.css';
@@ -295,34 +295,11 @@ function CompareColumn({
     return match?.id ?? null;
   }, [archetypes, selectedCard?.archetype]);
 
-  const { data: notes = [] } = useQuery<ArchetypeNoteEntry[]>({
-    queryKey: ['archetype-notes', cardArchetypeId],
-    queryFn: () => getArchetypeNotes(cardArchetypeId!),
+  const { data: sourceEntries = [] } = useQuery<ArchetypeSourceEntry[]>({
+    queryKey: ['archetype-source-entries', cardArchetypeId, cartomancyType],
+    queryFn: () => getArchetypeSourceEntries(cardArchetypeId!, cartomancyType),
     enabled: cardArchetypeId != null,
   });
-
-  // Group notes by field for display, same shape as the Notes sub-tab.
-  const noteFields = useMemo(() => {
-    const m = new Map<number, { fieldName: string; fieldOrder: number; entries: ArchetypeNoteEntry[] }>();
-    for (const e of notes) {
-      const fid = e.field_def_id;
-      if (!m.has(fid)) {
-        m.set(fid, {
-          fieldName: e.field_name || '',
-          fieldOrder: e.field_order ?? 0,
-          entries: [],
-        });
-      }
-      if (e.id != null) m.get(fid)!.entries.push(e);
-    }
-    return [...m.entries()]
-      .filter(([, v]) => v.entries.length > 0)
-      .sort((a, b) =>
-        a[1].fieldOrder !== b[1].fieldOrder
-          ? a[1].fieldOrder - b[1].fieldOrder
-          : a[0] - b[0],
-      );
-  }, [notes]);
 
   return (
     <div className="archetype-compare__col">
@@ -415,23 +392,12 @@ function CompareColumn({
         </div>
       )}
 
-      {noteFields.length > 0 && (
+      {sourceEntries.length > 0 && (
         <div className="archetype-compare__notes">
-          {noteFields.map(([fid, info]) => (
-            <section key={fid} className="archetype-compare__note-field">
-              <h5>{info.fieldName}</h5>
-              <ul>
-                {info.entries.map(e => (
-                  <li key={e.id}>
-                    <RichTextViewer content={e.content} />
-                    {e.source_name && (
-                      <span className="archetype-compare__note-source">
-                        — {e.source_name}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
+          {sourceEntries.map(e => (
+            <section key={e.entry_id} className="archetype-compare__note-field">
+              <h5>{e.source_name}</h5>
+              <RichTextViewer content={e.content} />
             </section>
           ))}
         </div>

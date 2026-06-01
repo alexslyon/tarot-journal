@@ -17,7 +17,7 @@ from .correspondences import CorrespondencesMixin
 from .reference_sources import ReferenceSourcesMixin
 from .lenormand_combinations import LenormandCombinationsMixin
 from .archetype_languages import ArchetypeLanguagesMixin
-from .archetype_notes import ArchetypeNotesMixin
+from .archetype_source_entries import ArchetypeSourceEntriesMixin
 from .charts import ChartsMixin
 
 
@@ -35,7 +35,7 @@ class Database(
     ReferenceSourcesMixin,
     LenormandCombinationsMixin,
     ArchetypeLanguagesMixin,
-    ArchetypeNotesMixin,
+    ArchetypeSourceEntriesMixin,
     ChartsMixin,
 ):
     """
