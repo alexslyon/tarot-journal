@@ -1085,9 +1085,10 @@ class CoreMixin:
             # skips existing rows.
             cursor.execute(
                 "SELECT COUNT(*) FROM card_archetypes WHERE cartomancy_type "
-                "IN ('I Ching', 'Kipper', 'Spanish Playing Cards')"
+                "IN ('I Ching', 'Kipper', 'Spanish Playing Cards', 'Oracle Belline')"
             )
-            if cursor.fetchone()[0] < 149:  # 64 I Ching + 36 Kipper + 49 Spanish
+            # 64 I Ching + 36 Kipper + 49 Spanish + 53 Belline = 202
+            if cursor.fetchone()[0] < 202:
                 self._seed_card_archetypes(cursor)
 
         # Seed correspondence systems if table is empty
@@ -1623,6 +1624,25 @@ class CoreMixin:
                 name = f'{rank} de {suit}'
                 archetypes.append((name, 'Spanish Playing Cards', rank, suit, 'spanish-playing'))
         archetypes.append(('Comodín', 'Spanish Playing Cards', 'Comodín', None, 'spanish-playing'))
+
+        # Oracle Belline (53). Position is the card's traditional number,
+        # used as the rank string.
+        belline_cards = [
+            'Destiny', "The Man's Star", "The Woman's Star", 'Nativity',
+            'Success', 'Elevation', 'Honours',
+            'Thought. Friendship', 'Countryside. Health', 'Gifts',
+            'Betrayal', 'Departure', 'Inconstancy', 'Discovery', 'Water',
+            'The Home', 'Disease', 'Change', 'Money', 'Intelligence',
+            'Theft. Loss', 'Undertakings', 'Trading', 'News', 'Pleasures',
+            'Peace', 'Union', 'Family', 'Love', 'The Table',
+            'Passions', 'Wickedness', 'Proceedings', 'Despotism',
+            'Enemies', 'Negotiations', 'Fire', 'Accident', 'Support',
+            'Beauty', 'Inheritance', 'Wisdom', 'Fame', 'Chance',
+            'Happiness', 'Misfortune', 'Sterility', 'Fate', 'Gracefulness',
+            'Ruin', 'Delay', 'Cloister', 'Blue Card',
+        ]
+        for i, name in enumerate(belline_cards, start=1):
+            archetypes.append((name, 'Oracle Belline', str(i), None, 'belline'))
 
         # Kipper (36). Names match the import preset's
         # _get_kipper_metadata_by_position list so cards imported via that
