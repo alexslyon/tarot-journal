@@ -742,6 +742,195 @@ I_CHING_HEXAGRAMS = {
     "t8": "Lake (Duì)", "t08": "Lake (Duì)",
 }
 
+# Canonical card-list constants, hoisted so both the preset-mapping
+# builders and the per-type metadata helpers share one source of truth.
+SPANISH_RANKS = [
+    ('As', 1), ('Dos', 2), ('Tres', 3), ('Cuatro', 4),
+    ('Cinco', 5), ('Seis', 6), ('Siete', 7), ('Ocho', 8),
+    ('Nueve', 9), ('Sota', 10), ('Caballo', 11), ('Rey', 12),
+]
+SPANISH_SUITS = [
+    ('Oros', 'o'),
+    ('Copas', 'c'),
+    ('Espadas', 'e'),
+    ('Bastos', 'b'),
+]
+
+BELLINE_NAMES = [
+    'Destiny', "The Man's Star", "The Woman's Star", 'Nativity',
+    'Success', 'Elevation', 'Honours',
+    'Thought, Friendship', 'Countryside, Health', 'Gifts',
+    'Betrayal', 'Departure', 'Inconstancy', 'Discovery', 'Water',
+    'The Home', 'Disease', 'Change', 'Money', 'Intelligence',
+    'Theft, Loss', 'Undertakings', 'Trading', 'News', 'Pleasures',
+    'Peace', 'Union', 'Family', 'Love', 'The Table',
+    'Passions', 'Wickedness', 'Proceedings', 'Despotism',
+    'Enemies', 'Negotiations', 'Fire', 'Accident', 'Support',
+    'Beauty', 'Inheritance', 'Wisdom', 'Fame', 'Chance',
+    'Happiness', 'Misfortune', 'Sterility', 'Fate', 'Gracefulness',
+    'Ruin', 'Delay', 'Cloister', 'Blue Card',
+]
+
+SIBILLA_SUITS = [
+    ('h', 'Hearts'),
+    ('c', 'Clubs'),
+    ('d', 'Diamonds'),
+    ('s', 'Spades'),
+]
+SIBILLA_RANK_WORDS = ['Ace', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven',
+                      'Eight', 'Nine', 'Ten', 'Jack', 'Queen', 'King']
+SIBILLA_BY_SUIT = {
+    'Hearts': [
+        'Conversation', 'House', 'Viewpoint', 'Love',
+        'Gladness of Heart', 'Money', 'Scholar', 'Hope',
+        'Loyalty', 'Constancy', 'Lover', 'Beloved', 'Gentleman',
+    ],
+    'Clubs': [
+        'Marriage', 'Pride', 'Journey', 'Friend', 'Fortune',
+        'Comforting Surprise', 'Great Consolation', 'Reunion',
+        'Merriment', 'Levity', 'Servant', 'Young Woman', 'Doctor',
+    ],
+    'Diamonds': [
+        'Room', 'Letter', 'Gift of Jewelry', 'Falsehood', 'Melancholy',
+        'Thoughts', 'Child', 'Maid', 'Madmen', 'Thief',
+        'Messenger', 'Lady', 'Merchant',
+    ],
+    'Spades': [
+        'Sorrow', 'Old Lady', 'Widower', 'Sickness', 'Death',
+        'Sighs', 'Misfortune', 'Despair', 'Prison', 'Soldier',
+        'Enemy', 'Rival', 'Priest',
+    ],
+}
+
+# Spanish Playing Cards (50 cards): 4 suits × 12 ranks + 2 Comodines.
+# Each card is keyed by single-letter suit prefix + 2-digit rank, by
+# full suit + rank, by name-only ("asdeoros"), and by global positional
+# index ("01"-"50"). The single-letter prefixes follow Spanish names
+# (Oros / Copas / Espadas / Bastos); "j1"/"j2" map the Comodines.
+def _build_spanish_playing_cards() -> dict:
+    mappings: dict[str, str] = {}
+    pos = 1
+    for suit_name, prefix in SPANISH_SUITS:
+        for rank_name, rank_num in SPANISH_RANKS:
+            card = f'{rank_name} de {suit_name}'
+            # 'o01' / 'oros01' / 'asdeoros' / 'asoros' variants
+            mappings[f'{prefix}{rank_num:02d}'] = card
+            mappings[f'{prefix}{rank_num}'] = card
+            mappings[f'{suit_name.lower()}{rank_num:02d}'] = card
+            mappings[f'{suit_name.lower()}{rank_num}'] = card
+            mappings[f'{rank_name.lower()}de{suit_name.lower()}'] = card
+            mappings[f'{rank_name.lower()}{suit_name.lower()}'] = card
+            # Global positional index across the whole deck (01-48).
+            mappings[f'{pos:02d}'] = card
+            mappings[str(pos)] = card
+            pos += 1
+    # Comodines (jokers). Index continues 49/50; also accept j1/j2 and
+    # comodin1/comodin2.
+    for i in (1, 2):
+        mappings[f'j{i}'] = 'Comodín'
+        mappings[f'joker{i}'] = 'Comodín'
+        mappings[f'comodin{i}'] = 'Comodín'
+        mappings[f'comodín{i}'] = 'Comodín'
+        mappings[f'{pos:02d}'] = 'Comodín'
+        mappings[str(pos)] = 'Comodín'
+        pos += 1
+    return mappings
+
+
+SPANISH_PLAYING_CARDS = _build_spanish_playing_cards()
+
+
+# Oracle Belline (53 cards). Positional 01-53 + ascii-fold name keys.
+def _build_oracle_belline() -> dict:
+    import re as _re
+    mappings: dict[str, str] = {}
+    for i, name in enumerate(BELLINE_NAMES, start=1):
+        mappings[f'{i:02d}'] = name
+        mappings[str(i)] = name
+        # Fold to lowercase, strip punctuation/spaces — so "Thought,
+        # Friendship" lookups via "thoughtfriendship".
+        key = _re.sub(r"[^a-z0-9]", "", name.lower())
+        mappings[key] = name
+        # Also accept the leading-article form without "The" prefix.
+        if name.startswith('The '):
+            mappings[_re.sub(r"[^a-z0-9]", "", name[4:].lower())] = name
+    return mappings
+
+
+ORACLE_BELLINE = _build_oracle_belline()
+
+
+# Vera Sibilla Italiana (52 cards). Standard playing-card filename
+# conventions (h01-h13 / c01-c13 / d01-d13 / s01-s13) plus divinatory
+# name keys. Each card is one of 4 suits × 13 ranks; the name is the
+# divinatory term ("Conversation" for Ace of Hearts, etc.).
+def _build_sibilla_italiana() -> dict:
+    import re as _re
+    mappings: dict[str, str] = {}
+    pos = 1
+    for suit_letter, suit_name in SIBILLA_SUITS:
+        for rank_idx, name in enumerate(SIBILLA_BY_SUIT[suit_name]):
+            rank_num = rank_idx + 1
+            rank_word = SIBILLA_RANK_WORDS[rank_idx]
+            # Playing-card filename conventions
+            mappings[f'{suit_letter}{rank_num:02d}'] = name
+            mappings[f'{suit_letter}{rank_num}'] = name
+            mappings[f'{suit_name.lower()}{rank_num:02d}'] = name
+            mappings[f'{suit_name.lower()}{rank_num}'] = name
+            mappings[f'{rank_word.lower()}of{suit_name.lower()}'] = name
+            mappings[f'{rank_word.lower()}{suit_name.lower()}'] = name
+            # Divinatory name key (ascii-fold)
+            mappings[_re.sub(r"[^a-z0-9]", "", name.lower())] = name
+            # Global positional 01-52
+            mappings[f'{pos:02d}'] = name
+            mappings[str(pos)] = name
+            pos += 1
+    return mappings
+
+
+SIBILLA_ITALIANA = _build_sibilla_italiana()
+
+
+# Fast canonical-name -> (archetype, rank, suit, sort_order) lookups
+# used by the per-type metadata helpers below.
+def _build_belline_lookup() -> dict:
+    return {name: i for i, name in enumerate(BELLINE_NAMES, start=1)}
+
+
+BELLINE_NAME_TO_POS = _build_belline_lookup()
+
+
+def _build_sibilla_lookup() -> dict:
+    out: dict[str, tuple] = {}
+    pos = 1
+    for _suit_letter, suit_name in SIBILLA_SUITS:
+        for rank_idx, name in enumerate(SIBILLA_BY_SUIT[suit_name]):
+            out[name] = (SIBILLA_RANK_WORDS[rank_idx], suit_name, pos)
+            pos += 1
+    return out
+
+
+SIBILLA_NAME_TO_RSP = _build_sibilla_lookup()
+
+
+def _build_spanish_lookup() -> dict:
+    out: dict[str, tuple] = {}
+    pos = 1
+    for suit_name, _prefix in SPANISH_SUITS:
+        for rank_name, _rank_num in SPANISH_RANKS:
+            card = f'{rank_name} de {suit_name}'
+            out[card] = (rank_name, suit_name, pos)
+            pos += 1
+    # Comodín shares one archetype slot; positional indices 49/50 are
+    # handled at import time via variant_order. Both physical Comodines
+    # resolve through the same archetype here.
+    out['Comodín'] = ('Comodín', None, pos)
+    return out
+
+
+SPANISH_NAME_TO_RSP = _build_spanish_lookup()
+
+
 # Built-in presets
 # Default card back filename patterns (matched case-insensitively, without extension)
 DEFAULT_CARD_BACK_PATTERNS = [
@@ -983,6 +1172,27 @@ BUILTIN_PRESETS = {
         "mappings": STANDARD_KIPPER,
         "description": "Traditional German 36-card Kipper fortune-telling deck",
         "suit_names": {},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
+    },
+    "Spanish Playing Cards (50 cards)": {
+        "type": "Spanish Playing Cards",
+        "mappings": SPANISH_PLAYING_CARDS,
+        "description": "Naipes Españoles — 4 suits (Oros, Copas, Espadas, Bastos) × 12 ranks (As, Dos…Sota, Caballo, Rey) + 2 Comodines.",
+        "suit_names": {"oros": "Oros", "copas": "Copas", "espadas": "Espadas", "bastos": "Bastos"},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
+    },
+    "Oracle Belline (53 cards)": {
+        "type": "Oracle Belline",
+        "mappings": ORACLE_BELLINE,
+        "description": "Edmond Billaudot's 53-card Oracle Belline.",
+        "suit_names": {},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
+    },
+    "Vera Sibilla Italiana (52 cards)": {
+        "type": "Vera Sibilla Italiana",
+        "mappings": SIBILLA_ITALIANA,
+        "description": "52-card Vera Sibilla Italiana — playing-card structure (4 suits × 13 ranks) with each card bearing a divinatory name (Conversation for Ace of Hearts, Death for Five of Spades, etc.).",
+        "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"},
         "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
     "Playing Cards (52 cards)": {
@@ -1388,6 +1598,12 @@ class ImportPresets:
             return self._get_playing_card_metadata(card_name, sort_order)
         elif preset_type == 'I Ching':
             return self._get_iching_metadata(card_name, sort_order)
+        elif preset_type == 'Spanish Playing Cards':
+            return self._get_spanish_playing_card_metadata(card_name, sort_order)
+        elif preset_type == 'Oracle Belline':
+            return self._get_belline_metadata(card_name, sort_order)
+        elif preset_type == 'Vera Sibilla Italiana':
+            return self._get_sibilla_metadata(card_name, sort_order)
         else:
             # Oracle
             return self._get_oracle_metadata(card_name, sort_order)
@@ -1423,6 +1639,12 @@ class ImportPresets:
             return self._get_playing_card_metadata_by_position(sort_order)
         elif preset_type == 'I Ching':
             return self._get_iching_metadata_by_position(sort_order)
+        elif preset_type == 'Spanish Playing Cards':
+            return self._get_spanish_playing_card_metadata_by_position(sort_order)
+        elif preset_type == 'Oracle Belline':
+            return self._get_belline_metadata_by_position(sort_order)
+        elif preset_type == 'Vera Sibilla Italiana':
+            return self._get_sibilla_metadata_by_position(sort_order)
         else:
             # Oracle - just return basic info
             return {
@@ -2545,6 +2767,95 @@ class ImportPresets:
             'suit': None,
             'sort_order': sort_order
         }
+
+    def _get_spanish_playing_card_metadata(self, card_name: str, sort_order: int) -> dict:
+        """Metadata for a Spanish Playing Card (As de Oros … Rey de
+        Bastos, plus Comodín). The canonical archetype name is the card
+        name itself."""
+        rsp = SPANISH_NAME_TO_RSP.get(card_name)
+        if rsp:
+            rank, suit, pos = rsp
+            return {
+                'archetype': card_name,
+                'rank': rank,
+                'suit': suit,
+                'sort_order': pos if pos else sort_order,
+            }
+        # Unknown card — fall through to oracle-style defaults.
+        return {'archetype': card_name, 'rank': None, 'suit': None, 'sort_order': sort_order}
+
+    def _get_belline_metadata(self, card_name: str, sort_order: int) -> dict:
+        """Metadata for an Oracle Belline card. Position (1-53) is the
+        rank since the deck isn't suited."""
+        pos = BELLINE_NAME_TO_POS.get(card_name, sort_order)
+        return {
+            'archetype': card_name,
+            'rank': str(pos),
+            'suit': None,
+            'sort_order': pos,
+        }
+
+    def _get_sibilla_metadata(self, card_name: str, sort_order: int) -> dict:
+        """Metadata for a Vera Sibilla Italiana card. Each divinatory
+        name resolves to a (rank, suit) on the underlying playing-card
+        position."""
+        rsp = SIBILLA_NAME_TO_RSP.get(card_name)
+        if rsp:
+            rank, suit, pos = rsp
+            return {
+                'archetype': card_name,
+                'rank': rank,
+                'suit': suit,
+                'sort_order': pos,
+            }
+        return {'archetype': card_name, 'rank': None, 'suit': None, 'sort_order': sort_order}
+
+    def _get_spanish_playing_card_metadata_by_position(self, position: int) -> dict:
+        """Spanish deck metadata for positions 1-50.
+
+        1-48: rank within each suit (As/Dos/.../Rey de Oros, Copas,
+        Espadas, Bastos in that order). 49-50: Comodín.
+        """
+        if 1 <= position <= 48:
+            suit_idx = (position - 1) // 12
+            rank_idx = (position - 1) % 12
+            rank_name, _rank_num = SPANISH_RANKS[rank_idx]
+            suit_name, _prefix = SPANISH_SUITS[suit_idx]
+            return {
+                'archetype': f'{rank_name} de {suit_name}',
+                'rank': rank_name,
+                'suit': suit_name,
+                'sort_order': position,
+            }
+        if position in (49, 50):
+            return {'archetype': 'Comodín', 'rank': 'Comodín', 'suit': None, 'sort_order': position}
+        return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': position}
+
+    def _get_belline_metadata_by_position(self, position: int) -> dict:
+        if 1 <= position <= len(BELLINE_NAMES):
+            name = BELLINE_NAMES[position - 1]
+            return {
+                'archetype': name,
+                'rank': str(position),
+                'suit': None,
+                'sort_order': position,
+            }
+        return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': position}
+
+    def _get_sibilla_metadata_by_position(self, position: int) -> dict:
+        if 1 <= position <= 52:
+            suit_idx = (position - 1) // 13
+            rank_idx = (position - 1) % 13
+            _suit_letter, suit_name = SIBILLA_SUITS[suit_idx]
+            name = SIBILLA_BY_SUIT[suit_name][rank_idx]
+            rank_word = SIBILLA_RANK_WORDS[rank_idx]
+            return {
+                'archetype': name,
+                'rank': rank_word,
+                'suit': suit_name,
+                'sort_order': position,
+            }
+        return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': position}
 
     def _get_card_sort_order(self, card_name: str, custom_suit_names: dict = None,
                              preset_name: str = None, custom_court_names: dict = None) -> int:
