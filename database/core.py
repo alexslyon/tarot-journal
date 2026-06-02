@@ -1085,10 +1085,11 @@ class CoreMixin:
             # skips existing rows.
             cursor.execute(
                 "SELECT COUNT(*) FROM card_archetypes WHERE cartomancy_type "
-                "IN ('I Ching', 'Kipper', 'Spanish Playing Cards', 'Oracle Belline')"
+                "IN ('I Ching', 'Kipper', 'Spanish Playing Cards', "
+                "    'Oracle Belline', 'Vera Sibilla Italiana')"
             )
-            # 64 I Ching + 36 Kipper + 49 Spanish + 53 Belline = 202
-            if cursor.fetchone()[0] < 202:
+            # 64 I Ching + 36 Kipper + 49 Spanish + 53 Belline + 52 Sibilla = 254
+            if cursor.fetchone()[0] < 254:
                 self._seed_card_archetypes(cursor)
 
         # Seed correspondence systems if table is empty
@@ -1643,6 +1644,72 @@ class CoreMixin:
         ]
         for i, name in enumerate(belline_cards, start=1):
             archetypes.append((name, 'Oracle Belline', str(i), None, 'belline'))
+
+        # Vera Sibilla Italiana (52). Each card is a standard playing-card
+        # position (suit + rank) with a divinatory name. Suit/rank match
+        # the Playing Cards convention so the underlying card structure
+        # is preserved for sorting and any future correspondence sharing;
+        # the archetype name is the divinatory term.
+        sibilla_cards = [
+            # Hearts
+            ('Conversation', 'Hearts', 'Ace'),
+            ('House', 'Hearts', 'Two'),
+            ('Viewpoint', 'Hearts', 'Three'),
+            ('Love', 'Hearts', 'Four'),
+            ('Gladness of Heart', 'Hearts', 'Five'),
+            ('Money', 'Hearts', 'Six'),
+            ('Scholar', 'Hearts', 'Seven'),
+            ('Hope', 'Hearts', 'Eight'),
+            ('Loyalty', 'Hearts', 'Nine'),
+            ('Constancy', 'Hearts', 'Ten'),
+            ('Lover', 'Hearts', 'Jack'),
+            ('Beloved', 'Hearts', 'Queen'),
+            ('Gentleman', 'Hearts', 'King'),
+            # Clubs
+            ('Marriage', 'Clubs', 'Ace'),
+            ('Pride', 'Clubs', 'Two'),
+            ('Journey', 'Clubs', 'Three'),
+            ('Friend', 'Clubs', 'Four'),
+            ('Fortune', 'Clubs', 'Five'),
+            ('Comforting Surprise', 'Clubs', 'Six'),
+            ('Great Consolation', 'Clubs', 'Seven'),
+            ('Reunion', 'Clubs', 'Eight'),
+            ('Merriment', 'Clubs', 'Nine'),
+            ('Levity', 'Clubs', 'Ten'),
+            ('Servant', 'Clubs', 'Jack'),
+            ('Young Woman', 'Clubs', 'Queen'),
+            ('Doctor', 'Clubs', 'King'),
+            # Diamonds
+            ('Room', 'Diamonds', 'Ace'),
+            ('Letter', 'Diamonds', 'Two'),
+            ('Gift of Jewelry', 'Diamonds', 'Three'),
+            ('Falsehood', 'Diamonds', 'Four'),
+            ('Melancholy', 'Diamonds', 'Five'),
+            ('Thoughts', 'Diamonds', 'Six'),
+            ('Child', 'Diamonds', 'Seven'),
+            ('Maid', 'Diamonds', 'Eight'),
+            ('Madmen', 'Diamonds', 'Nine'),
+            ('Thief', 'Diamonds', 'Ten'),
+            ('Messenger', 'Diamonds', 'Jack'),
+            ('Lady', 'Diamonds', 'Queen'),
+            ('Merchant', 'Diamonds', 'King'),
+            # Spades
+            ('Sorrow', 'Spades', 'Ace'),
+            ('Old Lady', 'Spades', 'Two'),
+            ('Widower', 'Spades', 'Three'),
+            ('Sickness', 'Spades', 'Four'),
+            ('Death', 'Spades', 'Five'),
+            ('Sighs', 'Spades', 'Six'),
+            ('Misfortune', 'Spades', 'Seven'),
+            ('Despair', 'Spades', 'Eight'),
+            ('Prison', 'Spades', 'Nine'),
+            ('Soldier', 'Spades', 'Ten'),
+            ('Enemy', 'Spades', 'Jack'),
+            ('Rival', 'Spades', 'Queen'),
+            ('Priest', 'Spades', 'King'),
+        ]
+        for name, suit, rank in sibilla_cards:
+            archetypes.append((name, 'Vera Sibilla Italiana', rank, suit, 'sibilla'))
 
         # Kipper (36). Names match the import preset's
         # _get_kipper_metadata_by_position list so cards imported via that
