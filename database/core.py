@@ -1495,6 +1495,36 @@ class CoreMixin:
                 ''')
             self.set_setting('source_fields_unique_relaxed', 'true')
 
+        # One-time migration: switch Belline compound names from period-
+        # to comma-separated ("Thought. Friendship" -> "Thought, Friendship").
+        # Both card_archetypes (so the viewer shows the new form) and
+        # cards.archetype (so any imported deck cards stay linked) are
+        # updated. Scoped to the Oracle Belline type to avoid touching
+        # similarly-spelled names in other decks.
+        if self.get_setting('belline_compound_name_rename_done') != 'true':
+            belline_renames = {
+                'Thought. Friendship': 'Thought, Friendship',
+                'Countryside. Health': 'Countryside, Health',
+                'Theft. Loss': 'Theft, Loss',
+            }
+            for old, new in belline_renames.items():
+                cursor.execute(
+                    'UPDATE OR IGNORE card_archetypes SET name = ? '
+                    "WHERE name = ? AND cartomancy_type = 'Oracle Belline'",
+                    (new, old)
+                )
+                cursor.execute(
+                    'UPDATE cards SET archetype = ? WHERE archetype = ? '
+                    'AND deck_id IN ('
+                    '  SELECT d.id FROM decks d '
+                    '  JOIN deck_type_assignments dta ON dta.deck_id = d.id '
+                    '  JOIN cartomancy_types ct ON ct.id = dta.type_id '
+                    "  WHERE ct.name = 'Oracle Belline'"
+                    ')',
+                    (new, old)
+                )
+            self.set_setting('belline_compound_name_rename_done', 'true')
+
         # One-time backfill: every existing numerology value should also have
         # its digit-sum reductions present (so "156" gains "12" and "3").
         # Going forward, the UI auto-expands new entries; this catches values
@@ -1631,10 +1661,10 @@ class CoreMixin:
         belline_cards = [
             'Destiny', "The Man's Star", "The Woman's Star", 'Nativity',
             'Success', 'Elevation', 'Honours',
-            'Thought. Friendship', 'Countryside. Health', 'Gifts',
+            'Thought, Friendship', 'Countryside, Health', 'Gifts',
             'Betrayal', 'Departure', 'Inconstancy', 'Discovery', 'Water',
             'The Home', 'Disease', 'Change', 'Money', 'Intelligence',
-            'Theft. Loss', 'Undertakings', 'Trading', 'News', 'Pleasures',
+            'Theft, Loss', 'Undertakings', 'Trading', 'News', 'Pleasures',
             'Peace', 'Union', 'Family', 'Love', 'The Table',
             'Passions', 'Wickedness', 'Proceedings', 'Despotism',
             'Enemies', 'Negotiations', 'Fire', 'Accident', 'Support',
