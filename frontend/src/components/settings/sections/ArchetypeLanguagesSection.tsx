@@ -24,7 +24,10 @@ import type {
 import '../SettingsTab.css';
 import './ArchetypeLanguagesSection.css';
 
-const SUPPORTED_TYPES = ['Tarot', 'Lenormand', 'Playing Cards', 'Kipper', 'I Ching'];
+const SUPPORTED_TYPES = [
+  'Tarot', 'Lenormand', 'Playing Cards', 'Kipper', 'I Ching',
+  'Spanish Playing Cards', 'Oracle Belline', 'Vera Sibilla Italiana',
+];
 
 interface Props {
   initialArchetypeId?: number;

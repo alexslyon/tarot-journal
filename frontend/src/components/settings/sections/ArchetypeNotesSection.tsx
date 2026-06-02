@@ -42,7 +42,10 @@ import type {
 import '../SettingsTab.css';
 import './ArchetypeNotesSection.css';
 
-const SUPPORTED_TYPES = ['Tarot', 'Lenormand', 'Playing Cards', 'Kipper', 'I Ching'];
+const SUPPORTED_TYPES = [
+  'Tarot', 'Lenormand', 'Playing Cards', 'Kipper', 'I Ching',
+  'Spanish Playing Cards', 'Oracle Belline', 'Vera Sibilla Italiana',
+];
 
 interface Props {
   /** Optional deep-link entry point. Kept for compatibility but the new
