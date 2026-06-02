@@ -12,7 +12,10 @@ import type { ReferenceSource } from '../../../types';
 import '../SettingsTab.css';
 import './ReferenceSourcesSection.css';
 
-const SUPPORTED_TYPES = ['Tarot', 'Lenormand', 'Playing Cards', 'Kipper', 'I Ching'];
+const SUPPORTED_TYPES = [
+  'Tarot', 'Lenormand', 'Playing Cards', 'Kipper', 'I Ching',
+  'Spanish Playing Cards', 'Oracle Belline', 'Vera Sibilla Italiana',
+];
 
 export default function ReferenceSourcesSection() {
   const queryClient = useQueryClient();

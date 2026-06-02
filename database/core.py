@@ -476,7 +476,10 @@ class CoreMixin:
         ''')
 
         # Insert default cartomancy types
-        default_types = ['Tarot', 'Lenormand', 'Kipper', 'Playing Cards', 'Oracle', 'I Ching']
+        default_types = [
+            'Tarot', 'Lenormand', 'Kipper', 'Playing Cards', 'Oracle', 'I Ching',
+            'Spanish Playing Cards', 'Oracle Belline', 'Vera Sibilla Italiana',
+        ]
         for ct in default_types:
             cursor.execute(
                 'INSERT OR IGNORE INTO cartomancy_types (name) VALUES (?)',
@@ -1077,13 +1080,14 @@ class CoreMixin:
                 self._migrate_tarot_numbering(cursor)
 
             # Top-up: if a cartomancy type's archetypes were never seeded
-            # (older DBs predate I Ching being added, or Kipper which came
-            # later), run the seeder to add the missing ones. INSERT OR
-            # IGNORE skips existing rows.
+            # (older DBs predate I Ching, Kipper, or Spanish Playing Cards),
+            # run the seeder to add the missing ones. INSERT OR IGNORE
+            # skips existing rows.
             cursor.execute(
-                "SELECT COUNT(*) FROM card_archetypes WHERE cartomancy_type IN ('I Ching', 'Kipper')"
+                "SELECT COUNT(*) FROM card_archetypes WHERE cartomancy_type "
+                "IN ('I Ching', 'Kipper', 'Spanish Playing Cards')"
             )
-            if cursor.fetchone()[0] < 100:  # 64 I Ching + 36 Kipper
+            if cursor.fetchone()[0] < 149:  # 64 I Ching + 36 Kipper + 49 Spanish
                 self._seed_card_archetypes(cursor)
 
         # Seed correspondence systems if table is empty
@@ -1605,6 +1609,20 @@ class CoreMixin:
         # specific cards distinguish themselves via variant_order
         # (1 = traditionally Red, 2 = traditionally Black).
         archetypes.append(('Joker', 'Playing Cards', 'Joker', None, 'playing'))
+
+        # Spanish Playing Cards (50): 4 suits × 12 ranks + 1 Comodín
+        # archetype (the deck's 2 physical Comodines share the slot via
+        # variant_order, same pattern as the consolidated Joker above).
+        spanish_ranks = [
+            'As', 'Dos', 'Tres', 'Cuatro', 'Cinco', 'Seis', 'Siete',
+            'Ocho', 'Nueve', 'Sota', 'Caballo', 'Rey',
+        ]
+        spanish_suits = ['Oros', 'Copas', 'Espadas', 'Bastos']
+        for suit in spanish_suits:
+            for rank in spanish_ranks:
+                name = f'{rank} de {suit}'
+                archetypes.append((name, 'Spanish Playing Cards', rank, suit, 'spanish-playing'))
+        archetypes.append(('Comodín', 'Spanish Playing Cards', 'Comodín', None, 'spanish-playing'))
 
         # Kipper (36). Names match the import preset's
         # _get_kipper_metadata_by_position list so cards imported via that

@@ -20,7 +20,10 @@ const SUB_TABS: { id: SubTabId; label: string }[] = [
 
 // Cartomancy types we currently support in the Archetypes viewer.
 // Anything in cartomancy_types not on this list is skipped from the dropdown.
-const SUPPORTED_TYPES = ['Tarot', 'Lenormand', 'Playing Cards', 'Kipper', 'I Ching'];
+const SUPPORTED_TYPES = [
+  'Tarot', 'Lenormand', 'Playing Cards', 'Kipper', 'I Ching',
+  'Spanish Playing Cards', 'Oracle Belline', 'Vera Sibilla Italiana',
+];
 
 interface ArchetypesViewerProps {
   /** Navigate to a Settings section with optional payload (deep-link). */
