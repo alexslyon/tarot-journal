@@ -89,7 +89,16 @@ export default function CardViewModal({ cardId, cardIds, onClose, onNavigate, on
     .filter(f => !iChingFieldKeys.includes(f.field_name) && hasContent(f.field_value))
     .map(f => ({ field_name: f.field_name, field_value: f.field_value || '' }));
 
-  const displayCustomFields = [...legacyFields, ...tableFields];
+  // Some cards have a field in both stores after the old-to-new
+  // migration: the legacy JSON blob isn't cleared when an entry is
+  // re-saved through the new card_custom_fields table. Hide any
+  // legacy entry whose name also exists in the table (case-
+  // insensitive), so the same field doesn't render twice.
+  const tableNamesLower = new Set(tableFields.map(f => f.field_name.toLowerCase()));
+  const dedupedLegacy = legacyFields.filter(
+    f => !tableNamesLower.has(f.field_name.toLowerCase()),
+  );
+  const displayCustomFields = [...dedupedLegacy, ...tableFields];
 
   return (
     <Modal open={true} onClose={onClose} width={750}>

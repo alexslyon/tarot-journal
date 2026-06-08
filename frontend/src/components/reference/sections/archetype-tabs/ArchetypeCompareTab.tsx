@@ -277,7 +277,14 @@ function CompareColumn({
     const tableEntries = (cardDetail.card_custom_fields || [])
       .filter(f => plainTextHasContent(f.field_value))
       .map(f => ({ field_name: f.field_name, field_value: f.field_value || '' }));
-    return [...legacyEntries, ...tableEntries];
+    // When the same field exists in both stores (the old-to-new
+    // migration leaves the legacy JSON in place), hide the legacy
+    // copy so the same name doesn't appear twice.
+    const tableNamesLower = new Set(tableEntries.map(f => f.field_name.toLowerCase()));
+    const dedupedLegacy = legacyEntries.filter(
+      f => !tableNamesLower.has(f.field_name.toLowerCase()),
+    );
+    return [...dedupedLegacy, ...tableEntries];
   }, [cardDetail]);
 
   // Notes are tied to whichever archetype this column's card belongs to —
