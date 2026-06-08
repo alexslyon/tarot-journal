@@ -172,12 +172,12 @@ class ReferenceSourcesMixin:
         cursor = self.conn.cursor()
         if reassign_to is not None:
             cursor.execute(
-                'UPDATE lenormand_meanings SET source_id = ? WHERE source_id = ?',
+                'UPDATE combination_meanings SET source_id = ? WHERE source_id = ?',
                 (reassign_to, source_id)
             )
         else:
             cursor.execute(
-                'UPDATE lenormand_meanings SET source_id = NULL WHERE source_id = ?',
+                'UPDATE combination_meanings SET source_id = NULL WHERE source_id = ?',
                 (source_id,)
             )
         cursor.execute('DELETE FROM reference_sources WHERE id = ?', (source_id,))
@@ -185,8 +185,8 @@ class ReferenceSourcesMixin:
 
     def count_reference_source_dependencies(self, source_id: int) -> dict:
         cursor = self.conn.cursor()
-        lenormand_count = cursor.execute(
-            'SELECT COUNT(*) FROM lenormand_meanings WHERE source_id = ?',
+        meaning_count = cursor.execute(
+            'SELECT COUNT(*) FROM combination_meanings WHERE source_id = ?',
             (source_id,)
         ).fetchone()[0]
         entry_count = cursor.execute(
@@ -202,7 +202,7 @@ class ReferenceSourcesMixin:
             (source_id,)
         ).fetchone()[0]
         return {
-            'lenormand_meanings': lenormand_count,
+            'combination_meanings': meaning_count,
             'archetype_source_entries': entry_count,
             'source_fields': field_count,
         }

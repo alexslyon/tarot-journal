@@ -6,7 +6,7 @@ import ImportPresetsSection from './sections/ImportPresetsSection';
 import BackupSection from './sections/BackupSection';
 import CacheSection from './sections/CacheSection';
 import CorrespondencesSection from './sections/CorrespondencesSection';
-import LenormandCombinationsSection from './sections/LenormandCombinationsSection';
+import CombinationsSection from './sections/CombinationsSection';
 import ArchetypeNotesSection from './sections/ArchetypeNotesSection';
 import ArchetypeLanguagesSection from './sections/ArchetypeLanguagesSection';
 import ReferenceSourcesSection from './sections/ReferenceSourcesSection';
@@ -19,7 +19,7 @@ export type SettingsSectionId =
   | 'correspondences'
   | 'archetype-notes'
   | 'archetype-languages'
-  | 'lenormand-combinations'
+  | 'combinations'
   | 'reference-sources'
   | 'import-presets'
   | 'backup'
@@ -32,7 +32,7 @@ const SECTIONS: { id: SettingsSectionId; label: string }[] = [
   { id: 'correspondences', label: 'Correspondences' },
   { id: 'archetype-notes', label: 'Archetype Notes' },
   { id: 'archetype-languages', label: 'Archetype Languages' },
-  { id: 'lenormand-combinations', label: 'Lenormand Combinations' },
+  { id: 'combinations', label: 'Combinations' },
   { id: 'reference-sources', label: 'Reference Sources' },
   { id: 'import-presets', label: 'Import Presets' },
   { id: 'backup', label: 'Backup & Restore' },
@@ -41,8 +41,12 @@ const SECTIONS: { id: SettingsSectionId; label: string }[] = [
 
 interface SettingsLayoutProps {
   initialSection?: string;
-  /** Optional pre-selected card pair for the Lenormand Combinations editor. */
-  initialLenormandCombination?: { card_1: number; card_2: number };
+  /** Optional pre-selected combination for the Combinations editor. */
+  initialCombination?: {
+    cartomancy_type: string;
+    archetype_1_id: number;
+    archetype_2_id: number;
+  };
   /** Optional pre-selected archetype id for Archetype Notes / Languages editors. */
   initialArchetypeId?: number;
   onSectionViewed?: () => void;
@@ -50,7 +54,7 @@ interface SettingsLayoutProps {
 
 export default function SettingsLayout({
   initialSection,
-  initialLenormandCombination,
+  initialCombination,
   initialArchetypeId,
   onSectionViewed,
 }: SettingsLayoutProps) {
@@ -87,9 +91,9 @@ export default function SettingsLayout({
         {activeSection === 'archetype-languages' && (
           <ArchetypeLanguagesSection initialArchetypeId={initialArchetypeId} />
         )}
-        {activeSection === 'lenormand-combinations' && (
-          <LenormandCombinationsSection
-            initialCards={initialLenormandCombination}
+        {activeSection === 'combinations' && (
+          <CombinationsSection
+            initialCombination={initialCombination}
           />
         )}
         {activeSection === 'reference-sources' && <ReferenceSourcesSection />}

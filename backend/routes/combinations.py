@@ -1,36 +1,55 @@
 """
-Lenormand combination endpoints — CRUD for combinations and meanings. The
-sources list lives in the shared /api/reference/sources blueprint.
+Combination-meaning endpoints. Cards are referenced by archetype id;
+the active cartomancy type is required so the picker can list pairs.
+The sources list lives in the shared /api/reference/sources blueprint.
 """
 
 from flask import Blueprint, jsonify, request, current_app
 from backend.utils import row_to_dict, require_json
 
-lenormand_bp = Blueprint('lenormand_combinations', __name__)
+combinations_bp = Blueprint('combinations', __name__)
 
 
-# === Meanings (combination-keyed) ===
+# === Meanings (pair-keyed) ===
 
-@lenormand_bp.route('/api/lenormand/meanings')
+@combinations_bp.route('/api/combinations/meanings')
 def list_meanings():
-    """Get all meanings for a card pair. Query params: card_1, card_2."""
+    """All meanings for a (cartomancy_type, card_1, card_2) triple.
+    Query params: cartomancy_type, card_1, card_2 (archetype ids)."""
     db = current_app.config['DB']
+    ctype = (request.args.get('cartomancy_type') or '').strip()
+    if not ctype:
+        return jsonify({'error': 'cartomancy_type is required'}), 400
     try:
         card_1 = int(request.args.get('card_1', ''))
         card_2 = int(request.args.get('card_2', ''))
     except (TypeError, ValueError):
         return jsonify({'error': 'card_1 and card_2 are required integers'}), 400
-    rows = db.get_lenormand_meanings(card_1, card_2)
+    rows = db.get_combination_meanings(ctype, card_1, card_2)
     return jsonify([row_to_dict(r) for r in rows])
 
 
-@lenormand_bp.route('/api/lenormand/meanings', methods=['POST'])
+@combinations_bp.route('/api/combinations/populated')
+def populated_combinations():
+    """List combinations of a type that have at least one meaning.
+    Query params: cartomancy_type."""
+    db = current_app.config['DB']
+    ctype = (request.args.get('cartomancy_type') or '').strip()
+    if not ctype:
+        return jsonify({'error': 'cartomancy_type is required'}), 400
+    rows = db.list_populated_combinations(ctype)
+    return jsonify([row_to_dict(r) for r in rows])
+
+
+@combinations_bp.route('/api/combinations/meanings', methods=['POST'])
 @require_json
 def create_meaning(data):
-    """Add a meaning to a combination, creating the combination row if needed.
-    Body: {card_1, card_2, meaning, source_id?}
-    """
+    """Add a meaning, creating the combination row if needed.
+    Body: {cartomancy_type, card_1, card_2, meaning, source_id?}"""
     db = current_app.config['DB']
+    ctype = (data.get('cartomancy_type') or '').strip()
+    if not ctype:
+        return jsonify({'error': 'cartomancy_type is required'}), 400
     try:
         card_1 = int(data.get('card_1'))
         card_2 = int(data.get('card_2'))
@@ -46,18 +65,16 @@ def create_meaning(data):
         except (TypeError, ValueError):
             return jsonify({'error': 'source_id must be an integer'}), 400
     try:
-        new_id = db.add_lenormand_meaning(card_1, card_2, meaning, source_id)
+        new_id = db.add_combination_meaning(ctype, card_1, card_2, meaning, source_id)
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     return jsonify({'id': new_id})
 
 
-@lenormand_bp.route('/api/lenormand/meanings/<int:meaning_id>', methods=['PUT'])
+@combinations_bp.route('/api/combinations/meanings/<int:meaning_id>', methods=['PUT'])
 @require_json
 def update_meaning(meaning_id, data):
-    """Update a meaning's text and/or source.
-    Body keys: meaning?, source_id? (null clears the source).
-    """
+    """Update text and/or source. Body keys: meaning?, source_id? (null clears)."""
     db = current_app.config['DB']
     meaning = data.get('meaning')
     if meaning is not None:
@@ -78,7 +95,7 @@ def update_meaning(meaning_id, data):
         except (TypeError, ValueError):
             return jsonify({'error': 'source_id must be an integer or null'}), 400
 
-    db.update_lenormand_meaning(
+    db.update_combination_meaning(
         meaning_id,
         meaning=meaning,
         source_id=source_id,
@@ -87,23 +104,21 @@ def update_meaning(meaning_id, data):
     return jsonify({'ok': True})
 
 
-@lenormand_bp.route('/api/lenormand/meanings/<int:meaning_id>', methods=['DELETE'])
+@combinations_bp.route('/api/combinations/meanings/<int:meaning_id>', methods=['DELETE'])
 def delete_meaning(meaning_id):
     db = current_app.config['DB']
-    db.delete_lenormand_meaning(meaning_id)
+    db.delete_combination_meaning(meaning_id)
     return jsonify({'ok': True})
 
 
-@lenormand_bp.route('/api/lenormand/meanings/reorder', methods=['POST'])
+@combinations_bp.route('/api/combinations/meanings/reorder', methods=['POST'])
 @require_json
 def reorder_meanings(data):
-    """Reorder meanings within a combination.
-    Body: {combination_id, ordered_ids: [int, ...]}
-    """
+    """Body: {combination_id, ordered_ids: [int, ...]}"""
     db = current_app.config['DB']
     combination_id = data.get('combination_id')
     ordered_ids = data.get('ordered_ids') or []
     if combination_id is None or not isinstance(ordered_ids, list):
         return jsonify({'error': 'combination_id and ordered_ids are required'}), 400
-    db.reorder_lenormand_meanings(int(combination_id), [int(i) for i in ordered_ids])
+    db.reorder_combination_meanings(int(combination_id), [int(i) for i in ordered_ids])
     return jsonify({'ok': True})

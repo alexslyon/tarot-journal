@@ -1,6 +1,6 @@
 /* === Sources panel === */
 
-.lenormand-comb__source-list {
+.combinations__source-list {
   list-style: none;
   margin: 0 0 8px;
   padding: 0;
@@ -9,7 +9,7 @@
   gap: 4px;
 }
 
-.lenormand-comb__source-row {
+.combinations__source-row {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -18,22 +18,22 @@
   border-radius: 3px;
 }
 
-.lenormand-comb__source-name {
+.combinations__source-name {
   flex: 1;
   color: var(--text-primary);
 }
 
-.lenormand-comb__source-input {
+.combinations__source-input {
   flex: 1;
 }
 
-.lenormand-comb__source-add {
+.combinations__source-add {
   display: flex;
   gap: 6px;
   margin-bottom: 8px;
 }
 
-.lenormand-comb__add-source-btn {
+.combinations__add-source-btn {
   font-size: var(--font-size-body);
   color: var(--accent) !important;
   background: none !important;
@@ -42,18 +42,18 @@
   padding: 6px !important;
   cursor: pointer;
 }
-.lenormand-comb__add-source-btn:hover {
+.combinations__add-source-btn:hover {
   background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
 }
 
-.lenormand-comb__empty {
+.combinations__empty {
   font-size: var(--font-size-small);
   color: var(--text-dim);
   font-style: italic;
   margin: 0 0 8px;
 }
 
-.lenormand-comb__warn {
+.combinations__warn {
   font-size: var(--font-size-small);
   color: var(--warning);
   background: color-mix(in srgb, var(--warning) 10%, transparent);
@@ -65,7 +65,7 @@
 
 /* === Delete dialog === */
 
-.lenormand-comb__dialog-backdrop {
+.combinations__dialog-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
@@ -75,7 +75,7 @@
   z-index: 100;
 }
 
-.lenormand-comb__dialog {
+.combinations__dialog {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -85,17 +85,17 @@
   color: var(--text-primary);
 }
 
-.lenormand-comb__dialog h4 {
+.combinations__dialog h4 {
   margin: 0 0 8px;
 }
 
-.lenormand-comb__dialog p {
+.combinations__dialog p {
   margin: 0 0 12px;
   color: var(--text-secondary);
   font-size: var(--font-size-small);
 }
 
-.lenormand-comb__dialog-option {
+.combinations__dialog-option {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -103,7 +103,7 @@
   cursor: pointer;
 }
 
-.lenormand-comb__dialog-actions {
+.combinations__dialog-actions {
   display: flex;
   justify-content: flex-end;
   gap: 6px;
@@ -112,24 +112,24 @@
 
 /* === Card pickers === */
 
-.lenormand-comb__pickers {
+.combinations__pickers {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
   margin-bottom: 16px;
 }
 
-.lenormand-comb__picker {
+.combinations__picker {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.lenormand-comb__picker select {
+.combinations__picker select {
   width: 100%;
 }
 
-.lenormand-comb__picker-image {
+.combinations__picker-image {
   margin-top: 8px;
   display: flex;
   align-items: center;
@@ -141,13 +141,13 @@
   overflow: hidden;
 }
 
-.lenormand-comb__picker-image img {
+.combinations__picker-image img {
   max-width: 100%;
   max-height: 220px;
   object-fit: contain;
 }
 
-.lenormand-comb__placeholder {
+.combinations__placeholder {
   color: var(--text-dim);
   font-size: var(--font-size-small);
   padding: 16px;
@@ -156,11 +156,11 @@
 
 /* === Meanings editor === */
 
-.lenormand-comb__editor {
+.combinations__editor {
   margin-top: 8px;
 }
 
-.lenormand-comb__meanings {
+.combinations__meanings {
   list-style: none;
   margin: 0 0 8px;
   padding: 0;
@@ -169,7 +169,7 @@
   gap: 6px;
 }
 
-.lenormand-comb__meaning-row {
+.combinations__meaning-row {
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -180,19 +180,19 @@
   cursor: grab;
 }
 
-.lenormand-comb__meaning-row:active {
+.combinations__meaning-row:active {
   cursor: grabbing;
 }
 
-.lenormand-comb__meaning-row--dragging {
+.combinations__meaning-row--dragging {
   opacity: 0.5;
 }
 
-.lenormand-comb__meaning-row--drag-over {
+.combinations__meaning-row--drag-over {
   border-top: 2px solid var(--accent);
 }
 
-.lenormand-comb__drag-handle {
+.combinations__drag-handle {
   color: var(--text-dim);
   font-weight: bold;
   letter-spacing: -2px;
@@ -200,13 +200,13 @@
   padding-top: 4px;
 }
 
-.lenormand-comb__meaning-content,
-.lenormand-comb__meaning-edit {
+.combinations__meaning-content,
+.combinations__meaning-edit {
   flex: 1;
   min-width: 0;
 }
 
-.lenormand-comb__meaning-meta {
+.combinations__meaning-meta {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -214,31 +214,31 @@
   font-size: var(--font-size-small);
 }
 
-.lenormand-comb__meaning-source {
+.combinations__meaning-source {
   flex: 1;
   color: var(--text-dim);
   font-style: italic;
 }
 
-.lenormand-comb__meaning-add,
-.lenormand-comb__meaning-edit {
+.combinations__meaning-add,
+.combinations__meaning-edit {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.lenormand-comb__meaning-add-actions,
-.lenormand-comb__meaning-edit-actions {
+.combinations__meaning-add-actions,
+.combinations__meaning-edit-actions {
   display: flex;
   justify-content: flex-end;
   gap: 6px;
 }
 
-.lenormand-comb__source-select {
+.combinations__source-select {
   width: 100%;
 }
 
-.lenormand-comb__add-meaning-btn {
+.combinations__add-meaning-btn {
   font-size: var(--font-size-body);
   color: var(--accent) !important;
   background: none !important;
@@ -247,15 +247,27 @@
   padding: 6px !important;
   cursor: pointer;
 }
-.lenormand-comb__add-meaning-btn:hover {
+.combinations__add-meaning-btn:hover {
   background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
 }
 
-.lenormand-comb__save-btn {
+.combinations__save-btn {
   background: var(--accent) !important;
   color: var(--text-primary) !important;
 }
 
-.lenormand-comb__source-edit {
+.combinations__source-edit {
   font-size: var(--font-size-small);
+}
+
+/* === Cartomancy type picker === */
+.combinations__type-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+.combinations__type-row select {
+  flex: 1;
+  max-width: 260px;
 }

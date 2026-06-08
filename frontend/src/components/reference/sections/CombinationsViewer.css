@@ -1,4 +1,4 @@
-.lenormand-comb-view__warn {
+.combinations-view__warn {
   font-size: var(--font-size-small);
   color: var(--warning);
   background: color-mix(in srgb, var(--warning) 10%, transparent);
@@ -8,20 +8,20 @@
   margin: 0 0 12px;
 }
 
-.lenormand-comb-view__pickers {
+.combinations-view__pickers {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
   margin-bottom: 24px;
 }
 
-.lenormand-comb-view__picker {
+.combinations-view__picker {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.lenormand-comb-view__picker-label {
+.combinations-view__picker-label {
   font-size: var(--font-size-small);
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -29,11 +29,11 @@
   margin-bottom: 4px;
 }
 
-.lenormand-comb-view__picker select {
+.combinations-view__picker select {
   width: 100%;
 }
 
-.lenormand-comb-view__picker-image {
+.combinations-view__picker-image {
   margin-top: 8px;
   display: flex;
   align-items: center;
@@ -45,20 +45,20 @@
   overflow: hidden;
 }
 
-.lenormand-comb-view__picker-image img {
+.combinations-view__picker-image img {
   max-width: 100%;
   max-height: 280px;
   object-fit: contain;
 }
 
-.lenormand-comb-view__placeholder {
+.combinations-view__placeholder {
   color: var(--text-dim);
   font-size: var(--font-size-small);
   padding: 16px;
   text-align: center;
 }
 
-.lenormand-comb-view__empty {
+.combinations-view__empty {
   padding: 16px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -66,12 +66,12 @@
   text-align: center;
 }
 
-.lenormand-comb-view__empty p {
+.combinations-view__empty p {
   margin: 0 0 8px;
   color: var(--text-dim);
 }
 
-.lenormand-comb-view__edit-link {
+.combinations-view__edit-link {
   background: none !important;
   color: var(--accent) !important;
   border: 1px solid var(--accent) !important;
@@ -80,24 +80,24 @@
   cursor: pointer;
 }
 
-.lenormand-comb-view__edit-link:hover {
+.combinations-view__edit-link:hover {
   background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
 }
 
-.lenormand-comb-view__results {
+.combinations-view__results {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.lenormand-comb-view__group {
+.combinations-view__group {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 12px 16px;
 }
 
-.lenormand-comb-view__group-label {
+.combinations-view__group-label {
   font-size: var(--font-size-body);
   color: var(--accent);
   margin: 0 0 8px;
@@ -105,7 +105,7 @@
   padding-bottom: 4px;
 }
 
-.lenormand-comb-view__items {
+.combinations-view__items {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -114,6 +114,22 @@
   gap: 8px;
 }
 
-.lenormand-comb-view__item {
+.combinations-view__item {
   color: var(--text-primary);
+}
+
+/* === Cartomancy type picker === */
+.combinations-view__type-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+.combinations-view__type-label {
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+}
+.combinations-view__type-row select {
+  flex: 1;
+  max-width: 260px;
 }

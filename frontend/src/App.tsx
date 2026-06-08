@@ -21,7 +21,11 @@ const queryClient = new QueryClient({
 });
 
 interface SettingsDeepLinkPayload {
-  lenormandCombination?: { card_1: number; card_2: number };
+  combination?: {
+    cartomancy_type: string;
+    archetype_1_id: number;
+    archetype_2_id: number;
+  };
   archetypeId?: number;
 }
 
@@ -67,7 +71,7 @@ export default function App() {
               {activeTab === 'settings' && (
                 <SettingsTab
                   initialSection={settingsSection}
-                  initialLenormandCombination={settingsPayload?.lenormandCombination}
+                  initialCombination={settingsPayload?.combination}
                   initialArchetypeId={settingsPayload?.archetypeId}
                   onSectionViewed={handleSettingsSectionViewed}
                 />

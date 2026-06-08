@@ -852,53 +852,48 @@ class CoreMixin:
             'ON archetype_source_entries(field_id)'
         )
 
-        # If lenormand_meanings still has a foreign key referencing the old
-        # lenormand_sources name, recreate the table so the FK points at
-        # reference_sources. Stash the rows for restore below.
-        cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='lenormand_meanings'")
-        lm_row = cursor.fetchone()
-        lm_needs_recreate = bool(
-            lm_row and 'lenormand_sources' in (lm_row[0] or '')
-        )
-        if lm_needs_recreate:
-            cursor.execute('SELECT * FROM lenormand_meanings')
-            self._needs_lenormand_meanings_restore = [dict(r) for r in cursor.fetchall()]
-            cursor.execute('DROP TABLE lenormand_meanings')
-
-        # An ordered card pair. Same-card pairs are forbidden, and we only
-        # create rows on demand when at least one meaning is being added.
+        # Combinations of two archetypes (any cartomancy type), each with
+        # a list of authored meanings. Replaces the older Lenormand-only
+        # tables (lenormand_combinations + lenormand_meanings). card_1 /
+        # card_2 are archetype FKs; cartomancy_type is denormalized for
+        # fast filtering in the picker UI. Rows are created on demand
+        # when the first meaning is added to a pair.
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS lenormand_combinations (
+            CREATE TABLE IF NOT EXISTS archetype_combinations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                card_1 INTEGER NOT NULL CHECK(card_1 BETWEEN 1 AND 36),
-                card_2 INTEGER NOT NULL CHECK(card_2 BETWEEN 1 AND 36),
-                CHECK(card_1 != card_2),
-                UNIQUE(card_1, card_2)
+                cartomancy_type TEXT NOT NULL,
+                archetype_1_id INTEGER NOT NULL,
+                archetype_2_id INTEGER NOT NULL,
+                CHECK (archetype_1_id != archetype_2_id),
+                UNIQUE (cartomancy_type, archetype_1_id, archetype_2_id),
+                FOREIGN KEY (archetype_1_id) REFERENCES card_archetypes(id) ON DELETE CASCADE,
+                FOREIGN KEY (archetype_2_id) REFERENCES card_archetypes(id) ON DELETE CASCADE
             )
         ''')
         cursor.execute(
-            'CREATE INDEX IF NOT EXISTS idx_lenormand_combinations_pair '
-            'ON lenormand_combinations(card_1, card_2)'
+            'CREATE INDEX IF NOT EXISTS idx_archetype_combinations_type '
+            'ON archetype_combinations(cartomancy_type)'
+        )
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_archetype_combinations_pair '
+            'ON archetype_combinations(archetype_1_id, archetype_2_id)'
         )
 
-        # One row per meaning. Multiple meanings can share a combination, and
-        # source_id is nullable so unsourced meanings are allowed. Cascade
-        # deletes from combinations so we can drop empty combinations cleanly.
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS lenormand_meanings (
+            CREATE TABLE IF NOT EXISTS combination_meanings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 combination_id INTEGER NOT NULL,
                 meaning TEXT NOT NULL,
                 source_id INTEGER,
                 sort_order INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (combination_id) REFERENCES lenormand_combinations(id) ON DELETE CASCADE,
+                FOREIGN KEY (combination_id) REFERENCES archetype_combinations(id) ON DELETE CASCADE,
                 FOREIGN KEY (source_id) REFERENCES reference_sources(id) ON DELETE SET NULL
             )
         ''')
         cursor.execute(
-            'CREATE INDEX IF NOT EXISTS idx_lenormand_meanings_combination '
-            'ON lenormand_meanings(combination_id, sort_order)'
+            'CREATE INDEX IF NOT EXISTS idx_combination_meanings_combination '
+            'ON combination_meanings(combination_id, sort_order)'
         )
 
         # === Archetypes feature: per-archetype reference content ===
@@ -964,21 +959,9 @@ class CoreMixin:
             'ON chart_cache(source_type, source_id)'
         )
 
-        # Restore lenormand_meanings rows after the FK migration above.
-        if hasattr(self, '_needs_lenormand_meanings_restore'):
-            self.conn.commit()
-            self.conn.execute('PRAGMA foreign_keys = OFF')
-            for r in self._needs_lenormand_meanings_restore:
-                cursor.execute('''
-                    INSERT INTO lenormand_meanings
-                        (id, combination_id, meaning, source_id, sort_order, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (r['id'], r['combination_id'], r['meaning'],
-                      r.get('source_id'), r.get('sort_order', 0),
-                      r.get('created_at')))
-            self.conn.commit()
-            self.conn.execute('PRAGMA foreign_keys = ON')
-            del self._needs_lenormand_meanings_restore
+        # (Legacy lenormand_meanings restore step retired — both old
+        # tables are dropped by the migration below in favor of the
+        # generalized archetype_combinations / combination_meanings.)
 
         # Migration: add correspondence_system_id to decks
         cursor.execute("PRAGMA table_info(decks)")
@@ -1524,6 +1507,17 @@ class CoreMixin:
                     (new, old)
                 )
             self.set_setting('belline_compound_name_rename_done', 'true')
+
+        # One-time migration: drop the legacy Lenormand-only combinations
+        # tables. Both were empty when the multi-type rewrite shipped (the
+        # feature only ever surfaced UI for Lenormand and nobody authored
+        # rows), so nothing user-facing is lost. The replacement tables
+        # (archetype_combinations + combination_meanings) are created
+        # unconditionally above.
+        if self.get_setting('lenormand_combinations_tables_dropped') != 'true':
+            cursor.execute('DROP TABLE IF EXISTS lenormand_meanings')
+            cursor.execute('DROP TABLE IF EXISTS lenormand_combinations')
+            self.set_setting('lenormand_combinations_tables_dropped', 'true')
 
         # One-time backfill: every existing numerology value should also have
         # its digit-sum reductions present (so "156" gains "12" and "3").
