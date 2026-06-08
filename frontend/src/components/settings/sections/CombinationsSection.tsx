@@ -1,75 +1,101 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  getLenormandMeanings,
-  createLenormandMeaning,
-  updateLenormandMeaning,
-  deleteLenormandMeaning,
-  reorderLenormandMeanings,
-} from '../../../api/lenormandCombinations';
+  getCombinationMeanings,
+  createCombinationMeaning,
+  updateCombinationMeaning,
+  deleteCombinationMeaning,
+  reorderCombinationMeanings,
+} from '../../../api/combinations';
 import { getReferenceSources } from '../../../api/referenceSources';
 import { cardPreviewUrl } from '../../../api/images';
 import RichTextEditor from '../../common/RichTextEditor';
 import RichTextViewer from '../../common/RichTextViewer';
 import { useToast } from '../../../context/ToastContext';
-import { useLenormandCardList, type LenormandCardEntry } from '../../../utils/useLenormandCardList';
-import type { ReferenceSource, LenormandMeaning } from '../../../types';
+import {
+  useArchetypeCardList,
+  type ArchetypeCardEntry,
+} from '../../../utils/useArchetypeCardList';
+import type { ReferenceSource, CombinationMeaning } from '../../../types';
 import '../SettingsTab.css';
-import './LenormandCombinationsSection.css';
+import './CombinationsSection.css';
 
-interface LenormandCombinationsSectionProps {
-  /** When non-null, pre-select these card numbers (used by the Reference deep-link). */
-  initialCards?: { card_1: number; card_2: number };
-  /** Called once after initial card selection has been applied. */
+/** Cartomancy types the Combinations feature supports. */
+export const SUPPORTED_COMBINATION_TYPES = [
+  'Tarot',
+  'Lenormand',
+  'Playing Cards',
+  'Kipper',
+  'Vera Sibilla Italiana',
+] as const;
+
+export type CombinationCartomancyType =
+  (typeof SUPPORTED_COMBINATION_TYPES)[number];
+
+interface CombinationsSectionProps {
+  /** When non-null, pre-select these archetypes (used by the Reference deep-link). */
+  initialCombination?: {
+    cartomancy_type: string;
+    archetype_1_id: number;
+    archetype_2_id: number;
+  };
+  /** Called once after initial selection has been applied. */
   onInitialApplied?: () => void;
 }
 
-export default function LenormandCombinationsSection({
-  initialCards,
+export default function CombinationsSection({
+  initialCombination,
   onInitialApplied,
-}: LenormandCombinationsSectionProps) {
+}: CombinationsSectionProps) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
-  const { cardList, defaultDeckId: lenormandDeckId } = useLenormandCardList();
+  const [cartomancyType, setCartomancyType] =
+    useState<CombinationCartomancyType>('Lenormand');
+  const [card1Id, setCard1Id] = useState<number | null>(null);
+  const [card2Id, setCard2Id] = useState<number | null>(null);
 
-  // === Two-card selection ===
-  const [card1, setCard1] = useState<number | null>(null);
-  const [card2, setCard2] = useState<number | null>(null);
-
-  // Apply deep-link selection once when it arrives
+  // Clear the pair whenever the type changes — archetype ids don't
+  // carry over across cartomancy types.
   useEffect(() => {
-    if (initialCards) {
-      setCard1(initialCards.card_1);
-      setCard2(initialCards.card_2);
+    setCard1Id(null);
+    setCard2Id(null);
+  }, [cartomancyType]);
+
+  // Apply deep-link selection once when it arrives.
+  useEffect(() => {
+    if (initialCombination) {
+      setCartomancyType(initialCombination.cartomancy_type as CombinationCartomancyType);
+      setCard1Id(initialCombination.archetype_1_id);
+      setCard2Id(initialCombination.archetype_2_id);
       onInitialApplied?.();
     }
-  }, [initialCards, onInitialApplied]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCombination]);
 
-  // === Sources (read-only here; managed in the Reference Sources section) ===
+  const { cardList, defaultDeckId } = useArchetypeCardList(cartomancyType);
+
   const { data: sources = [] } = useQuery<ReferenceSource[]>({
     queryKey: ['reference-sources'],
     queryFn: () => getReferenceSources(),
   });
 
-  // === Meanings for the selected combination ===
-  const meaningsKey = ['lenormand-meanings', card1, card2];
-  const { data: meanings = [] } = useQuery<LenormandMeaning[]>({
+  const meaningsKey = ['combination-meanings', cartomancyType, card1Id, card2Id];
+  const { data: meanings = [] } = useQuery<CombinationMeaning[]>({
     queryKey: meaningsKey,
-    queryFn: () => getLenormandMeanings(card1!, card2!),
-    enabled: card1 != null && card2 != null && card1 !== card2,
+    queryFn: () => getCombinationMeanings(cartomancyType, card1Id!, card2Id!),
+    enabled: card1Id != null && card2Id != null && card1Id !== card2Id,
   });
   const invalidateMeanings = () =>
-    queryClient.invalidateQueries({ queryKey: ['lenormand-meanings', card1, card2] });
+    queryClient.invalidateQueries({ queryKey: meaningsKey });
 
   return (
     <div className="settings-tab__scroll">
-      <h2 className="settings-tab__title">Lenormand Combinations</h2>
+      <h2 className="settings-tab__title">Combinations</h2>
       <p className="settings-tab__hint">
-        Reference meanings for any ordered pair of Lenormand cards. The order
-        matters — Dog + Ring is different from Ring + Dog.
+        Reference meanings for any ordered pair of cards. The order matters —
+        in Lenormand, for instance, Dog + Ring reads differently from Ring + Dog.
       </p>
-
       <p className="settings-tab__hint">
         Sources are managed in <strong>Reference Sources</strong>. Pick from
         them when adding a meaning below.
@@ -78,35 +104,48 @@ export default function LenormandCombinationsSection({
       <section className="settings-tab__section">
         <h3 className="settings-tab__section-title">Combinations</h3>
 
-        {lenormandDeckId == null && (
-          <p className="lenormand-comb__warn">
-            No default Lenormand deck is set. Card names and images are pulled
-            from the default deck — set one in <strong>General</strong> settings
+        <div className="combinations__type-row">
+          <label className="settings-tab__label">Cartomancy type</label>
+          <select
+            value={cartomancyType}
+            onChange={e => setCartomancyType(e.target.value as CombinationCartomancyType)}
+          >
+            {SUPPORTED_COMBINATION_TYPES.map(t => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </div>
+
+        {defaultDeckId == null && (
+          <p className="combinations__warn">
+            No default {cartomancyType} deck is set. Card thumbnails come from
+            the default deck — set one in <strong>General</strong> settings
             to see them here.
           </p>
         )}
 
-        <div className="lenormand-comb__pickers">
+        <div className="combinations__pickers">
           <CardPicker
             label="First card"
-            value={card1}
-            onChange={setCard1}
+            value={card1Id}
+            onChange={setCard1Id}
             cardList={cardList}
-            excludeNum={card2}
+            excludeId={card2Id}
           />
           <CardPicker
             label="Second card"
-            value={card2}
-            onChange={setCard2}
+            value={card2Id}
+            onChange={setCard2Id}
             cardList={cardList}
-            excludeNum={card1}
+            excludeId={card1Id}
           />
         </div>
 
-        {card1 != null && card2 != null && card1 !== card2 && (
+        {card1Id != null && card2Id != null && card1Id !== card2Id && (
           <MeaningsEditor
-            card1={card1}
-            card2={card2}
+            cartomancyType={cartomancyType}
+            card1Id={card1Id}
+            card2Id={card2Id}
             meanings={meanings}
             sources={sources}
             onChanged={invalidateMeanings}
@@ -119,7 +158,7 @@ export default function LenormandCombinationsSection({
 }
 
 // ---------------------------------------------------------------------------
-// Card picker (shared between editor and viewer)
+// Card picker
 // ---------------------------------------------------------------------------
 
 function CardPicker({
@@ -127,17 +166,17 @@ function CardPicker({
   value,
   onChange,
   cardList,
-  excludeNum,
+  excludeId,
 }: {
   label: string;
   value: number | null;
-  onChange: (n: number | null) => void;
-  cardList: LenormandCardEntry[];
-  excludeNum: number | null;
+  onChange: (id: number | null) => void;
+  cardList: ArchetypeCardEntry[];
+  excludeId: number | null;
 }) {
-  const selected = value != null ? cardList.find(c => c.num === value) : null;
+  const selected = value != null ? cardList.find(c => c.archetypeId === value) : null;
   return (
-    <div className="lenormand-comb__picker">
+    <div className="combinations__picker">
       <label className="settings-tab__label">{label}</label>
       <select
         value={value ?? ''}
@@ -145,18 +184,22 @@ function CardPicker({
       >
         <option value="">Choose card...</option>
         {cardList.map(c => (
-          <option key={c.num} value={c.num} disabled={c.num === excludeNum}>
-            {c.num} · {c.name}
+          <option
+            key={c.archetypeId}
+            value={c.archetypeId}
+            disabled={c.archetypeId === excludeId}
+          >
+            {c.rank ? `${c.rank} · ${c.name}` : c.name}
           </option>
         ))}
       </select>
-      <div className="lenormand-comb__picker-image">
+      <div className="combinations__picker-image">
         {selected?.cardId ? (
           <img src={cardPreviewUrl(selected.cardId)} alt={selected.name} />
         ) : selected ? (
-          <div className="lenormand-comb__placeholder">{selected.name}</div>
+          <div className="combinations__placeholder">{selected.name}</div>
         ) : (
-          <div className="lenormand-comb__placeholder">No selection</div>
+          <div className="combinations__placeholder">No selection</div>
         )}
       </div>
     </div>
@@ -164,20 +207,22 @@ function CardPicker({
 }
 
 // ---------------------------------------------------------------------------
-// Meanings editor (for the selected combination)
+// Meanings editor
 // ---------------------------------------------------------------------------
 
 function MeaningsEditor({
-  card1,
-  card2,
+  cartomancyType,
+  card1Id,
+  card2Id,
   meanings,
   sources,
   onChanged,
   showToast,
 }: {
-  card1: number;
-  card2: number;
-  meanings: LenormandMeaning[];
+  cartomancyType: string;
+  card1Id: number;
+  card2Id: number;
+  meanings: CombinationMeaning[];
   sources: ReferenceSource[];
   onChanged: () => void;
   showToast: (msg: string) => void;
@@ -186,16 +231,16 @@ function MeaningsEditor({
   const [draftSourceId, setDraftSourceId] = useState<number | ''>('');
   const [adding, setAdding] = useState(false);
 
-  // Drag-to-reorder
   const [draggedId, setDraggedId] = useState<number | null>(null);
   const [dragOverId, setDragOverId] = useState<number | null>(null);
 
   const handleAdd = async () => {
     if (!draftMeaning.trim()) return;
     try {
-      await createLenormandMeaning(
-        card1,
-        card2,
+      await createCombinationMeaning(
+        cartomancyType,
+        card1Id,
+        card2Id,
         draftMeaning,
         draftSourceId === '' ? null : draftSourceId,
       );
@@ -227,7 +272,7 @@ function MeaningsEditor({
     const combinationId = meanings[0]?.combination_id;
     if (combinationId == null) return;
     try {
-      await reorderLenormandMeanings(combinationId, ids);
+      await reorderCombinationMeanings(combinationId, ids);
       onChanged();
     } catch {
       showToast('Could not reorder meanings.');
@@ -237,14 +282,14 @@ function MeaningsEditor({
   };
 
   return (
-    <div className="lenormand-comb__editor">
+    <div className="combinations__editor">
       {meanings.length === 0 && !adding && (
-        <p className="lenormand-comb__empty">
+        <p className="combinations__empty">
           No meanings yet for this combination.
         </p>
       )}
 
-      <ul className="lenormand-comb__meanings">
+      <ul className="combinations__meanings">
         {meanings.map(m => (
           <MeaningRow
             key={m.id}
@@ -263,7 +308,7 @@ function MeaningsEditor({
       </ul>
 
       {adding ? (
-        <div className="lenormand-comb__meaning-add">
+        <div className="combinations__meaning-add">
           <RichTextEditor
             content={draftMeaning}
             onChange={setDraftMeaning}
@@ -273,28 +318,28 @@ function MeaningsEditor({
           <select
             value={draftSourceId}
             onChange={e => setDraftSourceId(e.target.value ? Number(e.target.value) : '')}
-            className="lenormand-comb__source-select"
+            className="combinations__source-select"
           >
             <option value="">— No source —</option>
             {sources.map(s => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
-          <div className="lenormand-comb__meaning-add-actions">
+          <div className="combinations__meaning-add-actions">
             <button onClick={() => { setAdding(false); setDraftMeaning(''); setDraftSourceId(''); }}>
               Cancel
             </button>
             <button
               onClick={handleAdd}
               disabled={!plainTextHasContent(draftMeaning)}
-              className="lenormand-comb__save-btn"
+              className="combinations__save-btn"
             >
               Add Meaning
             </button>
           </div>
         </div>
       ) : (
-        <button onClick={() => setAdding(true)} className="lenormand-comb__add-meaning-btn">
+        <button onClick={() => setAdding(true)} className="combinations__add-meaning-btn">
           + Add Meaning
         </button>
       )}
@@ -314,7 +359,7 @@ function MeaningRow({
   onDrop,
   onDragEnd,
 }: {
-  meaning: LenormandMeaning;
+  meaning: CombinationMeaning;
   sources: ReferenceSource[];
   onChanged: () => void;
   showToast: (msg: string) => void;
@@ -331,7 +376,6 @@ function MeaningRow({
     meaning.source_id ?? '',
   );
 
-  // Reset draft when the underlying record changes (e.g. from optimistic refresh)
   useEffect(() => {
     if (!editing) {
       setDraft(meaning.meaning);
@@ -341,7 +385,7 @@ function MeaningRow({
 
   const handleSave = async () => {
     try {
-      await updateLenormandMeaning(meaning.id, {
+      await updateCombinationMeaning(meaning.id, {
         meaning: draft,
         source_id: draftSourceId === '' ? null : draftSourceId,
       });
@@ -355,7 +399,7 @@ function MeaningRow({
   const handleDelete = async () => {
     if (!window.confirm('Delete this meaning?')) return;
     try {
-      await deleteLenormandMeaning(meaning.id);
+      await deleteCombinationMeaning(meaning.id);
       onChanged();
     } catch {
       showToast('Could not delete meaning.');
@@ -363,9 +407,9 @@ function MeaningRow({
   };
 
   const rowClass = [
-    'lenormand-comb__meaning-row',
-    draggedId === meaning.id ? 'lenormand-comb__meaning-row--dragging' : '',
-    dragOverId === meaning.id ? 'lenormand-comb__meaning-row--drag-over' : '',
+    'combinations__meaning-row',
+    draggedId === meaning.id ? 'combinations__meaning-row--dragging' : '',
+    dragOverId === meaning.id ? 'combinations__meaning-row--drag-over' : '',
   ].filter(Boolean).join(' ');
 
   return (
@@ -382,9 +426,9 @@ function MeaningRow({
       onDrop={e => { e.preventDefault(); onDrop(meaning.id); }}
       onDragEnd={onDragEnd}
     >
-      <span className="lenormand-comb__drag-handle" title="Drag to reorder">⋮⋮</span>
+      <span className="combinations__drag-handle" title="Drag to reorder">⋮⋮</span>
       {editing ? (
-        <div className="lenormand-comb__meaning-edit">
+        <div className="combinations__meaning-edit">
           <RichTextEditor
             content={draft}
             onChange={setDraft}
@@ -393,27 +437,27 @@ function MeaningRow({
           <select
             value={draftSourceId}
             onChange={e => setDraftSourceId(e.target.value ? Number(e.target.value) : '')}
-            className="lenormand-comb__source-select"
+            className="combinations__source-select"
           >
             <option value="">— No source —</option>
             {sources.map(s => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
-          <div className="lenormand-comb__meaning-edit-actions">
+          <div className="combinations__meaning-edit-actions">
             <button onClick={() => { setEditing(false); setDraft(meaning.meaning); setDraftSourceId(meaning.source_id ?? ''); }}>
               Cancel
             </button>
-            <button onClick={handleSave} className="lenormand-comb__save-btn">
+            <button onClick={handleSave} className="combinations__save-btn">
               Save
             </button>
           </div>
         </div>
       ) : (
-        <div className="lenormand-comb__meaning-content">
+        <div className="combinations__meaning-content">
           <RichTextViewer content={meaning.meaning} />
-          <div className="lenormand-comb__meaning-meta">
-            <span className="lenormand-comb__meaning-source">
+          <div className="combinations__meaning-meta">
+            <span className="combinations__meaning-source">
               {meaning.source_name || 'Unsourced'}
             </span>
             <button onClick={() => setEditing(true)}>Edit</button>
@@ -424,10 +468,6 @@ function MeaningRow({
     </li>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function plainTextHasContent(html: string): boolean {
   return html.replace(/<[^>]*>/g, '').trim().length > 0;

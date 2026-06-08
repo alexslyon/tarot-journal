@@ -326,9 +326,9 @@ export interface SourceAuthoringEntry {
   archetype_rank: string | null;
 }
 
-// === Lenormand Combinations ===
+// === Combinations ===
 
-export interface LenormandMeaning {
+export interface CombinationMeaning {
   id: number;
   combination_id: number;
   meaning: string;
@@ -336,6 +336,25 @@ export interface LenormandMeaning {
   source_name: string | null;
   sort_order: number;
   created_at: string;
+  // Hydrated by the meanings-list endpoint:
+  cartomancy_type?: string;
+  archetype_1_id?: number;
+  archetype_2_id?: number;
+  archetype_1_name?: string;
+  archetype_2_name?: string;
+}
+
+/** A pair (across any cartomancy type) that has at least one
+ *  authored meaning. Used by the viewer's "browse populated" list. */
+export interface PopulatedCombination {
+  combination_id: number;
+  archetype_1_id: number;
+  archetype_1_name: string;
+  archetype_1_rank: string | null;
+  archetype_2_id: number;
+  archetype_2_name: string;
+  archetype_2_rank: string | null;
+  meaning_count: number;
 }
 
 // === Archetype Languages ===

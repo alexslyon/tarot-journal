@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react';
 import CorrespondencesViewer from './sections/CorrespondencesViewer';
-import LenormandCombinationsViewer from './sections/LenormandCombinationsViewer';
+import CombinationsViewer from './sections/CombinationsViewer';
 import ArchetypesViewer from './sections/ArchetypesViewer';
 import './ReferenceTab.css';
 
 type ReferenceSectionId =
   | 'archetypes'
   | 'correspondences'
-  | 'lenormand-combinations';
+  | 'combinations';
 
 const SECTIONS: { id: ReferenceSectionId; label: string }[] = [
   { id: 'archetypes', label: 'Archetypes' },
   { id: 'correspondences', label: 'Correspondences' },
-  { id: 'lenormand-combinations', label: 'Lenormand Combinations' },
+  { id: 'combinations', label: 'Combinations' },
 ];
 
 interface ReferenceTabProps {
@@ -20,7 +20,11 @@ interface ReferenceTabProps {
   onNavigateToSettings?: (
     section: string,
     payload?: {
-      lenormandCombination?: { card_1: number; card_2: number };
+      combination?: {
+        cartomancy_type: string;
+        archetype_1_id: number;
+        archetype_2_id: number;
+      };
       archetypeId?: number;
       fieldId?: number;
     },
@@ -76,13 +80,13 @@ export default function ReferenceTab({
             }
           />
         )}
-        {activeSection === 'lenormand-combinations' && (
-          <LenormandCombinationsViewer
+        {activeSection === 'combinations' && (
+          <CombinationsViewer
             onEditCombination={
               onNavigateToSettings
-                ? (card_1, card_2) =>
-                    onNavigateToSettings('lenormand-combinations', {
-                      lenormandCombination: { card_1, card_2 },
+                ? (cartomancy_type, archetype_1_id, archetype_2_id) =>
+                    onNavigateToSettings('combinations', {
+                      combination: { cartomancy_type, archetype_1_id, archetype_2_id },
                     })
                 : undefined
             }

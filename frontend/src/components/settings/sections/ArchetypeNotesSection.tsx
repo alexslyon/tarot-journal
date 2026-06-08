@@ -149,9 +149,9 @@ export default function ArchetypeNotesSection({
         `${deps.archetype_source_entries} per-card entr${deps.archetype_source_entries === 1 ? 'y' : 'ies'} will be deleted along with it`,
       );
     }
-    if (deps.lenormand_meanings > 0) {
+    if (deps.combination_meanings > 0) {
       warningParts.push(
-        `${deps.lenormand_meanings} Lenormand combination meaning${deps.lenormand_meanings === 1 ? '' : 's'} will lose attribution`,
+        `${deps.combination_meanings} combination meaning${deps.combination_meanings === 1 ? '' : 's'} will lose attribution`,
       );
     }
     const warning = warningParts.length

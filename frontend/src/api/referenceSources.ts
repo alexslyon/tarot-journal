@@ -49,7 +49,7 @@ export async function deleteReferenceSource(
 export async function getReferenceSourceDependencies(
   sourceId: number,
 ): Promise<{
-  lenormand_meanings: number;
+  combination_meanings: number;
   archetype_source_entries: number;
   source_fields: number;
 }> {

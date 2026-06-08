@@ -172,12 +172,12 @@ function DeleteDialog({
   onDeleted: () => void;
   showToast: (msg: string) => void;
 }) {
-  const { data: deps = { lenormand_meanings: 0, archetype_source_entries: 0 } } =
+  const { data: deps = { combination_meanings: 0, archetype_source_entries: 0 } } =
     useQuery({
       queryKey: ['reference-source-deps', source.id],
       queryFn: () => getReferenceSourceDependencies(source.id),
     });
-  const total = deps.lenormand_meanings + deps.archetype_source_entries;
+  const total = deps.combination_meanings + deps.archetype_source_entries;
 
   const [reassignTo, setReassignTo] = useState<'unsource' | number>('unsource');
 
@@ -206,14 +206,14 @@ function DeleteDialog({
           <>
             <p>
               {total} entr{total === 1 ? 'y references' : 'ies reference'} this source
-              {deps.lenormand_meanings > 0 && (
-                <> ({deps.lenormand_meanings} Lenormand meaning{deps.lenormand_meanings === 1 ? '' : 's'}</>
+              {deps.combination_meanings > 0 && (
+                <> ({deps.combination_meanings} combination meaning{deps.combination_meanings === 1 ? '' : 's'}</>
               )}
-              {deps.lenormand_meanings > 0 && deps.archetype_source_entries > 0 && ', '}
+              {deps.combination_meanings > 0 && deps.archetype_source_entries > 0 && ', '}
               {deps.archetype_source_entries > 0 && (
                 <>{deps.archetype_source_entries} per-card entr{deps.archetype_source_entries === 1 ? 'y' : 'ies'}</>
               )}
-              {(deps.lenormand_meanings > 0 || deps.archetype_source_entries > 0) && ')'}.
+              {(deps.combination_meanings > 0 || deps.archetype_source_entries > 0) && ')'}.
               The entries themselves will not be deleted — pick what should
               happen to their source label:
             </p>
