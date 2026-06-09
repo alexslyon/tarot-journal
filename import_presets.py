@@ -1026,6 +1026,62 @@ def _build_grand_etteilla() -> dict:
 GRAND_ETTEILLA = _build_grand_etteilla()
 
 
+def _build_grand_etteilla_tarot_filenames() -> dict:
+    """Filename → archetype name for users who name their Etteilla
+    images with the standard tarot convention rather than the LWB's
+    1-78 ordering.
+
+    - Majors: `00`-`21` (file index = trump number - 1). `00` is
+      Chaos, `21` is The Monarch.
+    - Minors: single-letter suit prefix (w/c/s/p) + 01-14 for Ace
+      through King. Knave is wXX/cXX/sXX/pXX 11 since the Etteilla
+      doesn't have a Page.
+
+    Does NOT include the LWB 01-78 positional keys, because trump
+    numbering collides (LWB `01` is Chaos but tarot `01` would mean
+    Hiram). Folded archetype-name keys (e.g. `chaos`, `alchemist`)
+    are bundled in as a name-based fallback that works regardless
+    of filename convention.
+    """
+    import re as _re
+    mappings: dict[str, str] = {}
+
+    # Majors: 00 → trump 1 (Chaos), 21 → trump 22 (The Monarch)
+    for trump_num, name in enumerate(ETTEILLA_TRUMPS, start=1):
+        file_idx = trump_num - 1
+        mappings[f'{file_idx:02d}'] = name
+        mappings[str(file_idx)] = name
+
+    # Minors: look up by (rank_word, suit)
+    rank_to_index = {
+        'Ace': 1, 'Two': 2, 'Three': 3, 'Four': 4, 'Five': 5,
+        'Six': 6, 'Seven': 7, 'Eight': 8, 'Nine': 9, 'Ten': 10,
+        'Knave': 11, 'Knight': 12, 'Queen': 13, 'King': 14,
+    }
+    suit_prefix = {'Sticks': 'w', 'Cups': 'c', 'Swords': 's', 'Coins': 'p'}
+    for _pos, name, rank, suit in ETTEILLA_MINORS:
+        idx = rank_to_index[rank]
+        prefix = suit_prefix[suit]
+        mappings[f'{prefix}{idx:02d}'] = name
+        mappings[f'{prefix}{idx}'] = name
+
+    # Folded-name fallback — same keys as the LWB preset has, since
+    # they're independent of the numeric filename convention.
+    for name in ETTEILLA_TRUMPS:
+        mappings[_re.sub(r"[^a-z0-9]", "", name.lower())] = name
+        if name.startswith('The '):
+            mappings[_re.sub(r"[^a-z0-9]", "", name[4:].lower())] = name
+    for _pos, name, _rank, _suit in ETTEILLA_MINORS:
+        mappings[_re.sub(r"[^a-z0-9]", "", name.lower())] = name
+        if name.startswith('The '):
+            mappings[_re.sub(r"[^a-z0-9]", "", name[4:].lower())] = name
+
+    return mappings
+
+
+GRAND_ETTEILLA_TAROT_FILENAMES = _build_grand_etteilla_tarot_filenames()
+
+
 def _build_spanish_lookup() -> dict:
     out: dict[str, tuple] = {}
     pos = 1
@@ -1312,6 +1368,13 @@ BUILTIN_PRESETS = {
         "type": "Grand Etteilla Tarot",
         "mappings": GRAND_ETTEILLA,
         "description": "78-card Grand Etteilla. Trumps 1-22 use the deck's biblical / esoteric titles (Chaos, Hiram's Freemasonry, …, The Monarch). Each minor suit runs Queen, Knight, Knave, 10 down to Ace, King — where the King slot is the deck's named figure (Pope, Emperor, Egyptian Sultan, Alchemist). Coin number cards use distinct currency names. Filenames default to 01.jpg–78.jpg in LWB order.",
+        "suit_names": {"wands": "Sticks", "cups": "Cups", "swords": "Swords", "pentacles": "Coins"},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
+    },
+    "Grand Etteilla Tarot (78 cards, tarot filenames)": {
+        "type": "Grand Etteilla Tarot",
+        "mappings": GRAND_ETTEILLA_TAROT_FILENAMES,
+        "description": "Same Grand Etteilla card set as the other preset, but for image folders that follow the standard tarot filename convention: majors 00.jpg-21.jpg, sticks w01.jpg-w14.jpg, cups c01.jpg-c14.jpg, swords s01.jpg-s14.jpg, coins p01.jpg-p14.jpg. Knave maps to wXX/cXX/sXX/pXX 11.",
         "suit_names": {"wands": "Sticks", "cups": "Cups", "swords": "Swords", "pentacles": "Coins"},
         "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
