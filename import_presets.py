@@ -913,6 +913,119 @@ def _build_sibilla_lookup() -> dict:
 SIBILLA_NAME_TO_RSP = _build_sibilla_lookup()
 
 
+# Grand Etteilla Tarot (78 cards). Card 1-78 ordering matches the
+# deck's LWB. Each minor card carries its position-derived rank +
+# suit so existing tarot UI affordances (suit grouping, court vs
+# pip) still work.
+ETTEILLA_TRUMPS = [
+    'Chaos', "Hiram's Freemasonry", 'The Order of the Mopses',
+    'The Swimming Pool', 'The Gospel', 'The Sky', 'The Snake',
+    'Eve', 'Solomon', 'The Angel of the Apocalypse', 'David',
+    'Moses', 'The High Priest', 'The Evil Force', 'Aaron',
+    'The Last Judgement', 'Death', 'Judas', 'The Capitol',
+    'Nebuchadnezzar', 'Rehoboam', 'The Monarch',
+]
+
+# (pos, name, rank, suit) — kept in lock-step with the seeder in
+# database/core.py. Suits use "Sticks/Cups/Swords/Coins" per the LWB.
+ETTEILLA_MINORS = [
+    (23, 'The Queen',            'Queen',  'Sticks'),
+    (24, 'The Knight on Patrol', 'Knight', 'Sticks'),
+    (25, 'The Messenger',        'Knave',  'Sticks'),
+    (26, 'The Ten Sticks',       'Ten',    'Sticks'),
+    (27, 'The Nine Sticks',      'Nine',   'Sticks'),
+    (28, 'The Eight Sticks',     'Eight',  'Sticks'),
+    (29, 'The Seven Sticks',     'Seven',  'Sticks'),
+    (30, 'The Six Sticks',       'Six',    'Sticks'),
+    (31, 'The Five Sticks',      'Five',   'Sticks'),
+    (32, 'The Four Sticks',      'Four',   'Sticks'),
+    (33, 'The Three Sticks',     'Three',  'Sticks'),
+    (34, 'The Two Sticks',       'Two',    'Sticks'),
+    (35, 'The One Stick',        'Ace',    'Sticks'),
+    (36, 'The Pope',             'King',   'Sticks'),
+    (37, 'The Woman Pope',       'Queen',  'Cups'),
+    (38, 'The Roman Knight',     'Knight', 'Cups'),
+    (39, 'The Chamberlain',      'Knave',  'Cups'),
+    (40, 'The Ten Cups',         'Ten',    'Cups'),
+    (41, 'The Nine Cups',        'Nine',   'Cups'),
+    (42, 'The Eight Cups',       'Eight',  'Cups'),
+    (43, 'The Seven Cups',       'Seven',  'Cups'),
+    (44, 'The Six Cups',         'Six',    'Cups'),
+    (45, 'The Five Cups',        'Five',   'Cups'),
+    (46, 'The Four Cups',        'Four',   'Cups'),
+    (47, 'The Three Cups',       'Three',  'Cups'),
+    (48, 'The Two Cups',         'Two',    'Cups'),
+    (49, 'The One Cup',          'Ace',    'Cups'),
+    (50, 'The Emperor',          'King',   'Cups'),
+    (51, 'The Empress',          'Queen',  'Swords'),
+    (52, 'The Equerry',          'Knight', 'Swords'),
+    (53, 'The Soldier',          'Knave',  'Swords'),
+    (54, 'The Ten Swords',       'Ten',    'Swords'),
+    (55, 'The Nine Swords',      'Nine',   'Swords'),
+    (56, 'The Eight Swords',     'Eight',  'Swords'),
+    (57, 'The Seven Swords',     'Seven',  'Swords'),
+    (58, 'The Six Swords',       'Six',    'Swords'),
+    (59, 'The Five Swords',      'Five',   'Swords'),
+    (60, 'The Four Swords',      'Four',   'Swords'),
+    (61, 'The Three Swords',     'Three',  'Swords'),
+    (62, 'The Two Swords',       'Two',    'Swords'),
+    (63, 'The One Sword',        'Ace',    'Swords'),
+    (64, 'The Egyptian Sultan',  'King',   'Swords'),
+    (65, 'The Queen of Sheba',   'Queen',  'Coins'),
+    (66, 'The Tartar Horseman',  'Knight', 'Coins'),
+    (67, 'The Beggar',           'Knave',  'Coins'),
+    (68, 'The Ten Shields',      'Ten',    'Coins'),
+    (69, 'The Nine Sequins',     'Nine',   'Coins'),
+    (70, 'The Eight Ducats',     'Eight',  'Coins'),
+    (71, 'The Seven Florins',    'Seven',  'Coins'),
+    (72, 'The Six Guineas',      'Six',    'Coins'),
+    (73, 'The Five Ounces',      'Five',   'Coins'),
+    (74, 'The Four Shields',     'Four',   'Coins'),
+    (75, 'The Three Shields',    'Three',  'Coins'),
+    (76, 'The Two Denarius',     'Two',    'Coins'),
+    (77, 'The Golden Sun',       'Ace',    'Coins'),
+    (78, 'The Alchemist',        'King',   'Coins'),
+]
+
+
+def _build_etteilla_position_lookup():
+    """(name → (pos, rank, suit)) for both trumps and minors."""
+    out: dict[str, tuple] = {}
+    for i, name in enumerate(ETTEILLA_TRUMPS, start=1):
+        out[name] = (i, str(i), 'Major Arcana')
+    for pos, name, rank, suit in ETTEILLA_MINORS:
+        out[name] = (pos, rank, suit)
+    return out
+
+
+ETTEILLA_NAME_TO_PRS = _build_etteilla_position_lookup()
+
+
+def _build_grand_etteilla() -> dict:
+    """Filename → archetype name. Positional 01-78 + fold of the
+    archetype name as the lookup key. Image files normally just go
+    01.jpg through 78.jpg for the LWB ordering."""
+    import re as _re
+    mappings: dict[str, str] = {}
+    # Position keys for every card
+    for i, name in enumerate(ETTEILLA_TRUMPS, start=1):
+        mappings[f'{i:02d}'] = name
+        mappings[str(i)] = name
+        mappings[_re.sub(r"[^a-z0-9]", "", name.lower())] = name
+        if name.startswith('The '):
+            mappings[_re.sub(r"[^a-z0-9]", "", name[4:].lower())] = name
+    for pos, name, _rank, _suit in ETTEILLA_MINORS:
+        mappings[f'{pos:02d}'] = name
+        mappings[str(pos)] = name
+        mappings[_re.sub(r"[^a-z0-9]", "", name.lower())] = name
+        if name.startswith('The '):
+            mappings[_re.sub(r"[^a-z0-9]", "", name[4:].lower())] = name
+    return mappings
+
+
+GRAND_ETTEILLA = _build_grand_etteilla()
+
+
 def _build_spanish_lookup() -> dict:
     out: dict[str, tuple] = {}
     pos = 1
@@ -1193,6 +1306,13 @@ BUILTIN_PRESETS = {
         "mappings": SIBILLA_ITALIANA,
         "description": "52-card Vera Sibilla Italiana — playing-card structure (4 suits × 13 ranks) with each card bearing a divinatory name (Conversation for Ace of Hearts, Death for Five of Spades, etc.).",
         "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
+    },
+    "Grand Etteilla Tarot (78 cards)": {
+        "type": "Grand Etteilla Tarot",
+        "mappings": GRAND_ETTEILLA,
+        "description": "78-card Grand Etteilla. Trumps 1-22 use the deck's biblical / esoteric titles (Chaos, Hiram's Freemasonry, …, The Monarch). Each minor suit runs Queen, Knight, Knave, 10 down to Ace, King — where the King slot is the deck's named figure (Pope, Emperor, Egyptian Sultan, Alchemist). Coin number cards use distinct currency names. Filenames default to 01.jpg–78.jpg in LWB order.",
+        "suit_names": {"wands": "Sticks", "cups": "Cups", "swords": "Swords", "pentacles": "Coins"},
         "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
     "Playing Cards (52 cards)": {
@@ -1604,6 +1724,8 @@ class ImportPresets:
             return self._get_belline_metadata(card_name, sort_order)
         elif preset_type == 'Vera Sibilla Italiana':
             return self._get_sibilla_metadata(card_name, sort_order)
+        elif preset_type == 'Grand Etteilla Tarot':
+            return self._get_etteilla_metadata(card_name, sort_order)
         else:
             # Oracle
             return self._get_oracle_metadata(card_name, sort_order)
@@ -1645,6 +1767,8 @@ class ImportPresets:
             return self._get_belline_metadata_by_position(sort_order)
         elif preset_type == 'Vera Sibilla Italiana':
             return self._get_sibilla_metadata_by_position(sort_order)
+        elif preset_type == 'Grand Etteilla Tarot':
+            return self._get_etteilla_metadata_by_position(sort_order)
         else:
             # Oracle - just return basic info
             return {
@@ -2854,6 +2978,42 @@ class ImportPresets:
                 'rank': rank_word,
                 'suit': suit_name,
                 'sort_order': position,
+            }
+        return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': position}
+
+    def _get_etteilla_metadata(self, card_name: str, sort_order: int) -> dict:
+        """Metadata for a Grand Etteilla card. The LWB position 1-78
+        is the sort order; rank is the trump number (1-22) for trumps
+        and the suit-rank (Queen/Knight/Knave/Ten/.../Ace/King) for
+        minors. Suit is 'Major Arcana' for trumps and Sticks/Cups/
+        Swords/Coins for minors."""
+        prs = ETTEILLA_NAME_TO_PRS.get(card_name)
+        if prs:
+            pos, rank, suit = prs
+            return {
+                'archetype': card_name,
+                'rank': rank,
+                'suit': suit,
+                'sort_order': pos,
+            }
+        return {'archetype': card_name, 'rank': None, 'suit': None, 'sort_order': sort_order}
+
+    def _get_etteilla_metadata_by_position(self, position: int) -> dict:
+        if 1 <= position <= 22:
+            name = ETTEILLA_TRUMPS[position - 1]
+            return {
+                'archetype': name,
+                'rank': str(position),
+                'suit': 'Major Arcana',
+                'sort_order': position,
+            }
+        if 23 <= position <= 78:
+            pos, name, rank, suit = ETTEILLA_MINORS[position - 23]
+            return {
+                'archetype': name,
+                'rank': rank,
+                'suit': suit,
+                'sort_order': pos,
             }
         return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': position}
 
