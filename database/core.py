@@ -42,26 +42,113 @@ class CoreMixin:
         if db_path is None:
             db_path = _cfg.get("paths", "database", "tarot_journal.db")
         self.db_path = db_path
-        self.conn = sqlite3.connect(db_path, check_same_thread=False)
-        self.conn.row_factory = sqlite3.Row
-        self._in_transaction = False
 
-        # Thread safety: RLock allows the same thread to acquire multiple times
-        # (important because DB methods call other DB methods)
+        # Each Flask request thread gets its own sqlite3 connection.
+        # A single shared connection across the threadpool causes
+        # cursors and pending transactions from one request to bleed
+        # into another, which manifested as "after using the app for
+        # a while, entries and card-info pages start failing to load
+        # until the app is restarted" — restart cleared the leaked
+        # transaction state. With one connection per thread, sqlite's
+        # own file-level locking + WAL handles concurrent access
+        # safely, no cross-thread interference is possible.
+        self._thread_state = threading.local()
+        self._connection_registry: list[sqlite3.Connection] = []
+        self._connection_registry_lock = threading.Lock()
+        # Incremented when the DB file is swapped out from under us
+        # (e.g. after a restore). Each per-thread connection caches
+        # the epoch it was opened at; a mismatch invalidates the
+        # cached connection so the next access opens a fresh one.
+        self._connection_epoch = 0
+
+        # Kept for the transaction() context manager, which is still
+        # convenient for grouping multi-statement writes on the same
+        # thread. SQLite handles cross-thread serialization itself.
         self._lock = threading.RLock()
 
-        # WAL mode: allows reads during writes and protects against
-        # data corruption if the app crashes mid-write
-        self.conn.execute('PRAGMA journal_mode=WAL')
-
-        # Enable foreign key enforcement so CASCADE deletes work properly
-        # (SQLite has this OFF by default, which can leave orphaned records)
-        self.conn.execute('PRAGMA foreign_keys = ON')
-
+        # Bootstrap the main thread's connection now so _create_tables
+        # runs synchronously here (and any later background thread
+        # opens its own connection on first access).
+        _ = self.conn
         self._create_tables()
 
-        # Ensure the connection is closed if the app exits unexpectedly
+        # Ensure all per-thread connections are closed on exit.
         atexit.register(self.close)
+
+    # === Per-thread connection management ===
+
+    @property
+    def conn(self) -> sqlite3.Connection:
+        """Current thread's sqlite3 connection, lazily opened on
+        first access. Each thread keeps its own; sqlite handles
+        cross-connection coordination via WAL + busy_timeout."""
+        existing = getattr(self._thread_state, 'conn', None)
+        epoch = getattr(self._thread_state, 'epoch', -1)
+        if existing is not None and epoch == self._connection_epoch:
+            return existing
+        return self._open_thread_connection()
+
+    @conn.setter
+    def conn(self, value: sqlite3.Connection) -> None:
+        """Legacy assignment path used by import_export's restore
+        flow. Registers the new connection so close() reaches it,
+        and bumps the epoch so every other thread re-opens too."""
+        self._thread_state.conn = value
+        self._thread_state.epoch = self._connection_epoch
+        if value is not None:
+            with self._connection_registry_lock:
+                if value not in self._connection_registry:
+                    self._connection_registry.append(value)
+
+    def _open_thread_connection(self) -> sqlite3.Connection:
+        c = sqlite3.connect(self.db_path, check_same_thread=False)
+        c.row_factory = sqlite3.Row
+        # WAL is a database-level setting (persists once enabled), but
+        # each fresh connection still needs FK enforcement + a sensible
+        # busy_timeout so concurrent writers wait instead of erroring.
+        try:
+            c.execute('PRAGMA journal_mode=WAL')
+        except sqlite3.DatabaseError:
+            pass
+        c.execute('PRAGMA foreign_keys = ON')
+        c.execute('PRAGMA busy_timeout = 5000')
+        self._thread_state.conn = c
+        self._thread_state.epoch = self._connection_epoch
+        with self._connection_registry_lock:
+            self._connection_registry.append(c)
+        return c
+
+    @property
+    def _in_transaction(self) -> bool:
+        """Per-thread flag — each thread tracks its own transaction
+        state since each thread has its own connection."""
+        return getattr(self._thread_state, 'in_transaction', False)
+
+    @_in_transaction.setter
+    def _in_transaction(self, value: bool) -> None:
+        self._thread_state.in_transaction = value
+
+    def reopen_after_db_swap(self) -> None:
+        """Call after the underlying .db file has been replaced (e.g.
+        by a backup restore). Closes every per-thread connection that
+        points at the old file and bumps the epoch so any thread that
+        still holds a reference will lazy-reopen on next access. The
+        caller does NOT need to reassign self.conn — the property
+        will return a freshly-opened connection."""
+        with self._connection_registry_lock:
+            registered = list(self._connection_registry)
+            self._connection_registry.clear()
+        for c in registered:
+            try:
+                c.close()
+            except Exception as e:
+                logger.debug("Error closing pre-swap connection: %s", e)
+        # Drop this thread's reference too.
+        try:
+            del self._thread_state.conn
+        except AttributeError:
+            pass
+        self._connection_epoch += 1
 
     def _commit(self):
         """Commit unless inside a managed transaction (which commits at the end).
@@ -1922,11 +2009,29 @@ class CoreMixin:
                 ''', (new_rank, card_name))
 
     def close(self):
-        """Close the database connection (safe to call more than once)."""
-        if self.conn:
+        """Close every per-thread sqlite3 connection this Database
+        has opened. Safe to call more than once. Runs a WAL
+        checkpoint on the current thread's connection so the .db
+        file is left in a clean, fully-merged state."""
+        # Checkpoint via this thread's connection if we have one,
+        # before closing anything.
+        own_conn = getattr(self._thread_state, 'conn', None)
+        if own_conn is not None:
             try:
-                self.conn.execute('PRAGMA wal_checkpoint(TRUNCATE)')
-                self.conn.close()
+                own_conn.execute('PRAGMA wal_checkpoint(TRUNCATE)')
             except Exception as e:
-                logger.debug("Error closing database connection: %s", e)
-            self.conn = None
+                logger.debug("Error checkpointing WAL on close: %s", e)
+        with self._connection_registry_lock:
+            registered = list(self._connection_registry)
+            self._connection_registry.clear()
+        for c in registered:
+            try:
+                c.close()
+            except Exception as e:
+                logger.debug("Error closing a per-thread connection: %s", e)
+        # Drop this thread's reference too so a later call doesn't
+        # try to use the now-closed connection.
+        try:
+            del self._thread_state.conn
+        except AttributeError:
+            pass
