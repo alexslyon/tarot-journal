@@ -60,7 +60,7 @@ export interface BreakdownData {
   /** Correspondence field_names that have at least one value somewhere in
    *  the entry — used to populate the filter popover. Order follows
    *  CORRESPONDENCE_FIELDS. */
-  presentCorrespondenceFields: string[];
+  presentFilterFields: string[];
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -222,7 +222,7 @@ export function useEntryBreakdown(entry: JournalEntryFull | undefined): Breakdow
   });
 
   if (!entry || entry.readings.length === 0) {
-    return { isLoading: false, tabs: [], presentCorrespondenceFields: [] };
+    return { isLoading: false, tabs: [], presentFilterFields: [] };
   }
 
   // Build per-reading tabs.
@@ -246,13 +246,13 @@ export function useEntryBreakdown(entry: JournalEntryFull | undefined): Breakdow
   // aggregate is identical — UI hides tabs in that case.
   const tabs = perReading.length === 1 ? [perReading[0]] : [...perReading, aggregate];
 
-  // Which correspondence fields appeared anywhere in the entry — drives
-  // the filter popover. Use the aggregate's row keys (it sees all cards).
-  const presentCorrespondenceFields = aggregate.rows
-    .filter(r => r.key !== 'suit' && r.key !== 'rank')
-    .map(r => r.key);
+  // Which rows appeared anywhere in the entry — drives the filter
+  // popover. Use the aggregate's row keys (it sees all cards).
+  // Includes 'suit' and 'rank' alongside correspondence fields so
+  // they can be toggled too.
+  const presentFilterFields = aggregate.rows.map(r => r.key);
 
-  return { isLoading, tabs, presentCorrespondenceFields };
+  return { isLoading, tabs, presentFilterFields };
 }
 
 function readingCards(
