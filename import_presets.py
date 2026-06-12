@@ -802,7 +802,7 @@ SIBILLA_BY_SUIT = {
     ],
 }
 
-# Spanish Playing Cards (50 cards): 4 suits × 12 ranks + 2 Comodines.
+# Playing Cards (Spanish) (50 cards): 4 suits × 12 ranks + 2 Comodines.
 # Each card is keyed by single-letter suit prefix + 2-digit rank, by
 # full suit + rank, by name-only ("asdeoros"), and by global positional
 # index ("01"-"50"). The single-letter prefixes follow Spanish names
@@ -1311,7 +1311,7 @@ BUILTIN_PRESETS = {
         "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
     "Spanish Playing Cards (50 cards)": {
-        "type": "Spanish Playing Cards",
+        "type": "Playing Cards (Spanish)",
         "mappings": SPANISH_PLAYING_CARDS,
         "description": "Naipes Españoles — 4 suits (Oros, Copas, Espadas, Bastos) × 12 ranks (As, Dos…Sota, Caballo, Rey) + 2 Comodines.",
         "suit_names": {"oros": "Oros", "copas": "Copas", "espadas": "Espadas", "bastos": "Bastos"},
@@ -1741,7 +1741,7 @@ class ImportPresets:
             return self._get_playing_card_metadata(card_name, sort_order)
         elif preset_type == 'I Ching':
             return self._get_iching_metadata(card_name, sort_order)
-        elif preset_type == 'Spanish Playing Cards':
+        elif preset_type == 'Playing Cards (Spanish)':
             return self._get_spanish_playing_card_metadata(card_name, sort_order)
         elif preset_type == 'Oracle Belline':
             return self._get_belline_metadata(card_name, sort_order)
@@ -1784,7 +1784,7 @@ class ImportPresets:
             return self._get_playing_card_metadata_by_position(sort_order)
         elif preset_type == 'I Ching':
             return self._get_iching_metadata_by_position(sort_order)
-        elif preset_type == 'Spanish Playing Cards':
+        elif preset_type == 'Playing Cards (Spanish)':
             return self._get_spanish_playing_card_metadata_by_position(sort_order)
         elif preset_type == 'Oracle Belline':
             return self._get_belline_metadata_by_position(sort_order)
