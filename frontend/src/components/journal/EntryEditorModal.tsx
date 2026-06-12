@@ -58,6 +58,33 @@ function nowLocalISO(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/**
+ * Convert a stored reading_datetime to the naive-local YYYY-MM-DDTHH:MM
+ * format the <input type="datetime-local"> control expects.
+ *
+ * Older entries (and any saved through earlier builds of the "Now"
+ * button) recorded UTC ISO strings with a trailing `Z` or an explicit
+ * `+HH:MM` offset. Slicing those directly drops the offset and shifts
+ * the wall-clock by the user's TZ, which is the bug we're fixing.
+ * Detect any timezone marker, parse via `new Date()` (which respects
+ * it), then re-emit using the local clock.
+ *
+ * Values without a timezone marker are already naive local — pass
+ * them through after trimming to minute precision.
+ */
+function storedToLocalInput(stored: string): string {
+  const trimmed = stored.replace(' ', 'T');
+  const hasTimezone = /(Z|[+-]\d{2}:?\d{2})$/.test(trimmed);
+  if (hasTimezone) {
+    const d = new Date(trimmed);
+    if (!Number.isNaN(d.getTime())) {
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+  }
+  return trimmed.slice(0, 16);
+}
+
 export default function EntryEditorModal({ entryId, open, onClose, onSaved }: EntryEditorModalProps) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -113,7 +140,7 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
       const titleVal = existingEntry.title || '';
       const dateModeVal: 'now' | 'custom' = existingEntry.reading_datetime ? 'custom' : 'now';
       const datetimeVal = existingEntry.reading_datetime
-        ? existingEntry.reading_datetime.replace(' ', 'T').slice(0, 16)
+        ? storedToLocalInput(existingEntry.reading_datetime)
         : nowLocalISO();
       const locationVal = existingEntry.location_name || '';
       const locationLatVal = existingEntry.location_lat ?? null;
@@ -241,7 +268,7 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
   const handleSave = async () => {
     setSaving(true);
     try {
-      const datetime = dateMode === 'now' ? new Date().toISOString() : readingDatetime;
+      const datetime = dateMode === 'now' ? nowLocalISO() : readingDatetime;
       // Filter out any unselected querents (value 0)
       const validQuerentIds = querentIds.filter(id => id > 0);
 
