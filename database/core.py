@@ -562,10 +562,41 @@ class CoreMixin:
             )
         ''')
 
+        # One-time rename: "Spanish Playing Cards" → "Playing Cards (Spanish)".
+        # The cartomancy type name is stored as a string in every table
+        # that references it, so we update the cartomancy_types row plus
+        # every other column that carries the name. Runs BEFORE the
+        # default_types insert below so the new name's INSERT OR IGNORE
+        # doesn't collide on UNIQUE (we'd end up with both rows). Each
+        # UPDATE is wrapped in try/except OperationalError so tables that
+        # don't exist on older schemas (e.g. source_fields was added
+        # later) don't crash init. Idempotent — re-running on a DB that
+        # never had the old name is a no-op.
+        if self.get_setting('spanish_playing_cards_rename_done') != 'true':
+            renames = [
+                ('cartomancy_types', 'name'),
+                ('card_archetypes', 'cartomancy_type'),
+                ('spreads', 'cartomancy_type'),
+                ('correspondence_systems', 'cartomancy_type'),
+                ('reference_sources', 'cartomancy_type'),
+                ('source_cartomancy_types', 'cartomancy_type'),
+                ('source_fields', 'cartomancy_type'),
+                ('archetype_combinations', 'cartomancy_type'),
+            ]
+            for table, column in renames:
+                try:
+                    cursor.execute(
+                        f"UPDATE {table} SET {column} = 'Playing Cards (Spanish)' "
+                        f"WHERE {column} = 'Spanish Playing Cards'"
+                    )
+                except sqlite3.OperationalError:
+                    pass
+            self.set_setting('spanish_playing_cards_rename_done', 'true')
+
         # Insert default cartomancy types
         default_types = [
             'Tarot', 'Lenormand', 'Kipper', 'Playing Cards', 'Oracle', 'I Ching',
-            'Spanish Playing Cards', 'Oracle Belline', 'Vera Sibilla Italiana',
+            'Playing Cards (Spanish)', 'Oracle Belline', 'Vera Sibilla Italiana',
             'Grand Etteilla Tarot',
         ]
         for ct in default_types:
@@ -1151,12 +1182,12 @@ class CoreMixin:
                 self._migrate_tarot_numbering(cursor)
 
             # Top-up: if a cartomancy type's archetypes were never seeded
-            # (older DBs predate I Ching, Kipper, or Spanish Playing Cards),
+            # (older DBs predate I Ching, Kipper, or Playing Cards (Spanish)),
             # run the seeder to add the missing ones. INSERT OR IGNORE
             # skips existing rows.
             cursor.execute(
                 "SELECT COUNT(*) FROM card_archetypes WHERE cartomancy_type "
-                "IN ('I Ching', 'Kipper', 'Spanish Playing Cards', "
+                "IN ('I Ching', 'Kipper', 'Playing Cards (Spanish)', "
                 "    'Oracle Belline', 'Vera Sibilla Italiana', "
                 "    'Grand Etteilla Tarot')"
             )
@@ -1726,7 +1757,7 @@ class CoreMixin:
         # (1 = traditionally Red, 2 = traditionally Black).
         archetypes.append(('Joker', 'Playing Cards', 'Joker', None, 'playing'))
 
-        # Spanish Playing Cards (50): 4 suits × 12 ranks + 1 Comodín
+        # Playing Cards (Spanish) (50): 4 suits × 12 ranks + 1 Comodín
         # archetype (the deck's 2 physical Comodines share the slot via
         # variant_order, same pattern as the consolidated Joker above).
         spanish_ranks = [
@@ -1737,8 +1768,8 @@ class CoreMixin:
         for suit in spanish_suits:
             for rank in spanish_ranks:
                 name = f'{rank} de {suit}'
-                archetypes.append((name, 'Spanish Playing Cards', rank, suit, 'spanish-playing'))
-        archetypes.append(('Comodín', 'Spanish Playing Cards', 'Comodín', None, 'spanish-playing'))
+                archetypes.append((name, 'Playing Cards (Spanish)', rank, suit, 'spanish-playing'))
+        archetypes.append(('Comodín', 'Playing Cards (Spanish)', 'Comodín', None, 'spanish-playing'))
 
         # Oracle Belline (53). Position is the card's traditional number,
         # used as the rank string.

@@ -26,7 +26,7 @@ import './ArchetypeLanguagesSection.css';
 
 const SUPPORTED_TYPES = [
   'Tarot', 'Lenormand', 'Playing Cards', 'Kipper', 'I Ching',
-  'Spanish Playing Cards', 'Oracle Belline', 'Vera Sibilla Italiana',
+  'Playing Cards (Spanish)', 'Oracle Belline', 'Vera Sibilla Italiana',
 ];
 
 interface Props {
