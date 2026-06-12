@@ -575,8 +575,12 @@ class ImportExportMixin:
                 with zipfile.ZipFile(filepath, 'r') as zf:
                     zf.extractall(temp_path)
 
-                # Close current database connection
-                self.conn.close()
+                # Drop every per-thread connection — they all point
+                # at the file we're about to replace. reopen_after_db_swap
+                # closes them and bumps the epoch so subsequent self.conn
+                # accesses lazy-open fresh connections against the new
+                # file (with WAL, FK enforcement, and busy_timeout).
+                self.reopen_after_db_swap()
 
                 try:
                     # Replace database
@@ -610,9 +614,9 @@ class ImportExportMixin:
                                             shutil.copy2(img_file, dest_path)
                                             images_restored += 1
 
-                    # Reconnect to database
-                    self.conn = sqlite3.connect(self.db_path)
-                    self.conn.row_factory = sqlite3.Row
+                    # The new .db file is in place; nothing to do —
+                    # self.conn will lazy-open on the next access
+                    # thanks to the epoch bump above.
 
                     # Delete safety backup on success
                     if safety_backup_path and Path(safety_backup_path).exists():
@@ -633,9 +637,9 @@ class ImportExportMixin:
                     logger.error("Restore failed, rolling back to safety backup: %s", e)
                     if safety_backup_path and Path(safety_backup_path).exists():
                         shutil.copy2(safety_backup_path, self.db_path)
-                    # Reconnect to database
-                    self.conn = sqlite3.connect(self.db_path)
-                    self.conn.row_factory = sqlite3.Row
+                    # Bump the epoch again so the next access opens
+                    # a fresh connection against the rolled-back file.
+                    self.reopen_after_db_swap()
                     raise e
 
         except Exception as e:
