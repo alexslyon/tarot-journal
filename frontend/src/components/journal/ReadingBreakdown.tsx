@@ -102,7 +102,7 @@ export default function ReadingBreakdown({ entry }: Props) {
   // ── Don't render at all if the entry has no readings with cards ──
   if (data.tabs.length === 0) return null;
 
-  const presentFields = data.presentCorrespondenceFields;
+  const presentFields = data.presentFilterFields;
   const hasFilterableFields = presentFields.length > 0;
 
   function setAllVisible(value: boolean) {
@@ -201,10 +201,7 @@ export default function ReadingBreakdown({ entry }: Props) {
           {!data.isLoading && activeTab && (
             <div className="reading-breakdown__table">
               {activeTab.rows
-                .filter(row => {
-                  if (row.key === 'suit' || row.key === 'rank') return true;
-                  return isFieldVisible(row.key);
-                })
+                .filter(row => isFieldVisible(row.key))
                 .map(row => (
                   <div key={row.key} className="reading-breakdown__row">
                     <div className="reading-breakdown__row-label">{row.label}</div>
