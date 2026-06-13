@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getSpread } from '../../api/spreads';
-import { cardThumbnailUrl } from '../../api/images';
+import { cardFullUrl } from '../../api/images';
 import type { CardUsed, EntryReadingParsed, Spread, SpreadPosition } from '../../types';
 import './SpreadDisplay.css';
 
@@ -215,7 +215,7 @@ function CardSlot({
       {card.card_id ? (
         <img
           className="spread-display__card-img"
-          src={cardThumbnailUrl(card.card_id)}
+          src={cardFullUrl(card.card_id)}
           alt={card.current_name || card.name}
           style={getImageStyle()}
         />
