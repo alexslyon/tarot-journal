@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getArchetypeSourceEntries } from '../../../../api/referenceSources';
 import RichTextViewer from '../../../common/RichTextViewer';
@@ -49,6 +49,23 @@ export default function ArchetypeNotesTab({
     return [...bySource.values()];
   }, [entries]);
 
+  // Which sources are expanded. Default is "all collapsed" — clicking
+  // a header toggles. Resets whenever the archetype changes so the
+  // viewer doesn't carry expansion state across cards.
+  const [openSources, setOpenSources] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    setOpenSources(new Set());
+  }, [archetype.id]);
+
+  const toggleSource = (sourceId: number) => {
+    setOpenSources(prev => {
+      const next = new Set(prev);
+      if (next.has(sourceId)) next.delete(sourceId);
+      else next.add(sourceId);
+      return next;
+    });
+  };
+
   return (
     <div className="archetype-notes">
       <div className="archetype-notes__header">
@@ -77,22 +94,46 @@ export default function ArchetypeNotesTab({
               {onNavigateToSettings && ' Click "Edit in Settings" to add some.'}
             </p>
           ) : (
-            grouped.map(group => (
-              <section
-                key={group.sourceId}
-                className="archetype-notes__source"
-              >
-                <h4 className="archetype-notes__source-name">{group.sourceName}</h4>
-                {group.fields.map(e => (
-                  <div key={e.entry_id} className="archetype-notes__field">
-                    <h5 className="archetype-notes__field-name">{e.field_name}</h5>
-                    <div className="archetype-notes__field-content">
-                      <RichTextViewer content={e.content} />
+            grouped.map(group => {
+              const open = openSources.has(group.sourceId);
+              return (
+                <section
+                  key={group.sourceId}
+                  className="archetype-notes__source"
+                >
+                  <button
+                    type="button"
+                    className="archetype-notes__source-toggle"
+                    aria-expanded={open}
+                    onClick={() => toggleSource(group.sourceId)}
+                  >
+                    <span
+                      className={`archetype-notes__chevron ${
+                        open ? 'archetype-notes__chevron--open' : ''
+                      }`}
+                      aria-hidden="true"
+                    >
+                      ▸
+                    </span>
+                    <span className="archetype-notes__source-name">
+                      {group.sourceName}
+                    </span>
+                  </button>
+                  {open && (
+                    <div className="archetype-notes__source-body">
+                      {group.fields.map(e => (
+                        <div key={e.entry_id} className="archetype-notes__field">
+                          <h5 className="archetype-notes__field-name">{e.field_name}</h5>
+                          <div className="archetype-notes__field-content">
+                            <RichTextViewer content={e.content} />
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                ))}
-              </section>
-            ))
+                  )}
+                </section>
+              );
+            })
           )}
         </div>
       </div>
