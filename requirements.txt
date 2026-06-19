@@ -6,3 +6,9 @@ wxPython>=4.2.0
 # timezone string from stored lat/lon at generation time.
 kerykeion>=5.12
 timezonefinder>=8.2
+
+# PDF export of journal entries (renders an HTML/CSS template). Pulls in
+# system dependencies (pango, cairo, glib, gdk-pixbuf, libffi) which must
+# already be installed at the OS level — see README setup notes.
+weasyprint>=66.0
+jinja2>=3.1

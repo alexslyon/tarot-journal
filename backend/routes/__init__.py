@@ -23,6 +23,7 @@ def register_blueprints(app):
     # (archetype_notes routes removed — source entries now live on the
     # reference_sources blueprint.)
     from backend.routes.anki_export import anki_export_bp
+    from backend.routes.pdf_export import pdf_export_bp
     from backend.routes.geocode import geocode_bp
 
     app.register_blueprint(health_bp)
@@ -42,4 +43,5 @@ def register_blueprints(app):
     app.register_blueprint(combinations_bp)
     app.register_blueprint(archetype_languages_bp)
     app.register_blueprint(anki_export_bp)
+    app.register_blueprint(pdf_export_bp)
     app.register_blueprint(geocode_bp)

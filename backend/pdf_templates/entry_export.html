@@ -1,0 +1,195 @@
+{# Journal entry PDF export template (phase 1).
+
+   Variables in scope:
+     entry: hydrated entry dict from _hydrate_entry_for_pdf
+       .title, .reading_datetime, .created_at, .location_name
+       .content_html  (TipTap-stored HTML, passed through with |safe)
+       .querents      list of {name}
+       .querent_name  legacy single-querent name (fallback)
+       .reader_name
+       .tags          list of {name, color}
+       .readings      list, each with:
+         .id, .spread_id, .spread_name, .deck_name,
+         .cartomancy_type,
+         .cards_used:  list of {name, reversed, position_index,
+                                card_id, image_uri}
+         .spread:      {name, positions: [{x, y, width, height,
+                       label, rotation}]} or None
+       .follow_up_notes  list of {created_at, content}
+
+   Reading-breakdown / custom-fields / archetype fields / chart
+   sections land in later phases. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ entry.title or 'Journal Entry' }}</title>
+</head>
+<body>
+  <header class="entry-header">
+    {% if entry.title %}
+      <h1 class="entry-title">{{ entry.title }}</h1>
+    {% endif %}
+    <div class="entry-meta">
+      {% if entry.reading_datetime %}
+        <div class="entry-meta__row">
+          <span class="entry-meta__label">Date</span>
+          <span class="entry-meta__value">{{ entry.reading_datetime|replace('T', ' ')|truncate(16, end='') }}</span>
+        </div>
+      {% endif %}
+      {% if entry.location_name %}
+        <div class="entry-meta__row">
+          <span class="entry-meta__label">Location</span>
+          <span class="entry-meta__value">{{ entry.location_name }}</span>
+        </div>
+      {% endif %}
+      {% set querent_names = entry.querents|map(attribute='name')|select|list %}
+      {% if querent_names %}
+        <div class="entry-meta__row">
+          <span class="entry-meta__label">Querent{{ 's' if querent_names|length > 1 else '' }}</span>
+          <span class="entry-meta__value">{{ querent_names|join(', ') }}</span>
+        </div>
+      {% elif entry.querent_name %}
+        <div class="entry-meta__row">
+          <span class="entry-meta__label">Querent</span>
+          <span class="entry-meta__value">{{ entry.querent_name }}</span>
+        </div>
+      {% endif %}
+      {% if entry.reader_name %}
+        <div class="entry-meta__row">
+          <span class="entry-meta__label">Reader</span>
+          <span class="entry-meta__value">{{ entry.reader_name }}</span>
+        </div>
+      {% endif %}
+      {% if entry.tags %}
+        <div class="entry-meta__row">
+          <span class="entry-meta__label">Tags</span>
+          <span class="entry-meta__value">
+            {% for t in entry.tags %}{{ t.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+          </span>
+        </div>
+      {% endif %}
+    </div>
+  </header>
+
+  {% for reading in entry.readings %}
+    <section class="reading">
+      <h2 class="reading__title">
+        {{ reading.spread_name or 'Reading' }}
+        {% if reading.deck_name %}
+          <span class="reading__deck">— {{ reading.deck_name }}</span>
+        {% endif %}
+      </h2>
+
+      {# Spread layout. If positions exist we render an absolute-
+         positioned box matching SpreadDisplay's logic; otherwise a
+         simple row of cards. #}
+      {% set spread = reading.spread %}
+      {% if spread and spread.positions %}
+        {# Compute the spread's bounding box in spread-designer pixels
+           (max of x+width, y+height) so we can convert each slot's
+           position to percentages of that box. The wrapper sets the
+           aspect-ratio so the box scales to fit page width while
+           preserving proportions. #}
+        {% set canvas_w = namespace(v=0) %}
+        {% set canvas_h = namespace(v=0) %}
+        {% for p in spread.positions %}
+          {% if (p.x + p.width) > canvas_w.v %}{% set canvas_w.v = p.x + p.width %}{% endif %}
+          {% if (p.y + p.height) > canvas_h.v %}{% set canvas_h.v = p.y + p.height %}{% endif %}
+        {% endfor %}
+        {% if canvas_w.v < 1 %}{% set canvas_w.v = 1 %}{% endif %}
+        {% if canvas_h.v < 1 %}{% set canvas_h.v = 1 %}{% endif %}
+        <div class="spread"
+             style="padding-top: {{ (canvas_h.v / canvas_w.v * 100)|round(3) }}%;">
+          <div class="spread__canvas">
+            {% for pos in spread.positions %}
+              {% set card = reading.cards_used|selectattr('position_index', 'equalto', loop.index0)|first %}
+              <div class="spread__slot"
+                   style="left: {{ (pos.x / canvas_w.v * 100)|round(3) }}%;
+                          top: {{ (pos.y / canvas_h.v * 100)|round(3) }}%;
+                          width: {{ (pos.width / canvas_w.v * 100)|round(3) }}%;
+                          height: {{ (pos.height / canvas_h.v * 100)|round(3) }}%;
+                          {% if pos.rotation %}transform: rotate({{ pos.rotation }}deg);{% endif %}">
+                {% if card and card.image_uri %}
+                  <img class="spread__card {% if card.reversed %}spread__card--reversed{% endif %}"
+                       src="{{ card.image_uri }}"
+                       alt="{{ card.name|e }}" />
+                {% else %}
+                  <div class="spread__placeholder">
+                    {{ pos.label or loop.index }}
+                  </div>
+                {% endif %}
+                <span class="spread__label">{{ pos.label or loop.index }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% elif reading.cards_used %}
+        <div class="card-row">
+          {% for card in reading.cards_used %}
+            <div class="card-row__slot">
+              {% if card.image_uri %}
+                <img class="card-row__img {% if card.reversed %}card-row__img--reversed{% endif %}"
+                     src="{{ card.image_uri }}"
+                     alt="{{ card.name|e }}" />
+              {% else %}
+                <div class="card-row__placeholder">{{ loop.index }}</div>
+              {% endif %}
+              <div class="card-row__label">{{ card.name }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% if reading.cards_used %}
+        <table class="position-key">
+          <thead>
+            <tr>
+              <th class="position-key__pos">Position</th>
+              <th class="position-key__card">Card</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for card in reading.cards_used %}
+              {% set pos = spread.positions[card.position_index] if spread and spread.positions and card.position_index is not none and card.position_index < (spread.positions|length) else None %}
+              <tr>
+                <td class="position-key__pos">
+                  {{ pos.label if pos and pos.label else (card.position_index + 1) if card.position_index is not none else loop.index }}
+                </td>
+                <td class="position-key__card">
+                  {{ card.name }}{% if card.reversed %} <em>(reversed)</em>{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+    </section>
+  {% endfor %}
+
+  {% if entry.content_html %}
+    <section class="notes">
+      <h2 class="notes__title">Notes</h2>
+      <div class="notes__body rich-text">
+        {{ entry.content_html|safe }}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if entry.follow_up_notes %}
+    <section class="follow-ups">
+      <h2 class="follow-ups__title">Follow-up Notes</h2>
+      {% for note in entry.follow_up_notes %}
+        <article class="follow-up">
+          <div class="follow-up__date">
+            {{ note.created_at|replace('T', ' ')|truncate(16, end='') }}
+          </div>
+          <div class="follow-up__body rich-text">
+            {{ note.content|safe }}
+          </div>
+        </article>
+      {% endfor %}
+    </section>
+  {% endif %}
+</body>
+</html>

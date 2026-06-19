@@ -40,8 +40,17 @@ Tarot Journal is designed to support your practice, not replace it. It won't int
 
 3. **Install Python dependencies:**
    ```bash
-   pip install flask flask-cors Pillow
+   pip install -r requirements.txt
    ```
+
+   *PDF export note (macOS):* the PDF-export feature uses WeasyPrint,
+   which loads pango/cairo/glib at runtime. Install them with Homebrew
+   first if you don't already have them:
+   ```bash
+   brew install pango cairo glib gdk-pixbuf libffi
+   ```
+   On Linux these come from your distro's package manager (`apt install
+   libpango-1.0-0 libcairo2 libgdk-pixbuf2.0-0` on Debian/Ubuntu).
 
 4. **Install Node.js dependencies** (root and frontend):
    ```bash
