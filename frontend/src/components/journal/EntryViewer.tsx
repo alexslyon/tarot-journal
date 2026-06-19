@@ -9,6 +9,7 @@ import ReadingBreakdown from './ReadingBreakdown';
 import ChartModal from '../astrology/ChartModal';
 import CardViewModal from '../library/CardViewModal';
 import CardEditModal from '../library/CardEditModal';
+import PdfExportModal from './PdfExportModal';
 import type { JournalEntryFull } from '../../types';
 import './EntryViewer.css';
 
@@ -26,6 +27,7 @@ export default function EntryViewer({ entryId, onEdit, onDeleted }: EntryViewerP
   const [viewingCardId, setViewingCardId] = useState<number | null>(null);
   const [editingCardId, setEditingCardId] = useState<number | null>(null);
   const [chartOpen, setChartOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const { data: entry, isLoading, error } = useQuery<JournalEntryFull>({
     queryKey: ['entry', entryId],
@@ -80,6 +82,13 @@ export default function EntryViewer({ entryId, onEdit, onDeleted }: EntryViewerP
           <div className="entry-viewer__actions">
             <button onClick={() => setChartOpen(true)} title="Open event chart">
               View Chart
+            </button>
+            <button
+              onClick={() => setExportOpen(true)}
+              title="Export this entry as a PDF"
+              disabled={!entry.readings?.length}
+            >
+              Export PDF
             </button>
             <button onClick={() => onEdit(entryId)}>Edit</button>
             <button className="danger" onClick={handleDelete}>Delete</button>
@@ -193,6 +202,13 @@ export default function EntryViewer({ entryId, onEdit, onDeleted }: EntryViewerP
         open={chartOpen}
         onClose={() => setChartOpen(false)}
         source={{ type: 'entry', id: entryId, name: entry.title }}
+      />
+
+      {/* PDF Export Modal */}
+      <PdfExportModal
+        entry={entry}
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
       />
     </div>
   );

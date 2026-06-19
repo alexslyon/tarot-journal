@@ -1,0 +1,284 @@
+/* Print-friendly stylesheet for the journal entry PDF export.
+   A4 portrait, generous margins, dark text on white. The layout
+   relies on CSS absolute positioning + a flex/aspect-ratio
+   wrapper for the spread image, which WeasyPrint handles cleanly.
+   We keep this CSS self-contained: no @font-face / no external
+   assets — WeasyPrint defaults to the system serif/sans-serif. */
+
+@page {
+  size: A4 portrait;
+  margin: 20mm;
+}
+
+html, body {
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 10pt;
+  line-height: 1.45;
+  color: #1a1a1a;
+  background: #ffffff;
+  -weasy-anchor: none;
+}
+
+/* === Entry header === */
+
+.entry-header {
+  border-bottom: 1px solid #d0d0d0;
+  padding-bottom: 12pt;
+  margin-bottom: 14pt;
+}
+
+.entry-title {
+  font-size: 22pt;
+  margin: 0 0 8pt;
+  font-weight: 600;
+}
+
+.entry-meta {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 12pt;
+  row-gap: 2pt;
+  font-size: 10pt;
+}
+
+.entry-meta__row {
+  display: contents;
+}
+
+.entry-meta__label {
+  color: #555;
+  text-transform: uppercase;
+  font-size: 8pt;
+  letter-spacing: 0.5pt;
+  padding-top: 2pt;
+}
+
+.entry-meta__value {
+  color: #1a1a1a;
+}
+
+/* === Reading section === */
+
+.reading {
+  page-break-inside: avoid;
+  margin-top: 14pt;
+}
+
+.reading__title {
+  font-size: 14pt;
+  margin: 0 0 8pt;
+  font-weight: 600;
+}
+
+.reading__deck {
+  font-weight: 400;
+  font-size: 11pt;
+  color: #555;
+}
+
+/* === Spread layout ===
+   The spread sits in an aspect-ratio-locked wrapper sized to the
+   printable width. The inner .spread__canvas is the raw
+   coordinate system; we scale it down with `transform: scale()`
+   using CSS variable max-width so the original (x, y, w, h)
+   pixel values from the spread designer map cleanly. Easier
+   approach for phase 1: render at native pixel coords inside
+   a fixed-height box and let WeasyPrint shrink-to-fit via
+   width: 100% on the canvas. */
+
+/* The aspect ratio comes from inline `padding-top: H/W * 100%`,
+   which carves out a box whose height tracks its width. The
+   canvas absolutely positions on top of that padded area so
+   slot percentages (left/top/width/height) refer to it. */
+.spread {
+  position: relative;
+  width: 100%;
+  height: 0;
+  margin: 0 0 10pt;
+}
+
+.spread__canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.spread__slot {
+  position: absolute;
+}
+
+.spread__card {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.spread__card--reversed {
+  transform: rotate(180deg);
+}
+
+.spread__placeholder {
+  width: 100%;
+  height: 100%;
+  background: #eee;
+  border: 1px dashed #aaa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8pt;
+  color: #555;
+}
+
+.spread__label {
+  position: absolute;
+  left: 2pt;
+  top: 2pt;
+  font-size: 7pt;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 1pt 3pt;
+  border-radius: 2pt;
+  color: #1a1a1a;
+}
+
+/* === Simple card row fallback === */
+
+.card-row {
+  display: flex;
+  gap: 8pt;
+  flex-wrap: wrap;
+  margin: 0 0 10pt;
+}
+
+.card-row__slot {
+  width: 80pt;
+  text-align: center;
+}
+
+.card-row__img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 3pt;
+}
+
+.card-row__img--reversed {
+  transform: rotate(180deg);
+}
+
+.card-row__placeholder {
+  width: 80pt;
+  height: 120pt;
+  background: #eee;
+  border: 1px dashed #aaa;
+}
+
+.card-row__label {
+  margin-top: 4pt;
+  font-size: 8pt;
+  color: #333;
+}
+
+/* === Position key === */
+
+.position-key {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 4pt 0 0;
+  font-size: 10pt;
+  page-break-inside: auto;
+}
+
+.position-key th,
+.position-key td {
+  text-align: left;
+  padding: 4pt 8pt;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.position-key th {
+  background: #f4f4f4;
+  font-weight: 600;
+  font-size: 9pt;
+  text-transform: uppercase;
+  letter-spacing: 0.3pt;
+}
+
+.position-key__pos {
+  width: 28%;
+  color: #555;
+}
+
+/* === Notes / follow-ups === */
+
+.notes,
+.follow-ups {
+  margin-top: 18pt;
+  page-break-inside: auto;
+}
+
+.notes__title,
+.follow-ups__title {
+  font-size: 13pt;
+  margin: 0 0 6pt;
+  font-weight: 600;
+  border-bottom: 1px solid #d0d0d0;
+  padding-bottom: 3pt;
+}
+
+.follow-up {
+  margin-top: 10pt;
+  page-break-inside: avoid;
+}
+
+.follow-up__date {
+  font-size: 8pt;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.4pt;
+  margin-bottom: 2pt;
+}
+
+/* === Rich-text content (TipTap output) === */
+
+.rich-text p {
+  margin: 0 0 6pt;
+}
+
+.rich-text h1,
+.rich-text h2,
+.rich-text h3 {
+  margin: 12pt 0 4pt;
+  font-weight: 600;
+}
+
+.rich-text h1 { font-size: 13pt; }
+.rich-text h2 { font-size: 12pt; }
+.rich-text h3 { font-size: 11pt; }
+
+.rich-text ul,
+.rich-text ol {
+  margin: 0 0 6pt 18pt;
+  padding: 0;
+}
+
+.rich-text li {
+  margin: 0 0 2pt;
+}
+
+.rich-text strong { font-weight: 600; }
+.rich-text em { font-style: italic; }
+
+.rich-text a {
+  color: #1a1a1a;
+  text-decoration: underline;
+}
+
+.rich-text blockquote {
+  margin: 6pt 0;
+  padding-left: 8pt;
+  border-left: 2pt solid #ccc;
+  color: #555;
+}

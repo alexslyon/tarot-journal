@@ -17,12 +17,23 @@ function startFlask() {
   const venvPython = path.join(PROJECT_ROOT, '.venv', 'bin', 'python3');
   const pythonCmd = require('fs').existsSync(venvPython) ? venvPython : 'python3';
 
+  // WeasyPrint (used by the PDF export) is a CFFI wrapper around
+  // pango/cairo/glib. macOS's dyld doesn't include Homebrew's lib
+  // dir by default, so prepend it (alongside the user's own value)
+  // so libgobject-2.0 etc. resolve at import time.
+  const dyldExtra = '/opt/homebrew/lib:/usr/local/lib';
+  const dyldExisting = process.env.DYLD_FALLBACK_LIBRARY_PATH || '';
+  const dyldFallback = dyldExisting
+    ? `${dyldExtra}:${dyldExisting}`
+    : dyldExtra;
+
   flaskProcess = spawn(pythonCmd, [runScript], {
     cwd: PROJECT_ROOT,
     env: {
       ...process.env,
       FLASK_PORT: String(FLASK_PORT),
       PYTHONDONTWRITEBYTECODE: '1',
+      DYLD_FALLBACK_LIBRARY_PATH: dyldFallback,
     },
     stdio: ['pipe', 'pipe', 'pipe'],
   });

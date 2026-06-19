@@ -1,0 +1,148 @@
+.pdf-export-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.pdf-export-modal {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.pdf-export-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pdf-export-modal__header h2 {
+  margin: 0;
+  font-size: 1.05em;
+}
+
+.pdf-export-modal__close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.4em;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.pdf-export-modal__close:hover {
+  color: var(--text-primary);
+}
+
+.pdf-export-modal__body {
+  padding: 14px 18px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.pdf-export-modal__section {
+  margin-bottom: 14px;
+}
+
+.pdf-export-modal__section h3 {
+  margin: 0 0 6px;
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-secondary);
+}
+
+.pdf-export-modal__section--disabled {
+  opacity: 0.55;
+}
+
+.pdf-export-modal__list,
+.pdf-export-modal__static-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pdf-export-modal__list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.pdf-export-modal__list input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+}
+
+.pdf-export-modal__static-list li {
+  padding: 2px 0;
+  color: var(--text-secondary);
+  font-size: 0.95em;
+}
+
+.pdf-export-modal__static-list li::before {
+  content: '• ';
+  margin-right: 4px;
+}
+
+.pdf-export-modal__error {
+  margin: 6px 0 0;
+  color: var(--warning, #e0a800);
+  font-size: 0.9em;
+}
+
+.pdf-export-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+}
+
+.pdf-export-modal__cancel,
+.pdf-export-modal__generate {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-size: 0.95em;
+  cursor: pointer;
+}
+
+.pdf-export-modal__cancel {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.pdf-export-modal__cancel:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pdf-export-modal__generate {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: var(--accent);
+}
+
+.pdf-export-modal__generate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
