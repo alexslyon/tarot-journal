@@ -206,8 +206,15 @@ html, body {
   letter-spacing: 0.3pt;
 }
 
+.position-key__key {
+  width: 8%;
+  text-align: center;
+  color: #555;
+  font-variant-numeric: tabular-nums;
+}
+
 .position-key__pos {
-  width: 28%;
+  width: 38%;
   color: #555;
 }
 
