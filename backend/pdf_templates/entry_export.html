@@ -116,10 +116,13 @@
                        alt="{{ card.name|e }}" />
                 {% else %}
                   <div class="spread__placeholder">
-                    {{ pos.label or loop.index }}
+                    {{ pos.key or loop.index }}
                   </div>
                 {% endif %}
-                <span class="spread__label">{{ pos.label or loop.index }}</span>
+                {# Overlay the short key (1, 2, …) so it stays
+                   legible at print size; the full position name
+                   lives in the position-key table below. #}
+                <span class="spread__label">{{ pos.key or loop.index }}</span>
               </div>
             {% endfor %}
           </div>
@@ -145,6 +148,7 @@
         <table class="position-key">
           <thead>
             <tr>
+              <th class="position-key__key">Key</th>
               <th class="position-key__pos">Position</th>
               <th class="position-key__card">Card</th>
             </tr>
@@ -153,8 +157,11 @@
             {% for card in reading.cards_used %}
               {% set pos = spread.positions[card.position_index] if spread and spread.positions and card.position_index is not none and card.position_index < (spread.positions|length) else None %}
               <tr>
+                <td class="position-key__key">
+                  {% if pos and pos.key %}{{ pos.key }}{% elif card.position_index is not none %}{{ card.position_index + 1 }}{% else %}{{ loop.index }}{% endif %}
+                </td>
                 <td class="position-key__pos">
-                  {{ pos.label if pos and pos.label else (card.position_index + 1) if card.position_index is not none else loop.index }}
+                  {{ pos.label if pos and pos.label else '—' }}
                 </td>
                 <td class="position-key__card">
                   {{ card.name }}{% if card.reversed %} <em>(reversed)</em>{% endif %}
