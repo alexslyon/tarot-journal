@@ -135,6 +135,28 @@
   padding-left: 10px;
 }
 
+.pdf-export-modal__nested-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.pdf-export-modal__nested-group {
+  margin-left: 24px;
+}
+
+.pdf-export-modal__nested-group-title {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.pdf-export-modal__nested-group .pdf-export-modal__list--nested {
+  margin-left: 0;
+}
+
 .pdf-export-modal__footer {
   display: flex;
   justify-content: flex-end;

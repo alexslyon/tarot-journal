@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { exportEntryPdf } from '../../api/pdfExport';
+import { useQuery } from '@tanstack/react-query';
+import {
+  exportEntryPdf,
+  getExportOptions,
+  type ArchetypeFieldOption,
+} from '../../api/pdfExport';
 import { useToast } from '../../context/ToastContext';
 import { useEntryBreakdown } from '../../utils/readingBreakdown';
 import { CORRESPONDENCE_FIELD_LABELS } from '../../types';
@@ -13,11 +18,9 @@ interface Props {
 }
 
 /**
- * Resolve the default sub-toggle state for the Correspondence
- * Breakdown section. Per the planning doc: prefer the visibility
- * the user already saved for this entry's in-app Reading Breakdown
- * (so opening the export modal feels like "what I was just
- * looking at"), otherwise default to every present field enabled.
+ * Default sub-toggles for the Correspondence Breakdown section.
+ * Prefer the visibility the user already saved for this entry's
+ * in-app Reading Breakdown; otherwise enable every present field.
  */
 function defaultEnabledFields(
   presentFilterFields: string[],
@@ -26,7 +29,6 @@ function defaultEnabledFields(
   if (!savedSettings) {
     return new Set(presentFilterFields);
   }
-  // Reading Breakdown convention: missing key = visible.
   const visible = savedSettings.visible || {};
   return new Set(
     presentFilterFields.filter(f => visible[f] !== false),
@@ -60,12 +62,11 @@ function labelForField(field: string): string {
 }
 
 /**
- * Phase 2 of the journal PDF export modal. Reading selection
- * plus a master "include correspondence breakdown" toggle with
- * a sub-checklist of every field the in-app Reading Breakdown
- * surfaces for this entry. The remaining optional sections
- * (custom fields, archetype fields, chart) stay stubbed as
- * "coming soon" placeholders for later phases.
+ * Phase 3 of the journal PDF export modal. Reading selection,
+ * the correspondence breakdown master + sub-toggles, AND the new
+ * card-custom-fields and archetype-reference master toggles with
+ * their own sub-checklists. The astrological event chart toggle
+ * remains stubbed for phase 4.
  */
 export default function PdfExportModal({ entry, open, onClose }: Props) {
   const { showToast } = useToast();
@@ -73,8 +74,19 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
     new Set(),
   );
   const [generating, setGenerating] = useState(false);
+
+  // Correspondence breakdown state (phase 2).
   const [includeCorrespondences, setIncludeCorrespondences] = useState(false);
   const [enabledFields, setEnabledFields] = useState<Set<string>>(new Set());
+
+  // Phase 3 state.
+  const [includeCustomFields, setIncludeCustomFields] = useState(false);
+  const [enabledCustomFields, setEnabledCustomFields] = useState<Set<string>>(
+    new Set(),
+  );
+  const [includeArchetypeFields, setIncludeArchetypeFields] = useState(false);
+  const [enabledArchetypeFieldIds, setEnabledArchetypeFieldIds] =
+    useState<Set<number>>(new Set());
 
   const breakdown = useEntryBreakdown(open ? entry : undefined);
   const presentFilterFields = breakdown.presentFilterFields;
@@ -90,10 +102,12 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
     if (open) {
       setSelectedReadings(new Set(entry.readings.map(r => r.id)));
       setIncludeCorrespondences(false);
+      setIncludeCustomFields(false);
+      setIncludeArchetypeFields(false);
     }
   }, [open, entry.id, entry.readings]);
 
-  // Re-seed sub-toggle defaults once the breakdown data resolves
+  // Re-seed breakdown sub-toggles once the breakdown data resolves
   // (queries fan out per card so it can take a render or two).
   useEffect(() => {
     if (!open) return;
@@ -102,14 +116,55 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, entry.id, presentFilterFields.join('|')]);
 
+  // Fetch available custom + archetype fields whenever the reading
+  // selection changes — the server scopes both lists to whatever
+  // readings are currently in. Reuses the export-options endpoint.
+  const readingsKey = useMemo(
+    () => [...selectedReadings].sort((a, b) => a - b),
+    [selectedReadings],
+  );
+  const { data: discovery, isLoading: optionsLoading } = useQuery({
+    queryKey: ['pdf-export-options', entry.id, readingsKey],
+    queryFn: () => getExportOptions(entry.id, readingsKey),
+    enabled: open && readingsKey.length > 0,
+  });
+
+  // Default sub-toggles to "all present" each time the discovery
+  // response changes — per the planning doc.
+  useEffect(() => {
+    if (!discovery) return;
+    setEnabledCustomFields(new Set(discovery.custom_fields));
+    setEnabledArchetypeFieldIds(
+      new Set(discovery.archetype_fields.map(f => f.field_id)),
+    );
+  }, [discovery]);
+
   const hasMultipleReadings = entry.readings.length > 1;
   const noneSelected = selectedReadings.size === 0;
   const hasFilterableBreakdown = presentFilterFields.length > 0;
+  const customFieldsAvailable = (discovery?.custom_fields.length ?? 0) > 0;
+  const archetypeFieldsAvailable = (discovery?.archetype_fields.length ?? 0) > 0;
 
   const orderedReadings = useMemo(
     () => [...entry.readings].sort((a, b) => a.id - b.id),
     [entry.readings],
   );
+
+  // Group archetype fields by source so the checklist shows
+  // "Pollack — Upright Meaning" style rows under each source header.
+  const archetypeFieldsBySource = useMemo(() => {
+    if (!discovery) return [];
+    const grouped = new Map<number, { source_name: string; fields: ArchetypeFieldOption[] }>();
+    for (const f of discovery.archetype_fields) {
+      let bucket = grouped.get(f.source_id);
+      if (!bucket) {
+        bucket = { source_name: f.source_name, fields: [] };
+        grouped.set(f.source_id, bucket);
+      }
+      bucket.fields.push(f);
+    }
+    return [...grouped.values()];
+  }, [discovery]);
 
   const toggleReading = (id: number) => {
     setSelectedReadings(prev => {
@@ -129,6 +184,24 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
     });
   };
 
+  const toggleCustomField = (name: string) => {
+    setEnabledCustomFields(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const toggleArchetypeField = (id: number) => {
+    setEnabledArchetypeFieldIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const handleGenerate = async () => {
     if (noneSelected) return;
     setGenerating(true);
@@ -139,6 +212,17 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
         correspondence_types:
           includeCorrespondences && hasFilterableBreakdown
             ? [...enabledFields]
+            : undefined,
+        include_custom_fields: includeCustomFields && customFieldsAvailable,
+        custom_fields:
+          includeCustomFields && customFieldsAvailable
+            ? [...enabledCustomFields]
+            : undefined,
+        include_archetype_fields:
+          includeArchetypeFields && archetypeFieldsAvailable,
+        archetype_fields:
+          includeArchetypeFields && archetypeFieldsAvailable
+            ? [...enabledArchetypeFieldIds]
             : undefined,
       });
       showToast('PDF downloaded');
@@ -249,29 +333,94 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
             )}
           </section>
 
-          {/* Remaining optional sections — phases 3 & 4. */}
+          <section className="pdf-export-modal__section">
+            <h3>Card custom fields</h3>
+            <label className="pdf-export-modal__master">
+              <input
+                type="checkbox"
+                checked={includeCustomFields}
+                onChange={e => setIncludeCustomFields(e.target.checked)}
+                disabled={!customFieldsAvailable}
+              />
+              <span>Include card custom fields</span>
+            </label>
+            {!customFieldsAvailable && (
+              <p className="pdf-export-modal__hint">
+                {optionsLoading
+                  ? 'Loading available fields…'
+                  : 'No custom fields are populated on the cards in this entry.'}
+              </p>
+            )}
+            {includeCustomFields && customFieldsAvailable && (
+              <ul className="pdf-export-modal__list pdf-export-modal__list--nested">
+                {discovery!.custom_fields.map(name => (
+                  <li key={name}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={enabledCustomFields.has(name)}
+                        onChange={() => toggleCustomField(name)}
+                      />
+                      <span>{name}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="pdf-export-modal__section">
+            <h3>Archetype reference info</h3>
+            <label className="pdf-export-modal__master">
+              <input
+                type="checkbox"
+                checked={includeArchetypeFields}
+                onChange={e => setIncludeArchetypeFields(e.target.checked)}
+                disabled={!archetypeFieldsAvailable}
+              />
+              <span>Include archetype reference info</span>
+            </label>
+            {!archetypeFieldsAvailable && (
+              <p className="pdf-export-modal__hint">
+                {optionsLoading
+                  ? 'Loading available fields…'
+                  : 'No archetype reference entries authored for the cards in this entry.'}
+              </p>
+            )}
+            {includeArchetypeFields && archetypeFieldsAvailable && (
+              <div className="pdf-export-modal__nested-groups">
+                {archetypeFieldsBySource.map(group => (
+                  <div key={group.source_name} className="pdf-export-modal__nested-group">
+                    <div className="pdf-export-modal__nested-group-title">
+                      {group.source_name}
+                    </div>
+                    <ul className="pdf-export-modal__list pdf-export-modal__list--nested">
+                      {group.fields.map(f => (
+                        <li key={f.field_id}>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={enabledArchetypeFieldIds.has(f.field_id)}
+                              onChange={() => toggleArchetypeField(f.field_id)}
+                            />
+                            <span>{f.field_name}</span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Phase 4 — astrological chart. */}
           <section className="pdf-export-modal__section pdf-export-modal__section--disabled">
-            <h3>Optional sections (coming soon)</h3>
-            <ul className="pdf-export-modal__list">
-              <li>
-                <label>
-                  <input type="checkbox" disabled />
-                  <span>Card custom fields</span>
-                </label>
-              </li>
-              <li>
-                <label>
-                  <input type="checkbox" disabled />
-                  <span>Archetype reference info</span>
-                </label>
-              </li>
-              <li>
-                <label>
-                  <input type="checkbox" disabled />
-                  <span>Astrological event chart</span>
-                </label>
-              </li>
-            </ul>
+            <h3>Astrological event chart (coming soon)</h3>
+            <label className="pdf-export-modal__master">
+              <input type="checkbox" disabled />
+              <span>Include event chart</span>
+            </label>
           </section>
         </div>
 

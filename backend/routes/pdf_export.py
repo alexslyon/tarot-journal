@@ -33,6 +33,13 @@ from backend.routes.entries import _enrich_cards_with_ids
 from database.correspondences import CORRESPONDENCE_FIELDS
 
 
+# Custom fields stored before the card_custom_fields table existed
+# include I Ching language fields which the CardViewModal hides from
+# the Custom Fields section because they're rendered elsewhere. Mirror
+# that exclusion here so the PDF doesn't duplicate them.
+_HIDDEN_CUSTOM_FIELD_KEYS = {'traditional_chinese', 'simplified_chinese'}
+
+
 # Display labels — mirrors frontend/src/types/index.ts:CORRESPONDENCE_FIELD_LABELS
 # so the PDF rows read the same as the in-app Reading Breakdown.
 _CORRESPONDENCE_LABELS = {
@@ -50,6 +57,96 @@ _CORRESPONDENCE_LABELS = {
 }
 
 _TAROT_MINOR_OF_RE = re.compile(r'^(.+?) of (.+)$')
+
+
+def _has_content(value) -> bool:
+    """The CardViewModal / Anki export use this same rule — a field
+    counts as non-empty when its stripped text content (after HTML
+    tags are removed) has at least one character. Skips empty TipTap
+    docs like '<p></p>'."""
+    if value is None:
+        return False
+    text = re.sub(r'<[^>]*>', '', str(value)).strip()
+    return len(text) > 0
+
+
+def _merge_custom_fields(db, card_id: int, card_row: dict | None) -> list:
+    """Return a list of {field_name, field_value} for a card, merged
+    from the legacy `cards.custom_fields` JSON blob + the newer
+    `card_custom_fields` table. Table values win on case-insensitive
+    name collision (matching the dedupe rule already used by the
+    CardViewModal / Anki export). Excludes empty values and the
+    I Ching language keys that surface elsewhere in the UI."""
+    legacy: dict[str, str] = {}
+    raw = card_row.get('custom_fields') if card_row else None
+    if raw:
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                legacy = {
+                    str(k): ('' if v is None else str(v))
+                    for k, v in parsed.items()
+                }
+        except (TypeError, ValueError):
+            pass
+
+    cursor = db.conn.cursor()
+    cursor.execute(
+        'SELECT field_name, field_value FROM card_custom_fields '
+        'WHERE card_id = ? ORDER BY COALESCE(field_order, 0), id',
+        (card_id,),
+    )
+    table_fields = [
+        {'field_name': r['field_name'], 'field_value': r['field_value'] or ''}
+        for r in cursor.fetchall()
+    ]
+    table_names_lower = {f['field_name'].lower() for f in table_fields}
+
+    # Legacy entries that aren't shadowed by a table row come first,
+    # in the order Python's dict preserved (i.e. insertion order from
+    # the JSON load).
+    merged = []
+    for name, value in legacy.items():
+        if name.lower() in _HIDDEN_CUSTOM_FIELD_KEYS:
+            continue
+        if name.lower() in table_names_lower:
+            continue
+        if _has_content(value):
+            merged.append({'field_name': name, 'field_value': value})
+    for f in table_fields:
+        if f['field_name'].lower() in _HIDDEN_CUSTOM_FIELD_KEYS:
+            continue
+        if _has_content(f['field_value']):
+            merged.append(f)
+    return merged
+
+
+def _archetype_entries(db, archetype_id: int | None, cartomancy_type: str | None) -> list:
+    """Source entries for the card's archetype, grouped by source for
+    display. Returns a list of dicts:
+        {source_id, source_name, fields: [{field_id, field_name, content}]}
+    Empty list when the card has no archetype, or no entries authored."""
+    if not archetype_id:
+        return []
+    rows = db.get_source_entries_for_archetype(archetype_id, cartomancy_type)
+    grouped: dict[int, dict] = {}
+    for r in rows:
+        if not _has_content(r.get('content')):
+            continue
+        bucket = grouped.get(r['source_id'])
+        if bucket is None:
+            bucket = {
+                'source_id': r['source_id'],
+                'source_name': r['source_name'],
+                'fields': [],
+            }
+            grouped[r['source_id']] = bucket
+        bucket['fields'].append({
+            'field_id': r['field_id'],
+            'field_name': r['field_name'],
+            'content': r['content'],
+        })
+    return list(grouped.values())
 
 
 logger = logging.getLogger(__name__)
@@ -141,6 +238,13 @@ def _hydrate_entry_for_pdf(db, entry_id: int, cache=None) -> dict | None:
             card_id = c.get('card_id')
             card_row = db.get_card(card_id) if card_id else None
             card_db = dict(card_row) if card_row else {}
+            cartomancy_type = c.get('cartomancy_type') or rd.get('cartomancy_type')
+            archetype_name = c.get('archetype') or (card_db.get('archetype') if card_db else None)
+            archetype_id = None
+            if archetype_name and cartomancy_type:
+                arch_row = db.get_archetype_by_name(archetype_name, cartomancy_type)
+                if arch_row:
+                    archetype_id = arch_row['id']
             hydrated_cards.append({
                 'name': c.get('current_name') or c.get('name') or (card_db.get('name') if card_db else ''),
                 'reversed': bool(c.get('reversed')),
@@ -150,10 +254,18 @@ def _hydrate_entry_for_pdf(db, entry_id: int, cache=None) -> dict | None:
                 # Prefer enrichment's metadata (it already pulled
                 # archetype/rank/suit/cartomancy_type); fall back to
                 # the cards row when enrichment didn't have a hit.
-                'archetype': c.get('archetype') or (card_db.get('archetype') if card_db else None),
+                'archetype': archetype_name,
+                'archetype_id': archetype_id,
                 'rank': c.get('rank') or (card_db.get('rank') if card_db else None),
                 'suit': c.get('suit') or (card_db.get('suit') if card_db else None),
-                'cartomancy_type': c.get('cartomancy_type') or rd.get('cartomancy_type'),
+                'cartomancy_type': cartomancy_type,
+                'deck_name': rd.get('deck_name'),
+                # Authored custom-field values + archetype reference
+                # entries, pre-filtered by _has_content. Filtering
+                # by the user's chosen field names happens later
+                # when the card-detail section is assembled.
+                'custom_fields': _merge_custom_fields(db, card_id, card_db) if card_id else [],
+                'archetype_entries': _archetype_entries(db, archetype_id, cartomancy_type),
             })
         rd['cards_used'] = hydrated_cards
 
@@ -342,6 +454,134 @@ def _build_correspondence_breakdown(db, entry: dict, enabled_fields: set) -> lis
     return [t for t in tabs if t['rows']]
 
 
+# === Card detail section (custom fields + archetype reference info) ===
+
+def _available_field_options(entry: dict) -> dict:
+    """Compute the union of custom field names + archetype source
+    fields across every card in the entry's currently-selected
+    readings. Returns the shape consumed by the modal:
+
+        {
+          "custom_fields": ["Keywords", "Description", ...],
+          "archetype_fields": [
+            {"field_id": int, "source_name": str, "field_name": str},
+            ...
+          ],
+        }
+    """
+    custom_names: list[str] = []
+    seen_custom = set()
+    archetype_fields: list[dict] = []
+    seen_archetype_field_ids = set()
+
+    for reading in entry.get('readings', []):
+        for card in (reading.get('cards_used') or []):
+            for f in card.get('custom_fields') or []:
+                name = f.get('field_name')
+                if not name:
+                    continue
+                key = name.lower()
+                if key in seen_custom:
+                    continue
+                seen_custom.add(key)
+                custom_names.append(name)
+            for grp in card.get('archetype_entries') or []:
+                for f in grp.get('fields') or []:
+                    fid = f.get('field_id')
+                    if not fid or fid in seen_archetype_field_ids:
+                        continue
+                    seen_archetype_field_ids.add(fid)
+                    archetype_fields.append({
+                        'field_id': fid,
+                        'source_id': grp.get('source_id'),
+                        'source_name': grp.get('source_name'),
+                        'field_name': f.get('field_name'),
+                    })
+
+    archetype_fields.sort(key=lambda f: (
+        (f.get('source_name') or '').lower(),
+        (f.get('field_name') or '').lower(),
+    ))
+    return {
+        'custom_fields': custom_names,
+        'archetype_fields': archetype_fields,
+    }
+
+
+def _build_card_details(
+    entry: dict,
+    include_custom: bool,
+    custom_names: set | None,
+    include_archetype: bool,
+    archetype_field_ids: set | None,
+) -> list:
+    """Assemble the Card Detail Section for the template.
+
+    Returns a list of {reading_label, cards: [...]} groups. Each
+    card entry has the name/deck/image plus filtered custom_fields
+    and filtered archetype_entries. Cards whose card_id never
+    resolved are skipped (no archetype lookup, no custom-fields
+    table row — nothing to show).
+
+    Empty list when nothing was opted into."""
+    if not include_custom and not include_archetype:
+        return []
+
+    out: list[dict] = []
+    for reading in entry.get('readings', []):
+        cards_block = []
+        for card in (reading.get('cards_used') or []):
+            if not card.get('card_id'):
+                continue
+
+            custom = []
+            if include_custom:
+                for f in card.get('custom_fields') or []:
+                    name = f.get('field_name')
+                    if not name:
+                        continue
+                    if custom_names is not None and name.lower() not in custom_names:
+                        continue
+                    custom.append(f)
+
+            archetype = []
+            if include_archetype:
+                for grp in card.get('archetype_entries') or []:
+                    if archetype_field_ids is not None:
+                        kept_fields = [
+                            f for f in (grp.get('fields') or [])
+                            if f.get('field_id') in archetype_field_ids
+                        ]
+                    else:
+                        kept_fields = grp.get('fields') or []
+                    if not kept_fields:
+                        continue
+                    archetype.append({
+                        'source_id': grp.get('source_id'),
+                        'source_name': grp.get('source_name'),
+                        'fields': kept_fields,
+                    })
+
+            if not custom and not archetype:
+                continue
+
+            cards_block.append({
+                'name': card.get('name'),
+                'deck_name': card.get('deck_name'),
+                'image_uri': card.get('image_uri'),
+                'reversed': card.get('reversed'),
+                'archetype': card.get('archetype'),
+                'custom_fields': custom,
+                'archetype_entries': archetype,
+            })
+        if cards_block:
+            out.append({
+                'reading_label': reading.get('spread_name') or 'Reading',
+                'cards': cards_block,
+            })
+    return out
+
+
 @pdf_export_bp.route('/api/entries/<int:entry_id>/export-pdf', methods=['POST'])
 def export_pdf(entry_id):
     """Generate a PDF for a journal entry. Phase 1 honors only the
@@ -382,12 +622,42 @@ def export_pdf(entry_id):
             enabled = {str(k) for k in requested}
         breakdown_tabs = _build_correspondence_breakdown(db, entry, enabled)
 
+    # Card detail section (phase 3). Independent toggles for custom
+    # fields and archetype reference info, each with its own
+    # whitelist of names/ids. None on the request body = include
+    # every field on cards we already hydrated.
+    include_custom = bool(body.get('include_custom_fields'))
+    requested_custom = body.get('custom_fields')
+    custom_set = (
+        {str(n).lower() for n in requested_custom}
+        if isinstance(requested_custom, list) else None
+    )
+
+    include_archetype = bool(body.get('include_archetype_fields'))
+    requested_archetype = body.get('archetype_fields')
+    archetype_set = (
+        {int(i) for i in requested_archetype if str(i).lstrip('-').isdigit()}
+        if isinstance(requested_archetype, list) else None
+    )
+
+    card_details = _build_card_details(
+        entry,
+        include_custom=include_custom,
+        custom_names=custom_set,
+        include_archetype=include_archetype,
+        archetype_field_ids=archetype_set,
+    )
+
     env = Environment(
         loader=FileSystemLoader(str(_TEMPLATE_DIR)),
         autoescape=select_autoescape(['html']),
     )
     template = env.get_template('entry_export.html')
-    html_str = template.render(entry=entry, breakdown_tabs=breakdown_tabs)
+    html_str = template.render(
+        entry=entry,
+        breakdown_tabs=breakdown_tabs,
+        card_details=card_details,
+    )
 
     css_path = _TEMPLATE_DIR / 'entry_export.css'
     try:
@@ -409,3 +679,20 @@ def export_pdf(entry_id):
         as_attachment=True,
         download_name=filename,
     )
+
+
+@pdf_export_bp.route('/api/entries/<int:entry_id>/export-options')
+def export_options(entry_id):
+    """Enumerate which custom fields + archetype reference fields are
+    available to toggle in the export modal. Honours the same
+    ?readings=<id>&readings=<id>... query the export endpoint
+    accepts on its body, so the modal can re-fetch as the user
+    changes the reading selection."""
+    db = current_app.config['DB']
+    cache = current_app.config.get('THUMB_CACHE')
+    entry = _hydrate_entry_for_pdf(db, entry_id, cache=cache)
+    if entry is None:
+        return jsonify({'error': 'Entry not found'}), 404
+    readings = request.args.getlist('readings', type=int)
+    _select_readings(entry, readings or None)
+    return jsonify(_available_field_options(entry))
