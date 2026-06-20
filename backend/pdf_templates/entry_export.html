@@ -174,6 +174,37 @@
     </section>
   {% endfor %}
 
+  {% if breakdown_tabs %}
+    <section class="breakdown">
+      <h2 class="breakdown__title">Correspondence Breakdown</h2>
+      {% for tab in breakdown_tabs %}
+        <div class="breakdown__tab">
+          <h3 class="breakdown__tab-label">
+            {{ tab.label }}
+            <span class="breakdown__tab-count">{{ tab.card_count }} card{{ '' if tab.card_count == 1 else 's' }}</span>
+          </h3>
+          <table class="breakdown__rows">
+            <tbody>
+              {% for row in tab.rows %}
+                <tr>
+                  <td class="breakdown__row-label">{{ row.label }}</td>
+                  <td class="breakdown__row-chips">
+                    {% for col in row.columns %}
+                      <span class="breakdown__chip">
+                        <span class="breakdown__chip-value">{{ col.value }}</span>
+                        <span class="breakdown__chip-count">{{ col.count }}</span>
+                      </span>
+                    {% endfor %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endfor %}
+    </section>
+  {% endif %}
+
   {% if entry.content_html %}
     <section class="notes">
       <h2 class="notes__title">Notes</h2>

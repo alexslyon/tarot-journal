@@ -29,6 +29,27 @@ from pathlib import Path
 from flask import Blueprint, current_app, request, send_file, abort, jsonify
 
 from backend.utils import row_to_dict
+from backend.routes.entries import _enrich_cards_with_ids
+from database.correspondences import CORRESPONDENCE_FIELDS
+
+
+# Display labels — mirrors frontend/src/types/index.ts:CORRESPONDENCE_FIELD_LABELS
+# so the PDF rows read the same as the in-app Reading Breakdown.
+_CORRESPONDENCE_LABELS = {
+    'element': 'Element',
+    'planet': 'Planet',
+    'zodiac_sign': 'Zodiac Sign',
+    'decan': 'Decan',
+    'hebrew_letter': 'Kabbalah',
+    'numerology': 'Numerology',
+    'rune': 'Rune',
+    'i_ching_hexagram': 'I Ching Hexagram',
+    'chakra': 'Chakra',
+    'modality': 'Modality',
+    'astrological_house': 'Astrological House',
+}
+
+_TAROT_MINOR_OF_RE = re.compile(r'^(.+?) of (.+)$')
 
 
 logger = logging.getLogger(__name__)
@@ -110,19 +131,29 @@ def _hydrate_entry_for_pdf(db, entry_id: int, cache=None) -> dict | None:
     readings: list[dict] = []
     for r in readings_rows:
         rd = row_to_dict(r)
-        # Hydrate each card with image URI + card_id-driven lookups.
-        cards = _parse_cards_used(rd.get('cards_used'))
+        # Same enrichment the GET /api/entries/<id> route uses —
+        # resolves card_id for legacy entries that only stored
+        # (deck_id, name) and surfaces archetype/rank/suit/cartomancy_type
+        # so the breakdown can categorise cards without a per-card fetch.
+        cards = _enrich_cards_with_ids(db, _parse_cards_used(rd.get('cards_used')))
         hydrated_cards = []
         for c in cards:
             card_id = c.get('card_id')
             card_row = db.get_card(card_id) if card_id else None
-            card = dict(card_row) if card_row else {}
+            card_db = dict(card_row) if card_row else {}
             hydrated_cards.append({
-                'name': c.get('name') or (card.get('name') if card else ''),
+                'name': c.get('current_name') or c.get('name') or (card_db.get('name') if card_db else ''),
                 'reversed': bool(c.get('reversed')),
                 'position_index': c.get('position_index'),
                 'card_id': card_id,
-                'image_uri': _file_uri(card.get('image_path'), cache) if card else None,
+                'image_uri': _file_uri(card_db.get('image_path'), cache) if card_db else None,
+                # Prefer enrichment's metadata (it already pulled
+                # archetype/rank/suit/cartomancy_type); fall back to
+                # the cards row when enrichment didn't have a hit.
+                'archetype': c.get('archetype') or (card_db.get('archetype') if card_db else None),
+                'rank': c.get('rank') or (card_db.get('rank') if card_db else None),
+                'suit': c.get('suit') or (card_db.get('suit') if card_db else None),
+                'cartomancy_type': c.get('cartomancy_type') or rd.get('cartomancy_type'),
             })
         rd['cards_used'] = hydrated_cards
 
@@ -175,6 +206,142 @@ def _select_readings(entry: dict, ids: list[int] | None) -> dict:
     return entry
 
 
+# === Correspondence breakdown (mirror of useEntryBreakdown) ===
+
+def _card_categories(card: dict) -> tuple[str | None, str | None]:
+    """Mirror of frontend's getCardCategories — derives (rank, suit)
+    used to populate the Suit/Rank tally rows. Tarot minors parse out
+    of the archetype name ("Knight of Wands" → Knight/Wands); majors
+    map to suit "Major Arcana". Other types use rank/suit directly."""
+    ctype = card.get('cartomancy_type')
+    if ctype == 'Tarot':
+        archetype = card.get('archetype')
+        if archetype:
+            m = _TAROT_MINOR_OF_RE.match(archetype)
+            if m:
+                return m.group(1), m.group(2)
+            return None, 'Major Arcana'
+    return card.get('rank') or None, card.get('suit') or None
+
+
+def _tally_to_columns(tally: dict) -> list:
+    """Sort the (value → count) tally by count desc then alphabetical
+    tiebreak, matching the in-app Reading Breakdown ordering."""
+    return [
+        {'value': v, 'count': c}
+        for v, c in sorted(tally.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
+
+
+def _build_breakdown_tab(
+    label: str,
+    cards: list[dict],
+    correspondences_by_id: dict,
+    enabled_fields: set,
+) -> dict:
+    """Build a single tab (one reading or the aggregate) given the
+    cards and the resolved correspondences keyed by card_id.
+
+    enabled_fields is a set of row keys ('suit', 'rank', or any
+    correspondence field name) the user opted into; rows not in
+    the set are skipped entirely.
+    """
+    suit_tally: dict[str, int] = {}
+    rank_tally: dict[str, int] = {}
+    # field_name → {value: count}
+    corr_tallies: dict[str, dict[str, int]] = {}
+
+    for c in cards:
+        rank, suit = _card_categories(c)
+        if suit and 'suit' in enabled_fields:
+            suit_tally[suit] = suit_tally.get(suit, 0) + 1
+        if rank and 'rank' in enabled_fields:
+            rank_tally[rank] = rank_tally.get(rank, 0) + 1
+
+        for corr in correspondences_by_id.get(c.get('card_id'), []):
+            field = corr.get('field_name')
+            if field not in enabled_fields:
+                continue
+            values = corr.get('values') or []
+            if not values:
+                continue
+            bucket = corr_tallies.setdefault(field, {})
+            for v in values:
+                bucket[v] = bucket.get(v, 0) + 1
+
+    rows = []
+    if suit_tally:
+        rows.append({'key': 'suit', 'label': 'Suit',
+                     'columns': _tally_to_columns(suit_tally)})
+    if rank_tally:
+        rows.append({'key': 'rank', 'label': 'Rank',
+                     'columns': _tally_to_columns(rank_tally)})
+    # Correspondence rows follow CORRESPONDENCE_FIELDS' canonical order
+    # so the table doesn't reshuffle with different cards.
+    for field in CORRESPONDENCE_FIELDS:
+        bucket = corr_tallies.get(field)
+        if not bucket:
+            continue
+        rows.append({
+            'key': field,
+            'label': _CORRESPONDENCE_LABELS.get(field, field),
+            'columns': _tally_to_columns(bucket),
+        })
+
+    return {'label': label, 'card_count': len(cards), 'rows': rows}
+
+
+def _build_correspondence_breakdown(db, entry: dict, enabled_fields: set) -> list:
+    """Returns a list of tab dicts: one per reading + an aggregate
+    when there are multiple readings. Each tab has a label,
+    card_count, and rows (each row = {key, label, columns}).
+
+    Empty list if no fields are enabled or no cards have card_ids
+    (the breakdown is meaningless without resolved cards)."""
+    if not enabled_fields or not entry.get('readings'):
+        return []
+
+    # Fetch each unique card's correspondences once.
+    unique_ids = {
+        c['card_id']
+        for r in entry['readings']
+        for c in (r.get('cards_used') or [])
+        if c.get('card_id')
+    }
+    corr_by_id: dict[int, list] = {}
+    for cid in unique_ids:
+        try:
+            corr_by_id[cid] = db.get_card_correspondences(cid) or []
+        except Exception as e:
+            logger.debug('correspondence lookup failed for card %s: %s', cid, e)
+            corr_by_id[cid] = []
+
+    tabs = []
+    for r in entry['readings']:
+        cards = [c for c in (r.get('cards_used') or []) if c.get('card_id')]
+        if not cards:
+            continue
+        tabs.append(_build_breakdown_tab(
+            r.get('spread_name') or 'Reading',
+            cards,
+            corr_by_id,
+            enabled_fields,
+        ))
+
+    if len(tabs) > 1:
+        all_cards = [
+            c for r in entry['readings']
+            for c in (r.get('cards_used') or [])
+            if c.get('card_id')
+        ]
+        tabs.append(_build_breakdown_tab(
+            'All Readings', all_cards, corr_by_id, enabled_fields,
+        ))
+    # Strip tabs that ended up with no rows (all fields the user
+    # selected happened to have zero data for that reading).
+    return [t for t in tabs if t['rows']]
+
+
 @pdf_export_bp.route('/api/entries/<int:entry_id>/export-pdf', methods=['POST'])
 def export_pdf(entry_id):
     """Generate a PDF for a journal entry. Phase 1 honors only the
@@ -200,12 +367,27 @@ def export_pdf(entry_id):
         # is a backstop for the API path.
         return jsonify({'error': 'At least one reading must be selected'}), 400
 
+    # Correspondence breakdown (phase 2). The request body honours the
+    # planning doc's shape: include_correspondences master toggle +
+    # correspondence_types list of row keys. Row keys are
+    # CORRESPONDENCE_FIELDS plus 'suit' and 'rank' to match the
+    # in-app Reading Breakdown filter checklist.
+    breakdown_tabs = []
+    if body.get('include_correspondences'):
+        requested = body.get('correspondence_types')
+        if requested is None:
+            # No explicit list: default to every recognised row key.
+            enabled = set(CORRESPONDENCE_FIELDS) | {'suit', 'rank'}
+        else:
+            enabled = {str(k) for k in requested}
+        breakdown_tabs = _build_correspondence_breakdown(db, entry, enabled)
+
     env = Environment(
         loader=FileSystemLoader(str(_TEMPLATE_DIR)),
         autoescape=select_autoescape(['html']),
     )
     template = env.get_template('entry_export.html')
-    html_str = template.render(entry=entry)
+    html_str = template.render(entry=entry, breakdown_tabs=breakdown_tabs)
 
     css_path = _TEMPLATE_DIR / 'entry_export.css'
     try:
