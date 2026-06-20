@@ -308,6 +308,223 @@ def _hydrate_entry_for_pdf(db, entry_id: int, cache=None) -> dict | None:
     return entry
 
 
+# === Astrological event chart (mirrors the /chart entry route) ===
+
+_SUMMARY_BODIES = (
+    'sun', 'moon', 'mercury', 'venus', 'mars',
+    'jupiter', 'saturn', 'uranus', 'neptune', 'pluto',
+    'chiron', 'mean_node', 'mean_south_node',
+)
+
+_BODY_LABELS = {
+    'sun': 'Sun', 'moon': 'Moon', 'mercury': 'Mercury', 'venus': 'Venus',
+    'mars': 'Mars', 'jupiter': 'Jupiter', 'saturn': 'Saturn',
+    'uranus': 'Uranus', 'neptune': 'Neptune', 'pluto': 'Pluto',
+    'chiron': 'Chiron',
+    'mean_node': 'North Node', 'mean_south_node': 'South Node',
+}
+
+_SIGN_FULL_NAMES = {
+    'Ari': 'Aries', 'Tau': 'Taurus', 'Gem': 'Gemini', 'Can': 'Cancer',
+    'Leo': 'Leo', 'Vir': 'Virgo', 'Lib': 'Libra', 'Sco': 'Scorpio',
+    'Sag': 'Sagittarius', 'Cap': 'Capricorn', 'Aqu': 'Aquarius', 'Pis': 'Pisces',
+}
+
+
+def _split_reading_datetime(dt: str) -> tuple[str, str]:
+    """Same parse the entries route does — date/time can be ISO
+    with T, space-separated, or just a bare date (assume noon)."""
+    if 'T' in dt:
+        return tuple(dt.split('T', 1))  # type: ignore[return-value]
+    if ' ' in dt:
+        return tuple(dt.split(' ', 1))  # type: ignore[return-value]
+    return dt, '12:00:00'
+
+
+def _entry_chart_ready(entry: dict) -> bool:
+    """Whether the entry has enough data to generate an event chart.
+    Matches the gating the entries/<id>/chart route applies."""
+    return bool(
+        entry.get('reading_datetime')
+        and entry.get('location_lat') is not None
+        and entry.get('location_lon') is not None
+    )
+
+
+def _resolve_event_chart(db, entry: dict) -> dict | None:
+    """Return {svg, chart_data, timezone, house_system} for the
+    entry's event chart, hitting the chart_cache when it can and
+    generating fresh otherwise. None if the entry doesn't have
+    enough data, or if kerykeion errored out — the export should
+    keep rendering the rest of the PDF rather than 500'ing."""
+    if not _entry_chart_ready(entry):
+        return None
+
+    import astrology
+
+    date_iso, time_iso = _split_reading_datetime(entry['reading_datetime'])
+    house_system = db.get_house_system()
+    place_label = entry.get('location_name') or ''
+    chart_label = 'Reading Chart'
+
+    input_hash = astrology.compute_input_hash(
+        date_iso, time_iso,
+        entry['location_lat'], entry['location_lon'],
+        house_system,
+        place_label=place_label,
+        chart_label=chart_label,
+    )
+
+    cached = db.get_cached_chart('entry', entry['id'])
+    if cached and cached.get('input_hash') == input_hash:
+        return {
+            'svg': cached['chart_svg'],
+            'chart_data': cached['chart_data'],
+            'timezone': (cached['chart_data'] or {}).get('timezone'),
+            'house_system': cached['house_system'],
+        }
+
+    try:
+        result = astrology.generate_chart(
+            name=entry.get('title') or 'Reading',
+            date_iso=date_iso, time_iso=time_iso,
+            lat=entry['location_lat'], lon=entry['location_lon'],
+            house_system=house_system,
+            place_label=place_label,
+            chart_label=chart_label,
+        )
+    except Exception as e:
+        logger.warning(
+            'PDF export: chart generation failed for entry %s: %s',
+            entry.get('id'), e,
+        )
+        return None
+
+    data_to_store = dict(result['data'])
+    data_to_store['timezone'] = result['timezone']
+    try:
+        db.save_cached_chart(
+            'entry', entry['id'], house_system, input_hash,
+            result['svg'], data_to_store,
+        )
+    except Exception as e:
+        logger.debug('PDF export: chart cache write failed: %s', e)
+
+    return {
+        'svg': result['svg'],
+        'chart_data': data_to_store,
+        'timezone': result['timezone'],
+        'house_system': house_system,
+    }
+
+
+def _house_label(raw) -> str:
+    """Kerykeion publishes house names like 'Ninth_House' — clean
+    for display so the table reads 'Ninth' instead of 'Ninth_House'."""
+    if not isinstance(raw, str):
+        return ''
+    return raw.replace('_', ' ').replace('House', '').strip()
+
+
+def _planetary_positions(chart_data: dict | None) -> list:
+    """Pull the standard ten planets + Chiron + the lunar nodes out
+    of the kerykeion dump so the template can render a small table.
+    Bodies that aren't present in chart_data are silently skipped."""
+    if not chart_data:
+        return []
+    rows = []
+    for key in _SUMMARY_BODIES:
+        raw = chart_data.get(key)
+        if not isinstance(raw, dict):
+            continue
+        sign = _SIGN_FULL_NAMES.get(raw.get('sign') or '', raw.get('sign') or '')
+        try:
+            position = float(raw.get('position') or 0)
+        except (TypeError, ValueError):
+            position = 0.0
+        rows.append({
+            'label': _BODY_LABELS.get(key, key),
+            'sign': sign,
+            'position': position,
+            'house': _house_label(raw.get('house')),
+            'retrograde': bool(raw.get('retrograde')),
+        })
+    return rows
+
+
+_CSS_VAR_DECL_RE = re.compile(
+    r'(--[A-Za-z0-9_-]+)\s*:\s*([^;}]+?)\s*[;}]'
+)
+_CSS_VAR_USE_RE = re.compile(
+    r'var\(\s*(--[A-Za-z0-9_-]+)(?:\s*,\s*([^)]+))?\s*\)'
+)
+
+
+def _resolve_css_variables(svg: str) -> str:
+    """Inline `var(--…)` references in the SVG using the values
+    declared in its embedded `:root { --var: value; }` block.
+    Necessary because CairoSVG (and consequently WeasyPrint) doesn't
+    resolve CSS custom properties, so kerykeion's chart wheel
+    otherwise renders as a solid black blob — every fill/stroke that
+    references a var ends up at the initial value.
+
+    Unknown variables fall through to the var() fallback if one was
+    given, then to a transparent fill so the chart doesn't collapse
+    to black again. Handles nested references via a few passes."""
+    declarations: dict[str, str] = {}
+    for m in _CSS_VAR_DECL_RE.finditer(svg):
+        name = m.group(1).strip()
+        value = m.group(2).strip()
+        if name not in declarations:  # first declaration wins
+            declarations[name] = value
+
+    def replace(match: re.Match) -> str:
+        name = match.group(1).strip()
+        fallback = (match.group(2) or '').strip()
+        return declarations.get(name) or fallback or 'transparent'
+
+    out = svg
+    for _ in range(5):  # bounded fixed-point loop
+        new = _CSS_VAR_USE_RE.sub(replace, out)
+        if new == out:
+            break
+        out = new
+    return out
+
+
+def _render_chart_png_data_uri(svg: str) -> str | None:
+    """Rasterize kerykeion's chart SVG to a PNG data URI so the PDF
+    embed renders correctly. WeasyPrint's inline-SVG path mis-renders
+    the chart wheel (solid black) — kerykeion's SVG uses CSS custom
+    properties (`var(--…)`) which neither WeasyPrint nor CairoSVG
+    resolves. We first inline those variables, then rasterize at
+    print-resolution and embed the PNG as a data URI.
+
+    Returns None if rasterization fails — the chart section then
+    falls back to omitting the wheel but still showing the
+    planetary table.
+    """
+    try:
+        import cairosvg
+    except ImportError:
+        logger.debug('cairosvg not installed — skipping chart wheel render')
+        return None
+    resolved_svg = _resolve_css_variables(svg)
+    try:
+        # output_width is in CSS pixels; 1500 gives a crisp print
+        # at the ~170mm of A4 printable area we have available.
+        png_bytes = cairosvg.svg2png(
+            bytestring=resolved_svg.encode('utf-8'),
+            output_width=1500,
+        )
+    except Exception as e:
+        logger.warning('chart SVG → PNG conversion failed: %s', e)
+        return None
+    import base64
+    encoded = base64.b64encode(png_bytes).decode('ascii')
+    return f'data:image/png;base64,{encoded}'
+
+
 def _select_readings(entry: dict, ids: list[int] | None) -> dict:
     """If the request specified a readings subset, filter the entry's
     readings list to just those ids. Mutates and returns the entry."""
@@ -648,6 +865,21 @@ def export_pdf(entry_id):
         archetype_field_ids=archetype_set,
     )
 
+    # Astrological event chart (phase 4). Same chart_cache + lazy
+    # generation pipeline the entries/<id>/chart route uses. If
+    # generation fails for any reason we keep rendering the rest of
+    # the PDF rather than 500'ing on the whole export.
+    chart_block = None
+    if body.get('include_chart'):
+        chart = _resolve_event_chart(db, entry)
+        if chart:
+            chart_block = {
+                'image_uri': _render_chart_png_data_uri(chart['svg']),
+                'planets': _planetary_positions(chart.get('chart_data')),
+                'house_system': chart.get('house_system'),
+                'timezone': chart.get('timezone'),
+            }
+
     env = Environment(
         loader=FileSystemLoader(str(_TEMPLATE_DIR)),
         autoescape=select_autoescape(['html']),
@@ -657,6 +889,7 @@ def export_pdf(entry_id):
         entry=entry,
         breakdown_tabs=breakdown_tabs,
         card_details=card_details,
+        chart_block=chart_block,
     )
 
     css_path = _TEMPLATE_DIR / 'entry_export.css'
@@ -695,4 +928,6 @@ def export_options(entry_id):
         return jsonify({'error': 'Entry not found'}), 404
     readings = request.args.getlist('readings', type=int)
     _select_readings(entry, readings or None)
-    return jsonify(_available_field_options(entry))
+    options = _available_field_options(entry)
+    options['chart_available'] = _entry_chart_ready(entry)
+    return jsonify(options)

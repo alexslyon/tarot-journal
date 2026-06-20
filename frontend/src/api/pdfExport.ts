@@ -27,10 +27,12 @@ export interface ArchetypeFieldOption {
 
 /** Lists the custom fields + archetype reference fields available on
  *  the selected readings, so the modal can show only the relevant
- *  checkboxes. */
+ *  checkboxes. `chart_available` is true when the entry has the
+ *  reading_datetime + lat/lon needed to generate an event chart. */
 export interface PdfExportOptionsDiscovery {
   custom_fields: string[];
   archetype_fields: ArchetypeFieldOption[];
+  chart_available: boolean;
 }
 
 /**

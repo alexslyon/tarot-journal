@@ -88,6 +88,9 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
   const [enabledArchetypeFieldIds, setEnabledArchetypeFieldIds] =
     useState<Set<number>>(new Set());
 
+  // Phase 4 — astrological event chart.
+  const [includeChart, setIncludeChart] = useState(false);
+
   const breakdown = useEntryBreakdown(open ? entry : undefined);
   const presentFilterFields = breakdown.presentFilterFields;
   const savedSettings = useMemo(
@@ -104,6 +107,7 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
       setIncludeCorrespondences(false);
       setIncludeCustomFields(false);
       setIncludeArchetypeFields(false);
+      setIncludeChart(false);
     }
   }, [open, entry.id, entry.readings]);
 
@@ -144,6 +148,24 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
   const hasFilterableBreakdown = presentFilterFields.length > 0;
   const customFieldsAvailable = (discovery?.custom_fields.length ?? 0) > 0;
   const archetypeFieldsAvailable = (discovery?.archetype_fields.length ?? 0) > 0;
+  const chartAvailable = discovery?.chart_available ?? false;
+
+  // The disabled-state hint distinguishes "missing date/time" from
+  // "missing location" so the user knows what to fill in. Mirrors
+  // the gating the entry/<id>/chart route applies.
+  const chartHint = useMemo(() => {
+    if (optionsLoading) return 'Checking event chart data…';
+    if (chartAvailable) return null;
+    const missing: string[] = [];
+    if (!entry.reading_datetime) missing.push('date/time');
+    if (entry.location_lat == null || entry.location_lon == null) {
+      missing.push('location');
+    }
+    if (missing.length === 0) {
+      return 'Event chart unavailable for this entry.';
+    }
+    return `Add ${missing.join(' and ')} to this entry to enable the event chart.`;
+  }, [optionsLoading, chartAvailable, entry.reading_datetime, entry.location_lat, entry.location_lon]);
 
   const orderedReadings = useMemo(
     () => [...entry.readings].sort((a, b) => a.id - b.id),
@@ -224,6 +246,7 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
           includeArchetypeFields && archetypeFieldsAvailable
             ? [...enabledArchetypeFieldIds]
             : undefined,
+        include_chart: includeChart && chartAvailable,
       });
       showToast('PDF downloaded');
       onClose();
@@ -414,13 +437,20 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
             )}
           </section>
 
-          {/* Phase 4 — astrological chart. */}
-          <section className="pdf-export-modal__section pdf-export-modal__section--disabled">
-            <h3>Astrological event chart (coming soon)</h3>
+          <section className="pdf-export-modal__section">
+            <h3>Astrological event chart</h3>
             <label className="pdf-export-modal__master">
-              <input type="checkbox" disabled />
+              <input
+                type="checkbox"
+                checked={includeChart && chartAvailable}
+                onChange={e => setIncludeChart(e.target.checked)}
+                disabled={!chartAvailable}
+              />
               <span>Include event chart</span>
             </label>
+            {chartHint && (
+              <p className="pdf-export-modal__hint">{chartHint}</p>
+            )}
           </section>
         </div>
 
