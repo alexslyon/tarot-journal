@@ -218,6 +218,83 @@ html, body {
   color: #555;
 }
 
+/* === Correspondence breakdown === */
+
+.breakdown {
+  margin-top: 18pt;
+  page-break-inside: auto;
+}
+
+.breakdown__title {
+  font-size: 13pt;
+  margin: 0 0 6pt;
+  font-weight: 600;
+  border-bottom: 1px solid #d0d0d0;
+  padding-bottom: 3pt;
+}
+
+.breakdown__tab {
+  page-break-inside: avoid;
+  margin-top: 10pt;
+}
+
+.breakdown__tab-label {
+  margin: 0 0 4pt;
+  font-size: 11pt;
+  font-weight: 600;
+}
+
+.breakdown__tab-count {
+  margin-left: 6pt;
+  font-weight: 400;
+  font-size: 9pt;
+  color: #555;
+}
+
+.breakdown__rows {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10pt;
+}
+
+.breakdown__rows tr {
+  page-break-inside: avoid;
+}
+
+.breakdown__row-label {
+  width: 25%;
+  vertical-align: top;
+  padding: 5pt 8pt 5pt 0;
+  color: #555;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.breakdown__row-chips {
+  padding: 5pt 0;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.breakdown__chip {
+  display: inline-block;
+  background: #f4f4f4;
+  border: 1px solid #e0e0e0;
+  border-radius: 3pt;
+  padding: 1pt 5pt;
+  margin: 0 4pt 3pt 0;
+  font-size: 9pt;
+}
+
+.breakdown__chip-value {
+  color: #1a1a1a;
+}
+
+.breakdown__chip-count {
+  margin-left: 4pt;
+  color: #777;
+  font-variant-numeric: tabular-nums;
+}
+
 /* === Notes / follow-ups === */
 
 .notes,
