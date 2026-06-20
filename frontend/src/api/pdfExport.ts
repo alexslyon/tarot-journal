@@ -1,17 +1,53 @@
 import api from './client';
 
-/** Phase 1: only `readings` is honored on the server. Later phases
- *  will populate the rest of these fields per PLANNING_PDF_EXPORT.md.
- *  Kept on the type so the modal can build them up incrementally. */
 export interface PdfExportOptions {
   readings?: number[];
   include_correspondences?: boolean;
+  /** Row keys to include in the breakdown — same vocabulary as the
+   *  Reading Breakdown's filter checklist (suit, rank, element, …). */
   correspondence_types?: string[];
   include_custom_fields?: boolean;
+  /** Field names to keep in the Card Detail Section (case-insensitive
+   *  match on the server). Omit to include every field present. */
   custom_fields?: string[];
   include_archetype_fields?: boolean;
-  archetype_fields?: string[];
+  /** source_fields.id values to keep, taken from the export-options
+   *  archetype_fields list. Omit to include every authored entry. */
+  archetype_fields?: number[];
+  /** Reserved for phase 4. */
   include_chart?: boolean;
+}
+
+export interface ArchetypeFieldOption {
+  field_id: number;
+  source_id: number;
+  source_name: string;
+  field_name: string;
+}
+
+/** Lists the custom fields + archetype reference fields available on
+ *  the selected readings, so the modal can show only the relevant
+ *  checkboxes. */
+export interface PdfExportOptionsDiscovery {
+  custom_fields: string[];
+  archetype_fields: ArchetypeFieldOption[];
+}
+
+/**
+ * Fetch which custom/archetype fields exist on the entry (filtered
+ * to the selected readings), used by the modal to populate its
+ * sub-checklists.
+ */
+export async function getExportOptions(
+  entryId: number,
+  readings?: number[],
+): Promise<PdfExportOptionsDiscovery> {
+  const params = new URLSearchParams();
+  for (const id of readings || []) params.append('readings', String(id));
+  const res = await api.get(
+    `/api/entries/${entryId}/export-options${params.toString() ? `?${params}` : ''}`,
+  );
+  return res.data;
 }
 
 /**

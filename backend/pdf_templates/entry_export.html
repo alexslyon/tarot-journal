@@ -205,6 +205,71 @@
     </section>
   {% endif %}
 
+  {% if card_details %}
+    <section class="card-details">
+      <h2 class="card-details__title">Card Details</h2>
+      {% for group in card_details %}
+        {% if card_details|length > 1 %}
+          <h3 class="card-details__reading">{{ group.reading_label }}</h3>
+        {% endif %}
+        {% for card in group.cards %}
+          <article class="card-detail">
+            <div class="card-detail__head">
+              {% if card.image_uri %}
+                <img class="card-detail__img {% if card.reversed %}card-detail__img--reversed{% endif %}"
+                     src="{{ card.image_uri }}"
+                     alt="{{ card.name|e }}" />
+              {% endif %}
+              <div class="card-detail__head-text">
+                <h4 class="card-detail__name">
+                  {{ card.name }}{% if card.reversed %} <em>(reversed)</em>{% endif %}
+                </h4>
+                {% if card.deck_name %}
+                  <div class="card-detail__deck">{{ card.deck_name }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            {% if card.custom_fields %}
+              <div class="card-detail__block">
+                <h5 class="card-detail__block-title">Custom Fields</h5>
+                {% for f in card.custom_fields %}
+                  <div class="card-detail__field">
+                    <div class="card-detail__field-name">{{ f.field_name }}</div>
+                    <div class="card-detail__field-value rich-text">
+                      {{ f.field_value|safe }}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            {% if card.archetype_entries %}
+              <div class="card-detail__block">
+                <h5 class="card-detail__block-title">
+                  Archetype Notes{% if card.archetype %} — {{ card.archetype }}{% endif %}
+                </h5>
+                {% for grp in card.archetype_entries %}
+                  <div class="card-detail__source">
+                    <div class="card-detail__source-name">{{ grp.source_name }}</div>
+                    {% for f in grp.fields %}
+                      <div class="card-detail__field">
+                        <div class="card-detail__field-name">{{ f.field_name }}</div>
+                        <div class="card-detail__field-value rich-text">
+                          {{ f.content|safe }}
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </article>
+        {% endfor %}
+      {% endfor %}
+    </section>
+  {% endif %}
+
   {% if entry.content_html %}
     <section class="notes">
       <h2 class="notes__title">Notes</h2>

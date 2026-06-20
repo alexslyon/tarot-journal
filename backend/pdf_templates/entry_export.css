@@ -295,6 +295,113 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
+/* === Card detail section === */
+
+.card-details {
+  margin-top: 18pt;
+  page-break-inside: auto;
+}
+
+.card-details__title {
+  font-size: 13pt;
+  margin: 0 0 6pt;
+  font-weight: 600;
+  border-bottom: 1px solid #d0d0d0;
+  padding-bottom: 3pt;
+}
+
+.card-details__reading {
+  font-size: 11pt;
+  margin: 12pt 0 6pt;
+  color: #555;
+  font-weight: 600;
+}
+
+.card-detail {
+  page-break-inside: avoid;
+  margin-top: 10pt;
+  padding-top: 6pt;
+  border-top: 1px solid #ececec;
+}
+
+.card-detail:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.card-detail__head {
+  display: flex;
+  gap: 10pt;
+  align-items: flex-start;
+  margin-bottom: 6pt;
+}
+
+.card-detail__img {
+  width: 60pt;
+  height: 90pt;
+  object-fit: cover;
+  border-radius: 3pt;
+  flex: 0 0 auto;
+}
+
+.card-detail__img--reversed {
+  transform: rotate(180deg);
+}
+
+.card-detail__head-text {
+  flex: 1;
+}
+
+.card-detail__name {
+  margin: 0 0 2pt;
+  font-size: 12pt;
+  font-weight: 600;
+}
+
+.card-detail__deck {
+  font-size: 9pt;
+  color: #555;
+}
+
+.card-detail__block {
+  margin-top: 6pt;
+}
+
+.card-detail__block-title {
+  margin: 0 0 4pt;
+  font-size: 9pt;
+  text-transform: uppercase;
+  letter-spacing: 0.3pt;
+  color: #555;
+  font-weight: 600;
+}
+
+.card-detail__source {
+  margin-bottom: 6pt;
+}
+
+.card-detail__source-name {
+  font-size: 10pt;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 3pt;
+}
+
+.card-detail__field {
+  margin-bottom: 4pt;
+}
+
+.card-detail__field-name {
+  font-size: 9pt;
+  font-weight: 600;
+  color: #555;
+}
+
+.card-detail__field-value {
+  font-size: 10pt;
+  color: #1a1a1a;
+}
+
 /* === Notes / follow-ups === */
 
 .notes,
