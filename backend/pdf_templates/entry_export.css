@@ -1,43 +1,95 @@
 /* Print-friendly stylesheet for the journal entry PDF export.
-   A4 portrait, generous margins, dark text on white. The layout
-   relies on CSS absolute positioning + a flex/aspect-ratio
-   wrapper for the spread image, which WeasyPrint handles cleanly.
-   We keep this CSS self-contained: no @font-face / no external
-   assets — WeasyPrint defaults to the system serif/sans-serif. */
+   A4 portrait, generous margins, dark text on white. The typography
+   scale + page-break rules here are tuned for the formatting
+   refinements specified in PDF_EXPORT_FORMATTING.md.
+
+   Colour palette:
+     #222  primary body text
+     #666  metadata labels / field labels / muted text
+     #999  very muted (deck name, dates)
+     #ddd  hairline rules
+     #f7f7f7  alternating row stripe / spread frame background
+*/
 
 @page {
   size: A4 portrait;
   margin: 20mm;
+
+  /* Centered page numbers in the footer of every page. Just the
+     number — no "X of Y" per the spec. */
+  @bottom-center {
+    content: counter(page);
+    font-family: 'Helvetica', 'Arial', sans-serif;
+    font-size: 8pt;
+    color: #888;
+  }
 }
 
 html, body {
   font-family: 'Helvetica', 'Arial', sans-serif;
   font-size: 10pt;
   line-height: 1.45;
-  color: #1a1a1a;
+  color: #222;
   background: #ffffff;
-  -weasy-anchor: none;
 }
 
-/* === Entry header === */
+/* === Page-break strategy ===
+   Applied broadly via class-targeted rules below. The summary:
+     - Section headers may not be widowed (break-after: avoid)
+     - Single card details, single follow-ups, key tables, and
+       individual breakdown tabs may not split (break-inside: avoid)
+     - The entry header is glued to whatever follows so the title
+       page isn't standalone */
+
+.section-header,
+.entry-title,
+.reading__title,
+.card-details__title,
+.breakdown__title,
+.notes__title,
+.follow-ups__title,
+.chart__title {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+/* === Entry header ===
+   Compact letterhead — title up top, then a two-column meta grid
+   (DATE/LOCATION top row, QUERENT/READER bottom row) with small-
+   caps labels and a thin rule beneath. Sits on the first content
+   page above the first reading; never gets its own page. */
 
 .entry-header {
-  border-bottom: 1px solid #d0d0d0;
-  padding-bottom: 12pt;
-  margin-bottom: 14pt;
+  border-bottom: 0.5pt solid #ddd;
+  padding-bottom: 10pt;
+  margin-bottom: 12pt;
+  /* Glue the header to the first reading so it never lives on its
+     own page (the standalone-title-page bug fix). break-after:
+     avoid + the .reading flowing immediately after makes WeasyPrint
+     keep them together when they fit. */
+  break-after: avoid;
+  page-break-after: avoid;
 }
 
 .entry-title {
-  font-size: 22pt;
-  margin: 0 0 8pt;
-  font-weight: 600;
+  font-size: 24pt;
+  line-height: 1.1;
+  margin: 0 0 10pt;
+  font-weight: 700;
+  color: #1a1a1a;
 }
 
+/* Two-column meta grid: pairs of (label, value) flow into a 2x2 grid
+   so DATE/LOCATION sit side-by-side and QUERENT/READER below. Each
+   meta__row is a `display: contents` wrapper that flattens into the
+   grid's flow. */
 .entry-meta {
   display: grid;
-  grid-template-columns: max-content 1fr;
-  column-gap: 12pt;
-  row-gap: 2pt;
+  grid-template-columns:
+    max-content minmax(0, 1fr)
+    max-content minmax(0, 1fr);
+  column-gap: 6pt;
+  row-gap: 3pt;
   font-size: 10pt;
 }
 
@@ -46,63 +98,81 @@ html, body {
 }
 
 .entry-meta__label {
-  color: #555;
+  color: #666;
   text-transform: uppercase;
   font-size: 8pt;
-  letter-spacing: 0.5pt;
-  padding-top: 2pt;
+  letter-spacing: 0.6pt;
+  font-weight: 600;
+  align-self: center;
+  padding-right: 6pt;
 }
 
 .entry-meta__value {
-  color: #1a1a1a;
+  color: #222;
+  align-self: center;
 }
 
-/* === Reading section === */
+/* === Reading section ===
+   Spread name (18pt bold) → spread image → position key table.
+   We deliberately do NOT mark .reading itself as
+   page-break-inside: avoid, because a multi-card spread + key
+   table often won't fit a single page and would otherwise force
+   an unhelpful break before the entire section (which is what
+   produced the standalone title page bug). Page-break rules sit
+   on the elements that genuinely shouldn't split. */
 
 .reading {
-  page-break-inside: avoid;
-  margin-top: 14pt;
+  margin-top: 12pt;
+}
+
+.reading + .reading {
+  /* Encourage each subsequent reading to start fresh. */
+  break-before: avoid;
+  margin-top: 16pt;
 }
 
 .reading__title {
-  font-size: 14pt;
+  font-size: 18pt;
   margin: 0 0 8pt;
-  font-weight: 600;
+  font-weight: 700;
+  color: #1a1a1a;
 }
 
 .reading__deck {
   font-weight: 400;
   font-size: 11pt;
-  color: #555;
+  color: #666;
 }
 
 /* === Spread layout ===
-   The spread sits in an aspect-ratio-locked wrapper sized to the
-   printable width. The inner .spread__canvas is the raw
-   coordinate system; we scale it down with `transform: scale()`
-   using CSS variable max-width so the original (x, y, w, h)
-   pixel values from the spread designer map cleanly. Easier
-   approach for phase 1: render at native pixel coords inside
-   a fixed-height box and let WeasyPrint shrink-to-fit via
-   width: 100% on the canvas. */
+   The spread bounding box is sized in mm via inline style on
+   .spread (computed in the Jinja template from canvas_w/canvas_h)
+   so single-card spreads get a sensible cap (no full-page card)
+   instead of stretching to the printable width. The inner
+   .spread__canvas is absolutely positioned so slot percentages
+   refer to it.
 
-/* The aspect ratio comes from inline `padding-top: H/W * 100%`,
-   which carves out a box whose height tracks its width. The
-   canvas absolutely positions on top of that padded area so
-   slot percentages (left/top/width/height) refer to it. */
+   .spread__frame is the visual container (light background +
+   padding) that grounds the cards. */
+
+.spread__frame {
+  background: #fafafa;
+  padding: 10pt;
+  border-radius: 4pt;
+  margin: 0 0 10pt;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
 .spread {
   position: relative;
-  width: 100%;
-  height: 0;
-  margin: 0 0 10pt;
+  margin: 0 auto;
 }
 
 .spread__canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
 .spread__slot {
@@ -129,7 +199,7 @@ html, body {
   align-items: center;
   justify-content: center;
   font-size: 8pt;
-  color: #555;
+  color: #666;
 }
 
 .spread__label {
@@ -137,13 +207,14 @@ html, body {
   left: 2pt;
   top: 2pt;
   font-size: 7pt;
-  background: rgba(255, 255, 255, 0.85);
-  padding: 1pt 3pt;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1pt 4pt;
   border-radius: 2pt;
-  color: #1a1a1a;
+  color: #222;
+  font-weight: 600;
 }
 
-/* === Simple card row fallback === */
+/* === Simple card row fallback (no spread.positions) === */
 
 .card-row {
   display: flex;
@@ -178,77 +249,108 @@ html, body {
 .card-row__label {
   margin-top: 4pt;
   font-size: 8pt;
-  color: #333;
+  color: #444;
 }
 
-/* === Position key === */
+/* === Position key table === */
 
 .position-key {
   width: 100%;
   border-collapse: collapse;
-  margin: 4pt 0 0;
+  margin: 6pt 0 0;
   font-size: 10pt;
-  page-break-inside: auto;
+  /* The whole table stays together — small enough that an orphan-
+     rows split looks worse than an early page break. */
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .position-key th,
 .position-key td {
-  text-align: left;
   padding: 4pt 8pt;
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: 0.5pt solid #ececec;
 }
 
 .position-key th {
   background: #f4f4f4;
   font-weight: 600;
-  font-size: 9pt;
+  font-size: 8.5pt;
   text-transform: uppercase;
-  letter-spacing: 0.3pt;
+  letter-spacing: 0.4pt;
+  color: #555;
+  text-align: left;
+}
+
+.position-key tbody tr:nth-child(even) {
+  background: #f7f7f7;
 }
 
 .position-key__key {
   width: 8%;
   text-align: center;
-  color: #555;
+  color: #666;
   font-variant-numeric: tabular-nums;
 }
 
 .position-key__pos {
   width: 38%;
-  color: #555;
+  text-align: left;
+  color: #444;
 }
 
-/* === Correspondence breakdown === */
+.position-key__card {
+  text-align: left;
+  font-weight: 600;
+  color: #222;
+}
+
+/* === Correspondence breakdown ===
+   Per the spec: pills must render consistently. The legacy inline-
+   block + margin approach broke on some WeasyPrint setups; switch
+   to display: flex/flex-wrap on the chip container so they always
+   render as styled pills with predictable wrapping. */
 
 .breakdown {
   margin-top: 18pt;
-  page-break-inside: auto;
 }
 
 .breakdown__title {
-  font-size: 13pt;
-  margin: 0 0 6pt;
-  font-weight: 600;
-  border-bottom: 1px solid #d0d0d0;
-  padding-bottom: 3pt;
+  font-size: 14pt;
+  margin: 0 0 8pt;
+  font-weight: 700;
+  border-bottom: 0.5pt solid #ddd;
+  padding-bottom: 4pt;
+  color: #1a1a1a;
 }
 
 .breakdown__tab {
+  break-inside: avoid;
   page-break-inside: avoid;
-  margin-top: 10pt;
+  margin-top: 12pt;
+  padding-top: 10pt;
+}
+
+.breakdown__tab + .breakdown__tab {
+  /* Visible divider between readings. */
+  border-top: 0.5pt solid #ddd;
+}
+
+.breakdown__tab:first-of-type {
+  padding-top: 0;
 }
 
 .breakdown__tab-label {
-  margin: 0 0 4pt;
+  margin: 0 0 6pt;
   font-size: 11pt;
   font-weight: 600;
+  color: #222;
 }
 
 .breakdown__tab-count {
   margin-left: 6pt;
   font-weight: 400;
   font-size: 9pt;
-  color: #555;
+  color: #888;
 }
 
 .breakdown__rows {
@@ -258,70 +360,93 @@ html, body {
 }
 
 .breakdown__rows tr {
+  break-inside: avoid;
   page-break-inside: avoid;
 }
 
 .breakdown__row-label {
-  width: 25%;
+  width: 22%;
   vertical-align: top;
-  padding: 5pt 8pt 5pt 0;
-  color: #555;
+  padding: 6pt 10pt 6pt 0;
+  color: #666;
   font-weight: 600;
-  border-bottom: 1px solid #e5e5e5;
+  font-size: 9.5pt;
+  border-bottom: 0.5pt solid #ececec;
 }
 
 .breakdown__row-chips {
   padding: 5pt 0;
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: 0.5pt solid #ececec;
+  /* Force consistent flex-wrap rendering — addresses the bug where
+     some exports showed values + counts as inline plaintext. */
+  display: block;
 }
 
 .breakdown__chip {
   display: inline-block;
-  background: #f4f4f4;
-  border: 1px solid #e0e0e0;
-  border-radius: 3pt;
-  padding: 1pt 5pt;
-  margin: 0 4pt 3pt 0;
+  background: #f3f3f5;
+  border: 0.5pt solid #e0e0e3;
+  border-radius: 8pt;
+  padding: 1.5pt 9pt;
+  margin: 0 5pt 4pt 0;
   font-size: 9pt;
+  line-height: 1.3;
+  white-space: nowrap;
 }
 
 .breakdown__chip-value {
-  color: #1a1a1a;
+  color: #222;
 }
 
 .breakdown__chip-count {
-  margin-left: 4pt;
-  color: #777;
+  margin-left: 5pt;
+  color: #999;
+  font-size: 8.5pt;
   font-variant-numeric: tabular-nums;
 }
 
-/* === Card detail section === */
+/* === Card detail section ===
+   Compact, denser layout: thumbnail floats left, name on top, then
+   custom fields flow with subdued labels. Hairline rules between
+   blocks. The "CUSTOM FIELDS" subheader has been removed entirely
+   — the field names themselves are sufficient labels. */
 
 .card-details {
   margin-top: 18pt;
-  page-break-inside: auto;
 }
 
 .card-details__title {
-  font-size: 13pt;
+  font-size: 14pt;
   margin: 0 0 6pt;
-  font-weight: 600;
-  border-bottom: 1px solid #d0d0d0;
-  padding-bottom: 3pt;
+  font-weight: 700;
+  border-bottom: 0.5pt solid #ddd;
+  padding-bottom: 4pt;
+  color: #1a1a1a;
+  /* Keep the header with at least the first card. */
+  break-after: avoid;
+  page-break-after: avoid;
 }
 
 .card-details__reading {
   font-size: 11pt;
   margin: 12pt 0 6pt;
-  color: #555;
+  color: #666;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4pt;
+  font-size: 9pt;
+  break-after: avoid;
+  page-break-after: avoid;
 }
 
 .card-detail {
+  break-inside: avoid;
   page-break-inside: avoid;
   margin-top: 10pt;
-  padding-top: 6pt;
-  border-top: 1px solid #ececec;
+  padding-top: 8pt;
+  border-top: 0.5pt solid #ddd;
+  /* Float-cleared so the image and text both flow within. */
+  overflow: hidden;
 }
 
 .card-detail:first-of-type {
@@ -329,50 +454,43 @@ html, body {
   padding-top: 0;
 }
 
-.card-detail__head {
-  display: flex;
-  gap: 10pt;
-  align-items: flex-start;
-  margin-bottom: 6pt;
-}
-
 .card-detail__img {
-  width: 60pt;
-  height: 90pt;
+  float: left;
+  width: 90pt;
+  height: 135pt;
   object-fit: cover;
   border-radius: 3pt;
-  flex: 0 0 auto;
+  border: 0.5pt solid #ddd;
+  margin: 0 14pt 6pt 0;
 }
 
 .card-detail__img--reversed {
   transform: rotate(180deg);
 }
 
-.card-detail__head-text {
-  flex: 1;
-}
-
 .card-detail__name {
   margin: 0 0 2pt;
-  font-size: 12pt;
-  font-weight: 600;
+  font-size: 13pt;
+  font-weight: 700;
+  color: #1a1a1a;
 }
 
 .card-detail__deck {
   font-size: 9pt;
-  color: #555;
+  color: #888;
+  margin-bottom: 6pt;
 }
 
 .card-detail__block {
   margin-top: 6pt;
 }
 
-.card-detail__block-title {
-  margin: 0 0 4pt;
-  font-size: 9pt;
+.card-detail__sub-header {
+  margin: 8pt 0 4pt;
+  font-size: 8pt;
   text-transform: uppercase;
-  letter-spacing: 0.3pt;
-  color: #555;
+  letter-spacing: 0.5pt;
+  color: #888;
   font-weight: 600;
 }
 
@@ -382,82 +500,117 @@ html, body {
 
 .card-detail__source-name {
   font-size: 10pt;
-  font-weight: 600;
+  font-weight: 700;
   color: #1a1a1a;
   margin-bottom: 3pt;
 }
 
 .card-detail__field {
-  margin-bottom: 4pt;
+  margin: 0 0 3pt;
+  font-size: 10pt;
+  line-height: 1.45;
 }
 
+/* Inline label "<Name>: " followed by the value flowing immediately
+   after. Short fields (Element Number, Symbol, Category, etc.)
+   collapse to a single line; long fields (Description) wrap naturally
+   under the label. Rich-text paragraphs inside the value get
+   display: inline so the first paragraph runs in with the label. */
 .card-detail__field-name {
-  font-size: 9pt;
-  font-weight: 600;
-  color: #555;
+  display: inline;
+  font-weight: 400;
+  color: #666;
+}
+
+.card-detail__field-name::after {
+  content: ": ";
 }
 
 .card-detail__field-value {
-  font-size: 10pt;
-  color: #1a1a1a;
+  display: inline;
+  color: #222;
 }
 
-/* === Notes / follow-ups === */
+.card-detail__field-value p {
+  display: inline;
+  margin: 0;
+}
+
+/* Restore paragraph breaks for multi-paragraph values (e.g. a
+   Description with multiple paragraphs). Each subsequent paragraph
+   gets a hard break before it. */
+.card-detail__field-value p + p::before {
+  content: "";
+  display: block;
+  margin-top: 4pt;
+}
+
+/* === Notes / follow-ups ===
+   Always have a clearly-labeled "Notes" header with breathing
+   room above it so it never reads as part of the previous section. */
 
 .notes,
 .follow-ups {
-  margin-top: 18pt;
-  page-break-inside: auto;
+  margin-top: 22pt;
 }
 
 .notes__title,
 .follow-ups__title {
-  font-size: 13pt;
-  margin: 0 0 6pt;
-  font-weight: 600;
-  border-bottom: 1px solid #d0d0d0;
-  padding-bottom: 3pt;
+  font-size: 14pt;
+  margin: 0 0 8pt;
+  font-weight: 700;
+  border-bottom: 0.5pt solid #ddd;
+  padding-bottom: 4pt;
+  color: #1a1a1a;
+}
+
+.notes__body {
+  font-size: 10pt;
+  color: #222;
 }
 
 .follow-up {
-  margin-top: 10pt;
+  margin-top: 12pt;
+  break-inside: avoid;
   page-break-inside: avoid;
 }
 
 .follow-up__date {
   font-size: 8pt;
-  color: #555;
+  color: #888;
   text-transform: uppercase;
-  letter-spacing: 0.4pt;
-  margin-bottom: 2pt;
+  letter-spacing: 0.5pt;
+  font-weight: 600;
+  margin-bottom: 3pt;
 }
 
 /* === Astrological event chart === */
 
 .chart {
+  /* The chart lives at the very end of the PDF on a fresh page so
+     it can use its own real estate. */
+  break-before: always;
   page-break-before: always;
   margin-top: 0;
 }
 
 .chart__title {
-  font-size: 13pt;
+  font-size: 14pt;
   margin: 0 0 4pt;
-  font-weight: 600;
-  border-bottom: 1px solid #d0d0d0;
-  padding-bottom: 3pt;
+  font-weight: 700;
+  border-bottom: 0.5pt solid #ddd;
+  padding-bottom: 4pt;
+  color: #1a1a1a;
 }
 
 .chart__meta {
   display: flex;
   gap: 12pt;
   font-size: 9pt;
-  color: #555;
-  margin-bottom: 8pt;
+  color: #888;
+  margin-bottom: 10pt;
 }
 
-/* Kerykeion's SVG carries explicit pixel sizing that we strip in
-   _strip_svg_dimensions; the wrapper below caps the chart to a
-   square so it fits the printable width. */
 .chart__svg {
   width: 100%;
   text-align: center;
@@ -475,14 +628,19 @@ html, body {
   width: 100%;
   border-collapse: collapse;
   font-size: 9.5pt;
-  page-break-inside: auto;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .chart__table th,
 .chart__table td {
   text-align: left;
-  padding: 3pt 8pt;
-  border-bottom: 1px solid #e5e5e5;
+  padding: 4pt 8pt;
+  border-bottom: 0.5pt solid #ececec;
+}
+
+.chart__table tbody tr:nth-child(even) {
+  background: #f7f7f7;
 }
 
 .chart__table th {
@@ -491,6 +649,7 @@ html, body {
   font-size: 8.5pt;
   text-transform: uppercase;
   letter-spacing: 0.3pt;
+  color: #555;
 }
 
 .chart__table-num {
@@ -508,7 +667,8 @@ html, body {
 .rich-text h2,
 .rich-text h3 {
   margin: 12pt 0 4pt;
-  font-weight: 600;
+  font-weight: 700;
+  color: #1a1a1a;
 }
 
 .rich-text h1 { font-size: 13pt; }
@@ -525,11 +685,11 @@ html, body {
   margin: 0 0 2pt;
 }
 
-.rich-text strong { font-weight: 600; }
+.rich-text strong { font-weight: 700; }
 .rich-text em { font-style: italic; }
 
 .rich-text a {
-  color: #1a1a1a;
+  color: #222;
   text-decoration: underline;
 }
 
