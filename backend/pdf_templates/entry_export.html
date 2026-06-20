@@ -86,24 +86,35 @@
          simple row of cards. #}
       {% set spread = reading.spread %}
       {% if spread and spread.positions %}
-        {# Compute the spread's bounding box in spread-designer pixels
-           (max of x+width, y+height), then pick a printed size that
-           keeps the spread inside the printable area AND under a
-           ~190mm height cap — without the cap, a 1-card spread
-           would stretch to 170mm × ~255mm and fill the page. #}
-        {% set canvas_w = namespace(v=0) %}
-        {% set canvas_h = namespace(v=0) %}
+        {# Compute the spread's content bounding box (min/max x and y)
+           rather than just max(x+w,y+h), so spreads whose positions
+           don't start at (0, 0) — like the Daily Draw, where the
+           single card lives at x=340 in a 540-wide canvas — get
+           trimmed to just their used area. Without the trim the
+           card would render in the rightmost ~37% of the frame with
+           empty space alongside it. Mirrors the
+           PositionedLayout logic in SpreadDisplay.tsx. #}
+        {% set min_x = namespace(v=spread.positions[0].x) %}
+        {% set min_y = namespace(v=spread.positions[0].y) %}
+        {% set max_x = namespace(v=spread.positions[0].x + spread.positions[0].width) %}
+        {% set max_y = namespace(v=spread.positions[0].y + spread.positions[0].height) %}
         {% for p in spread.positions %}
-          {% if (p.x + p.width) > canvas_w.v %}{% set canvas_w.v = p.x + p.width %}{% endif %}
-          {% if (p.y + p.height) > canvas_h.v %}{% set canvas_h.v = p.y + p.height %}{% endif %}
+          {% if p.x < min_x.v %}{% set min_x.v = p.x %}{% endif %}
+          {% if p.y < min_y.v %}{% set min_y.v = p.y %}{% endif %}
+          {% if (p.x + p.width) > max_x.v %}{% set max_x.v = p.x + p.width %}{% endif %}
+          {% if (p.y + p.height) > max_y.v %}{% set max_y.v = p.y + p.height %}{% endif %}
         {% endfor %}
-        {% if canvas_w.v < 1 %}{% set canvas_w.v = 1 %}{% endif %}
-        {% if canvas_h.v < 1 %}{% set canvas_h.v = 1 %}{% endif %}
+        {% set canvas_w = max_x.v - min_x.v %}
+        {% set canvas_h = max_y.v - min_y.v %}
+        {% if canvas_w < 1 %}{% set canvas_w = 1 %}{% endif %}
+        {% if canvas_h < 1 %}{% set canvas_h = 1 %}{% endif %}
 
+        {# Cap the printed size so the spread can't fill the whole
+           page (single-card spreads would otherwise stretch the
+           card to the full printable width). #}
         {% set max_w_mm = 170 %}        {# A4 minus 20mm margins each side #}
         {% set max_h_mm = 190 %}        {# leaves room for the key table below #}
-        {% set aspect = canvas_w.v / canvas_h.v %}
-        {# Width that lets the height match max_h_mm. #}
+        {% set aspect = canvas_w / canvas_h %}
         {% set width_from_height = (max_h_mm * aspect)|round(3) %}
         {% set printed_w = [max_w_mm, width_from_height]|min %}
         {% set printed_h = (printed_w / aspect)|round(3) %}
@@ -115,10 +126,10 @@
               {% for pos in spread.positions %}
                 {% set card = reading.cards_used|selectattr('position_index', 'equalto', loop.index0)|first %}
                 <div class="spread__slot"
-                     style="left: {{ (pos.x / canvas_w.v * 100)|round(3) }}%;
-                            top: {{ (pos.y / canvas_h.v * 100)|round(3) }}%;
-                            width: {{ (pos.width / canvas_w.v * 100)|round(3) }}%;
-                            height: {{ (pos.height / canvas_h.v * 100)|round(3) }}%;
+                     style="left: {{ ((pos.x - min_x.v) / canvas_w * 100)|round(3) }}%;
+                            top: {{ ((pos.y - min_y.v) / canvas_h * 100)|round(3) }}%;
+                            width: {{ (pos.width / canvas_w * 100)|round(3) }}%;
+                            height: {{ (pos.height / canvas_h * 100)|round(3) }}%;
                             {% if pos.rotation %}transform: rotate({{ pos.rotation }}deg);{% endif %}">
                   {% if card and card.image_uri %}
                     <img class="spread__card {% if card.reversed %}spread__card--reversed{% endif %}"
