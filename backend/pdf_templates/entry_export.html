@@ -294,5 +294,52 @@
       {% endfor %}
     </section>
   {% endif %}
+
+  {% if chart_block %}
+    {# The planning doc puts the chart at the end of the PDF. Force
+       a fresh page so the chart art has room and the planetary
+       table sits next to it without being squeezed onto a previous
+       page's tail. #}
+    <section class="chart">
+      <h2 class="chart__title">Astrological Event Chart</h2>
+      <div class="chart__meta">
+        {% if chart_block.house_system %}
+          <span>{{ chart_block.house_system }} houses</span>
+        {% endif %}
+        {% if chart_block.timezone %}
+          <span>{{ chart_block.timezone }}</span>
+        {% endif %}
+      </div>
+      {% if chart_block.image_uri %}
+        <div class="chart__svg">
+          <img src="{{ chart_block.image_uri }}" alt="Astrological event chart" />
+        </div>
+      {% endif %}
+      {% if chart_block.planets %}
+        <table class="chart__table">
+          <thead>
+            <tr>
+              <th>Body</th>
+              <th>Sign</th>
+              <th class="chart__table-num">Degree</th>
+              <th>House</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in chart_block.planets %}
+              <tr>
+                <td>{{ p.label }}</td>
+                <td>
+                  {{ p.sign }}{% if p.retrograde %} <em>R</em>{% endif %}
+                </td>
+                <td class="chart__table-num">{{ '%.2f'|format(p.position) }}°</td>
+                <td>{{ p.house }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+    </section>
+  {% endif %}
 </body>
 </html>
