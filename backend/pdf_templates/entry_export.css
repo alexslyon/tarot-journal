@@ -182,7 +182,7 @@ html, body {
 .spread__card {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 
@@ -458,7 +458,7 @@ html, body {
   float: left;
   width: 90pt;
   height: 135pt;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 3pt;
   border: 0.5pt solid #ddd;
   margin: 0 14pt 6pt 0;
