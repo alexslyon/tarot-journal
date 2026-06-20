@@ -87,10 +87,10 @@
       {% set spread = reading.spread %}
       {% if spread and spread.positions %}
         {# Compute the spread's bounding box in spread-designer pixels
-           (max of x+width, y+height) so we can convert each slot's
-           position to percentages of that box. The wrapper sets the
-           aspect-ratio so the box scales to fit page width while
-           preserving proportions. #}
+           (max of x+width, y+height), then pick a printed size that
+           keeps the spread inside the printable area AND under a
+           ~190mm height cap — without the cap, a 1-card spread
+           would stretch to 170mm × ~255mm and fill the page. #}
         {% set canvas_w = namespace(v=0) %}
         {% set canvas_h = namespace(v=0) %}
         {% for p in spread.positions %}
@@ -99,32 +99,43 @@
         {% endfor %}
         {% if canvas_w.v < 1 %}{% set canvas_w.v = 1 %}{% endif %}
         {% if canvas_h.v < 1 %}{% set canvas_h.v = 1 %}{% endif %}
-        <div class="spread"
-             style="padding-top: {{ (canvas_h.v / canvas_w.v * 100)|round(3) }}%;">
-          <div class="spread__canvas">
-            {% for pos in spread.positions %}
-              {% set card = reading.cards_used|selectattr('position_index', 'equalto', loop.index0)|first %}
-              <div class="spread__slot"
-                   style="left: {{ (pos.x / canvas_w.v * 100)|round(3) }}%;
-                          top: {{ (pos.y / canvas_h.v * 100)|round(3) }}%;
-                          width: {{ (pos.width / canvas_w.v * 100)|round(3) }}%;
-                          height: {{ (pos.height / canvas_h.v * 100)|round(3) }}%;
-                          {% if pos.rotation %}transform: rotate({{ pos.rotation }}deg);{% endif %}">
-                {% if card and card.image_uri %}
-                  <img class="spread__card {% if card.reversed %}spread__card--reversed{% endif %}"
-                       src="{{ card.image_uri }}"
-                       alt="{{ card.name|e }}" />
-                {% else %}
-                  <div class="spread__placeholder">
-                    {{ pos.key or loop.index }}
-                  </div>
-                {% endif %}
-                {# Overlay the short key (1, 2, …) so it stays
-                   legible at print size; the full position name
-                   lives in the position-key table below. #}
-                <span class="spread__label">{{ pos.key or loop.index }}</span>
-              </div>
-            {% endfor %}
+
+        {% set max_w_mm = 170 %}        {# A4 minus 20mm margins each side #}
+        {% set max_h_mm = 190 %}        {# leaves room for the key table below #}
+        {% set aspect = canvas_w.v / canvas_h.v %}
+        {# Width that lets the height match max_h_mm. #}
+        {% set width_from_height = (max_h_mm * aspect)|round(3) %}
+        {% set printed_w = [max_w_mm, width_from_height]|min %}
+        {% set printed_h = (printed_w / aspect)|round(3) %}
+
+        <div class="spread__frame">
+          <div class="spread"
+               style="width: {{ printed_w }}mm; height: {{ printed_h }}mm;">
+            <div class="spread__canvas">
+              {% for pos in spread.positions %}
+                {% set card = reading.cards_used|selectattr('position_index', 'equalto', loop.index0)|first %}
+                <div class="spread__slot"
+                     style="left: {{ (pos.x / canvas_w.v * 100)|round(3) }}%;
+                            top: {{ (pos.y / canvas_h.v * 100)|round(3) }}%;
+                            width: {{ (pos.width / canvas_w.v * 100)|round(3) }}%;
+                            height: {{ (pos.height / canvas_h.v * 100)|round(3) }}%;
+                            {% if pos.rotation %}transform: rotate({{ pos.rotation }}deg);{% endif %}">
+                  {% if card and card.image_uri %}
+                    <img class="spread__card {% if card.reversed %}spread__card--reversed{% endif %}"
+                         src="{{ card.image_uri }}"
+                         alt="{{ card.name|e }}" />
+                  {% else %}
+                    <div class="spread__placeholder">
+                      {{ pos.key or loop.index }}
+                    </div>
+                  {% endif %}
+                  {# Overlay the short key (1, 2, …) so it stays
+                     legible at print size; the full position name
+                     lives in the position-key table below. #}
+                  <span class="spread__label">{{ pos.key or loop.index }}</span>
+                </div>
+              {% endfor %}
+            </div>
           </div>
         </div>
       {% elif reading.cards_used %}
@@ -214,39 +225,31 @@
         {% endif %}
         {% for card in group.cards %}
           <article class="card-detail">
-            <div class="card-detail__head">
-              {% if card.image_uri %}
-                <img class="card-detail__img {% if card.reversed %}card-detail__img--reversed{% endif %}"
-                     src="{{ card.image_uri }}"
-                     alt="{{ card.name|e }}" />
-              {% endif %}
-              <div class="card-detail__head-text">
-                <h4 class="card-detail__name">
-                  {{ card.name }}{% if card.reversed %} <em>(reversed)</em>{% endif %}
-                </h4>
-                {% if card.deck_name %}
-                  <div class="card-detail__deck">{{ card.deck_name }}</div>
-                {% endif %}
-              </div>
-            </div>
-
-            {% if card.custom_fields %}
-              <div class="card-detail__block">
-                <h5 class="card-detail__block-title">Custom Fields</h5>
-                {% for f in card.custom_fields %}
-                  <div class="card-detail__field">
-                    <div class="card-detail__field-name">{{ f.field_name }}</div>
-                    <div class="card-detail__field-value rich-text">
-                      {{ f.field_value|safe }}
-                    </div>
-                  </div>
-                {% endfor %}
-              </div>
+            {% if card.image_uri %}
+              <img class="card-detail__img {% if card.reversed %}card-detail__img--reversed{% endif %}"
+                   src="{{ card.image_uri }}"
+                   alt="{{ card.name|e }}" />
             {% endif %}
+            <h4 class="card-detail__name">
+              {{ card.name }}{% if card.reversed %} <em>(reversed)</em>{% endif %}
+            </h4>
+            {% if card.deck_name %}
+              <div class="card-detail__deck">{{ card.deck_name }}</div>
+            {% endif %}
+
+            {# Custom fields — no subheader; field names are the labels. #}
+            {% for f in card.custom_fields %}
+              <div class="card-detail__field">
+                <div class="card-detail__field-name">{{ f.field_name }}</div>
+                <div class="card-detail__field-value rich-text">
+                  {{ f.field_value|safe }}
+                </div>
+              </div>
+            {% endfor %}
 
             {% if card.archetype_entries %}
               <div class="card-detail__block">
-                <h5 class="card-detail__block-title">
+                <h5 class="card-detail__sub-header">
                   Archetype Notes{% if card.archetype %} — {{ card.archetype }}{% endif %}
                 </h5>
                 {% for grp in card.archetype_entries %}
