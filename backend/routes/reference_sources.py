@@ -127,8 +127,11 @@ def create_field(source_id, data):
         return jsonify({'error': 'Field name is required'}), 400
     if not cartomancy_type:
         return jsonify({'error': 'cartomancy_type is required'}), 400
+    collapsible = bool(data.get('collapsible'))
     try:
-        new_id = db.create_source_field(source_id, name, cartomancy_type)
+        new_id = db.create_source_field(
+            source_id, name, cartomancy_type, collapsible=collapsible,
+        )
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -144,10 +147,17 @@ def update_field(field_id, data):
     if name is not None and not str(name).strip():
         return jsonify({'error': 'Field name cannot be blank'}), 400
     sort_order = data.get('sort_order')
+    # `collapsible` is optional — we only persist when present so
+    # rename/reorder PATCHes don't accidentally reset the flag.
+    raw_collapsible = data.get('collapsible')
+    collapsible = (
+        bool(raw_collapsible) if raw_collapsible is not None else None
+    )
     db.update_source_field(
         field_id,
         name=name.strip() if isinstance(name, str) else None,
         sort_order=sort_order if isinstance(sort_order, int) else None,
+        collapsible=collapsible,
     )
     return jsonify({'ok': True})
 

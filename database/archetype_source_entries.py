@@ -51,11 +51,16 @@ class ArchetypeSourceEntriesMixin:
         source_id: int,
         name: str,
         cartomancy_type: str,
+        collapsible: bool = False,
     ) -> int:
         """Append a new field within a source's (cartomancy_type) bucket.
 
         Sort order goes to one past the current max for that bucket so
         each cartomancy_type's fields are independently ordered.
+        `collapsible=True` marks the field as one that should render
+        with a chevron disclosure in the editor (the Archetype Notes
+        page collapses it by default so long-form fields don't take
+        up the whole stack).
         """
         if not cartomancy_type or not cartomancy_type.strip():
             raise ValueError('cartomancy_type is required')
@@ -66,14 +71,22 @@ class ArchetypeSourceEntriesMixin:
             (source_id, cartomancy_type)
         ).fetchone()[0]
         cursor.execute(
-            'INSERT INTO source_fields (source_id, cartomancy_type, name, sort_order) '
-            'VALUES (?, ?, ?, ?)',
-            (source_id, cartomancy_type, name.strip(), next_order)
+            'INSERT INTO source_fields '
+            '(source_id, cartomancy_type, name, sort_order, collapsible) '
+            'VALUES (?, ?, ?, ?, ?)',
+            (source_id, cartomancy_type, name.strip(), next_order,
+             1 if collapsible else 0)
         )
         self._commit()
         return cursor.lastrowid
 
-    def update_source_field(self, field_id: int, name: str = None, sort_order: int = None):
+    def update_source_field(
+        self,
+        field_id: int,
+        name: str = None,
+        sort_order: int = None,
+        collapsible: bool = None,
+    ):
         cursor = self.conn.cursor()
         updates = []
         params: list = []
@@ -83,6 +96,9 @@ class ArchetypeSourceEntriesMixin:
         if sort_order is not None:
             updates.append('sort_order = ?')
             params.append(int(sort_order))
+        if collapsible is not None:
+            updates.append('collapsible = ?')
+            params.append(1 if collapsible else 0)
         if not updates:
             return
         params.append(field_id)

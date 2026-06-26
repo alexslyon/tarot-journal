@@ -293,6 +293,11 @@ export interface SourceField {
   cartomancy_type: string;
   name: string;
   sort_order: number;
+  /** Backend stores this as 0/1 — JSON-serialise as a number. The UI
+   *  treats it as boolean. Marks the field as one the Archetype Notes
+   *  editor should render with a chevron disclosure (collapsed by
+   *  default) so long-form fields don't fill the page. */
+  collapsible: number;
   created_at: string;
 }
 

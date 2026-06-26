@@ -438,10 +438,63 @@ function ArchetypeFieldEditor({
     };
   }, [content, archetype.id, field.id, sourceId, queryClient, showToast]);
 
+  // Collapsible fields render with a chevron disclosure (collapsed
+  // by default). The editor stays mounted under display:none rather
+  // than unmounted so the 600ms-debounced save isn't cancelled when
+  // the user collapses immediately after typing.
+  const isCollapsible = !!field.collapsible;
+  const [open, setOpen] = useState(!isCollapsible);
+  // Default-collapse again whenever the archetype changes or the
+  // field flips into a collapsible flag.
+  useEffect(() => {
+    setOpen(!isCollapsible);
+  }, [archetype.id, isCollapsible]);
+
+  const hasContent = useMemo(
+    () => content.replace(/<[^>]*>/g, '').trim().length > 0,
+    [content],
+  );
+
+  if (!isCollapsible) {
+    return (
+      <div className="archetype-notes-edit__field-editor">
+        <h6 className="archetype-notes-edit__field-editor-name">{field.name}</h6>
+        <RichTextEditor content={content} onChange={setContent} />
+      </div>
+    );
+  }
   return (
-    <div className="archetype-notes-edit__field-editor">
-      <h6 className="archetype-notes-edit__field-editor-name">{field.name}</h6>
-      <RichTextEditor content={content} onChange={setContent} />
+    <div className="archetype-notes-edit__field-editor archetype-notes-edit__field-editor--collapsible">
+      <button
+        type="button"
+        className="archetype-notes-edit__field-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+      >
+        <span
+          className={`archetype-notes-edit__chevron ${open ? 'archetype-notes-edit__chevron--open' : ''}`}
+          aria-hidden="true"
+        >
+          ▸
+        </span>
+        <span className="archetype-notes-edit__field-toggle-name">
+          {field.name}
+        </span>
+        {hasContent && (
+          <span
+            className="archetype-notes-edit__source-dot"
+            aria-label="Has content"
+          >
+            •
+          </span>
+        )}
+      </button>
+      <div
+        className="archetype-notes-edit__field-editor-body"
+        style={open ? undefined : { display: 'none' }}
+      >
+        <RichTextEditor content={content} onChange={setContent} />
+      </div>
     </div>
   );
 }

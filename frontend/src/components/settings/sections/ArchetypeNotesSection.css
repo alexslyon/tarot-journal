@@ -335,6 +335,38 @@
   font-weight: 600;
 }
 
+.archetype-notes-edit__field-editor--collapsible {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+
+.archetype-notes-edit__field-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-size: 0.82em;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.archetype-notes-edit__field-toggle-name {
+  color: var(--text-secondary);
+}
+
+.archetype-notes-edit__field-editor-body {
+  margin-top: 8px;
+}
+
 /* === Cartomancy types multi-pick ============================== */
 
 .archetype-notes-edit__types {

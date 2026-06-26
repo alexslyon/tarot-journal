@@ -923,17 +923,24 @@ class CoreMixin:
                 cartomancy_type TEXT,
                 name TEXT NOT NULL,
                 sort_order INTEGER DEFAULT 0,
+                collapsible INTEGER NOT NULL DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (source_id) REFERENCES reference_sources(id) ON DELETE CASCADE,
                 UNIQUE (source_id, cartomancy_type, name)
             )
         ''')
-        # Older DBs (this branch's prior commit) may have the column
-        # missing — add it before the index pickup tries to reference it.
+        # Older DBs (this branch's prior commits) may be missing the
+        # cartomancy_type or collapsible columns — add either before
+        # the index/upserts later in this method reference them.
         cursor.execute('PRAGMA table_info(source_fields)')
         sf_cols = {c[1] for c in cursor.fetchall()}
         if 'cartomancy_type' not in sf_cols:
             cursor.execute('ALTER TABLE source_fields ADD COLUMN cartomancy_type TEXT')
+        if 'collapsible' not in sf_cols:
+            cursor.execute(
+                'ALTER TABLE source_fields ADD COLUMN '
+                'collapsible INTEGER NOT NULL DEFAULT 0'
+            )
         cursor.execute(
             'CREATE INDEX IF NOT EXISTS idx_source_fields_source '
             'ON source_fields(source_id, cartomancy_type, sort_order)'
