@@ -393,6 +393,7 @@ function FieldsManager({
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [newName, setNewName] = useState('');
+  const [newCollapsible, setNewCollapsible] = useState(false);
 
   const { data: fields = [] } = useQuery<SourceField[]>({
     queryKey: ['source-fields', source.id, cartomancyType],
@@ -409,14 +410,19 @@ function FieldsManager({
     const name = newName.trim();
     if (!name) return;
     try {
-      await createSourceField(source.id, { name, cartomancy_type: cartomancyType });
+      await createSourceField(source.id, {
+        name,
+        cartomancy_type: cartomancyType,
+        collapsible: newCollapsible,
+      });
       setNewName('');
+      setNewCollapsible(false);
       invalidate();
     } catch (err) {
       console.error('Failed to create field:', err);
       showToast('Could not add field (name may already be used on this type).');
     }
-  }, [newName, source.id, cartomancyType, invalidate, showToast]);
+  }, [newName, newCollapsible, source.id, cartomancyType, invalidate, showToast]);
 
   const handleDelete = useCallback(
     async (field: SourceField) => {
@@ -463,6 +469,17 @@ function FieldsManager({
           onChange={e => setNewName(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
         />
+        <label
+          className="reference-sources__field-collapsible-toggle"
+          title="When set, the Archetype Notes editor renders this field as a chevron disclosure (collapsed by default)."
+        >
+          <input
+            type="checkbox"
+            checked={newCollapsible}
+            onChange={e => setNewCollapsible(e.target.checked)}
+          />
+          <span>Collapsible</span>
+        </label>
         <button onClick={handleAdd} disabled={!newName.trim()}>
           + Add Field
         </button>
@@ -502,6 +519,20 @@ function FieldRow({
     }
   }, [draft, field.id, field.name, onChanged, showToast]);
 
+  // Inline-autosave on the collapsible flag — toggling shouldn't
+  // need an explicit "save" step. Optimistic flip is fine because
+  // backend can't reject the bool (no validation).
+  const handleToggleCollapsible = useCallback(async () => {
+    const next = !field.collapsible;
+    try {
+      await updateSourceField(field.id, { collapsible: !!next });
+      onChanged();
+    } catch (err) {
+      console.error('Failed to toggle collapsible:', err);
+      showToast('Could not update field.');
+    }
+  }, [field.id, field.collapsible, onChanged, showToast]);
+
   return (
     <li className="reference-sources__field-row">
       {editing ? (
@@ -523,6 +554,17 @@ function FieldRow({
       ) : (
         <>
           <span className="reference-sources__field-row-name">{field.name}</span>
+          <label
+            className="reference-sources__field-collapsible-toggle"
+            title="When set, the Archetype Notes editor renders this field as a chevron disclosure (collapsed by default)."
+          >
+            <input
+              type="checkbox"
+              checked={!!field.collapsible}
+              onChange={handleToggleCollapsible}
+            />
+            <span>Collapsible</span>
+          </label>
           <button onClick={() => setEditing(true)}>Rename</button>
           <button className="danger" onClick={() => onDelete(field)}>
             Delete

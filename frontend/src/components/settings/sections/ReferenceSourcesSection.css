@@ -147,10 +147,22 @@
 .reference-sources__new-field {
   display: flex;
   gap: 6px;
+  align-items: center;
 }
 
-.reference-sources__new-field input {
+.reference-sources__new-field input[type="text"],
+.reference-sources__new-field > input:not([type]) {
   flex: 1;
+}
+
+.reference-sources__field-collapsible-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .reference-sources__add-card {

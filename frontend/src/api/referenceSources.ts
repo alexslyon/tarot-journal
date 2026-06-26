@@ -72,7 +72,7 @@ export async function getSourceFields(
 
 export async function createSourceField(
   sourceId: number,
-  data: { name: string; cartomancy_type: string },
+  data: { name: string; cartomancy_type: string; collapsible?: boolean },
 ): Promise<{ id: number }> {
   const res = await api.post(`/api/reference/sources/${sourceId}/fields`, data);
   return res.data;
@@ -80,7 +80,7 @@ export async function createSourceField(
 
 export async function updateSourceField(
   fieldId: number,
-  data: { name?: string; sort_order?: number },
+  data: { name?: string; sort_order?: number; collapsible?: boolean },
 ): Promise<void> {
   await api.put(`/api/source-fields/${fieldId}`, data);
 }
