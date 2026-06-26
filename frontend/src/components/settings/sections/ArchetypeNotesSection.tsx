@@ -11,7 +11,7 @@
  * read-only over sources and fields.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getReferenceSources,
   getSourceFields,
@@ -403,31 +403,28 @@ function ArchetypeFieldEditor({
 // =================================================================
 // useAllEntriesForType — light fan-out over per-source entries to
 // drive the sidebar dot indicator.
+//
+// Uses RQ's useQueries so each (source, type) pair is cached
+// independently; this also avoids the infinite-render-loop the
+// previous useEffect+fetchQuery+setState version produced (the
+// `sources` array destructured with `= []` allocates a fresh
+// empty array on every render, which kept invalidating effect
+// deps and re-firing setState).
 // =================================================================
 
 function useAllEntriesForType(
   sources: ReferenceSource[],
   cartomancyType: string,
 ): SourceAuthoringEntry[] {
-  // One query per source. The number of sources per type is
-  // bounded (a handful in practice), so naive fan-out is fine.
-  const sourceIds = useMemo(() => sources.map(s => s.id), [sources]);
-  const [all, setAll] = useState<SourceAuthoringEntry[]>([]);
-  const queryClient = useQueryClient();
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all(
-      sourceIds.map(id =>
-        queryClient.fetchQuery({
-          queryKey: ['source-entries', id, cartomancyType],
-          queryFn: () => getSourceEntries(id, cartomancyType),
-        }) as Promise<SourceAuthoringEntry[]>,
-      ),
-    ).then(results => {
-      if (cancelled) return;
-      setAll(results.flat());
-    });
-    return () => { cancelled = true; };
-  }, [sourceIds, cartomancyType, queryClient]);
-  return all;
+  const queries = useQueries({
+    queries: sources.map(s => ({
+      queryKey: ['source-entries', s.id, cartomancyType],
+      queryFn: () => getSourceEntries(s.id, cartomancyType),
+    })),
+  });
+  const out: SourceAuthoringEntry[] = [];
+  for (const q of queries) {
+    if (q.data) out.push(...q.data);
+  }
+  return out;
 }
