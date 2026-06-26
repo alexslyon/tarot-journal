@@ -115,7 +115,23 @@
 /* === Source detail =============================================== */
 
 .archetype-notes-edit__source-detail {
-  margin-top: 24px;
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.archetype-notes-edit__source-detail:first-of-type {
+  margin-top: 0;
+}
+
+.archetype-notes-edit__source-heading {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: var(--font-size-body);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
 }
 
 .archetype-notes-edit__source-meta {
