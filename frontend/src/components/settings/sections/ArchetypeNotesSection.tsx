@@ -300,31 +300,77 @@ function SourceFieldStack({
     [entries, archetype.id],
   );
 
+  // Whether THIS archetype has any non-empty content for THIS
+  // source — drives the dot indicator on the heading.
+  const hasContent = useMemo(
+    () =>
+      entries.some(
+        e =>
+          e.archetype_id === archetype.id &&
+          e.content &&
+          e.content.replace(/<[^>]*>/g, '').trim().length > 0,
+      ),
+    [entries, archetype.id],
+  );
+
+  // Collapsed by default; resets to collapsed whenever the active
+  // archetype changes so expansion choices on one card don't carry
+  // over to the next. Same UX as the Reference viewer's Notes tab.
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    setOpen(false);
+  }, [archetype.id]);
+
   return (
     <section className="archetype-notes-edit__source-detail">
-      <h5 className="archetype-notes-edit__source-heading">
-        {source.name}
+      <button
+        type="button"
+        className="archetype-notes-edit__source-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+      >
+        <span
+          className={`archetype-notes-edit__chevron ${open ? 'archetype-notes-edit__chevron--open' : ''}`}
+          aria-hidden="true"
+        >
+          ▸
+        </span>
+        <span className="archetype-notes-edit__source-name">
+          {source.name}
+        </span>
         {source.authors.length > 0 && (
           <span className="archetype-notes-edit__source-authors">
-            {' '}— {source.authors.join('; ')}
+            {source.authors.join('; ')}
           </span>
         )}
-      </h5>
-      {fields.length === 0 ? (
-        <p className="settings-tab__hint">
-          This source has no fields for {cartomancyType} yet. Add one over in
-          {' '}<strong>Reference Sources</strong>.
-        </p>
-      ) : (
-        fields.map(f => (
-          <ArchetypeFieldEditor
-            key={`${archetype.id}-${f.id}`}
-            archetype={archetype}
-            sourceId={source.id}
-            field={f}
-            initialContent={entryForField(f.id)}
-          />
-        ))
+        {hasContent && (
+          <span
+            className="archetype-notes-edit__source-dot"
+            aria-label="Has content"
+          >
+            •
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="archetype-notes-edit__source-body">
+          {fields.length === 0 ? (
+            <p className="settings-tab__hint">
+              This source has no fields for {cartomancyType} yet. Add one
+              over in <strong>Reference Sources</strong>.
+            </p>
+          ) : (
+            fields.map(f => (
+              <ArchetypeFieldEditor
+                key={`${archetype.id}-${f.id}`}
+                archetype={archetype}
+                sourceId={source.id}
+                field={f}
+                initialContent={entryForField(f.id)}
+              />
+            ))
+          )}
+        </div>
       )}
     </section>
   );

@@ -134,6 +134,55 @@
   padding-bottom: 4px;
 }
 
+/* Collapsible source block: clickable header + animated chevron +
+   field-editor body that shows only when expanded. Mirrors the
+   disclosure pattern used by the Reference viewer's Notes tab. */
+.archetype-notes-edit__source-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.archetype-notes-edit__chevron {
+  display: inline-block;
+  width: 1em;
+  color: var(--text-secondary);
+  transition: transform 0.15s ease;
+}
+
+.archetype-notes-edit__chevron--open {
+  transform: rotate(90deg);
+}
+
+.archetype-notes-edit__source-name {
+  color: var(--accent);
+}
+
+.archetype-notes-edit__source-dot {
+  margin-left: auto;
+  color: var(--accent);
+  font-size: 1.2em;
+  line-height: 1;
+}
+
+.archetype-notes-edit__source-body {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .archetype-notes-edit__source-meta {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
