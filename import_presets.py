@@ -1327,8 +1327,15 @@ BUILTIN_PRESETS = {
     "Vera Sibilla Italiana (52 cards)": {
         "type": "Vera Sibilla Italiana / Sibilla della Zingara",
         "mappings": SIBILLA_ITALIANA,
-        "description": "52-card Vera Sibilla Italiana / Sibilla della Zingara — playing-card structure (4 suits × 13 ranks) with each card bearing a divinatory name (Conversation for Ace of Hearts, Death for Five of Spades, etc.). Both decks share the same card structure and divinatory names.",
+        "description": "52-card Vera Sibilla Italiana — playing-card structure (4 suits × 13 ranks) with each card bearing a divinatory name (Conversation for Ace of Hearts, Death for Five of Spades, etc.). Imported cards are tagged with their underlying playing-card rank + suit. Shares the same archetypes as the Sibilla della Zingara preset.",
         "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
+    },
+    "Sibilla della Zingara (52 cards)": {
+        "type": "Vera Sibilla Italiana / Sibilla della Zingara",
+        "mappings": SIBILLA_ITALIANA,
+        "description": "52-card Sibilla della Zingara — same divinatory names as the Vera Sibilla, but imported cards are NOT tagged with the underlying playing-card rank + suit (the Zingara art doesn't surface the playing-card inset, so the imported cards stay pure oracle-style).",
+        "suit_names": {},
         "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
     "Grand Etteilla Tarot (78 cards)": {
@@ -1746,6 +1753,13 @@ class ImportPresets:
         elif preset_type == 'Oracle Belline':
             return self._get_belline_metadata(card_name, sort_order)
         elif preset_type == 'Vera Sibilla Italiana / Sibilla della Zingara':
+            # The Zingara preset shares the archetype list but skips
+            # the playing-card rank/suit tags (the Zingara art doesn't
+            # surface the inset). Detect via preset name; same pattern
+            # the Tarot+Gnostic and Lenormand+Grand branches use above.
+            is_zingara = preset_name and 'zingara' in preset_name.lower()
+            if is_zingara:
+                return self._get_sibilla_zingara_metadata(card_name, sort_order)
             return self._get_sibilla_metadata(card_name, sort_order)
         elif preset_type == 'Grand Etteilla Tarot':
             return self._get_etteilla_metadata(card_name, sort_order)
@@ -1789,6 +1803,9 @@ class ImportPresets:
         elif preset_type == 'Oracle Belline':
             return self._get_belline_metadata_by_position(sort_order)
         elif preset_type == 'Vera Sibilla Italiana / Sibilla della Zingara':
+            is_zingara = preset_name and 'zingara' in preset_name.lower()
+            if is_zingara:
+                return self._get_sibilla_zingara_metadata_by_position(sort_order)
             return self._get_sibilla_metadata_by_position(sort_order)
         elif preset_type == 'Grand Etteilla Tarot':
             return self._get_etteilla_metadata_by_position(sort_order)
@@ -2943,9 +2960,11 @@ class ImportPresets:
         }
 
     def _get_sibilla_metadata(self, card_name: str, sort_order: int) -> dict:
-        """Metadata for a Vera Sibilla Italiana / Sibilla della Zingara card. Each divinatory
+        """Metadata for a Vera Sibilla Italiana card. Each divinatory
         name resolves to a (rank, suit) on the underlying playing-card
-        position."""
+        position — used when the deck's art surfaces the playing-card
+        inset (Vera Sibilla). The Zingara variant uses
+        _get_sibilla_zingara_metadata below to skip the rank/suit."""
         rsp = SIBILLA_NAME_TO_RSP.get(card_name)
         if rsp:
             rank, suit, pos = rsp
@@ -2953,6 +2972,23 @@ class ImportPresets:
                 'archetype': card_name,
                 'rank': rank,
                 'suit': suit,
+                'sort_order': pos,
+            }
+        return {'archetype': card_name, 'rank': None, 'suit': None, 'sort_order': sort_order}
+
+    def _get_sibilla_zingara_metadata(self, card_name: str, sort_order: int) -> dict:
+        """Sibilla della Zingara variant — same archetype names, same
+        sort order, but the imported card row gets no playing-card
+        rank/suit. The shared archetype's own rank/suit (seeded on
+        card_archetypes) is unaffected; this only controls what
+        lands on the card row in the cards table."""
+        rsp = SIBILLA_NAME_TO_RSP.get(card_name)
+        if rsp:
+            _rank, _suit, pos = rsp
+            return {
+                'archetype': card_name,
+                'rank': None,
+                'suit': None,
                 'sort_order': pos,
             }
         return {'archetype': card_name, 'rank': None, 'suit': None, 'sort_order': sort_order}
@@ -3000,6 +3036,22 @@ class ImportPresets:
                 'archetype': name,
                 'rank': rank_word,
                 'suit': suit_name,
+                'sort_order': position,
+            }
+        return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': position}
+
+    def _get_sibilla_zingara_metadata_by_position(self, position: int) -> dict:
+        """Same lookup as `_get_sibilla_metadata_by_position` for the
+        archetype name, but drops the rank/suit tags."""
+        if 1 <= position <= 52:
+            suit_idx = (position - 1) // 13
+            rank_idx = (position - 1) % 13
+            _suit_letter, suit_name = SIBILLA_SUITS[suit_idx]
+            name = SIBILLA_BY_SUIT[suit_name][rank_idx]
+            return {
+                'archetype': name,
+                'rank': None,
+                'suit': None,
                 'sort_order': position,
             }
         return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': position}
