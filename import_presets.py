@@ -860,7 +860,7 @@ def _build_oracle_belline() -> dict:
 ORACLE_BELLINE = _build_oracle_belline()
 
 
-# Vera Sibilla Italiana (52 cards). Standard playing-card filename
+# Vera Sibilla Italiana / Sibilla della Zingara (52 cards). Standard playing-card filename
 # conventions (h01-h13 / c01-c13 / d01-d13 / s01-s13) plus divinatory
 # name keys. Each card is one of 4 suits × 13 ranks; the name is the
 # divinatory term ("Conversation" for Ace of Hearts, etc.).
@@ -1325,9 +1325,9 @@ BUILTIN_PRESETS = {
         "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
     "Vera Sibilla Italiana (52 cards)": {
-        "type": "Vera Sibilla Italiana",
+        "type": "Vera Sibilla Italiana / Sibilla della Zingara",
         "mappings": SIBILLA_ITALIANA,
-        "description": "52-card Vera Sibilla Italiana — playing-card structure (4 suits × 13 ranks) with each card bearing a divinatory name (Conversation for Ace of Hearts, Death for Five of Spades, etc.).",
+        "description": "52-card Vera Sibilla Italiana / Sibilla della Zingara — playing-card structure (4 suits × 13 ranks) with each card bearing a divinatory name (Conversation for Ace of Hearts, Death for Five of Spades, etc.). Both decks share the same card structure and divinatory names.",
         "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"},
         "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
@@ -1745,7 +1745,7 @@ class ImportPresets:
             return self._get_spanish_playing_card_metadata(card_name, sort_order)
         elif preset_type == 'Oracle Belline':
             return self._get_belline_metadata(card_name, sort_order)
-        elif preset_type == 'Vera Sibilla Italiana':
+        elif preset_type == 'Vera Sibilla Italiana / Sibilla della Zingara':
             return self._get_sibilla_metadata(card_name, sort_order)
         elif preset_type == 'Grand Etteilla Tarot':
             return self._get_etteilla_metadata(card_name, sort_order)
@@ -1788,7 +1788,7 @@ class ImportPresets:
             return self._get_spanish_playing_card_metadata_by_position(sort_order)
         elif preset_type == 'Oracle Belline':
             return self._get_belline_metadata_by_position(sort_order)
-        elif preset_type == 'Vera Sibilla Italiana':
+        elif preset_type == 'Vera Sibilla Italiana / Sibilla della Zingara':
             return self._get_sibilla_metadata_by_position(sort_order)
         elif preset_type == 'Grand Etteilla Tarot':
             return self._get_etteilla_metadata_by_position(sort_order)
@@ -2943,7 +2943,7 @@ class ImportPresets:
         }
 
     def _get_sibilla_metadata(self, card_name: str, sort_order: int) -> dict:
-        """Metadata for a Vera Sibilla Italiana card. Each divinatory
+        """Metadata for a Vera Sibilla Italiana / Sibilla della Zingara card. Each divinatory
         name resolves to a (rank, suit) on the underlying playing-card
         position."""
         rsp = SIBILLA_NAME_TO_RSP.get(card_name)
