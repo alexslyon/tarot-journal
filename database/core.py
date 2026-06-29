@@ -593,10 +593,39 @@ class CoreMixin:
                     pass
             self.set_setting('spanish_playing_cards_rename_done', 'true')
 
+        # One-time rename: "Vera Sibilla Italiana" → "Vera Sibilla
+        # Italiana / Sibilla della Zingara". The Vera Sibilla and
+        # Sibilla della Zingara decks share the same card structure
+        # and divinatory names, so they're folded under a single
+        # cartomancy type. Same shape as the rename block above —
+        # runs BEFORE the default_types insert to avoid a UNIQUE
+        # collision, idempotent across re-runs.
+        if self.get_setting('vera_sibilla_zingara_rename_done') != 'true':
+            renames = [
+                ('cartomancy_types', 'name'),
+                ('card_archetypes', 'cartomancy_type'),
+                ('spreads', 'cartomancy_type'),
+                ('correspondence_systems', 'cartomancy_type'),
+                ('reference_sources', 'cartomancy_type'),
+                ('source_cartomancy_types', 'cartomancy_type'),
+                ('source_fields', 'cartomancy_type'),
+                ('archetype_combinations', 'cartomancy_type'),
+            ]
+            for table, column in renames:
+                try:
+                    cursor.execute(
+                        f"UPDATE {table} SET {column} = "
+                        f"'Vera Sibilla Italiana / Sibilla della Zingara' "
+                        f"WHERE {column} = 'Vera Sibilla Italiana'"
+                    )
+                except sqlite3.OperationalError:
+                    pass
+            self.set_setting('vera_sibilla_zingara_rename_done', 'true')
+
         # Insert default cartomancy types
         default_types = [
             'Tarot', 'Lenormand', 'Kipper', 'Playing Cards', 'Oracle', 'I Ching',
-            'Playing Cards (Spanish)', 'Oracle Belline', 'Vera Sibilla Italiana',
+            'Playing Cards (Spanish)', 'Oracle Belline', 'Vera Sibilla Italiana / Sibilla della Zingara',
             'Grand Etteilla Tarot',
         ]
         for ct in default_types:
@@ -1195,7 +1224,7 @@ class CoreMixin:
             cursor.execute(
                 "SELECT COUNT(*) FROM card_archetypes WHERE cartomancy_type "
                 "IN ('I Ching', 'Kipper', 'Playing Cards (Spanish)', "
-                "    'Oracle Belline', 'Vera Sibilla Italiana', "
+                "    'Oracle Belline', 'Vera Sibilla Italiana / Sibilla della Zingara', "
                 "    'Grand Etteilla Tarot')"
             )
             # 64 I Ching + 36 Kipper + 49 Spanish + 53 Belline + 52 Sibilla
@@ -1797,7 +1826,7 @@ class CoreMixin:
         for i, name in enumerate(belline_cards, start=1):
             archetypes.append((name, 'Oracle Belline', str(i), None, 'belline'))
 
-        # Vera Sibilla Italiana (52). Each card is a standard playing-card
+        # Vera Sibilla Italiana / Sibilla della Zingara (52). Each card is a standard playing-card
         # position (suit + rank) with a divinatory name. Suit/rank match
         # the Playing Cards convention so the underlying card structure
         # is preserved for sorting and any future correspondence sharing;
@@ -1861,7 +1890,7 @@ class CoreMixin:
             ('Priest', 'Spades', 'King'),
         ]
         for name, suit, rank in sibilla_cards:
-            archetypes.append((name, 'Vera Sibilla Italiana', rank, suit, 'sibilla'))
+            archetypes.append((name, 'Vera Sibilla Italiana / Sibilla della Zingara', rank, suit, 'sibilla'))
 
         # Kipper (36). Names match the import preset's
         # _get_kipper_metadata_by_position list so cards imported via that
