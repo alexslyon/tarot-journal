@@ -1471,7 +1471,7 @@ BUILTIN_PRESETS = {
         "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
     "Grand Etteilla Tarot (78 cards)": {
-        "type": "Grand Etteilla Tarot",
+        "type": "Tarot",
         "mappings": GRAND_ETTEILLA,
         "description": "78-card Grand Etteilla. Card names come from the deck's LWB — trumps use the biblical / esoteric titles (Chaos, Hiram's Freemasonry, …, The Monarch), and each minor suit's King is the deck's named figure (Pope, Emperor, Egyptian Sultan, Alchemist), with coin number cards using distinct currency names. Filenames follow the standard tarot convention: majors 00.jpg-21.jpg, sticks w01.jpg-w14.jpg, cups c01.jpg-c14.jpg, swords s01.jpg-s14.jpg, coins p01.jpg-p14.jpg. The `11` slot in each suit is the Knave since the Etteilla has no Page.",
         "suit_names": {"wands": "Sticks", "cups": "Cups", "swords": "Swords", "pentacles": "Coins"},
@@ -1895,8 +1895,6 @@ class ImportPresets:
             return self._get_sibilla_metadata(card_name, sort_order)
         elif preset_type == 'Sibylle des Salons / Sibilla Indovina':
             return self._get_sibylle_salons_metadata(card_name, sort_order)
-        elif preset_type == 'Grand Etteilla Tarot':
-            return self._get_etteilla_metadata(card_name, sort_order)
         else:
             # Oracle
             return self._get_oracle_metadata(card_name, sort_order)
@@ -1918,9 +1916,13 @@ class ImportPresets:
             is_gnostic = preset_name and 'gnostic' in preset_name.lower()
             if is_gnostic:
                 return self._get_gnostic_tarot_metadata(placeholder_name, sort_order)
-            else:
-                # For standard Tarot, map sort_order to card position
-                return self._get_tarot_metadata_by_position(sort_order, preset_name)
+            # Grand Etteilla — Tarot variant with its own LWB 1-78
+            # ordering. Same discriminator style as Gnostic.
+            is_etteilla = preset_name and 'etteilla' in preset_name.lower()
+            if is_etteilla:
+                return self._get_etteilla_metadata_by_position(sort_order)
+            # Standard RWS / Thoth / Pre-Golden Dawn Tarot.
+            return self._get_tarot_metadata_by_position(sort_order, preset_name)
         elif preset_type == 'Lenormand':
             is_grand = preset_name and 'grand' in preset_name.lower()
             if is_grand:
@@ -1943,8 +1945,6 @@ class ImportPresets:
             return self._get_sibilla_metadata_by_position(sort_order)
         elif preset_type == 'Sibylle des Salons / Sibilla Indovina':
             return self._get_sibylle_salons_metadata_by_position(sort_order)
-        elif preset_type == 'Grand Etteilla Tarot':
-            return self._get_etteilla_metadata_by_position(sort_order)
         else:
             # Oracle - just return basic info
             return {
@@ -2269,6 +2269,17 @@ class ImportPresets:
         is_gnostic = preset_name and 'gnostic' in preset_name.lower()
         if is_gnostic:
             return self._get_gnostic_tarot_metadata(card_name, sort_order)
+
+        # Grand Etteilla — a Tarot variant with the deck's own trump
+        # names (Chaos, Hiram's Freemasonry, …, The Monarch), its own
+        # suit naming (Sticks/Cups/Swords/Coins), and a King/Ace
+        # ordering that differs from RWS. Same shape as the Gnostic
+        # branch above: detect by preset name and route to the
+        # Etteilla helper so the imported cards get the deck's
+        # specific archetype + rank + suit metadata.
+        is_etteilla = preset_name and 'etteilla' in preset_name.lower()
+        if is_etteilla:
+            return self._get_etteilla_metadata(card_name, sort_order)
 
         # Determine ordering based on preset
         # RWS ordering: Strength=VIII, Justice=XI
