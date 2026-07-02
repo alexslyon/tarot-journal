@@ -7,7 +7,7 @@ import {
   getDeckGroups, addDeckGroup, updateDeckGroup, deleteDeckGroup,
 } from '../../api/decks';
 import { getCards, updateCard } from '../../api/cards';
-import { getDeckTags } from '../../api/tags';
+import { getDeckTags, addDeckTag } from '../../api/tags';
 import { deckBackUrl, cardThumbnailUrl } from '../../api/images';
 import { exportDeckUrl } from '../../api/importExport';
 import { getCorrespondenceSystems } from '../../api/correspondences';
@@ -736,9 +736,9 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
               </div>
             )}
 
-            {allDeckTags.length > 0 && (
-              <div className="deck-edit__section">
-                <h3 className="deck-edit__section-title">Tags</h3>
+            <div className="deck-edit__section">
+              <h3 className="deck-edit__section-title">Tags</h3>
+              {allDeckTags.length > 0 ? (
                 <div className="deck-edit__checkboxes">
                   {allDeckTags.map(tag => (
                     <label key={tag.id} className="deck-edit__check">
@@ -756,8 +756,21 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
                     </label>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="deck-edit__hint">
+                  No deck tags yet — add one below.
+                </p>
+              )}
+              <AddDeckTagInline
+                onCreated={id => {
+                  // Auto-select the freshly-created tag so the user
+                  // doesn't have to tick it themselves.
+                  setSelectedTagIds(prev =>
+                    prev.includes(id) ? prev : [...prev, id],
+                  );
+                }}
+              />
+            </div>
 
             <div className="deck-edit__section">
               <div className="deck-edit__section-header">
@@ -1045,5 +1058,90 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
         />
       )}
     </Modal>
+  );
+}
+
+// =================================================================
+// AddDeckTagInline — lightweight form for adding a new deck tag
+// from inside the deck editor, so users don't have to leave and
+// visit Settings → Tags. Calls back with the new tag id so the
+// parent can auto-select it in the checkbox list.
+// =================================================================
+
+const DEFAULT_TAG_COLOR = '#6B5B95';
+
+function AddDeckTagInline({ onCreated }: { onCreated: (tagId: number) => void }) {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [color, setColor] = useState(DEFAULT_TAG_COLOR);
+  const [saving, setSaving] = useState(false);
+
+  const reset = () => {
+    setName('');
+    setColor(DEFAULT_TAG_COLOR);
+    setOpen(false);
+  };
+
+  const handleAdd = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setSaving(true);
+    try {
+      const { id } = await addDeckTag({ name: trimmed, color });
+      // Refetch the deck-tags query so the new tag appears in the
+      // parent's checkbox list. Auto-selection is done by
+      // onCreated in the parent.
+      await queryClient.invalidateQueries({ queryKey: ['deck-tags'] });
+      onCreated(id);
+      reset();
+    } catch (err) {
+      console.error('Failed to add deck tag:', err);
+      showToast('Could not add tag (name may already exist).');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="deck-edit__add-tag-btn"
+        onClick={() => setOpen(true)}
+      >
+        + Add tag
+      </button>
+    );
+  }
+  return (
+    <div className="deck-edit__add-tag">
+      <input
+        autoFocus
+        type="text"
+        className="deck-edit__add-tag-name"
+        placeholder="Tag name"
+        value={name}
+        onChange={e => setName(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') handleAdd();
+          if (e.key === 'Escape') reset();
+        }}
+      />
+      <input
+        type="color"
+        className="deck-edit__add-tag-color"
+        aria-label="Tag color"
+        value={color}
+        onChange={e => setColor(e.target.value)}
+      />
+      <button type="button" onClick={handleAdd} disabled={!name.trim() || saving}>
+        {saving ? 'Adding…' : 'Add'}
+      </button>
+      <button type="button" onClick={reset} disabled={saving}>
+        Cancel
+      </button>
+    </div>
   );
 }
