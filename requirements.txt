@@ -1,18 +1,38 @@
-Pillow
-wxPython>=4.2.0
+# Python dependencies for the Tarot Journal backend.
+#
+# Versions are pinned to the exact releases the app was built and
+# tested against, so a fresh `pip install -r requirements.txt` in a
+# new virtualenv reproduces a known-good environment. When upgrading,
+# change the pin deliberately and test the app afterwards.
 
-# Astrology charts (Phase 1 of the chart-integration feature). Kerykeion
-# bundles Swiss Ephemeris data; timezonefinder is used to resolve a
-# timezone string from stored lat/lon at generation time.
-kerykeion>=5.12
-timezonefinder>=8.2
+# Web backend serving the Electron/React frontend.
+Flask==3.1.2
+flask-cors==6.0.2
+
+# Image loading/scaling for deck thumbnails.
+Pillow==11.3.0
+
+# Astrology charts (chart-integration feature). Kerykeion bundles
+# Swiss Ephemeris data; timezonefinder is used to resolve a timezone
+# string from stored lat/lon at generation time.
+kerykeion==5.12.8
+timezonefinder==8.2.0
+
+# Offline place-name lookup (geocoder.py) downloads its dataset with
+# requests (bundled certifi avoids macOS urllib certificate issues).
+requests==2.32.5
 
 # PDF export of journal entries (renders an HTML/CSS template). Pulls in
 # system dependencies (pango, cairo, glib, gdk-pixbuf, libffi) which must
 # already be installed at the OS level — see README setup notes.
-weasyprint>=66.0
-jinja2>=3.1
+weasyprint==66.0
+jinja2==3.1.6
 # Rasterizes kerykeion's chart SVGs into PNGs before embedding into
 # the PDF — WeasyPrint's own inline-SVG renderer mis-renders the
 # chart wheel (solid black) because of how kerykeion styles it.
-cairosvg>=2.7
+cairosvg==2.8.2
+
+# NOTE: wxPython was removed from this list (2026-07). It powered the
+# deprecated legacy Python UI (main.py / mixin_*.py / ui_library/ etc.),
+# which the Electron/React frontend replaced. Install it manually only
+# if you need to run that old UI.
