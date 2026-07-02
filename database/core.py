@@ -622,11 +622,83 @@ class CoreMixin:
                     pass
             self.set_setting('vera_sibilla_zingara_rename_done', 'true')
 
+        # One-time removal: the "Grand Etteilla Tarot" cartomancy type
+        # was retired. Its import preset now lives under the Tarot
+        # type. Clean up the seeded archetypes, the cartomancy_types
+        # row, and any string references. If any decks were tagged
+        # with the retired type (via deck_type_assignments), move
+        # them to the Tarot row so no deck is left orphaned.
+        # Idempotent — safe to re-run after the flag is set (the
+        # queries all become no-ops).
+        if self.get_setting('grand_etteilla_type_removal_done') != 'true':
+            # Look up the source + target type ids up front.
+            src_row = cursor.execute(
+                "SELECT id FROM cartomancy_types WHERE name = 'Grand Etteilla Tarot'"
+            ).fetchone()
+            tar_row = cursor.execute(
+                "SELECT id FROM cartomancy_types WHERE name = 'Tarot'"
+            ).fetchone()
+            src_id = src_row[0] if src_row else None
+            tar_id = tar_row[0] if tar_row else None
+
+            # Reassign the deck_type junction. INSERT OR IGNORE so a
+            # deck already tagged Tarot doesn't hit the PK; then drop
+            # any leftover Etteilla-tagged rows.
+            if src_id is not None and tar_id is not None:
+                try:
+                    cursor.execute(
+                        'INSERT OR IGNORE INTO deck_type_assignments '
+                        '(deck_id, type_id) '
+                        'SELECT deck_id, ? FROM deck_type_assignments '
+                        'WHERE type_id = ?',
+                        (tar_id, src_id)
+                    )
+                    cursor.execute(
+                        'DELETE FROM deck_type_assignments WHERE type_id = ?',
+                        (src_id,)
+                    )
+                except sqlite3.OperationalError:
+                    pass
+
+            # Rename any remaining string references in tables that
+            # carry the type name as plain text. Wrapped in
+            # try/except so schemas missing a table (older installs)
+            # don't crash init.
+            rename_targets = [
+                ('spreads', 'cartomancy_type'),
+                ('correspondence_systems', 'cartomancy_type'),
+                ('reference_sources', 'cartomancy_type'),
+                ('source_cartomancy_types', 'cartomancy_type'),
+                ('source_fields', 'cartomancy_type'),
+                ('archetype_combinations', 'cartomancy_type'),
+            ]
+            for table, column in rename_targets:
+                try:
+                    cursor.execute(
+                        f"UPDATE {table} SET {column} = 'Tarot' "
+                        f"WHERE {column} = 'Grand Etteilla Tarot'"
+                    )
+                except sqlite3.OperationalError:
+                    pass
+
+            # Delete the seeded archetype rows. Any authored source
+            # entries or combinations FK'd to these rows cascade via
+            # ON DELETE CASCADE. In the shipping DB this was 78 rows
+            # with zero authored entries.
+            cursor.execute(
+                "DELETE FROM card_archetypes "
+                "WHERE cartomancy_type = 'Grand Etteilla Tarot'"
+            )
+            # Finally drop the type row itself.
+            cursor.execute(
+                "DELETE FROM cartomancy_types WHERE name = 'Grand Etteilla Tarot'"
+            )
+            self.set_setting('grand_etteilla_type_removal_done', 'true')
+
         # Insert default cartomancy types
         default_types = [
             'Tarot', 'Lenormand', 'Kipper', 'Playing Cards', 'Oracle', 'I Ching',
             'Playing Cards (Spanish)', 'Oracle Belline', 'Vera Sibilla Italiana / Sibilla della Zingara',
-            'Grand Etteilla Tarot',
             'Sibylle des Salons / Sibilla Indovina',
         ]
         for ct in default_types:
@@ -1226,12 +1298,11 @@ class CoreMixin:
                 "SELECT COUNT(*) FROM card_archetypes WHERE cartomancy_type "
                 "IN ('I Ching', 'Kipper', 'Playing Cards (Spanish)', "
                 "    'Oracle Belline', 'Vera Sibilla Italiana / Sibilla della Zingara', "
-                "    'Grand Etteilla Tarot', "
                 "    'Sibylle des Salons / Sibilla Indovina')"
             )
             # 64 I Ching + 36 Kipper + 49 Spanish + 53 Belline + 52 Sibilla
-            # + 78 Etteilla + 52 Sibylle = 384
-            if cursor.fetchone()[0] < 384:
+            # + 52 Sibylle = 306
+            if cursor.fetchone()[0] < 306:
                 self._seed_card_archetypes(cursor)
 
         # Seed correspondence systems if table is empty
@@ -2005,96 +2076,11 @@ class CoreMixin:
         for i, name in enumerate(i_ching_names, start=1):
             archetypes.append((name, 'I Ching', str(i), None, 'i_ching'))
 
-        # Grand Etteilla Tarot (78). Card order, names, and suit grouping
-        # come from the deck's LWB. Trumps 1-22 use idiosyncratic biblical
-        # / esoteric titles; each minor suit runs Queen → Knight → Knave
-        # → 10 down to Ace → King (the "King" slot is the deck's named
-        # figure for that suit: Pope, Emperor, etc.). Coin number cards
-        # each have their own currency name.
-        etteilla_trumps = [
-            'Chaos', "Hiram's Freemasonry", 'The Order of the Mopses',
-            'The Swimming Pool', 'The Gospel', 'The Sky', 'The Snake',
-            'Eve', 'Solomon', 'The Angel of the Apocalypse', 'David',
-            'Moses', 'The High Priest', 'The Evil Force', 'Aaron',
-            'The Last Judgement', 'Death', 'Judas', 'The Capitol',
-            'Nebuchadnezzar', 'Rehoboam', 'The Monarch',
-        ]
-        for i, name in enumerate(etteilla_trumps, start=1):
-            archetypes.append((
-                name, 'Grand Etteilla Tarot', str(i), 'Major Arcana', 'etteilla'
-            ))
-
-        # Minors: list explicitly because the rank/suit naming differs
-        # from a normal tarot — Sticks "King" is "The Pope", Sword
-        # "King" is "The Egyptian Sultan", and Coin number cards each
-        # use a distinct currency name.
-        etteilla_minors = [
-            # Sticks (23–36)
-            (23, 'The Queen',            'Queen',  'Sticks'),
-            (24, 'The Knight on Patrol', 'Knight', 'Sticks'),
-            (25, 'The Messenger',        'Knave',  'Sticks'),
-            (26, 'The Ten Sticks',       'Ten',    'Sticks'),
-            (27, 'The Nine Sticks',      'Nine',   'Sticks'),
-            (28, 'The Eight Sticks',     'Eight',  'Sticks'),
-            (29, 'The Seven Sticks',     'Seven',  'Sticks'),
-            (30, 'The Six Sticks',       'Six',    'Sticks'),
-            (31, 'The Five Sticks',      'Five',   'Sticks'),
-            (32, 'The Four Sticks',      'Four',   'Sticks'),
-            (33, 'The Three Sticks',     'Three',  'Sticks'),
-            (34, 'The Two Sticks',       'Two',    'Sticks'),
-            (35, 'The One Stick',        'Ace',    'Sticks'),
-            (36, 'The Pope',             'King',   'Sticks'),
-            # Cups (37–50)
-            (37, 'The Woman Pope',       'Queen',  'Cups'),
-            (38, 'The Roman Knight',     'Knight', 'Cups'),
-            (39, 'The Chamberlain',      'Knave',  'Cups'),
-            (40, 'The Ten Cups',         'Ten',    'Cups'),
-            (41, 'The Nine Cups',        'Nine',   'Cups'),
-            (42, 'The Eight Cups',       'Eight',  'Cups'),
-            (43, 'The Seven Cups',       'Seven',  'Cups'),
-            (44, 'The Six Cups',         'Six',    'Cups'),
-            (45, 'The Five Cups',        'Five',   'Cups'),
-            (46, 'The Four Cups',        'Four',   'Cups'),
-            (47, 'The Three Cups',       'Three',  'Cups'),
-            (48, 'The Two Cups',         'Two',    'Cups'),
-            (49, 'The One Cup',          'Ace',    'Cups'),
-            (50, 'The Emperor',          'King',   'Cups'),
-            # Swords (51–64)
-            (51, 'The Empress',          'Queen',  'Swords'),
-            (52, 'The Equerry',          'Knight', 'Swords'),
-            (53, 'The Soldier',          'Knave',  'Swords'),
-            (54, 'The Ten Swords',       'Ten',    'Swords'),
-            (55, 'The Nine Swords',      'Nine',   'Swords'),
-            (56, 'The Eight Swords',     'Eight',  'Swords'),
-            (57, 'The Seven Swords',     'Seven',  'Swords'),
-            (58, 'The Six Swords',       'Six',    'Swords'),
-            (59, 'The Five Swords',      'Five',   'Swords'),
-            (60, 'The Four Swords',      'Four',   'Swords'),
-            (61, 'The Three Swords',     'Three',  'Swords'),
-            (62, 'The Two Swords',       'Two',    'Swords'),
-            (63, 'The One Sword',        'Ace',    'Swords'),
-            (64, 'The Egyptian Sultan',  'King',   'Swords'),
-            # Coins (65–78). Each number card is named after a
-            # different historical currency.
-            (65, 'The Queen of Sheba',   'Queen',  'Coins'),
-            (66, 'The Tartar Horseman',  'Knight', 'Coins'),
-            (67, 'The Beggar',           'Knave',  'Coins'),
-            (68, 'The Ten Shields',      'Ten',    'Coins'),
-            (69, 'The Nine Sequins',     'Nine',   'Coins'),
-            (70, 'The Eight Ducats',     'Eight',  'Coins'),
-            (71, 'The Seven Florins',    'Seven',  'Coins'),
-            (72, 'The Six Guineas',      'Six',    'Coins'),
-            (73, 'The Five Ounces',      'Five',   'Coins'),
-            (74, 'The Four Shields',     'Four',   'Coins'),
-            (75, 'The Three Shields',    'Three',  'Coins'),
-            (76, 'The Two Denarius',     'Two',    'Coins'),
-            (77, 'The Golden Sun',       'Ace',    'Coins'),
-            (78, 'The Alchemist',        'King',   'Coins'),
-        ]
-        for pos, name, rank, suit in etteilla_minors:
-            archetypes.append((
-                name, 'Grand Etteilla Tarot', str(pos), suit, 'etteilla'
-            ))
+        # (Grand Etteilla archetypes intentionally NOT seeded — the
+        # "Grand Etteilla Tarot" cartomancy type was retired; the
+        # Grand Etteilla preset now lives under the Tarot type. See
+        # the `grand_etteilla_type_removal_done` migration below,
+        # which cleans up the seeded rows from earlier DB versions.)
 
         # Insert all archetypes
         cursor.executemany('''
