@@ -33,7 +33,7 @@ import './ArchetypeNotesSection.css';
 
 const SUPPORTED_TYPES = [
   'Tarot', 'Lenormand', 'Playing Cards', 'Kipper', 'I Ching',
-  'Playing Cards (Spanish)', 'Oracle Belline', 'Vera Sibilla Italiana / Sibilla della Zingara',
+  'Playing Cards (Spanish)', 'Oracle Belline', 'Vera Sibilla Italiana / Sibilla della Zingara', 'Sibylle des Salons / Sibilla Indovina',
 ];
 
 interface Props {

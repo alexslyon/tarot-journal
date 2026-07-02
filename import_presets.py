@@ -913,6 +913,131 @@ def _build_sibilla_lookup() -> dict:
 SIBILLA_NAME_TO_RSP = _build_sibilla_lookup()
 
 
+# =========================================================================
+# Sibylle des Salons / Sibilla Indovina (52 cards). Same playing-card
+# structure as the Vera Sibilla but a different set of divinatory names
+# and a different card ordering: suits go Clubs → Diamonds → Hearts →
+# Spades, each suit runs King → Ace (not Ace → King), so global
+# positions 1-52 line up with (Clubs K…A, Diamonds K…A, Hearts K…A,
+# Spades K…A).
+# =========================================================================
+
+SIBYLLE_SALONS_SUITS = [
+    ('c', 'Clubs'),
+    ('d', 'Diamonds'),
+    ('h', 'Hearts'),
+    ('s', 'Spades'),
+]
+
+SIBYLLE_SALONS_BY_SUIT = {
+    # Index 0 = King, index 12 = Ace within each suit.
+    'Clubs': [
+        'Protector', 'A Sincere Friend', 'Flatterer', 'Success', 'Presents',
+        'Anger', 'Some Money/Small Gains', 'Enemy', 'Victory',
+        'Trip To The Country', 'Hope', 'Faithfulness, Affection',
+        'A Lot Of Money',
+    ],
+    'Diamonds': [
+        'Soldier', 'Angry Woman', 'Thief', 'Journey', 'Contrariety, Displeasure',
+        'Impediment', 'Chattering', 'Absence', 'Reconciliation',
+        'Important Revelation', 'Consultant (M)', 'Pleasure, Pastime',
+        'A Letter',
+    ],
+    'Hearts': [
+        'Pensioner', 'Tenderness', 'Visit', 'Waiting', 'Surprise',
+        'A Blonde Woman', 'Thought/Reverie', 'Love', 'Wedding',
+        'City House', 'Consultant (F)', 'Country House', 'Sweet Card',
+    ],
+    'Spades': [
+        'Lawyer', 'A Widow/Solitude', 'Dark-Haired Man', 'Infantilism/Sorrow',
+        'Fright/Death', 'Weakness', 'Quarrel', 'Inconstancy',
+        'Loss of Money', 'Dark-Haired Woman', 'Trap', 'Gamblers', 'Delay',
+    ],
+}
+
+# Rank word for each within-suit position (0=King → 12=Ace) so both
+# _NAME_TO_RSP and the by-position dispatcher can back out (rank, suit)
+# from the archetype's position in its suit's list.
+SIBYLLE_SALONS_RANK_WORDS = [
+    'King', 'Queen', 'Jack', 'Ten', 'Nine', 'Eight', 'Seven',
+    'Six', 'Five', 'Four', 'Three', 'Two', 'Ace',
+]
+# Numeric rank for standard filename conventions (01 = Ace, 13 = King)
+# — DOES NOT track the Sibylle's own internal ordering. Used to build
+# `c01` / `hearts01` / `aceofhearts` variants of the mapping keys so
+# users who name their files with the standard playing-card scheme
+# can still import cleanly.
+SIBYLLE_SALONS_STANDARD_RANK_NUMS = [13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+# Short-form ranks matching the user's own naming scheme (KC / QC /
+# JC / 10C / … / 2C / AC).
+SIBYLLE_SALONS_SHORT_RANKS = [
+    'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2', 'A',
+]
+
+
+def _build_sibylle_salons() -> dict:
+    """Filename → archetype-name lookup for Sibylle des Salons /
+    Sibilla Indovina. Recognises three filename conventions plus name
+    folds:
+      1. Positional 01-52 (following the Sibylle's own ordering).
+      2. Standard playing-card `h01`/`hearts01`/`aceofhearts` scheme.
+      3. Short-form `kc`/`qc`/`10c`/`ac` (the user's own scheme).
+    """
+    import re as _re
+    mappings: dict[str, str] = {}
+    pos = 1
+    for suit_letter, suit_name in SIBYLLE_SALONS_SUITS:
+        for within_idx, name in enumerate(SIBYLLE_SALONS_BY_SUIT[suit_name]):
+            std_rank_num = SIBYLLE_SALONS_STANDARD_RANK_NUMS[within_idx]
+            short_rank = SIBYLLE_SALONS_SHORT_RANKS[within_idx]
+            rank_word = SIBYLLE_SALONS_RANK_WORDS[within_idx]
+
+            # Standard filename convention (01 = Ace, 13 = King).
+            mappings[f'{suit_letter}{std_rank_num:02d}'] = name
+            mappings[f'{suit_letter}{std_rank_num}'] = name
+            mappings[f'{suit_name.lower()}{std_rank_num:02d}'] = name
+            mappings[f'{suit_name.lower()}{std_rank_num}'] = name
+            mappings[f'{rank_word.lower()}of{suit_name.lower()}'] = name
+            mappings[f'{rank_word.lower()}{suit_name.lower()}'] = name
+
+            # User's short-form scheme: `kc`, `qc`, `10c`, `ac`, `2c`, etc.
+            # Preserved lowercase since the loader lowercases keys.
+            mappings[f'{short_rank.lower()}{suit_letter}'] = name
+            mappings[f'{suit_letter}{short_rank.lower()}'] = name
+
+            # Divinatory name key (ascii-fold, punctuation stripped).
+            mappings[_re.sub(r"[^a-z0-9]", "", name.lower())] = name
+
+            # Global positional 01-52 (Sibylle's own K→A ordering).
+            mappings[f'{pos:02d}'] = name
+            mappings[str(pos)] = name
+            pos += 1
+    return mappings
+
+
+SIBYLLE_SALONS = _build_sibylle_salons()
+
+
+def _build_sibylle_salons_lookup() -> dict:
+    """archetype name → (rank_word, suit_name, position) — used by the
+    metadata helpers below to answer "which playing card is this
+    divinatory name?"."""
+    out: dict[str, tuple] = {}
+    pos = 1
+    for _suit_letter, suit_name in SIBYLLE_SALONS_SUITS:
+        for within_idx, name in enumerate(SIBYLLE_SALONS_BY_SUIT[suit_name]):
+            out[name] = (
+                SIBYLLE_SALONS_RANK_WORDS[within_idx],
+                suit_name,
+                pos,
+            )
+            pos += 1
+    return out
+
+
+SIBYLLE_SALONS_NAME_TO_RSP = _build_sibylle_salons_lookup()
+
+
 # Grand Etteilla Tarot (78 cards). Card 1-78 ordering matches the
 # deck's LWB. Each minor card carries its position-derived rank +
 # suit so existing tarot UI affordances (suit grouping, court vs
@@ -1338,6 +1463,13 @@ BUILTIN_PRESETS = {
         "suit_names": {},
         "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
+    "Sibylle des Salons / Sibilla Indovina (52 cards)": {
+        "type": "Sibylle des Salons / Sibilla Indovina",
+        "mappings": SIBYLLE_SALONS,
+        "description": "52-card Sibylle des Salons / Sibilla Indovina — playing-card structure (4 suits × 13 ranks) with each card bearing a divinatory name (Protector for King of Clubs, Delay for Ace of Spades, etc.). Suits run Clubs → Diamonds → Hearts → Spades, each suit ordered King → Ace, so positional filenames 01-52 line up with the LWB. Imported cards are tagged with their underlying playing-card rank + suit.",
+        "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"},
+        "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
+    },
     "Grand Etteilla Tarot (78 cards)": {
         "type": "Grand Etteilla Tarot",
         "mappings": GRAND_ETTEILLA,
@@ -1761,6 +1893,8 @@ class ImportPresets:
             if is_zingara:
                 return self._get_sibilla_zingara_metadata(card_name, sort_order)
             return self._get_sibilla_metadata(card_name, sort_order)
+        elif preset_type == 'Sibylle des Salons / Sibilla Indovina':
+            return self._get_sibylle_salons_metadata(card_name, sort_order)
         elif preset_type == 'Grand Etteilla Tarot':
             return self._get_etteilla_metadata(card_name, sort_order)
         else:
@@ -1807,6 +1941,8 @@ class ImportPresets:
             if is_zingara:
                 return self._get_sibilla_zingara_metadata_by_position(sort_order)
             return self._get_sibilla_metadata_by_position(sort_order)
+        elif preset_type == 'Sibylle des Salons / Sibilla Indovina':
+            return self._get_sibylle_salons_metadata_by_position(sort_order)
         elif preset_type == 'Grand Etteilla Tarot':
             return self._get_etteilla_metadata_by_position(sort_order)
         else:
@@ -3052,6 +3188,42 @@ class ImportPresets:
                 'archetype': name,
                 'rank': None,
                 'suit': None,
+                'sort_order': position,
+            }
+        return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': position}
+
+    def _get_sibylle_salons_metadata(self, card_name: str, sort_order: int) -> dict:
+        """Metadata for a Sibylle des Salons / Sibilla Indovina card.
+        Each divinatory name resolves to a (rank, suit) on the
+        underlying playing card. Suits go Clubs → Diamonds → Hearts →
+        Spades, each suit ordered King → Ace, so the deck's global
+        1-52 positions match position 1 = King of Clubs =
+        "Protector" through position 52 = Ace of Spades = "Delay"."""
+        rsp = SIBYLLE_SALONS_NAME_TO_RSP.get(card_name)
+        if rsp:
+            rank, suit, pos = rsp
+            return {
+                'archetype': card_name,
+                'rank': rank,
+                'suit': suit,
+                'sort_order': pos,
+            }
+        return {'archetype': card_name, 'rank': None, 'suit': None, 'sort_order': sort_order}
+
+    def _get_sibylle_salons_metadata_by_position(self, position: int) -> dict:
+        """Position 1-52 → archetype based on the Sibylle des Salons'
+        K→A ordering. Position 1 is King of Clubs ("Protector"),
+        position 14 is King of Diamonds ("Soldier"), etc."""
+        if 1 <= position <= 52:
+            suit_idx = (position - 1) // 13
+            within_idx = (position - 1) % 13
+            _suit_letter, suit_name = SIBYLLE_SALONS_SUITS[suit_idx]
+            name = SIBYLLE_SALONS_BY_SUIT[suit_name][within_idx]
+            rank_word = SIBYLLE_SALONS_RANK_WORDS[within_idx]
+            return {
+                'archetype': name,
+                'rank': rank_word,
+                'suit': suit_name,
                 'sort_order': position,
             }
         return {'archetype': None, 'rank': None, 'suit': None, 'sort_order': position}

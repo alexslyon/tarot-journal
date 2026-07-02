@@ -627,6 +627,7 @@ class CoreMixin:
             'Tarot', 'Lenormand', 'Kipper', 'Playing Cards', 'Oracle', 'I Ching',
             'Playing Cards (Spanish)', 'Oracle Belline', 'Vera Sibilla Italiana / Sibilla della Zingara',
             'Grand Etteilla Tarot',
+            'Sibylle des Salons / Sibilla Indovina',
         ]
         for ct in default_types:
             cursor.execute(
@@ -1225,11 +1226,12 @@ class CoreMixin:
                 "SELECT COUNT(*) FROM card_archetypes WHERE cartomancy_type "
                 "IN ('I Ching', 'Kipper', 'Playing Cards (Spanish)', "
                 "    'Oracle Belline', 'Vera Sibilla Italiana / Sibilla della Zingara', "
-                "    'Grand Etteilla Tarot')"
+                "    'Grand Etteilla Tarot', "
+                "    'Sibylle des Salons / Sibilla Indovina')"
             )
             # 64 I Ching + 36 Kipper + 49 Spanish + 53 Belline + 52 Sibilla
-            # + 78 Etteilla = 332
-            if cursor.fetchone()[0] < 332:
+            # + 78 Etteilla + 52 Sibylle = 384
+            if cursor.fetchone()[0] < 384:
                 self._seed_card_archetypes(cursor)
 
         # Seed correspondence systems if table is empty
@@ -1891,6 +1893,76 @@ class CoreMixin:
         ]
         for name, suit, rank in sibilla_cards:
             archetypes.append((name, 'Vera Sibilla Italiana / Sibilla della Zingara', rank, suit, 'sibilla'))
+
+        # Sibylle des Salons / Sibilla Indovina (52). Same playing-card
+        # structure as the Vera Sibilla but a different name-to-card
+        # mapping and a different card ordering: each suit runs
+        # King → Ace (not Ace → King), and the suits go
+        # Clubs, Diamonds, Hearts, Spades. Divinatory names come from
+        # the standard Grimaud / Lo Scarabeo Sibilla Indovina reading.
+        sibylle_salons_cards = [
+            # Clubs (1-13, King through Ace)
+            ('Protector', 'Clubs', 'King'),
+            ('A Sincere Friend', 'Clubs', 'Queen'),
+            ('Flatterer', 'Clubs', 'Jack'),
+            ('Success', 'Clubs', 'Ten'),
+            ('Presents', 'Clubs', 'Nine'),
+            ('Anger', 'Clubs', 'Eight'),
+            ('Some Money/Small Gains', 'Clubs', 'Seven'),
+            ('Enemy', 'Clubs', 'Six'),
+            ('Victory', 'Clubs', 'Five'),
+            ('Trip To The Country', 'Clubs', 'Four'),
+            ('Hope', 'Clubs', 'Three'),
+            ('Faithfulness, Affection', 'Clubs', 'Two'),
+            ('A Lot Of Money', 'Clubs', 'Ace'),
+            # Diamonds (14-26)
+            ('Soldier', 'Diamonds', 'King'),
+            ('Angry Woman', 'Diamonds', 'Queen'),
+            ('Thief', 'Diamonds', 'Jack'),
+            ('Journey', 'Diamonds', 'Ten'),
+            ('Contrariety, Displeasure', 'Diamonds', 'Nine'),
+            ('Impediment', 'Diamonds', 'Eight'),
+            ('Chattering', 'Diamonds', 'Seven'),
+            ('Absence', 'Diamonds', 'Six'),
+            ('Reconciliation', 'Diamonds', 'Five'),
+            ('Important Revelation', 'Diamonds', 'Four'),
+            ('Consultant (M)', 'Diamonds', 'Three'),
+            ('Pleasure, Pastime', 'Diamonds', 'Two'),
+            ('A Letter', 'Diamonds', 'Ace'),
+            # Hearts (27-39)
+            ('Pensioner', 'Hearts', 'King'),
+            ('Tenderness', 'Hearts', 'Queen'),
+            ('Visit', 'Hearts', 'Jack'),
+            ('Waiting', 'Hearts', 'Ten'),
+            ('Surprise', 'Hearts', 'Nine'),
+            ('A Blonde Woman', 'Hearts', 'Eight'),
+            ('Thought/Reverie', 'Hearts', 'Seven'),
+            ('Love', 'Hearts', 'Six'),
+            ('Wedding', 'Hearts', 'Five'),
+            ('City House', 'Hearts', 'Four'),
+            ('Consultant (F)', 'Hearts', 'Three'),
+            ('Country House', 'Hearts', 'Two'),
+            ('Sweet Card', 'Hearts', 'Ace'),
+            # Spades (40-52)
+            ('Lawyer', 'Spades', 'King'),
+            ('A Widow/Solitude', 'Spades', 'Queen'),
+            ('Dark-Haired Man', 'Spades', 'Jack'),
+            ('Infantilism/Sorrow', 'Spades', 'Ten'),
+            ('Fright/Death', 'Spades', 'Nine'),
+            ('Weakness', 'Spades', 'Eight'),
+            ('Quarrel', 'Spades', 'Seven'),
+            ('Inconstancy', 'Spades', 'Six'),
+            ('Loss of Money', 'Spades', 'Five'),
+            ('Dark-Haired Woman', 'Spades', 'Four'),
+            ('Trap', 'Spades', 'Three'),
+            ('Gamblers', 'Spades', 'Two'),
+            ('Delay', 'Spades', 'Ace'),
+        ]
+        for name, suit, rank in sibylle_salons_cards:
+            archetypes.append((
+                name, 'Sibylle des Salons / Sibilla Indovina',
+                rank, suit, 'sibylle-salons',
+            ))
 
         # Kipper (36). Names match the import preset's
         # _get_kipper_metadata_by_position list so cards imported via that

@@ -26,7 +26,7 @@ export const SUPPORTED_COMBINATION_TYPES = [
   'Lenormand',
   'Playing Cards',
   'Kipper',
-  'Vera Sibilla Italiana / Sibilla della Zingara',
+  'Vera Sibilla Italiana / Sibilla della Zingara', 'Sibylle des Salons / Sibilla Indovina',
 ] as const;
 
 export type CombinationCartomancyType =
