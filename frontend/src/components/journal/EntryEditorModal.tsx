@@ -4,8 +4,7 @@ import {
   getEntry,
   createEntry,
   updateEntry,
-  addEntryReading,
-  deleteEntryReadings,
+  replaceEntryReadings,
   setEntryTags,
   setEntryQuerents,
   getProfiles,
@@ -289,43 +288,39 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
       if (isEditing) {
         await updateEntry(entryId!, entryData);
         savedEntryId = entryId!;
-
-        // Replace readings: delete old ones, add new
-        await deleteEntryReadings(savedEntryId);
       } else {
         const result = await createEntry(entryData);
         savedEntryId = result.id;
       }
 
-      // Add readings - track failures individually so we can report them
-      const failedReadings: number[] = [];
-      for (let i = 0; i < readings.length; i++) {
-        const r = readings[i];
-        const cardsUsed = r.cards
-          .filter(c => c.name.trim())
-          .map(c => ({
-            name: c.name,
-            reversed: c.reversed,
-            deck_id: c.deck_id,
-            deck_name: c.deck_name,
-            position_index: c.position_index,
-            card_id: c.card_id,  // Store card_id so entries survive card renames
-          }));
-
-        try {
-          await addEntryReading(savedEntryId, {
-            spread_id: r.spread_id,
-            spread_name: r.spread_name || undefined,
-            deck_id: r.deck_id,
-            deck_name: r.deck_name || undefined,
-            cartomancy_type: r.cartomancy_type || undefined,
-            cards_used: cardsUsed,
-            position_order: i,
-          });
-        } catch (readingErr) {
-          console.error(`Failed to save reading ${i + 1}:`, readingErr);
-          failedReadings.push(i + 1);
-        }
+      // Save all readings in one atomic request. The backend swaps the
+      // old readings for the new set inside a single transaction, so a
+      // failure here leaves the entry's original readings intact —
+      // unlike the old delete-then-re-add flow, which could destroy
+      // them if a save failed partway.
+      let readingsFailed = false;
+      try {
+        await replaceEntryReadings(savedEntryId, readings.map((r, i) => ({
+          spread_id: r.spread_id,
+          spread_name: r.spread_name || undefined,
+          deck_id: r.deck_id,
+          deck_name: r.deck_name || undefined,
+          cartomancy_type: r.cartomancy_type || undefined,
+          cards_used: r.cards
+            .filter(c => c.name.trim())
+            .map(c => ({
+              name: c.name,
+              reversed: c.reversed,
+              deck_id: c.deck_id,
+              deck_name: c.deck_name,
+              position_index: c.position_index,
+              card_id: c.card_id,  // Store card_id so entries survive card renames
+            })),
+          position_order: i,
+        })));
+      } catch (readingErr) {
+        console.error('Failed to save readings:', readingErr);
+        readingsFailed = true;
       }
 
       // Set tags
@@ -348,8 +343,10 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
 
       // Report any partial failures
       const failures: string[] = [];
-      if (failedReadings.length > 0) {
-        failures.push(`reading(s) #${failedReadings.join(', ')}`);
+      if (readingsFailed) {
+        failures.push(isEditing
+          ? 'readings (your previous readings are unchanged)'
+          : 'readings');
       }
       if (tagsFailed) {
         failures.push('tags');

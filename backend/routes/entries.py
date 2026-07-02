@@ -286,6 +286,27 @@ def add_entry_reading(entry_id, data):
     return jsonify({'id': reading_id}), 201
 
 
+@entries_bp.route('/api/entries/<int:entry_id>/readings', methods=['PUT'])
+@require_json
+def replace_entry_readings(entry_id, data):
+    """Atomically replace all of an entry's readings in one transaction.
+
+    The entry editor uses this instead of DELETE followed by N POSTs so
+    a failure partway through a save can never destroy the original
+    readings.
+    """
+    db = current_app.config['DB']
+    readings = data.get('readings')
+    if not isinstance(readings, list):
+        return jsonify({'error': "'readings' must be a list"}), 400
+    try:
+        ids = db.replace_entry_readings(entry_id, readings)
+    except Exception as e:
+        current_app.logger.error("replace_entry_readings failed for entry %s: %s", entry_id, e)
+        return jsonify({'error': 'Failed to save readings; the original readings were left unchanged.'}), 500
+    return jsonify({'ids': ids})
+
+
 @entries_bp.route('/api/entries/<int:entry_id>/readings', methods=['DELETE'])
 def delete_entry_readings(entry_id):
     db = current_app.config['DB']

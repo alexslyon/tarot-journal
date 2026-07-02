@@ -102,6 +102,23 @@ export async function deleteEntryReadings(entryId: number): Promise<void> {
   await api.delete(`/api/entries/${entryId}/readings`);
 }
 
+/** Atomically replace all of an entry's readings in a single request.
+ *  The backend performs the swap in one database transaction, so a
+ *  failure can never leave the entry with its readings half-deleted.
+ *  Always prefer this over deleteEntryReadings + addEntryReading loops. */
+export async function replaceEntryReadings(entryId: number, readings: Array<{
+  spread_id?: number | null;
+  spread_name?: string;
+  deck_id?: number | null;
+  deck_name?: string;
+  cartomancy_type?: string;
+  cards_used?: Array<{ name: string; reversed?: boolean; deck_id?: number; deck_name?: string; position_index?: number; card_id?: number }>;
+  position_order?: number;
+}>): Promise<{ ids: number[] }> {
+  const res = await api.put(`/api/entries/${entryId}/readings`, { readings });
+  return res.data;
+}
+
 // ── Follow-up Notes ──────────────────────────────────────────
 
 export async function getFollowUpNotes(entryId: number): Promise<FollowUpNote[]> {

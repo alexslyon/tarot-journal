@@ -240,6 +240,34 @@ class EntriesMixin:
         cursor.execute('DELETE FROM entry_readings WHERE entry_id = ?', (entry_id,))
         self._commit()
 
+    def replace_entry_readings(self, entry_id: int, readings: list) -> list:
+        """Atomically replace all readings for an entry.
+
+        The delete and re-inserts happen inside one transaction, so if
+        anything fails partway (bad data, lock timeout, crash) the
+        entry's original readings are left untouched instead of
+        half-deleted. This is the safe path the entry editor uses when
+        saving edits.
+
+        Returns the new reading ids in order.
+        """
+        new_ids = []
+        with self.transaction():
+            cursor = self.conn.cursor()
+            cursor.execute('DELETE FROM entry_readings WHERE entry_id = ?', (entry_id,))
+            for i, r in enumerate(readings):
+                cards_used = r.get('cards_used')
+                cursor.execute('''
+                    INSERT INTO entry_readings
+                    (entry_id, spread_id, spread_name, deck_id, deck_name, cartomancy_type, cards_used, position_order)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (entry_id, r.get('spread_id'), r.get('spread_name'),
+                      r.get('deck_id'), r.get('deck_name'), r.get('cartomancy_type'),
+                      json.dumps(cards_used) if cards_used else None,
+                      r.get('position_order', i)))
+                new_ids.append(cursor.lastrowid)
+        return new_ids
+
     # === Follow-up Notes ===
     def get_follow_up_notes(self, entry_id: int):
         """Get all follow-up notes for an entry, ordered by date"""
