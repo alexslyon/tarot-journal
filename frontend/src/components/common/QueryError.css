@@ -1,0 +1,21 @@
+.query-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.query-error__message {
+  color: var(--danger);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  margin: 0;
+}
+
+.query-error__hint {
+  color: var(--text-secondary);
+  font-size: var(--font-size-body);
+  margin: 0;
+}

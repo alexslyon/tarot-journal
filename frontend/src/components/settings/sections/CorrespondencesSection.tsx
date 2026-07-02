@@ -17,6 +17,7 @@ import {
 } from '../../../api/correspondences';
 import MultiValueSelect from '../../common/MultiValueSelect';
 import FreeTextValue from '../../common/FreeTextValue';
+import QueryError from '../../common/QueryError';
 import type {
   CorrespondenceSystem,
   CorrespondenceAssignment,
@@ -130,7 +131,11 @@ export default function CorrespondencesSection() {
   // create-form archetype preview).
   const activeCartomancyType = systemDetail?.cartomancy_type || 'Tarot';
 
-  const { data: allArchetypes = [] } = useQuery<Archetype[]>({
+  const {
+    data: allArchetypes = [],
+    isError: archetypesError,
+    refetch: refetchArchetypes,
+  } = useQuery<Archetype[]>({
     queryKey: ['archetypes', activeCartomancyType],
     queryFn: () => getArchetypes(activeCartomancyType),
   });
@@ -934,9 +939,13 @@ export default function CorrespondencesSection() {
           </div>
 
           {visibleArchetypes.length === 0 && (
-            <p className="settings-tab__hint" style={{ textAlign: 'center', padding: 20 }}>
-              {filterText ? 'No cards match your filter.' : 'Loading archetypes...'}
-            </p>
+            archetypesError ? (
+              <QueryError what="card archetypes" onRetry={() => refetchArchetypes()} />
+            ) : (
+              <p className="settings-tab__hint" style={{ textAlign: 'center', padding: 20 }}>
+                {filterText ? 'No cards match your filter.' : 'Loading archetypes...'}
+              </p>
+            )
           )}
         </section>
       )}

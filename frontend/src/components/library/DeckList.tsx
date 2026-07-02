@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getDecks, getCartomancyTypes } from '../../api/decks';
 import type { Deck } from '../../types';
+import QueryError from '../common/QueryError';
 import './DeckList.css';
 
 interface DeckListProps {
@@ -24,7 +25,7 @@ export default function DeckList({ selectedDeckId, onSelectDeck, onEditDeck, onI
     queryFn: getCartomancyTypes,
   });
 
-  const { data: decks = [], isLoading } = useQuery({
+  const { data: decks = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['decks', filterTypeId],
     queryFn: () => getDecks(filterTypeId),
   });
@@ -109,6 +110,9 @@ export default function DeckList({ selectedDeckId, onSelectDeck, onEditDeck, onI
 
       <div className="deck-list__rows">
         {isLoading && <div className="deck-list__loading">Loading...</div>}
+        {!isLoading && isError && (
+          <QueryError what="decks" onRetry={() => refetch()} />
+        )}
         {sortedDecks.map((deck) => (
           <div
             key={deck.id}

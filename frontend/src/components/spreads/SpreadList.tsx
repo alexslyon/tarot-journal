@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getSpreads } from '../../api/spreads';
 import type { Spread } from '../../types';
+import QueryError from '../common/QueryError';
 import './SpreadList.css';
 
 interface SpreadListProps {
@@ -18,7 +19,7 @@ export default function SpreadList({
   onClone,
   onDelete,
 }: SpreadListProps) {
-  const { data: spreads = [], isLoading } = useQuery<Spread[]>({
+  const { data: spreads = [], isLoading, isError, refetch } = useQuery<Spread[]>({
     queryKey: ['spreads'],
     queryFn: getSpreads,
   });
@@ -36,6 +37,9 @@ export default function SpreadList({
 
       <div className="spread-list__rows">
         {isLoading && <div className="spread-list__loading">Loading...</div>}
+        {!isLoading && isError && (
+          <QueryError what="spreads" onRetry={() => refetch()} />
+        )}
         {spreads.map((spread) => {
           const positions = Array.isArray(spread.positions) ? spread.positions : [];
           return (
@@ -49,7 +53,7 @@ export default function SpreadList({
             </div>
           );
         })}
-        {!isLoading && spreads.length === 0 && (
+        {!isLoading && !isError && spreads.length === 0 && (
           <div className="spread-list__empty">No spreads yet</div>
         )}
       </div>

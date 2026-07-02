@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getEntries, searchEntries } from '../../api/entries';
 import { getEntryTags as getAllEntryTags } from '../../api/tags';
 import type { JournalEntry, Tag } from '../../types';
+import QueryError from '../common/QueryError';
 import './EntryList.css';
 
 interface EntryListProps {
@@ -31,7 +32,12 @@ export default function EntryList({
     queryFn: getAllEntryTags,
   });
 
-  const { data: allEntries = [], isLoading: entriesLoading } = useQuery<JournalEntry[]>({
+  const {
+    data: allEntries = [],
+    isLoading: entriesLoading,
+    isError: entriesError,
+    refetch: refetchEntries,
+  } = useQuery<JournalEntry[]>({
     queryKey: ['entries'],
     queryFn: () => getEntries(200, 0),
     enabled: !isSearching,
@@ -44,7 +50,12 @@ export default function EntryList({
       }
     : null;
 
-  const { data: searchResults = [], isLoading: searchLoading } = useQuery<JournalEntry[]>({
+  const {
+    data: searchResults = [],
+    isLoading: searchLoading,
+    isError: searchError,
+    refetch: refetchSearch,
+  } = useQuery<JournalEntry[]>({
     queryKey: ['entry-search', searchParams],
     queryFn: () => searchEntries(searchParams!),
     enabled: isSearching && searchParams !== null,
@@ -52,6 +63,8 @@ export default function EntryList({
 
   const entries = isSearching ? searchResults : allEntries;
   const loading = isSearching ? searchLoading : entriesLoading;
+  const loadError = isSearching ? searchError : entriesError;
+  const retry = isSearching ? refetchSearch : refetchEntries;
 
   const doSearch = useCallback(() => {
     if (!query.trim() && !filterTagId) return;
@@ -119,7 +132,10 @@ export default function EntryList({
 
       <div className="entry-list__rows">
         {loading && <div className="entry-list__loading">Loading...</div>}
-        {!loading && entries.length === 0 && (
+        {!loading && loadError && (
+          <QueryError what="journal entries" onRetry={() => retry()} />
+        )}
+        {!loading && !loadError && entries.length === 0 && (
           <div className="entry-list__empty">
             {isSearching ? 'No entries found.' : 'No journal entries yet.'}
           </div>
