@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { scanNewCards, addCardsToDeck } from '../../api/importExport';
 import { useToast } from '../../context/ToastContext';
-import Modal from '../common/Modal';
+import Modal, { ModalCancelButton } from '../common/Modal';
 import './AddCardsModal.css';
 
 declare global {
@@ -117,7 +117,7 @@ export default function AddCardsModal({ deckId, deckName, onClose, onImported }:
               )}
             </div>
             <div className="add-cards__footer">
-              <button onClick={onClose}>Cancel</button>
+              <ModalCancelButton>Cancel</ModalCancelButton>
               <button
                 className="add-cards__primary-btn"
                 onClick={handleScan}

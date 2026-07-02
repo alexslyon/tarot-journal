@@ -5,7 +5,7 @@ import { getCardTags } from '../../api/tags';
 import { getDeckGroups } from '../../api/decks';
 import type { Tag, CardGroup } from '../../types';
 import { useToast } from '../../context/ToastContext';
-import Modal from '../common/Modal';
+import Modal, { ModalCancelButton } from '../common/Modal';
 import './BatchEditModal.css';
 
 interface BatchEditModalProps {
@@ -321,9 +321,9 @@ export default function BatchEditModal({ cardIds, deckId, onClose, onSaved }: Ba
               </span>
             )}
             <div className="batch-edit__footer-buttons">
-              <button onClick={onClose} disabled={saving}>
+              <ModalCancelButton disabled={saving}>
                 {error ? 'Close' : 'Cancel'}
-              </button>
+              </ModalCancelButton>
               {!error && (
                 <button
                   className="batch-edit__save-btn"

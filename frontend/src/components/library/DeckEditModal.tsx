@@ -15,7 +15,7 @@ import type { Card, Deck, Tag, DeckCustomField, CardGroup, CorrespondenceSystem 
 import DeckCorrespondenceOverrides from './DeckCorrespondenceOverrides';
 import { ensureHtml } from '../../utils/formatting';
 import { useToast } from '../../context/ToastContext';
-import Modal from '../common/Modal';
+import Modal, { ModalCancelButton } from '../common/Modal';
 import RichTextEditor from '../common/RichTextEditor';
 import AnkiExportModal from './AnkiExportModal';
 import './DeckEditModal.css';
@@ -1037,7 +1037,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
                 Delete Deck
               </button>
               <div className="deck-edit__footer-spacer" />
-              <button onClick={onClose}>Cancel</button>
+              <ModalCancelButton>Cancel</ModalCancelButton>
               <button
                 className="deck-edit__save-btn"
                 onClick={handleSave}

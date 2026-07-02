@@ -11,7 +11,7 @@ import type { DeckCustomField } from '../../types';
 import { cardPreviewUrl } from '../../api/images';
 import type { Tag, CardGroup } from '../../types';
 import { useToast } from '../../context/ToastContext';
-import Modal from '../common/Modal';
+import Modal, { ModalCancelButton } from '../common/Modal';
 import RichTextEditor from '../common/RichTextEditor';
 import CardCorrespondences from './CardCorrespondences';
 import './CardEditModal.css';
@@ -681,7 +681,7 @@ export default function CardEditModal({ cardId, deckId, cardIds = [], onClose, o
               </div>
             )}
             <div className="card-edit__footer-buttons">
-              <button onClick={onClose}>Cancel</button>
+              <ModalCancelButton>Cancel</ModalCancelButton>
               <button
                 className="card-edit__save-btn"
                 onClick={() => handleSave()}

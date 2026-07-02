@@ -13,7 +13,7 @@ import {
 import { getEntryTags as getAllEntryTags } from '../../api/tags';
 import { getDefaults, type AppDefaults } from '../../api/settings';
 import { useToast } from '../../context/ToastContext';
-import Modal from '../common/Modal';
+import Modal, { ModalCancelButton } from '../common/Modal';
 import RichTextEditor from '../common/RichTextEditor';
 import ReadingEditor, { type ReadingData } from './ReadingEditor';
 import type { JournalEntryFull, Tag, Profile } from '../../types';
@@ -630,7 +630,7 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
         <div className="entry-editor__footer">
           {error && <div className="entry-editor__error">{error}</div>}
           <div className="entry-editor__footer-buttons">
-            <button onClick={onClose}>Cancel</button>
+            <ModalCancelButton>Cancel</ModalCancelButton>
             <button className="primary" onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Entry'}
             </button>

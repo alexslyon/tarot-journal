@@ -1,5 +1,31 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import './Modal.css';
+
+// Lets buttons rendered inside a Modal (e.g. a footer "Cancel") close it
+// through the same guarded path as the X button / Escape / overlay click,
+// so the unsaved-changes confirmation is never bypassed.
+const ModalCloseContext = createContext<() => void>(() => {});
+
+/** Guarded close for use inside a Modal: shows the unsaved-changes
+ *  confirmation when the modal is dirty instead of closing outright.
+ *  Always prefer this over calling the raw onClose prop directly.
+ *  NOTE: only works in components rendered *inside* the Modal body
+ *  (below the provider) — not in the component that renders <Modal>
+ *  itself. For footer Cancel buttons, use <ModalCancelButton>. */
+export function useModalClose(): () => void {
+  return useContext(ModalCloseContext);
+}
+
+/** A footer "Cancel"/"Close" button that closes the enclosing Modal
+ *  through the guarded path, so dirty modals still show the
+ *  unsaved-changes confirmation. Drop-in replacement for
+ *  `<button onClick={onClose}>Cancel</button>`. */
+export function ModalCancelButton(
+  props: ButtonHTMLAttributes<HTMLButtonElement>,
+) {
+  const attemptClose = useModalClose();
+  return <button type="button" {...props} onClick={attemptClose} />;
+}
 
 interface ModalProps {
   open: boolean;
@@ -30,13 +56,13 @@ export default function Modal({
     if (!open) setShowConfirm(false);
   }, [open]);
 
-  const attemptClose = () => {
+  const attemptClose = useCallback(() => {
     if (isDirty) {
       setShowConfirm(true);
     } else {
       onClose();
     }
-  };
+  }, [isDirty, onClose]);
 
   const confirmClose = () => {
     setShowConfirm(false);
@@ -121,7 +147,9 @@ export default function Modal({
           </div>
         )}
         <div className="modal-body">
-          {children}
+          <ModalCloseContext.Provider value={attemptClose}>
+            {children}
+          </ModalCloseContext.Provider>
         </div>
       </div>
 

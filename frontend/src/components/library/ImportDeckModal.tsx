@@ -17,7 +17,7 @@ import {
   PLAYING_SUITS,
 } from '../../constants/importPresets';
 import { useToast } from '../../context/ToastContext';
-import Modal from '../common/Modal';
+import Modal, { ModalCancelButton } from '../common/Modal';
 import './ImportDeckModal.css';
 
 // Extend window type for Electron API
@@ -413,7 +413,7 @@ export default function ImportDeckModal({ onClose, onImported }: ImportDeckModal
             </div>
 
             <div className="import-deck__footer">
-              <button onClick={onClose}>Cancel</button>
+              <ModalCancelButton>Cancel</ModalCancelButton>
               <button
                 className="import-deck__primary-btn"
                 onClick={handleScan}
