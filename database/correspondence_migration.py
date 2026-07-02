@@ -242,14 +242,18 @@ def run_correspondence_migration(db):
 
         result = parser(row['field_value'])
 
-        # Write parsed fields as card overrides
+        # Write parsed fields as card overrides. INSERT OR IGNORE:
+        # overrides are multi-value per (card, field) — each value is
+        # its own row, unique on (card_id, field_name, field_value) —
+        # so an already-present value is simply skipped. (This used to
+        # be ON CONFLICT(card_id, field_name), which referenced a
+        # unique constraint the schema rebuild had already dropped and
+        # crashed the app at startup when opening a pre-migration DB.)
         for corr_field, corr_value in result['fields'].items():
             cursor.execute('''
-                INSERT INTO card_correspondence_overrides
+                INSERT OR IGNORE INTO card_correspondence_overrides
                     (card_id, field_name, field_value)
                 VALUES (?, ?, ?)
-                ON CONFLICT(card_id, field_name)
-                DO UPDATE SET field_value = excluded.field_value
             ''', (row['card_id'], corr_field, corr_value))
             migrated_count += 1
 
