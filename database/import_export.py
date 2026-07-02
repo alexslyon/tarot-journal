@@ -447,6 +447,48 @@ class ImportExportMixin:
         return self.import_deck_from_json(data)
 
     # === Full Backup/Restore ===
+    def _snapshot_db_to(self, dest_path: str) -> None:
+        """Write a consistent snapshot of the live database to dest_path.
+
+        Uses sqlite's online backup API, which is the only correct way
+        to copy a WAL-mode database that may be in active use: it
+        includes un-checkpointed writes from the -wal sidecar and takes
+        a coherent point-in-time image even under concurrent writers.
+        """
+        dest = sqlite3.connect(dest_path)
+        try:
+            self.conn.backup(dest)
+        finally:
+            dest.close()
+
+    def auto_backup(self, backup_dir: str, keep: int = 10) -> str:
+        """Write a rotating safety snapshot of the database.
+
+        Called on every app launch. Keeps the newest `keep` snapshots
+        in backup_dir and deletes older ones, so disk use stays bounded
+        while there is always a recent fallback if the live database is
+        ever corrupted or edited by mistake.
+
+        Returns the path of the snapshot that was written.
+        """
+        dir_path = Path(backup_dir)
+        dir_path.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        dest = dir_path / f"tarot_journal_auto_{stamp}.db"
+        self._snapshot_db_to(str(dest))
+
+        # Prune the oldest snapshots beyond the keep limit. The
+        # timestamped names sort chronologically.
+        snapshots = sorted(dir_path.glob("tarot_journal_auto_*.db"))
+        for old in snapshots[:-keep] if keep > 0 else []:
+            try:
+                old.unlink()
+            except OSError as err:
+                logger.warning("Could not prune old auto-backup %s: %s", old, err)
+
+        logger.info("Auto-backup written: %s", dest)
+        return str(dest)
+
     def create_full_backup(self, filepath: str, include_images: bool = False) -> dict:
         """
         Create a complete backup of the database and config files.
@@ -482,8 +524,15 @@ class ImportExportMixin:
             "image_count": len(image_paths) if include_images else 0
         }
 
-        # Flush any pending writes so the DB on disk is up to date.
-        self.conn.commit()
+        # Snapshot the database with sqlite's online backup API rather
+        # than copying the .db file directly. In WAL mode, recently
+        # committed writes live in the tarot_journal.db-wal sidecar
+        # until a checkpoint, so a raw copy of the main file can
+        # silently miss the newest journal entries. Connection.backup()
+        # folds everything into one consistent snapshot and stays
+        # correct even if another thread writes while the backup runs.
+        snapshot_fd, snapshot_path = tempfile.mkstemp(suffix=".db")
+        os.close(snapshot_fd)
 
         # Build the archive in one pass. ZIP_DEFLATED is reserved for the DB
         # and small JSON entries that compress well; image entries are stored
@@ -494,30 +543,38 @@ class ImportExportMixin:
         presets_included = presets_path.exists()
         images_added = 0
 
-        with zipfile.ZipFile(filepath, 'w', allowZip64=True) as zf:
-            zf.writestr(
-                "manifest.json",
-                json.dumps(manifest, indent=2),
-                compress_type=zipfile.ZIP_DEFLATED,
-            )
-            zf.write(self.db_path, "tarot_journal.db",
-                     compress_type=zipfile.ZIP_DEFLATED)
-            if presets_included:
-                zf.write(presets_path, "import_presets.json",
-                         compress_type=zipfile.ZIP_DEFLATED)
+        try:
+            self._snapshot_db_to(snapshot_path)
 
-            if include_images:
-                for img_path in image_paths:
-                    img_file = Path(img_path)
-                    if not img_file.exists():
-                        continue
-                    archive_path = f"images/{img_file.parent.name}/{img_file.name}"
-                    zf.write(img_file, archive_path,
-                             compress_type=zipfile.ZIP_STORED)
-                    images_added += 1
-                    if images_added % 500 == 0:
-                        logger.info("Backup progress: %d/%d images written",
-                                    images_added, len(image_paths))
+            with zipfile.ZipFile(filepath, 'w', allowZip64=True) as zf:
+                zf.writestr(
+                    "manifest.json",
+                    json.dumps(manifest, indent=2),
+                    compress_type=zipfile.ZIP_DEFLATED,
+                )
+                zf.write(snapshot_path, "tarot_journal.db",
+                         compress_type=zipfile.ZIP_DEFLATED)
+                if presets_included:
+                    zf.write(presets_path, "import_presets.json",
+                             compress_type=zipfile.ZIP_DEFLATED)
+
+                if include_images:
+                    for img_path in image_paths:
+                        img_file = Path(img_path)
+                        if not img_file.exists():
+                            continue
+                        archive_path = f"images/{img_file.parent.name}/{img_file.name}"
+                        zf.write(img_file, archive_path,
+                                 compress_type=zipfile.ZIP_STORED)
+                        images_added += 1
+                        if images_added % 500 == 0:
+                            logger.info("Backup progress: %d/%d images written",
+                                        images_added, len(image_paths))
+        finally:
+            try:
+                os.unlink(snapshot_path)
+            except OSError:
+                pass
 
         # Store last backup time in settings
         self.set_setting("last_backup_time", datetime.now().isoformat())

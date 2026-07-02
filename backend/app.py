@@ -39,6 +39,17 @@ def create_app():
     db_path = os.path.join(PROJECT_ROOT, 'tarot_journal.db')
     db = Database(db_path=db_path)
     app.config['DB'] = db
+
+    # Automatic safety net: snapshot the database on every launch,
+    # keeping the 10 most recent snapshots in backups/auto/. This
+    # protects against corruption or accidental data loss even if the
+    # user never presses the manual Backup button. A failed snapshot
+    # must never prevent the app from starting, hence the broad catch.
+    try:
+        db.auto_backup(os.path.join(PROJECT_ROOT, 'backups', 'auto'), keep=10)
+    except Exception as e:
+        from logger_config import get_logger
+        get_logger('backend').warning("Automatic startup backup failed: %s", e)
     app.config['THUMB_CACHE'] = get_cache()
     app.config['THEME'] = get_theme()
 

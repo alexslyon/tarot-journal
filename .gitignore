@@ -30,6 +30,9 @@ wheels/
 *.sqlite
 *.sqlite3
 
+# Automatic database snapshots (written on every app launch)
+backups/
+
 # Claude Code
 .claude/
 
