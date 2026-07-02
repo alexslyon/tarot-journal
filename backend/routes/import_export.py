@@ -7,8 +7,8 @@ path traversal attacks.
 
 import os
 import json
-import tempfile
 import logging
+from io import BytesIO
 from flask import Blueprint, jsonify, request, current_app, send_file
 
 from backend.security import is_valid_directory
@@ -392,41 +392,27 @@ def reset_import_preset(name):
 def export_deck(deck_id):
     """Export a deck as JSON download."""
     db = current_app.config['DB']
-    data = db.export_deck_json(deck_id)
-    if not data:
+    try:
+        data = db.export_deck_json(deck_id)
+    except ValueError:
+        # export_deck_json raises for a missing deck (it never returns
+        # a falsy value), e.g. exporting a deck that was just deleted.
         return jsonify({'error': 'Deck not found'}), 404
 
-    # Write to temp file, send it, then clean up
-    tmp = tempfile.NamedTemporaryFile(
-        mode='w', suffix='.json', delete=False, prefix='deck_export_'
+    deck_name = data.get('deck', {}).get('name', 'deck')
+    safe_name = ''.join(c for c in deck_name if c.isalnum() or c in ' _-').strip() or 'deck'
+
+    # Deck JSON is small (metadata only, no images) — serve it straight
+    # from memory. The old temp-file flow leaked its file on every
+    # export: its call_on_close cleanup never ran, because werkzeug
+    # skips close callbacks for direct_passthrough file responses.
+    payload = json.dumps(data, indent=2).encode('utf-8')
+    return send_file(
+        BytesIO(payload),
+        as_attachment=True,
+        download_name=f'{safe_name}.json',
+        mimetype='application/json',
     )
-    try:
-        json.dump(data, tmp, indent=2)
-        tmp.close()
-
-        deck_name = data.get('deck', {}).get('name', 'deck')
-        safe_name = ''.join(c for c in deck_name if c.isalnum() or c in ' _-').strip()
-
-        response = send_file(
-            tmp.name,
-            as_attachment=True,
-            download_name=f'{safe_name}.json',
-            mimetype='application/json',
-        )
-
-        # Delete the temp file after Flask finishes sending it
-        @response.call_on_close
-        def _cleanup():
-            try:
-                os.remove(tmp.name)
-            except OSError:
-                pass
-
-        return response
-    except Exception:
-        # Clean up if something goes wrong before the response is sent
-        os.remove(tmp.name)
-        raise
 
 
 @import_export_bp.route('/api/import/deck-json', methods=['POST'])

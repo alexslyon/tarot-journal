@@ -125,9 +125,20 @@ def create_backup():
     os.close(fd)
 
     try:
-        result = db.create_full_backup(filepath, include_images=include_images)
+        db.create_full_backup(filepath, include_images=include_images)
+
+        # Serve the zip from an already-deleted file: open a handle,
+        # unlink the path, and stream from the handle. The OS keeps
+        # the data alive until the handle closes, then reclaims the
+        # space automatically — even if the app crashes mid-download.
+        # (Response.call_on_close does NOT work here: werkzeug skips
+        # close callbacks for direct_passthrough file responses, which
+        # is how the old code leaked one temp zip — potentially many
+        # GB with images — per backup.)
+        fh = open(filepath, 'rb')
+        os.remove(filepath)
         return send_file(
-            filepath,
+            fh,
             as_attachment=True,
             download_name=os.path.basename(filepath),
             mimetype='application/zip',
