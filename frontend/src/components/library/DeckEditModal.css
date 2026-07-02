@@ -122,6 +122,54 @@
   accent-color: var(--accent);
 }
 
+.deck-edit__hint {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  font-style: italic;
+  margin: 4px 0 6px;
+}
+
+.deck-edit__add-tag-btn {
+  align-self: flex-start;
+  margin-top: 8px;
+  background: transparent;
+  color: var(--accent);
+  border: 1px dashed var(--accent);
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-size: var(--font-size-small);
+  cursor: pointer;
+}
+.deck-edit__add-tag-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.deck-edit__add-tag {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.deck-edit__add-tag-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.deck-edit__add-tag-color {
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+
 .deck-edit__tag-badge {
   display: inline-block;
   padding: 2px 8px;
