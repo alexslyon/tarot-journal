@@ -3,6 +3,7 @@ Database core: initialization, migrations, and transaction management.
 """
 
 import atexit
+import os
 import re
 import sqlite3
 import threading
@@ -66,6 +67,12 @@ class CoreMixin:
         # thread. SQLite handles cross-thread serialization itself.
         self._lock = threading.RLock()
 
+        # Held (via db_swap_guard) while the .db file on disk is being
+        # replaced during a backup restore. New per-thread connections
+        # briefly acquire it before opening, so no thread can connect
+        # to a half-copied database file mid-swap.
+        self._db_swap_lock = threading.Lock()
+
         # Bootstrap the main thread's connection now so _create_tables
         # runs synchronously here (and any later background thread
         # opens its own connection on first access).
@@ -101,7 +108,10 @@ class CoreMixin:
                     self._connection_registry.append(value)
 
     def _open_thread_connection(self) -> sqlite3.Connection:
-        c = sqlite3.connect(self.db_path, check_same_thread=False)
+        # Wait out any in-progress DB file swap (backup restore) so we
+        # never open a connection against a half-copied file.
+        with self._db_swap_lock:
+            c = sqlite3.connect(self.db_path, check_same_thread=False)
         c.row_factory = sqlite3.Row
         # WAL is a database-level setting (persists once enabled), but
         # each fresh connection still needs FK enforcement + a sensible
@@ -149,6 +159,46 @@ class CoreMixin:
         except AttributeError:
             pass
         self._connection_epoch += 1
+
+    @contextmanager
+    def db_swap_guard(self):
+        """Serialize replacing the .db file on disk (backup restore).
+
+        While the `with` block runs: every existing per-thread
+        connection is closed, the epoch is bumped so other threads
+        lazily reopen afterwards, and any thread trying to open a NEW
+        connection blocks until the swap finishes — so nothing can
+        connect to a half-copied database file.
+
+        Stale -wal/-shm sidecars are also removed. They belong to the
+        OLD database; if left behind, sqlite would try to replay the
+        old write-ahead log against the newly restored file, which is
+        a recipe for corruption.
+
+        IMPORTANT: the body must only manipulate files on disk. It
+        must not touch self.conn — that would try to open a connection
+        and deadlock on this same lock.
+        """
+        with self._db_swap_lock:
+            self.reopen_after_db_swap()
+            self._remove_wal_sidecars()
+            yield
+
+    def _remove_wal_sidecars(self) -> None:
+        """Delete leftover -wal/-shm files next to the database.
+
+        Only call while all connections are closed (inside
+        db_swap_guard) — deleting them under a live connection would
+        itself corrupt the database.
+        """
+        for suffix in ('-wal', '-shm'):
+            sidecar = f"{self.db_path}{suffix}"
+            try:
+                if os.path.exists(sidecar):
+                    os.unlink(sidecar)
+                    logger.info("Removed stale sidecar: %s", sidecar)
+            except OSError as e:
+                logger.warning("Could not remove sidecar %s: %s", sidecar, e)
 
     def _commit(self):
         """Commit unless inside a managed transaction (which commits at the end).

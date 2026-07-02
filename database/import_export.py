@@ -619,11 +619,14 @@ class ImportExportMixin:
             with zf.open("manifest.json") as f:
                 manifest = json.load(f)
 
-        # Create safety backup before restore
-        safety_backup_path = None
+        # Snapshot the current DB as a rollback point. Uses the sqlite
+        # backup API rather than a raw file copy so the snapshot
+        # includes writes still sitting in the WAL sidecar, and mkstemp
+        # (not the race-prone, deprecated mktemp) for the temp path.
+        safety_fd, safety_backup_path = tempfile.mkstemp(suffix=".db.safety")
+        os.close(safety_fd)
         try:
-            safety_backup_path = tempfile.mktemp(suffix=".db.safety")
-            shutil.copy2(self.db_path, safety_backup_path)
+            self._snapshot_db_to(safety_backup_path)
 
             with tempfile.TemporaryDirectory() as temp_dir:
                 temp_path = Path(temp_dir)
@@ -632,17 +635,17 @@ class ImportExportMixin:
                 with zipfile.ZipFile(filepath, 'r') as zf:
                     zf.extractall(temp_path)
 
-                # Drop every per-thread connection — they all point
-                # at the file we're about to replace. reopen_after_db_swap
-                # closes them and bumps the epoch so subsequent self.conn
-                # accesses lazy-open fresh connections against the new
-                # file (with WAL, FK enforcement, and busy_timeout).
-                self.reopen_after_db_swap()
-
-                try:
-                    # Replace database
+                # Swap the database file under the guard: every live
+                # connection is closed, stale -wal/-shm sidecars from
+                # the old database are removed, and no thread can open
+                # a new connection until the copy completes — so
+                # nothing ever reads a half-copied file. After the
+                # guard, self.conn lazily reopens against the new file
+                # (with WAL, FK enforcement, and busy_timeout).
+                with self.db_swap_guard():
                     shutil.copy2(temp_path / "tarot_journal.db", self.db_path)
 
+                try:
                     # Restore import_presets.json if it was in the backup
                     presets_restored = False
                     if (temp_path / "import_presets.json").exists():
@@ -671,9 +674,9 @@ class ImportExportMixin:
                                             shutil.copy2(img_file, dest_path)
                                             images_restored += 1
 
-                    # The new .db file is in place; nothing to do —
-                    # self.conn will lazy-open on the next access
-                    # thanks to the epoch bump above.
+                    # The new .db file is in place; self.conn lazily
+                    # reopens on next access thanks to db_swap_guard's
+                    # epoch bump.
 
                     # Delete safety backup on success
                     if safety_backup_path and Path(safety_backup_path).exists():
@@ -690,13 +693,13 @@ class ImportExportMixin:
                     }
 
                 except Exception as e:
-                    # Restore safety backup if something went wrong
+                    # Roll back to the safety snapshot, under the same
+                    # guard so the rollback copy is just as protected
+                    # as the forward swap.
                     logger.error("Restore failed, rolling back to safety backup: %s", e)
                     if safety_backup_path and Path(safety_backup_path).exists():
-                        shutil.copy2(safety_backup_path, self.db_path)
-                    # Bump the epoch again so the next access opens
-                    # a fresh connection against the rolled-back file.
-                    self.reopen_after_db_swap()
+                        with self.db_swap_guard():
+                            shutil.copy2(safety_backup_path, self.db_path)
                     raise e
 
         except Exception as e:
