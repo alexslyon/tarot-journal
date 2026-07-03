@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { getDecks } from '../../api/decks';
 import { getCards } from '../../api/cards';
 import { getSpreads, getSpread } from '../../api/spreads';
 import { cardThumbnailUrl } from '../../api/images';
 import { deckMatchesType } from '../../utils/formatting';
+import CardCombobox, { type CardComboboxHandle } from '../common/CardCombobox';
 import type { Card, Deck, Spread, SpreadPosition, DeckSlot } from '../../types';
 import './ReadingEditor.css';
 
@@ -255,6 +256,10 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
   // Check if spread uses multi-deck slots
   const hasMultipleSlots = deckSlots.length > 1;
 
+  // Combobox handles for the free-form (no spread) card list, so a
+  // committed selection advances focus to the next card row.
+  const freeFormRefs = useRef<Array<CardComboboxHandle | null>>([]);
+
   return (
     <div className="reading-editor">
       <div className="reading-editor__header">
@@ -380,16 +385,16 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
             {value.cards.map((card, idx) => (
               <div key={card._key ?? `card-${idx}`} className="reading-editor__card-slot">
                 {deckCards.length > 0 ? (
-                  <select
-                    className="reading-editor__card-select"
+                  <CardCombobox
+                    ref={(h) => { freeFormRefs.current[idx] = h; }}
+                    options={deckCards.map(c => ({ id: c.id, label: labelForCard(c, deckCards) }))}
                     value={
                       card.card_id
-                        ?? (card.name ? deckCards.find(c => c.name === card.name)?.id ?? '' : '')
+                        ?? (card.name ? deckCards.find(c => c.name === card.name)?.id : undefined)
                     }
-                    onChange={(e) => {
-                      const selectedId = e.target.value ? Number(e.target.value) : undefined;
-                      const selectedCard = selectedId
-                        ? deckCards.find(c => c.id === selectedId)
+                    onSelect={(option) => {
+                      const selectedCard = option
+                        ? deckCards.find(c => c.id === option.id)
                         : undefined;
                       const newCards = [...value.cards];
                       newCards[idx] = {
@@ -400,12 +405,8 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
                       };
                       onChange({ ...value, cards: newCards });
                     }}
-                  >
-                    <option value="">— select card —</option>
-                    {deckCards.map((c) => (
-                      <option key={c.id} value={c.id}>{labelForCard(c, deckCards)}</option>
-                    ))}
-                  </select>
+                    onCommitted={() => freeFormRefs.current[idx + 1]?.focus()}
+                  />
                 ) : (
                   <input
                     className="reading-editor__card-input"
@@ -577,6 +578,14 @@ function VisualSpreadEditor({
     return deckSlots.find(s => s.key === slotKey);
   };
 
+  // One combobox handle per position, so committing a card can hop
+  // focus straight to the next position — a 10-card spread becomes
+  // "tow<Enter> ace<Enter> ..." with no mouse round-trips.
+  const comboRefs = useRef<Array<CardComboboxHandle | null>>([]);
+  const focusNextPosition = (idx: number) => {
+    comboRefs.current[idx + 1]?.focus();
+  };
+
   return (
     <div className="reading-editor__visual">
       {/* Visual canvas showing card layout */}
@@ -653,16 +662,18 @@ function VisualSpreadEditor({
               {/* Card selector for this position. Value is the card id so
                   same-name variants (e.g. multiple "Two of Cups" in Terra
                   Volatile) are independently selectable. */}
-              <select
-                className="reading-editor__card-select"
+              <CardCombobox
+                ref={(h) => { comboRefs.current[idx] = h; }}
+                options={currentDeckCards.map(c => ({ id: c.id, label: labelForCard(c, currentDeckCards) }))}
                 value={
                   card?.card_id
-                    ?? (card?.name ? getCardId(card.name, posDeckId) ?? '' : '')
+                    ?? (card?.name ? getCardId(card.name, posDeckId) : undefined)
                 }
-                onChange={(e) => {
-                  const selectedId = e.target.value ? Number(e.target.value) : undefined;
-                  const selectedCard = selectedId
-                    ? currentDeckCards.find(c => c.id === selectedId)
+                disabled={!posDeckId}
+                placeholder={posDeckId ? 'Type to search cards…' : 'Select deck above'}
+                onSelect={(option) => {
+                  const selectedCard = option
+                    ? currentDeckCards.find(c => c.id === option.id)
                     : undefined;
                   const deck = decks.find(d => d.id === posDeckId);
                   onUpdateCard(idx, {
@@ -672,13 +683,8 @@ function VisualSpreadEditor({
                     deck_name: deck?.name,
                   });
                 }}
-                disabled={!posDeckId}
-              >
-                <option value="">{posDeckId ? '— select card —' : '— select deck above —'}</option>
-                {currentDeckCards.map((c) => (
-                  <option key={c.id} value={c.id}>{labelForCard(c, currentDeckCards)}</option>
-                ))}
-              </select>
+                onCommitted={() => focusNextPosition(idx)}
+              />
               <label className="reading-editor__reversed">
                 <input
                   type="checkbox"

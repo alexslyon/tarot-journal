@@ -1,0 +1,201 @@
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import './CardCombobox.css';
+
+export interface ComboOption {
+  id: number;
+  label: string;
+}
+
+interface CardComboboxProps {
+  options: ComboOption[];
+  /** Currently selected option id (undefined = nothing selected) */
+  value: number | undefined;
+  /** Called with the chosen option, or null when cleared */
+  onSelect: (option: ComboOption | null) => void;
+  /** Fired after a deliberate selection (Enter/click) — used by the
+   *  reading editor to auto-advance focus to the next position. */
+  onCommitted?: () => void;
+  disabled?: boolean;
+  placeholder?: string;
+}
+
+export interface CardComboboxHandle {
+  focus: () => void;
+}
+
+/** Searchable card picker: type to filter ("tow" → The Tower), arrow
+ *  keys to navigate, Enter or click to select. Replaces the 78-option
+ *  <select> dropdowns that made large spreads laborious to log. */
+const CardCombobox = forwardRef<CardComboboxHandle, CardComboboxProps>(
+  function CardCombobox(
+    { options, value, onSelect, onCommitted, disabled, placeholder },
+    ref,
+  ) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const listRef = useRef<HTMLUListElement>(null);
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState('');
+    const [highlight, setHighlight] = useState(0);
+
+    useImperativeHandle(ref, () => ({
+      focus: () => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      },
+    }));
+
+    const selectedLabel = useMemo(
+      () => options.find((o) => o.id === value)?.label ?? '',
+      [options, value],
+    );
+
+    // Prefix matches rank above substring matches, so "tow" puts
+    // "Tower" before "Two of Cups"... and vice versa for "two".
+    const filtered = useMemo(() => {
+      const q = query.trim().toLowerCase();
+      if (!q) return options;
+      const starts: ComboOption[] = [];
+      const wordStarts: ComboOption[] = [];
+      const contains: ComboOption[] = [];
+      for (const o of options) {
+        const label = o.label.toLowerCase();
+        if (label.startsWith(q)) starts.push(o);
+        else if (label.split(/\s+/).some((w) => w.startsWith(q))) wordStarts.push(o);
+        else if (label.includes(q)) contains.push(o);
+      }
+      return [...starts, ...wordStarts, ...contains];
+    }, [options, query]);
+
+    useEffect(() => setHighlight(0), [query]);
+
+    // Keep the highlighted option scrolled into view
+    useEffect(() => {
+      if (!open || !listRef.current) return;
+      const el = listRef.current.children[highlight] as HTMLElement | undefined;
+      el?.scrollIntoView({ block: 'nearest' });
+    }, [highlight, open]);
+
+    const commit = (option: ComboOption) => {
+      onSelect(option);
+      setOpen(false);
+      setQuery('');
+      onCommitted?.();
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Escape') {
+        if (open) {
+          // Swallow the Escape so it closes only the dropdown, not the
+          // whole entry modal (Modal listens for Escape on window).
+          e.stopPropagation();
+          setOpen(false);
+          setQuery('');
+        }
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (!open) setOpen(true);
+        else setHighlight((h) => Math.min(h + 1, filtered.length - 1));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlight((h) => Math.max(h - 1, 0));
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (open && filtered[highlight]) commit(filtered[highlight]);
+        return;
+      }
+      if (e.key === 'Tab') {
+        // Tab confirms an unambiguous filtered choice, then moves on
+        // naturally — lets a fast typist do "tow<Tab>ace<Tab>..."
+        if (open && query.trim() && filtered[highlight]) {
+          commit(filtered[highlight]);
+        } else {
+          setOpen(false);
+        }
+      }
+    };
+
+    return (
+      <div className={`card-combobox ${disabled ? 'card-combobox--disabled' : ''}`}>
+        <input
+          ref={inputRef}
+          className="card-combobox__input"
+          type="text"
+          role="combobox"
+          aria-expanded={open}
+          aria-autocomplete="list"
+          disabled={disabled}
+          placeholder={placeholder ?? 'Type to search cards…'}
+          value={open ? query : selectedLabel}
+          onFocus={(e) => e.target.select()}
+          onClick={() => {
+            if (!open) {
+              setOpen(true);
+              setQuery('');
+            }
+          }}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            if (!open) setOpen(true);
+          }}
+          onKeyDown={handleKeyDown}
+          onBlur={() => {
+            setOpen(false);
+            setQuery('');
+          }}
+        />
+        {value !== undefined && !disabled && !open && (
+          <button
+            type="button"
+            className="card-combobox__clear"
+            title="Clear card"
+            // mousedown fires before the input's blur, keeping focus flow sane
+            onMouseDown={(e) => {
+              e.preventDefault();
+              onSelect(null);
+            }}
+          >
+            &times;
+          </button>
+        )}
+        {open && (
+          <ul className="card-combobox__list" ref={listRef} role="listbox">
+            {filtered.length === 0 && (
+              <li className="card-combobox__empty">No matching cards</li>
+            )}
+            {filtered.map((o, i) => (
+              <li
+                key={o.id}
+                role="option"
+                aria-selected={o.id === value}
+                className={`card-combobox__option ${i === highlight ? 'card-combobox__option--active' : ''} ${o.id === value ? 'card-combobox__option--selected' : ''}`}
+                // mousedown (not click) so it fires before the input blurs
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  commit(o);
+                }}
+                onMouseEnter={() => setHighlight(i)}
+              >
+                {o.label}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  },
+);
+
+export default CardCombobox;
