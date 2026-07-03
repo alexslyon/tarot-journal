@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useCallback, useMemo } from 'react';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { getEntries, searchEntries } from '../../api/entries';
 import { getEntryTags as getAllEntryTags } from '../../api/tags';
 import type { JournalEntry, Tag } from '../../types';
@@ -32,16 +32,30 @@ export default function EntryList({
     queryFn: getAllEntryTags,
   });
 
+  // Entries load in pages so the journal never silently truncates —
+  // a daily practitioner passes any fixed cap within months. A full
+  // page means there may be older entries; a short page is the end.
+  const PAGE_SIZE = 100;
   const {
-    data: allEntries = [],
+    data: entryPages,
     isLoading: entriesLoading,
     isError: entriesError,
     refetch: refetchEntries,
-  } = useQuery<JournalEntry[]>({
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['entries'],
-    queryFn: () => getEntries(200, 0),
+    queryFn: ({ pageParam }) => getEntries(PAGE_SIZE, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage: JournalEntry[], allPages: JournalEntry[][]) =>
+      lastPage.length === PAGE_SIZE ? allPages.length * PAGE_SIZE : undefined,
     enabled: !isSearching,
   });
+  const allEntries = useMemo(
+    () => (entryPages?.pages ?? []).flat(),
+    [entryPages],
+  );
 
   const searchParams = isSearching
     ? {
@@ -157,6 +171,15 @@ export default function EntryList({
             )}
           </div>
         ))}
+        {!isSearching && hasNextPage && (
+          <button
+            className="entry-list__load-older"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+          >
+            {isFetchingNextPage ? 'Loading…' : 'Load older entries'}
+          </button>
+        )}
       </div>
 
       <div className="entry-list__footer">

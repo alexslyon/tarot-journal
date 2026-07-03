@@ -126,3 +126,17 @@
   text-align: center;
   color: var(--text-dim);
 }
+
+.entry-list__load-older {
+  display: block;
+  width: calc(100% - 16px);
+  margin: 8px;
+  padding: 6px;
+  font-size: var(--font-size-body);
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+}
+
+.entry-list__load-older:hover:not(:disabled) {
+  color: var(--text-primary);
+}
