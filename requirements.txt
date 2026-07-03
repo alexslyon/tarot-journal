@@ -32,7 +32,11 @@ jinja2==3.1.6
 # chart wheel (solid black) because of how kerykeion styles it.
 cairosvg==2.8.2
 
+# Development: test suite (run with `npm run test:backend` or
+# `.venv/bin/python3 -m pytest`).
+pytest==8.4.2
+
 # NOTE: wxPython was removed from this list (2026-07). It powered the
 # deprecated legacy Python UI (main.py / mixin_*.py / ui_library/ etc.),
-# which the Electron/React frontend replaced. Install it manually only
-# if you need to run that old UI.
+# which the Electron/React frontend replaced and which was deleted from
+# the repo in July 2026.

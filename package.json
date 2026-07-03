@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "NODE_ENV=development electron .",
     "build:frontend": "cd frontend && PATH=/opt/homebrew/opt/node@20/bin:$PATH npm run build",
+    "test:backend": ".venv/bin/python3 -m pytest",
     "start": "npm run build:frontend && electron .",
     "package": "npm run build:frontend && electron-forge package",
     "make": "npm run build:frontend && electron-forge make"
