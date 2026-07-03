@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import DeckList from './DeckList';
 import CardGrid from './CardGrid';
@@ -45,6 +45,9 @@ export default function LibraryTab() {
     queryKey: ['card-search', searchParams],
     queryFn: () => searchCards(searchParams as Record<string, string | number | boolean>),
     enabled: searchParams !== null,
+    // Live search: keep showing the previous results while the next
+    // keystroke's query runs so the grid doesn't flash empty.
+    placeholderData: keepPreviousData,
   });
 
   // Card IDs for modal navigation come from whichever list is active

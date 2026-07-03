@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo } from 'react';
-import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { getEntries, searchEntries } from '../../api/entries';
 import { getEntryTags as getAllEntryTags } from '../../api/tags';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import type { JournalEntry, Tag } from '../../types';
 import QueryError from '../common/QueryError';
 import './EntryList.css';
@@ -25,7 +26,10 @@ export default function EntryList({
 }: EntryListProps) {
   const [query, setQuery] = useState('');
   const [filterTagId, setFilterTagId] = useState<number | undefined>(undefined);
-  const [isSearching, setIsSearching] = useState(false);
+  // Search is live: results filter as you type (debounced so we don't
+  // query on every keystroke). Any text or tag filter = searching.
+  const debouncedQuery = useDebouncedValue(query, 300);
+  const isSearching = debouncedQuery.trim().length > 0 || filterTagId !== undefined;
 
   const { data: tags = [] } = useQuery<Tag[]>({
     queryKey: ['entry-tags'],
@@ -59,7 +63,7 @@ export default function EntryList({
 
   const searchParams = isSearching
     ? {
-        query: query.trim() || undefined,
+        query: debouncedQuery.trim() || undefined,
         tag_ids: filterTagId ? [filterTagId] : undefined,
       }
     : null;
@@ -73,6 +77,9 @@ export default function EntryList({
     queryKey: ['entry-search', searchParams],
     queryFn: () => searchEntries(searchParams!),
     enabled: isSearching && searchParams !== null,
+    // Show the previous results while the next keystroke's search runs
+    // so the list doesn't flash empty between characters.
+    placeholderData: keepPreviousData,
   });
 
   const entries = isSearching ? searchResults : allEntries;
@@ -80,25 +87,10 @@ export default function EntryList({
   const loadError = isSearching ? searchError : entriesError;
   const retry = isSearching ? refetchSearch : refetchEntries;
 
-  const doSearch = useCallback(() => {
-    if (!query.trim() && !filterTagId) return;
-    setIsSearching(true);
-  }, [query, filterTagId]);
-
   const clearSearch = useCallback(() => {
     setQuery('');
     setFilterTagId(undefined);
-    setIsSearching(false);
   }, []);
-
-  const handleTagFilter = (tagId: number | undefined) => {
-    setFilterTagId(tagId);
-    if (tagId || query.trim()) {
-      setIsSearching(true);
-    } else {
-      setIsSearching(false);
-    }
-  };
 
   return (
     <div className="entry-list">
@@ -114,12 +106,8 @@ export default function EntryList({
           placeholder="Search entries..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && doSearch()}
         />
-        <button className="entry-list__btn entry-list__btn--sm" onClick={doSearch}>
-          Search
-        </button>
-        {isSearching && (
+        {(query || filterTagId !== undefined) && (
           <button
             className="entry-list__btn entry-list__btn--sm entry-list__btn--clear"
             onClick={clearSearch}
@@ -134,7 +122,7 @@ export default function EntryList({
           <select
             className="entry-list__tag-filter"
             value={filterTagId ?? ''}
-            onChange={(e) => handleTagFilter(e.target.value ? Number(e.target.value) : undefined)}
+            onChange={(e) => setFilterTagId(e.target.value ? Number(e.target.value) : undefined)}
           >
             <option value="">All Tags</option>
             {tags.map((t) => (

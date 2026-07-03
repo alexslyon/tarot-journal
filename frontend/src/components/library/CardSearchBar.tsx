@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getCartomancyTypes } from '../../api/decks';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import './CardSearchBar.css';
 
 export interface SearchFilters {
@@ -31,38 +32,39 @@ export default function CardSearchBar({ deckId, onSearch }: CardSearchBarProps) 
   const [query, setQuery] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>(EMPTY_FILTERS);
-  const [isSearching, setIsSearching] = useState(false);
 
   const { data: types = [] } = useQuery({
     queryKey: ['cartomancy-types'],
     queryFn: getCartomancyTypes,
   });
 
-  const doSearch = useCallback(() => {
-    const merged = { ...filters, query };
-    // Only search if there's a query or at least one filter is set
-    const hasFilter = query.trim() ||
-      merged.deck_type ||
-      merged.card_category ||
-      merged.archetype ||
-      merged.suit ||
-      merged.rank ||
-      merged.has_notes !== undefined ||
-      merged.has_image !== undefined;
+  // Live search: results update as you type (debounced) or change any
+  // filter. With everything empty the search clears back to browsing.
+  const debouncedQuery = useDebouncedValue(query, 300);
+  const isSearching = Boolean(
+    debouncedQuery.trim() ||
+    filters.deck_type ||
+    filters.card_category ||
+    filters.archetype ||
+    filters.suit ||
+    filters.rank ||
+    filters.has_notes !== undefined ||
+    filters.has_image !== undefined
+  );
 
-    if (!hasFilter) return;
-
-    setIsSearching(true);
-    onSearch(merged);
-  }, [query, filters, onSearch]);
+  useEffect(() => {
+    if (isSearching) {
+      onSearch({ ...filters, query: debouncedQuery });
+    } else {
+      onSearch(null);
+    }
+  }, [isSearching, debouncedQuery, filters, onSearch]);
 
   const clearSearch = useCallback(() => {
     setQuery('');
     setFilters(EMPTY_FILTERS);
-    setIsSearching(false);
     setShowAdvanced(false);
-    onSearch(null);
-  }, [onSearch]);
+  }, []);
 
   const updateFilter = <K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -77,9 +79,7 @@ export default function CardSearchBar({ deckId, onSearch }: CardSearchBarProps) 
           placeholder={deckId ? 'Search this deck...' : 'Search all cards...'}
           value={query}
           onChange={e => setQuery(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && doSearch()}
         />
-        <button className="card-search__btn" onClick={doSearch}>Search</button>
         {isSearching && (
           <button className="card-search__btn card-search__btn--clear" onClick={clearSearch}>
             Clear
