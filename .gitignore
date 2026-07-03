@@ -74,5 +74,12 @@ theme_config.json
 # App summary (for Claude context transfer, not code)
 APP_SUMMARY.md
 
-# Image folders (keep only Rider-Waite-Smith, Thoth, Blue Owl Lenormand, and PlayingCards)
+# Deck image folders: scans live on disk (and in your image backups),
+# not in git — they're large, never change, and don't belong in
+# version control. The app reads them straight from disk.
 Hello Tarot/
+Blue Owl Lenormand/
+PlayingCards/
+Rider-Waite-Smith/
+TdM/
+Thoth/
