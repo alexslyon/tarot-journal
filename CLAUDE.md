@@ -53,18 +53,16 @@ Interpret readings or substitute for human intuition in cartomancy
 
 - **Always confirm with the user before pushing to GitHub** - commit changes when asked, but wait for explicit approval before running `git push`
 
-## IMPORTANT: Frontend Architecture
+## Architecture
 
-**The PRIMARY frontend is Electron/React** located in `frontend/`:
-- `frontend/src/` - React components, pages, and API calls
-- This is the actively developed UI that the user interacts with
+- **Frontend**: Electron/React in `frontend/src/` (React components, pages, API calls). All UI work happens here.
+- **Backend**: Flask in `backend/` (port 5678), spawned by `electron/main.js`
+- **Database layer**: SQLite mixins in `database/`
+- **User data**: the live database and automatic backups live in `~/Library/Application Support/TarotJournal/`, NOT in the repo
+- Root-level Python modules (`app_config.py`, `theme_config.py`, `thumbnail_cache.py`, `card_metadata.py`, `import_presets.py`, `astrology.py`, `geocoder.py`, `config_base.py`, `image_utils.py`, `logger_config.py`) are shared helpers used by the backend — they are live code
+- Planning/design documents live in `docs/planning/`
 
-**The wxPython code is DEPRECATED** - do NOT modify unless the user explicitly mentions "wxPython" or "Python frontend":
-- `main.py`, `main_tk.py` - Legacy Python app entry points
-- `mixin_*.py` - Legacy wxPython UI mixins
-- `ui_library/`, `ui_journal/`, `card_dialogs/` - Legacy wxPython UI packages
-
-When the user asks for UI changes, **always modify the Electron/React code in `frontend/`** unless they specifically request changes to the Python version.
+The legacy wxPython UI (`main.py`, `mixin_*.py`, `ui_library/`, `ui_journal/`, `card_dialogs/`) was deleted in July 2026; recover from git history if ever needed.
 
 ---
 
@@ -92,60 +90,13 @@ When renaming card image files for deck folders, use these naming schemes:
 
 ---
 
-## DEPRECATED: wxPython Styling Rules (Dark Theme)
+## UI Styling (Dark Theme)
 
-This app uses a custom dark theme. When creating UI elements:
+The app uses a custom dark theme driven by CSS variables:
 
-1. **All widgets need explicit colors** - wxPython defaults assume a light background
-   - Always call `SetForegroundColour(get_wx_color('text_primary'))` on text-displaying widgets
-   - For buttons and inputs, also call `SetBackgroundColour(get_wx_color('bg_secondary'))`
-
-2. **CRITICAL: wx.CheckBox and wx.RadioButton labels don't support custom colors on macOS**
-   - **NEVER** use: `wx.CheckBox(parent, label="Some text")` - the label will be BLACK and unreadable
-   - **NEVER** use: `wx.RadioButton(parent, label="Some text")` - the label will be BLACK and unreadable
-   - `SetForegroundColour()` does NOT work on checkbox/radiobutton labels on macOS
-   - **ALWAYS** use an empty-label widget with a separate StaticText:
-
-   For CheckBox:
-     ```python
-     cb_sizer = wx.BoxSizer(wx.HORIZONTAL)
-     cb = wx.CheckBox(parent, label="")  # Empty label!
-     cb_sizer.Add(cb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
-     cb_label = wx.StaticText(parent, label="Your label text")
-     cb_label.SetForegroundColour(get_wx_color('text_primary'))
-     cb_sizer.Add(cb_label, 0, wx.ALIGN_CENTER_VERTICAL)
-     ```
-
-   For RadioButton:
-     ```python
-     rb_sizer = wx.BoxSizer(wx.HORIZONTAL)
-     rb = wx.RadioButton(parent, label="", style=wx.RB_GROUP)  # Empty label! Add RB_GROUP for first in group
-     rb_sizer.Add(rb, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
-     rb_label = wx.StaticText(parent, label="Your label text")
-     rb_label.SetForegroundColour(get_wx_color('text_primary'))
-     rb_sizer.Add(rb_label, 0, wx.ALIGN_CENTER_VERTICAL)
-     ```
-   - This applies to ALL checkboxes and radio buttons in the app, including those in dialogs
-
-3. **EVERY text-displaying widget MUST have SetForegroundColour called**
-   - wx.StaticText - MUST call SetForegroundColour
-   - wx.TextCtrl - MUST call SetForegroundColour AND SetBackgroundColour
-   - wx.Button - MUST call SetForegroundColour (and often SetBackgroundColour)
-   - wx.ListCtrl - Use SetTextColour (not SetForegroundColour)
-   - wx.StaticBox - SetForegroundColour for the label
-   - **If you create ANY widget that displays text, you MUST set its color explicitly**
-
-4. **Common color keys:**
-   - `text_primary` - main text color (white/light) - USE THIS FOR ALL TEXT
-   - `text_secondary` - dimmer text
-   - `text_dim` - subtle text
-   - `bg_primary` - main background
-   - `bg_secondary` - slightly lighter background (for inputs, buttons)
-   - `bg_input` - input field background
-   - `accent` - accent color for highlights
-
-5. **Before finishing any UI code, mentally check:**
-   - Did I set foreground color on ALL StaticText widgets?
-   - Did I use empty labels for ALL CheckBox and RadioButton widgets?
-   - Did I set colors on ALL buttons?
-   - Will ANY text appear black on the dark background?
+- Theme variables are defined in `frontend/src/styles/globals.css` and injected at runtime by `frontend/src/context/ThemeContext.tsx` (user-customizable in Settings → General)
+- **Always use `var(--...)` theme variables** for colors and font sizes — never hardcode hex values or px font sizes in component CSS
+- Common variables: `--text-primary`, `--text-secondary`, `--text-dim`, `--bg-primary`, `--bg-secondary`, `--accent`, `--danger`, `--font-size-body`, `--font-size-small`
+- Shared `button`, `button.primary`, `button.danger` base styles live in globals.css
+- Modals must use the shared `Modal` component (`frontend/src/components/common/Modal.tsx`) — it provides focus trapping, Escape handling, and the unsaved-changes guard. Footer Cancel buttons must use `ModalCancelButton`, never a raw `onClick={onClose}`
+- Failed data fetches must show the shared `QueryError` component, not an empty state
