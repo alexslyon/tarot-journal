@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCard, deleteCard } from '../../api/cards';
 import { getCardCorrespondences } from '../../api/correspondences';
@@ -52,6 +53,31 @@ export default function CardViewModal({ cardId, cardIds, onClose, onNavigate, on
   const populatedCorrespondences = CORRESPONDENCE_FIELDS
     .map(f => correspondences.find(c => c.field_name === f))
     .filter((c): c is ResolvedCorrespondence => !!c && c.values.length > 0);
+
+  // Arrow keys flip between cards — the natural way to browse a deck.
+  // Ignored while the user is typing in a field.
+  useEffect(() => {
+    if (cardId === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      )) return;
+      const idx = cardIds.indexOf(cardId);
+      if (e.key === 'ArrowLeft' && idx > 0) {
+        e.preventDefault();
+        onNavigate(cardIds[idx - 1]);
+      } else if (e.key === 'ArrowRight' && idx >= 0 && idx < cardIds.length - 1) {
+        e.preventDefault();
+        onNavigate(cardIds[idx + 1]);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [cardId, cardIds, onNavigate]);
 
   if (cardId === null) return null;
 

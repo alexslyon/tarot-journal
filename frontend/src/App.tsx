@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
@@ -34,6 +34,25 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('library');
   const [settingsSection, setSettingsSection] = useState<string | undefined>();
   const [settingsPayload, setSettingsPayload] = useState<SettingsDeepLinkPayload | undefined>();
+  const [pendingNewEntry, setPendingNewEntry] = useState(false);
+
+  // Cmd+N (Ctrl+N elsewhere) starts a new journal entry from any tab —
+  // the app's single most common action. Ignored while any dialog is
+  // open so it can't stack a second editor on top of one in progress.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'n' && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+        if (document.querySelector('.modal-overlay, .confirm-dialog__overlay')) return;
+        e.preventDefault();
+        setActiveTab('journal');
+        setPendingNewEntry(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const handleNewEntryHandled = useCallback(() => setPendingNewEntry(false), []);
 
   const handleTabChange = useCallback((tab: TabId, section?: string) => {
     setActiveTab(tab);
@@ -64,7 +83,12 @@ export default function App() {
             <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
               {activeTab === 'library' && <LibraryTab />}
               {activeTab === 'spreads' && <SpreadsTab />}
-              {activeTab === 'journal' && <JournalTab />}
+              {activeTab === 'journal' && (
+                <JournalTab
+                  pendingNewEntry={pendingNewEntry}
+                  onNewEntryHandled={handleNewEntryHandled}
+                />
+              )}
               {activeTab === 'reference' && (
                 <ReferenceTab onNavigateToSettings={handleNavigateToSettings} />
               )}

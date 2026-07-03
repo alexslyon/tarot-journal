@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import EntryList from './EntryList';
 import EntryViewer from './EntryViewer';
@@ -7,7 +7,14 @@ import ExportModal from './ExportModal';
 import ImportModal from './ImportModal';
 import './JournalTab.css';
 
-export default function JournalTab() {
+interface JournalTabProps {
+  /** Set by App when Cmd+N fires — open a fresh entry editor, then
+   *  call onNewEntryHandled so a later remount doesn't re-trigger. */
+  pendingNewEntry?: boolean;
+  onNewEntryHandled?: () => void;
+}
+
+export default function JournalTab({ pendingNewEntry, onNewEntryHandled }: JournalTabProps) {
   const [selectedEntryId, setSelectedEntryId] = useState<number | null>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
@@ -18,6 +25,13 @@ export default function JournalTab() {
     setEditingEntryId(null);
     setShowEditor(true);
   };
+
+  useEffect(() => {
+    if (pendingNewEntry) {
+      handleNewEntry();
+      onNewEntryHandled?.();
+    }
+  }, [pendingNewEntry, onNewEntryHandled]);
 
   const handleEdit = (entryId: number) => {
     setEditingEntryId(entryId);
