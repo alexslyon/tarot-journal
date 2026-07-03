@@ -17,7 +17,7 @@
   --accent-dim: #3d6a99;
   --text-primary: #e8e9eb;
   --text-secondary: #9ba0a8;
-  --text-dim: #6b7280;
+  --text-dim: #828a95;
   --border: #404552;
   --success: #5cb85c;
   --warning: #f0ad4e;
@@ -29,8 +29,8 @@
   --font-mono: 'SF Mono', 'Menlo', monospace;
   --font-size-title: 22px;
   --font-size-heading: 14px;
-  --font-size-body: 12px;
-  --font-size-small: 10px;
+  --font-size-body: 13px;
+  --font-size-small: 11px;
 }
 
 html, body, #root {

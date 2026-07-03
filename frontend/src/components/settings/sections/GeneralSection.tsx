@@ -14,7 +14,7 @@ import { getCartomancyTypes, getDecks } from '../../../api/decks';
 import type { ThemeColors, Profile, Deck, CartomancyType } from '../../../types';
 import '../SettingsTab.css';
 
-const BASE_SIZES = { size_title: 22, size_heading: 14, size_body: 12, size_small: 10 };
+const BASE_SIZES = { size_title: 22, size_heading: 14, size_body: 13, size_small: 11 };
 
 const COLOR_LABELS: Record<string, string> = {
   bg_primary: 'Background',

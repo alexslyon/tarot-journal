@@ -16,7 +16,7 @@ const DEFAULT_COLORS: ThemeColors = {
   accent_dim: '#3d6a99',
   text_primary: '#e8e9eb',
   text_secondary: '#9ba0a8',
-  text_dim: '#6b7280',
+  text_dim: '#828a95',
   border: '#404552',
   success: '#5cb85c',
   warning: '#f0ad4e',
@@ -32,8 +32,8 @@ const DEFAULT_THEME: Theme = {
     family_mono: 'SF Mono',
     size_title: 22,
     size_heading: 14,
-    size_body: 12,
-    size_small: 10,
+    size_body: 13,
+    size_small: 11,
   },
 };
 

@@ -23,7 +23,7 @@ DEFAULT_THEME = {
         'accent_dim': '#3d6a99',      # Muted accent
         'text_primary': '#e8e9eb',    # Main text
         'text_secondary': '#9ba0a8',  # Muted text
-        'text_dim': '#6b7280',        # Very muted
+        'text_dim': '#828a95',        # Very muted (4.7:1 on bg_primary — keep >=4.5)
         'border': '#404552',          # Borders
         'success': '#5cb85c',         # Green
         'warning': '#f0ad4e',         # Orange
@@ -36,8 +36,8 @@ DEFAULT_THEME = {
         'family_mono': 'SF Mono',
         'size_title': 22,
         'size_heading': 14,
-        'size_body': 12,
-        'size_small': 10,
+        'size_body': 13,
+        'size_small': 11,
     }
 }
 
@@ -54,8 +54,8 @@ PRESET_THEMES = {
             'accent_hover': '#3b82f6',
             'accent_dim': '#93c5fd',
             'text_primary': '#1f2937',
-            'text_secondary': '#6b7280',
-            'text_dim': '#9ca3af',
+            'text_secondary': '#5f6774',
+            'text_dim': '#697180',
             'border': '#d1d5db',
             'success': '#22c55e',
             'warning': '#f59e0b',
@@ -68,8 +68,8 @@ PRESET_THEMES = {
             'family_mono': 'SF Mono',
             'size_title': 22,
             'size_heading': 14,
-            'size_body': 12,
-            'size_small': 10,
+            'size_body': 13,
+            'size_small': 11,
         }
     },
     'Midnight Purple': {
@@ -83,7 +83,7 @@ PRESET_THEMES = {
             'accent_dim': '#6b5b95',
             'text_primary': '#f0e6ff',
             'text_secondary': '#b8a8d4',
-            'text_dim': '#8878a8',
+            'text_dim': '#9184b1',
             'border': '#5a4a7a',
             'success': '#7dd87d',
             'warning': '#f0c060',
@@ -96,8 +96,8 @@ PRESET_THEMES = {
             'family_mono': 'SF Mono',
             'size_title': 22,
             'size_heading': 14,
-            'size_body': 12,
-            'size_small': 10,
+            'size_body': 13,
+            'size_small': 11,
         }
     },
     'Forest Green': {
@@ -124,8 +124,8 @@ PRESET_THEMES = {
             'family_mono': 'SF Mono',
             'size_title': 22,
             'size_heading': 14,
-            'size_body': 12,
-            'size_small': 10,
+            'size_body': 13,
+            'size_small': 11,
         }
     },
 }
@@ -142,11 +142,27 @@ class ThemeConfig:
         
         self.theme = self._load_theme()
     
+    # Old preset text_dim values that fail WCAG contrast (< 4.5:1 on
+    # their preset's background), mapped to their fixed replacements.
+    # Applied on load so themes saved before the July 2026 contrast
+    # pass pick up the readable value; users who chose a custom dim
+    # color are untouched (their value won't match any old default).
+    _CONTRAST_FIXUPS = {
+        '#6b7280': '#828a95',  # Dark (Default)
+        '#9ca3af': '#697180',  # Light
+        '#8878a8': '#9184b1',  # Midnight Purple
+    }
+
     def _load_theme(self) -> Dict[str, Any]:
         """Load theme from file or return default"""
         saved = load_json_file(self.config_file)
         if saved:
-            return shallow_merge(DEFAULT_THEME, saved)
+            theme = shallow_merge(DEFAULT_THEME, saved)
+            colors = theme.get('colors', {})
+            old_dim = colors.get('text_dim')
+            if old_dim in self._CONTRAST_FIXUPS:
+                colors['text_dim'] = self._CONTRAST_FIXUPS[old_dim]
+            return theme
         return deep_copy(DEFAULT_THEME)
     
     def save_theme(self):
