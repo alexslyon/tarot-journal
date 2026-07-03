@@ -6,6 +6,7 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
 ENV/
 build/
 develop-eggs/
@@ -23,6 +24,9 @@ wheels/
 .installed.cfg
 *.egg
 
+# Node dependencies (root Electron + frontend)
+node_modules/
+
 # Database files (your personal journal entries)
 *.db
 *.db-shm
@@ -30,8 +34,15 @@ wheels/
 *.sqlite
 *.sqlite3
 
+# Stray database backup/corruption artifacts (any naming scheme)
+tarot_journal.db.*
+*.db.backup*
+
 # Automatic database snapshots (written on every app launch)
 backups/
+
+# Personal reference PDFs kept in the working tree
+*.pdf
 
 # Claude Code
 .claude/
