@@ -86,7 +86,8 @@ class EntriesMixin:
     def search_entries(self, query: str = None, tag_ids: list = None,
                       deck_id: int = None, spread_id: int = None,
                       cartomancy_type: str = None, card_name: str = None,
-                      date_from: str = None, date_to: str = None):
+                      date_from: str = None, date_to: str = None,
+                      querent_id: int = None):
         """Search entries with various filters"""
         cursor = self.conn.cursor()
 
@@ -101,6 +102,11 @@ class EntriesMixin:
             placeholders = ','.join('?' * len(tag_ids))
             conditions.append(f'et.tag_id IN ({placeholders})')
             params.extend(tag_ids)
+
+        if querent_id:
+            joins.append('JOIN entry_querents eq ON je.id = eq.entry_id')
+            conditions.append('eq.profile_id = ?')
+            params.append(querent_id)
 
         if deck_id or spread_id or cartomancy_type or card_name:
             joins.append('JOIN entry_readings er ON je.id = er.entry_id')
@@ -121,12 +127,19 @@ class EntriesMixin:
             conditions.append('(je.title LIKE ? OR je.content LIKE ?)')
             params.extend([f'%{query}%', f'%{query}%'])
 
+        # Date filters apply to when the READING happened (falling back
+        # to created_at for entries without a reading datetime) — that's
+        # the date a user remembers, not when the row was inserted.
         if date_from:
-            conditions.append('je.created_at >= ?')
+            conditions.append("COALESCE(je.reading_datetime, je.created_at) >= ?")
             params.append(date_from)
 
         if date_to:
-            conditions.append('je.created_at <= ?')
+            # Strictly-before-the-next-day makes a bare YYYY-MM-DD end
+            # date inclusive: the old `<= date_to` compare excluded
+            # everything on the end date itself, because a timestamped
+            # value like '2026-07-02T10:00' sorts after '2026-07-02'.
+            conditions.append("COALESCE(je.reading_datetime, je.created_at) < date(?, '+1 day')")
             params.append(date_to)
 
         sql += ' ' + ' '.join(joins)

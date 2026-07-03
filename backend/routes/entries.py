@@ -141,6 +141,7 @@ def search_entries():
         card_name=request.args.get('card_name') or None,
         date_from=request.args.get('date_from') or None,
         date_to=request.args.get('date_to') or None,
+        querent_id=request.args.get('querent_id', type=int),
     )
     return jsonify([row_to_dict(r) for r in rows])
 

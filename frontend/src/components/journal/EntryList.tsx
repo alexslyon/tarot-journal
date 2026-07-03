@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
-import { getEntries, searchEntries } from '../../api/entries';
+import { getEntries, searchEntries, getProfiles } from '../../api/entries';
 import { getEntryTags as getAllEntryTags } from '../../api/tags';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
-import type { JournalEntry, Tag } from '../../types';
+import type { JournalEntry, Tag, Profile } from '../../types';
 import QueryError from '../common/QueryError';
 import './EntryList.css';
 
@@ -26,14 +26,27 @@ export default function EntryList({
 }: EntryListProps) {
   const [query, setQuery] = useState('');
   const [filterTagId, setFilterTagId] = useState<number | undefined>(undefined);
+  const [filterQuerentId, setFilterQuerentId] = useState<number | undefined>(undefined);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   // Search is live: results filter as you type (debounced so we don't
-  // query on every keystroke). Any text or tag filter = searching.
+  // query on every keystroke). Any text or filter = searching.
   const debouncedQuery = useDebouncedValue(query, 300);
-  const isSearching = debouncedQuery.trim().length > 0 || filterTagId !== undefined;
+  const isSearching =
+    debouncedQuery.trim().length > 0 ||
+    filterTagId !== undefined ||
+    filterQuerentId !== undefined ||
+    dateFrom !== '' ||
+    dateTo !== '';
 
   const { data: tags = [] } = useQuery<Tag[]>({
     queryKey: ['entry-tags'],
     queryFn: getAllEntryTags,
+  });
+
+  const { data: profiles = [] } = useQuery<Profile[]>({
+    queryKey: ['profiles'],
+    queryFn: getProfiles,
   });
 
   // Entries load in pages so the journal never silently truncates —
@@ -65,6 +78,9 @@ export default function EntryList({
     ? {
         query: debouncedQuery.trim() || undefined,
         tag_ids: filterTagId ? [filterTagId] : undefined,
+        querent_id: filterQuerentId,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
       }
     : null;
 
@@ -90,7 +106,13 @@ export default function EntryList({
   const clearSearch = useCallback(() => {
     setQuery('');
     setFilterTagId(undefined);
+    setFilterQuerentId(undefined);
+    setDateFrom('');
+    setDateTo('');
   }, []);
+  const hasAnyFilter =
+    query !== '' || filterTagId !== undefined || filterQuerentId !== undefined ||
+    dateFrom !== '' || dateTo !== '';
 
   return (
     <div className="entry-list">
@@ -107,7 +129,7 @@ export default function EntryList({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        {(query || filterTagId !== undefined) && (
+        {hasAnyFilter && (
           <button
             className="entry-list__btn entry-list__btn--sm entry-list__btn--clear"
             onClick={clearSearch}
@@ -117,8 +139,8 @@ export default function EntryList({
         )}
       </div>
 
-      {tags.length > 0 && (
-        <div className="entry-list__filters">
+      <div className="entry-list__filters">
+        {tags.length > 0 && (
           <select
             className="entry-list__tag-filter"
             value={filterTagId ?? ''}
@@ -129,8 +151,38 @@ export default function EntryList({
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
-        </div>
-      )}
+        )}
+        {profiles.length > 0 && (
+          <select
+            className="entry-list__tag-filter"
+            value={filterQuerentId ?? ''}
+            onChange={(e) => setFilterQuerentId(e.target.value ? Number(e.target.value) : undefined)}
+            title="Filter by querent"
+          >
+            <option value="">Any Querent</option>
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        )}
+      </div>
+      <div className="entry-list__filters entry-list__filters--dates">
+        <input
+          type="date"
+          className="entry-list__date-filter"
+          value={dateFrom}
+          onChange={(e) => setDateFrom(e.target.value)}
+          title="Readings from this date"
+        />
+        <span className="entry-list__date-sep">to</span>
+        <input
+          type="date"
+          className="entry-list__date-filter"
+          value={dateTo}
+          onChange={(e) => setDateTo(e.target.value)}
+          title="Readings up to this date (inclusive)"
+        />
+      </div>
 
       <div className="entry-list__rows">
         {loading && <div className="entry-list__loading">Loading...</div>}

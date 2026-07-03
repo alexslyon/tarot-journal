@@ -25,6 +25,7 @@ export async function searchEntries(params: {
   card_name?: string;
   date_from?: string;
   date_to?: string;
+  querent_id?: number;
 }): Promise<JournalEntry[]> {
   const p: Record<string, string> = {};
   if (params.query) p.query = params.query;
@@ -35,6 +36,7 @@ export async function searchEntries(params: {
   if (params.card_name) p.card_name = params.card_name;
   if (params.date_from) p.date_from = params.date_from;
   if (params.date_to) p.date_to = params.date_to;
+  if (params.querent_id) p.querent_id = String(params.querent_id);
   const res = await api.get('/api/entries/search', { params: p });
   return res.data;
 }

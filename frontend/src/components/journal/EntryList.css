@@ -140,3 +140,26 @@
 .entry-list__load-older:hover:not(:disabled) {
   color: var(--text-primary);
 }
+
+.entry-list__filters--dates {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.entry-list__date-filter {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: var(--font-size-small);
+  color-scheme: dark;
+}
+
+.entry-list__date-sep {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+}
