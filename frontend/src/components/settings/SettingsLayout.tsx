@@ -25,19 +25,42 @@ export type SettingsSectionId =
   | 'backup'
   | 'cache';
 
-const SECTIONS: { id: SettingsSectionId; label: string }[] = [
-  { id: 'general', label: 'General' },
-  { id: 'profiles', label: 'Profiles' },
-  { id: 'tags', label: 'Tags' },
-  { id: 'correspondences', label: 'Correspondences' },
-  { id: 'archetype-notes', label: 'Archetype Notes' },
-  { id: 'archetype-languages', label: 'Archetype Languages' },
-  { id: 'combinations', label: 'Combinations' },
-  { id: 'reference-sources', label: 'Reference Sources' },
-  { id: 'import-presets', label: 'Import Presets' },
-  { id: 'backup', label: 'Backup & Restore' },
-  { id: 'cache', label: 'Thumbnail Cache' },
+// Grouped so the sidebar reads as three ideas instead of a flat
+// 11-item list: app-level settings, the user's people/tags, and the
+// editors for reference content that's *viewed* in the Reference tab.
+const SECTION_GROUPS: {
+  heading: string | null;
+  sections: { id: SettingsSectionId; label: string }[];
+}[] = [
+  {
+    heading: null,
+    sections: [
+      { id: 'general', label: 'General' },
+      { id: 'backup', label: 'Backup & Restore' },
+      { id: 'cache', label: 'Thumbnail Cache' },
+    ],
+  },
+  {
+    heading: 'People & Tags',
+    sections: [
+      { id: 'profiles', label: 'Profiles' },
+      { id: 'tags', label: 'Tags' },
+    ],
+  },
+  {
+    heading: 'Reference Data',
+    sections: [
+      { id: 'correspondences', label: 'Correspondences' },
+      { id: 'archetype-notes', label: 'Archetype Notes' },
+      { id: 'archetype-languages', label: 'Archetype Languages' },
+      { id: 'combinations', label: 'Combinations' },
+      { id: 'reference-sources', label: 'Reference Sources' },
+      { id: 'import-presets', label: 'Import Presets' },
+    ],
+  },
 ];
+
+const SECTIONS = SECTION_GROUPS.flatMap(g => g.sections);
 
 interface SettingsLayoutProps {
   initialSection?: string;
@@ -70,14 +93,21 @@ export default function SettingsLayout({
   return (
     <div className="settings-layout">
       <nav className="settings-layout__sidebar">
-        {SECTIONS.map((section) => (
-          <button
-            key={section.id}
-            className={`settings-layout__nav-item ${activeSection === section.id ? 'settings-layout__nav-item--active' : ''}`}
-            onClick={() => setActiveSection(section.id)}
-          >
-            {section.label}
-          </button>
+        {SECTION_GROUPS.map((group, gi) => (
+          <div key={group.heading ?? `group-${gi}`} className="settings-layout__nav-group">
+            {group.heading && (
+              <div className="settings-layout__nav-heading">{group.heading}</div>
+            )}
+            {group.sections.map((section) => (
+              <button
+                key={section.id}
+                className={`settings-layout__nav-item ${activeSection === section.id ? 'settings-layout__nav-item--active' : ''}`}
+                onClick={() => setActiveSection(section.id)}
+              >
+                {section.label}
+              </button>
+            ))}
+          </div>
         ))}
       </nav>
       <div className="settings-layout__content">

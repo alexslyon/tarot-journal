@@ -45,3 +45,16 @@
   min-width: 0;
   overflow-y: auto;
 }
+
+.settings-layout__nav-group {
+  margin-bottom: 12px;
+}
+
+.settings-layout__nav-heading {
+  padding: 4px 12px;
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
