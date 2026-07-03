@@ -12,17 +12,36 @@ interface JournalTabProps {
    *  call onNewEntryHandled so a later remount doesn't re-trigger. */
   pendingNewEntry?: boolean;
   onNewEntryHandled?: () => void;
+  /** "Find in Journal" card filter (set from the Library card viewer) */
+  cardFilter?: string | null;
+  onClearCardFilter?: () => void;
+  onFindCardInJournal?: (cardName: string) => void;
 }
 
-export default function JournalTab({ pendingNewEntry, onNewEntryHandled }: JournalTabProps) {
+export default function JournalTab({
+  pendingNewEntry,
+  onNewEntryHandled,
+  cardFilter,
+  onClearCardFilter,
+  onFindCardInJournal,
+}: JournalTabProps) {
   const [selectedEntryId, setSelectedEntryId] = useState<number | null>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
+  const [templateEntryId, setTemplateEntryId] = useState<number | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
   const handleNewEntry = () => {
     setEditingEntryId(null);
+    setTemplateEntryId(null);
+    setShowEditor(true);
+  };
+
+  // "New like this": fresh entry copying an existing one's structure
+  const handleNewFromEntry = (entryId: number) => {
+    setEditingEntryId(null);
+    setTemplateEntryId(entryId);
     setShowEditor(true);
   };
 
@@ -35,6 +54,7 @@ export default function JournalTab({ pendingNewEntry, onNewEntryHandled }: Journ
 
   const handleEdit = (entryId: number) => {
     setEditingEntryId(entryId);
+    setTemplateEntryId(null);
     setShowEditor(true);
   };
 
@@ -52,6 +72,8 @@ export default function JournalTab({ pendingNewEntry, onNewEntryHandled }: Journ
             onNewEntry={handleNewEntry}
             onExport={() => setShowExport(true)}
             onImport={() => setShowImport(true)}
+            cardFilter={cardFilter}
+            onClearCardFilter={onClearCardFilter}
           />
         </Panel>
         <Separator className="resize-handle" />
@@ -61,6 +83,8 @@ export default function JournalTab({ pendingNewEntry, onNewEntryHandled }: Journ
               <EntryViewer
                 entryId={selectedEntryId}
                 onEdit={handleEdit}
+                onNewFromEntry={handleNewFromEntry}
+                onFindCardInJournal={onFindCardInJournal}
                 onDeleted={handleDeleted}
               />
             ) : (
@@ -74,6 +98,7 @@ export default function JournalTab({ pendingNewEntry, onNewEntryHandled }: Journ
 
       <EntryEditorModal
         entryId={editingEntryId}
+        templateEntryId={templateEntryId}
         open={showEditor}
         onClose={() => setShowEditor(false)}
         onSaved={(id) => setSelectedEntryId(id)}

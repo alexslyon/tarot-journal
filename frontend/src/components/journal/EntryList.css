@@ -163,3 +163,24 @@
   color: var(--text-dim);
   font-size: var(--font-size-small);
 }
+
+.entry-list__card-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 8px;
+  background: var(--accent-dim);
+  color: var(--text-primary);
+  border-radius: 10px;
+  font-size: var(--font-size-small);
+}
+
+.entry-list__card-chip-clear {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: var(--font-size-body);
+  line-height: 1;
+}

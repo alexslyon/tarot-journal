@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { registerDirty } from '../../utils/dirtyGuard';
 import './Modal.css';
 
 // Lets buttons rendered inside a Modal (e.g. a footer "Cancel") close it
@@ -55,6 +56,12 @@ export default function Modal({
   useEffect(() => {
     if (!open) setShowConfirm(false);
   }, [open]);
+
+  // While this modal has unsaved changes, closing the whole app window
+  // asks for confirmation too (see utils/dirtyGuard).
+  useEffect(() => {
+    if (open && isDirty) return registerDirty();
+  }, [open, isDirty]);
 
   const attemptClose = useCallback(() => {
     if (isDirty) {

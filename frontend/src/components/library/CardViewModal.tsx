@@ -18,6 +18,8 @@ interface CardViewModalProps {
   onNavigate: (cardId: number) => void;
   onEdit?: (cardId: number) => void;
   onDeleted?: () => void;
+  /** Jump to the Journal tab filtered to entries containing this card */
+  onFindInJournal?: (cardName: string) => void;
 }
 
 interface CardDetail extends Card {
@@ -33,7 +35,7 @@ interface CardDetail extends Card {
   }>;
 }
 
-export default function CardViewModal({ cardId, cardIds, onClose, onNavigate, onEdit, onDeleted }: CardViewModalProps) {
+export default function CardViewModal({ cardId, cardIds, onClose, onNavigate, onEdit, onDeleted, onFindInJournal }: CardViewModalProps) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
@@ -263,6 +265,17 @@ export default function CardViewModal({ cardId, cardIds, onClose, onNavigate, on
         <div className="card-view__actions">
           {onEdit && (
             <button onClick={() => onEdit(cardId)}>Edit</button>
+          )}
+          {onFindInJournal && card && (
+            <button
+              onClick={() => {
+                onFindInJournal(card.name);
+                onClose();
+              }}
+              title="Show journal entries containing this card"
+            >
+              Find in Journal
+            </button>
           )}
           <button
             className="danger"

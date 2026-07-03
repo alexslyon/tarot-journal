@@ -16,13 +16,18 @@ import './EntryViewer.css';
 interface EntryViewerProps {
   entryId: number;
   onEdit: (entryId: number) => void;
+  /** Start a new entry copying this one's structure (spread, deck,
+   *  querent, reader, tags) with empty cards and today's date. */
+  onNewFromEntry?: (entryId: number) => void;
+  /** Filter the journal to entries containing a card (card viewer) */
+  onFindCardInJournal?: (cardName: string) => void;
   onDeleted: () => void;
 }
 
 import { formatDateTime } from '../../utils/formatting';
 import { confirmDialog } from '../common/ConfirmDialog';
 
-export default function EntryViewer({ entryId, onEdit, onDeleted }: EntryViewerProps) {
+export default function EntryViewer({ entryId, onEdit, onNewFromEntry, onFindCardInJournal, onDeleted }: EntryViewerProps) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [viewingCardId, setViewingCardId] = useState<number | null>(null);
@@ -92,6 +97,14 @@ export default function EntryViewer({ entryId, onEdit, onDeleted }: EntryViewerP
               Export PDF
             </button>
             <button onClick={() => onEdit(entryId)}>Edit</button>
+            {onNewFromEntry && (
+              <button
+                onClick={() => onNewFromEntry(entryId)}
+                title="Start a new entry with the same spread, deck, querent, and tags"
+              >
+                New Like This
+              </button>
+            )}
             <button className="danger" onClick={handleDelete}>Delete</button>
           </div>
         </div>
@@ -183,6 +196,7 @@ export default function EntryViewer({ entryId, onEdit, onDeleted }: EntryViewerP
             setViewingCardId(null);
             setEditingCardId(id);
           }}
+          onFindInJournal={onFindCardInJournal}
         />
       )}
 

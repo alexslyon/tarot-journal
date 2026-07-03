@@ -25,9 +25,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const showToast = useCallback((message: string, type: ToastType = 'error') => {
     const id = nextId++;
     setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 5000);
+    // Success/warning notices expire on their own; errors and warnings
+    // about failures stay until dismissed — if a save failed while the
+    // user glanced away, the evidence must still be there.
+    if (type === 'success') {
+      setTimeout(() => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+      }, 5000);
+    }
   }, []);
 
   const dismiss = useCallback((id: number) => {
@@ -38,11 +43,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ showToast }}>
       {children}
       {toasts.length > 0 && (
-        <div className="toast-container">
+        // aria-live lets screen readers announce toasts when they appear
+        <div className="toast-container" role="status" aria-live="polite">
           {toasts.map(toast => (
             <div key={toast.id} className={`toast toast--${toast.type}`}>
               <span className="toast__message">{toast.message}</span>
-              <button className="toast__dismiss" onClick={() => dismiss(toast.id)}>
+              <button className="toast__dismiss" onClick={() => dismiss(toast.id)} aria-label="Dismiss">
                 &times;
               </button>
             </div>

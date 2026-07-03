@@ -35,6 +35,10 @@ interface InitialFormState {
 
 interface EntryEditorModalProps {
   entryId: number | null; // null = creating new entry
+  /** When creating (entryId null): copy this entry's structure —
+   *  spreads, decks, querents, reader, tags, title — with empty card
+   *  slots and today's date. The daily-draw "same again" workflow. */
+  templateEntryId?: number | null;
   open: boolean;
   onClose: () => void;
   onSaved: (entryId: number) => void;
@@ -84,16 +88,24 @@ function storedToLocalInput(stored: string): string {
   return trimmed.slice(0, 16);
 }
 
-export default function EntryEditorModal({ entryId, open, onClose, onSaved }: EntryEditorModalProps) {
+export default function EntryEditorModal({ entryId, templateEntryId, open, onClose, onSaved }: EntryEditorModalProps) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const isEditing = entryId !== null;
+  const useTemplate = !isEditing && templateEntryId != null;
 
   // Load existing entry if editing
   const { data: existingEntry } = useQuery<JournalEntryFull>({
     queryKey: ['entry', entryId],
     queryFn: () => getEntry(entryId!),
     enabled: isEditing && open,
+  });
+
+  // Load the entry whose structure a new entry should copy
+  const { data: templateEntry } = useQuery<JournalEntryFull>({
+    queryKey: ['entry', templateEntryId],
+    queryFn: () => getEntry(templateEntryId!),
+    enabled: useTemplate && open,
   });
 
   const { data: allTags = [] } = useQuery<Tag[]>({
@@ -203,6 +215,10 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
   // Reset form when modal opens for new entry
   useEffect(() => {
     if (open && !isEditing) {
+      // Template mode: wait for the template entry to load, then
+      // prefill its structure (handled below) instead of blank+defaults.
+      if (useTemplate && !templateEntry) return;
+
       const datetimeVal = nowLocalISO();
       // Apply defaults for reader and querent
       const defaultReader = defaults?.default_reader ?? null;
@@ -211,40 +227,72 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
         : (defaults?.default_querent ?? null);
       const defaultQuerentIds = defaultQuerent ? [defaultQuerent] : [];
 
-      setTitle('');
+      let titleVal = '';
+      let querentIdsVal = defaultQuerentIds;
+      let readerVal = defaultReader;
+      let tagIdsVal: number[] = [];
+      let readingsVal: ReadingData[] = [];
+
+      if (useTemplate && templateEntry) {
+        titleVal = templateEntry.title || '';
+        querentIdsVal = templateEntry.querents?.length
+          ? templateEntry.querents.map(q => q.id)
+          : (templateEntry.querent_id ? [templateEntry.querent_id] : []);
+        readerVal = templateEntry.reader_id;
+        tagIdsVal = templateEntry.tags.map(t => t.id);
+        // Same spreads and decks, but every card slot empty. Deck ids
+        // stay on the empty cards so multi-deck slot assignments carry
+        // over (the reading editor derives slot decks from them).
+        readingsVal = templateEntry.readings.map(r => ({
+          spread_id: r.spread_id,
+          spread_name: r.spread_name,
+          deck_id: r.deck_id,
+          deck_name: r.deck_name,
+          cartomancy_type: r.cartomancy_type,
+          cards: (r.cards_used || []).map((c, idx) => ({
+            name: '',
+            reversed: false,
+            deck_id: c.deck_id,
+            deck_name: c.deck_name,
+            position_index: c.position_index ?? idx,
+          })),
+        }));
+      }
+
+      setTitle(titleVal);
       setDateMode('now');
       setReadingDatetime(datetimeVal);
       setLocationName('');
       setLocationLat(null);
       setLocationLon(null);
-      setReaderId(defaultReader);
-      setQuerentIds(defaultQuerentIds);
+      setReaderId(readerVal);
+      setQuerentIds(querentIdsVal);
       setContent('');
-      setReadings([]);
-      setSelectedTagIds([]);
+      setReadings(readingsVal);
+      setSelectedTagIds(tagIdsVal);
       setInitialized(false);
       setError(null);
 
-      // Store initial state for dirty checking (empty for new entry)
+      // Store initial state for dirty checking
       initialStateRef.current = {
-        title: '',
+        title: titleVal,
         dateMode: 'now',
         readingDatetime: datetimeVal,
         locationName: '',
         locationLat: null,
         locationLon: null,
-        querentIds: defaultQuerentIds,
-        readerId: defaultReader,
+        querentIds: querentIdsVal,
+        readerId: readerVal,
         content: '',
-        readings: [],
-        selectedTagIds: [],
+        readings: readingsVal,
+        selectedTagIds: tagIdsVal,
       };
     }
     if (open && isEditing) {
       setInitialized(false);
       setError(null);
     }
-  }, [open, entryId, defaults]);
+  }, [open, entryId, defaults, useTemplate, templateEntry]);
 
   const toggleTag = (tagId: number) => {
     setSelectedTagIds(prev =>
@@ -381,6 +429,21 @@ export default function EntryEditorModal({ entryId, open, onClose, onSaved }: En
       setSaving(false);
     }
   };
+
+  // Cmd+Enter (Ctrl+Enter) saves — lets a keyboard-driven entry go
+  // from Cmd+N to saved without touching the mouse. Re-registered
+  // every render so the handler always sees current state.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        if (!saving) handleSave();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   // Compute whether form has unsaved changes
   const isDirty = useMemo(() => {

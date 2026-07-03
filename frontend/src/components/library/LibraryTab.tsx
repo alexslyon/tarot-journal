@@ -15,7 +15,12 @@ import { getDeck } from '../../api/decks';
 import type { Deck, Card } from '../../types';
 import './LibraryTab.css';
 
-export default function LibraryTab() {
+interface LibraryTabProps {
+  /** Jump to the Journal tab filtered to entries containing a card */
+  onFindCardInJournal?: (cardName: string) => void;
+}
+
+export default function LibraryTab({ onFindCardInJournal }: LibraryTabProps) {
   const [selectedDeck, setSelectedDeck] = useState<Deck | null>(null);
   const [viewingCardId, setViewingCardId] = useState<number | null>(null);
   const [editingCardId, setEditingCardId] = useState<number | null>(null);
@@ -97,6 +102,7 @@ export default function LibraryTab() {
           setViewingCardId(null);
           setEditingCardId(id);
         }}
+        onFindInJournal={onFindCardInJournal}
         onDeleted={() => setSelectedCardIds(new Set())}
       />
 

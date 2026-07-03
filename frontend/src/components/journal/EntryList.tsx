@@ -13,6 +13,9 @@ interface EntryListProps {
   onNewEntry: () => void;
   onExport: () => void;
   onImport: () => void;
+  /** "Find in Journal": restrict results to entries containing this card */
+  cardFilter?: string | null;
+  onClearCardFilter?: () => void;
 }
 
 import { formatDate } from '../../utils/formatting';
@@ -23,6 +26,8 @@ export default function EntryList({
   onNewEntry,
   onExport,
   onImport,
+  cardFilter,
+  onClearCardFilter,
 }: EntryListProps) {
   const [query, setQuery] = useState('');
   const [filterTagId, setFilterTagId] = useState<number | undefined>(undefined);
@@ -37,7 +42,8 @@ export default function EntryList({
     filterTagId !== undefined ||
     filterQuerentId !== undefined ||
     dateFrom !== '' ||
-    dateTo !== '';
+    dateTo !== '' ||
+    !!cardFilter;
 
   const { data: tags = [] } = useQuery<Tag[]>({
     queryKey: ['entry-tags'],
@@ -81,6 +87,7 @@ export default function EntryList({
         querent_id: filterQuerentId,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
+        card_name: cardFilter || undefined,
       }
     : null;
 
@@ -109,10 +116,11 @@ export default function EntryList({
     setFilterQuerentId(undefined);
     setDateFrom('');
     setDateTo('');
-  }, []);
+    onClearCardFilter?.();
+  }, [onClearCardFilter]);
   const hasAnyFilter =
     query !== '' || filterTagId !== undefined || filterQuerentId !== undefined ||
-    dateFrom !== '' || dateTo !== '';
+    dateFrom !== '' || dateTo !== '' || !!cardFilter;
 
   return (
     <div className="entry-list">
@@ -139,6 +147,20 @@ export default function EntryList({
         )}
       </div>
 
+      {cardFilter && (
+        <div className="entry-list__filters">
+          <span className="entry-list__card-chip" title="Showing entries containing this card">
+            Card: {cardFilter}
+            <button
+              className="entry-list__card-chip-clear"
+              onClick={() => onClearCardFilter?.()}
+              aria-label="Remove card filter"
+            >
+              &times;
+            </button>
+          </span>
+        </div>
+      )}
       <div className="entry-list__filters">
         {tags.length > 0 && (
           <select

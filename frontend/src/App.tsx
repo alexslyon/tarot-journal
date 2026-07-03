@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { ConfirmDialogHost } from './components/common/ConfirmDialog';
+import { installQuitGuard } from './utils/dirtyGuard';
 import TabNav, { type TabId } from './components/layout/TabNav';
 import LibraryTab from './components/library/LibraryTab';
 import JournalTab from './components/journal/JournalTab';
@@ -35,6 +36,22 @@ export default function App() {
   const [settingsSection, setSettingsSection] = useState<string | undefined>();
   const [settingsPayload, setSettingsPayload] = useState<SettingsDeepLinkPayload | undefined>();
   const [pendingNewEntry, setPendingNewEntry] = useState(false);
+  // "Find in Journal" from the card viewer: jump to the Journal tab
+  // filtered to entries containing a card. Lives here because it's
+  // set from the Library tab and consumed by the Journal tab.
+  const [journalCardFilter, setJournalCardFilter] = useState<string | null>(null);
+
+  const handleFindCardInJournal = useCallback((cardName: string) => {
+    setJournalCardFilter(cardName);
+    setActiveTab('journal');
+  }, []);
+
+  const handleClearCardFilter = useCallback(() => setJournalCardFilter(null), []);
+
+  // Block app quit / reload while any editor has unsaved changes.
+  useEffect(() => {
+    installQuitGuard();
+  }, []);
 
   // Cmd+N (Ctrl+N elsewhere) starts a new journal entry from any tab —
   // the app's single most common action. Ignored while any dialog is
@@ -81,12 +98,17 @@ export default function App() {
           <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
             <TabNav activeTab={activeTab} onTabChange={handleTabChange} />
             <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-              {activeTab === 'library' && <LibraryTab />}
+              {activeTab === 'library' && (
+                <LibraryTab onFindCardInJournal={handleFindCardInJournal} />
+              )}
               {activeTab === 'spreads' && <SpreadsTab />}
               {activeTab === 'journal' && (
                 <JournalTab
                   pendingNewEntry={pendingNewEntry}
                   onNewEntryHandled={handleNewEntryHandled}
+                  cardFilter={journalCardFilter}
+                  onClearCardFilter={handleClearCardFilter}
+                  onFindCardInJournal={handleFindCardInJournal}
                 />
               )}
               {activeTab === 'reference' && (
