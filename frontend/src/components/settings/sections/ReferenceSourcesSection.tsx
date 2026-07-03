@@ -31,6 +31,7 @@ import { useToast } from '../../../context/ToastContext';
 import type { ReferenceSource, SourceField } from '../../../types';
 import '../SettingsTab.css';
 import './ReferenceSourcesSection.css';
+import { confirmDialog } from '../../common/ConfirmDialog';
 
 const SUPPORTED_TYPES = [
   'Tarot', 'Lenormand', 'Playing Cards', 'Kipper', 'I Ching',
@@ -427,10 +428,10 @@ function FieldsManager({
   const handleDelete = useCallback(
     async (field: SourceField) => {
       if (
-        !window.confirm(
+        !(await confirmDialog(
           `Delete the "${field.name}" field?\n\n` +
             `All content authored under this field across every card will be removed. This cannot be undone.`,
-        )
+        ))
       ) {
         return;
       }

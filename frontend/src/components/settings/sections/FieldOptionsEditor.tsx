@@ -9,6 +9,7 @@ import {
   type FieldOption,
 } from '../../../api/correspondences';
 import { CORRESPONDENCE_FIELDS, CORRESPONDENCE_FIELD_LABELS } from '../../../types';
+import { confirmDialog } from '../../common/ConfirmDialog';
 
 interface FieldOptionsEditorProps {
   onClose: () => void;
@@ -49,7 +50,7 @@ export default function FieldOptionsEditor({ onClose }: FieldOptionsEditorProps)
   };
 
   const handleDelete = async (opt: FieldOption) => {
-    if (!window.confirm(`Remove "${opt.option_value}" from ${CORRESPONDENCE_FIELD_LABELS[activeField]} options?\n\nExisting assignments using this value will be preserved.`)) return;
+    if (!(await confirmDialog(`Remove "${opt.option_value}" from ${CORRESPONDENCE_FIELD_LABELS[activeField]} options?\n\nExisting assignments using this value will be preserved.`))) return;
     await deleteFieldOption(opt.id);
     invalidate();
   };

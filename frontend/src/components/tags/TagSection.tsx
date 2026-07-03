@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Tag } from '../../types';
 import './TagSection.css';
+import { confirmDialog } from '../common/ConfirmDialog';
 
 interface TagSectionProps {
   title: string;
@@ -61,7 +62,7 @@ export default function TagSection({
   };
 
   const handleDelete = async (tagId: number, tagName: string) => {
-    if (!window.confirm(`Delete tag "${tagName}"? This will remove it from all assignments.`)) return;
+    if (!(await confirmDialog({ message: `Delete tag "${tagName}"? This will remove it from all assignments.`, title: 'Delete Tag', confirmLabel: 'Delete' }))) return;
     await onDelete(tagId);
   };
 

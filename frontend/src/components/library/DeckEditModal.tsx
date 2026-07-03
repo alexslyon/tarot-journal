@@ -19,6 +19,7 @@ import Modal, { ModalCancelButton } from '../common/Modal';
 import RichTextEditor from '../common/RichTextEditor';
 import AnkiExportModal from './AnkiExportModal';
 import './DeckEditModal.css';
+import { confirmDialog } from '../common/ConfirmDialog';
 
 interface InitialDeckFormState {
   name: string;
@@ -403,7 +404,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
   };
 
   const handleDeleteCustomField = async (fieldId: number) => {
-    if (!window.confirm('Delete this custom field? This will not remove existing values from cards.')) return;
+    if (!(await confirmDialog('Delete this custom field? This will not remove existing values from cards.'))) return;
     await deleteDeckCustomField(fieldId);
     refetchCustomFields();
   };

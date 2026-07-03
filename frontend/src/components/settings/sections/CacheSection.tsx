@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCacheStats, clearCache } from '../../../api/settings';
 import '../SettingsTab.css';
+import { confirmDialog } from '../../common/ConfirmDialog';
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -24,7 +25,7 @@ export default function CacheSection() {
   };
 
   const handleClearCache = async () => {
-    if (!window.confirm('Clear the thumbnail cache? Thumbnails will be regenerated as needed.')) return;
+    if (!(await confirmDialog('Clear the thumbnail cache? Thumbnails will be regenerated as needed.'))) return;
     try {
       await clearCache();
       queryClient.invalidateQueries({ queryKey: ['cache-stats'] });

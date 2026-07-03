@@ -8,6 +8,7 @@ import { CORRESPONDENCE_FIELDS, CORRESPONDENCE_FIELD_LABELS } from '../../types'
 import Modal from '../common/Modal';
 import RichTextViewer from '../common/RichTextViewer';
 import './CardViewModal.css';
+import { confirmDialog } from '../common/ConfirmDialog';
 
 interface CardViewModalProps {
   cardId: number | null;
@@ -240,7 +241,7 @@ export default function CardViewModal({ cardId, cardIds, onClose, onNavigate, on
           <button
             className="danger"
             onClick={async () => {
-              if (!window.confirm(`Delete "${card?.name}"? This cannot be undone.`)) return;
+              if (!(await confirmDialog({ message: `Delete "${card?.name}"? This cannot be undone.`, title: 'Delete Card', confirmLabel: 'Delete' }))) return;
               try {
                 await deleteCard(cardId);
                 queryClient.invalidateQueries({ queryKey: ['cards'] });

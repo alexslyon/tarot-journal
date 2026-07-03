@@ -35,6 +35,7 @@ import { expandNumerologyOnAdd } from '../../../utils/numerology';
 import FieldOptionsEditor from './FieldOptionsEditor';
 import '../SettingsTab.css';
 import './CorrespondencesSection.css';
+import { confirmDialog } from '../../common/ConfirmDialog';
 
 export default function CorrespondencesSection() {
   const queryClient = useQueryClient();
@@ -261,7 +262,7 @@ export default function CorrespondencesSection() {
   };
 
   const handleDelete = async (system: CorrespondenceSystem) => {
-    if (!window.confirm(`Delete "${system.name}"? This will remove all its assignments.`)) return;
+    if (!(await confirmDialog(`Delete "${system.name}"? This will remove all its assignments.`))) return;
     try {
       await deleteCorrespondenceSystem(system.id);
       if (selectedSystemId === system.id) setSelectedSystemId(null);
@@ -433,9 +434,9 @@ export default function CorrespondencesSection() {
     const archetypes = getGroupArchetypes(bulkGroup);
     if (archetypes.length === 0) return;
 
-    if (!window.confirm(
+    if (!(await confirmDialog(
       `Clear the "${displayGroupLabel(bulkGroup, activeNamingStyle)}" group's ${CORRESPONDENCE_FIELD_LABELS[bulkField]} values for all ${archetypes.length} cards?\n\nOther contributions (manual edits or other groups) are not affected.`
-    )) return;
+    ))) return;
 
     setBulkApplying(true);
     try {

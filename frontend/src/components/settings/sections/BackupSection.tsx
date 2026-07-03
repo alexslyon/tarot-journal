@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getDefaults, createBackup, restoreBackup } from '../../../api/settings';
 import '../SettingsTab.css';
+import { confirmDialog } from '../../common/ConfirmDialog';
 
 export default function BackupSection() {
   const queryClient = useQueryClient();
@@ -45,7 +46,7 @@ export default function BackupSection() {
   const handleRestore = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!window.confirm('Restore from backup? This will replace all current data. A safety backup will be created first.')) {
+    if (!(await confirmDialog({ message: 'Restore from backup? This will replace all current data. A safety backup will be created first.', title: 'Restore Backup', confirmLabel: 'Restore' }))) {
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }

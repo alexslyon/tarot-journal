@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
+import { ConfirmDialogHost } from './components/common/ConfirmDialog';
 import TabNav, { type TabId } from './components/layout/TabNav';
 import LibraryTab from './components/library/LibraryTab';
 import JournalTab from './components/journal/JournalTab';
@@ -78,6 +79,7 @@ export default function App() {
               )}
             </div>
           </div>
+          <ConfirmDialogHost />
         </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>

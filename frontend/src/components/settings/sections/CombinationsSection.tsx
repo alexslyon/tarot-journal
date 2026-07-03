@@ -19,6 +19,7 @@ import {
 import type { ReferenceSource, CombinationMeaning } from '../../../types';
 import '../SettingsTab.css';
 import './CombinationsSection.css';
+import { confirmDialog } from '../../common/ConfirmDialog';
 
 /** Cartomancy types the Combinations feature supports. */
 export const SUPPORTED_COMBINATION_TYPES = [
@@ -397,7 +398,7 @@ function MeaningRow({
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Delete this meaning?')) return;
+    if (!(await confirmDialog('Delete this meaning?'))) return;
     try {
       await deleteCombinationMeaning(meaning.id);
       onChanged();

@@ -6,6 +6,7 @@ import RichTextEditor from '../common/RichTextEditor';
 import RichTextViewer from '../common/RichTextViewer';
 import type { FollowUpNote } from '../../types';
 import './FollowUpNotes.css';
+import { confirmDialog } from '../common/ConfirmDialog';
 
 interface FollowUpNotesProps {
   entryId: number;
@@ -55,7 +56,7 @@ export default function FollowUpNotes({ entryId, notes }: FollowUpNotesProps) {
   };
 
   const handleDelete = async (noteId: number) => {
-    if (!window.confirm('Delete this follow-up note?')) return;
+    if (!(await confirmDialog('Delete this follow-up note?'))) return;
     setError('');
     try {
       await deleteFollowUpNote(noteId);

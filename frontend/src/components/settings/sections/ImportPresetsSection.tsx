@@ -11,6 +11,7 @@ import { getCartomancyTypes } from '../../../api/decks';
 import type { CartomancyType } from '../../../types';
 import MappingsEditor from '../MappingsEditor';
 import '../SettingsTab.css';
+import { confirmDialog } from '../../common/ConfirmDialog';
 
 const SUIT_KEYS_BY_TYPE: Record<string, string[]> = {
   Tarot: ['wands', 'cups', 'swords', 'pentacles'],
@@ -111,7 +112,7 @@ export default function ImportPresetsSection() {
 
   const handleDeletePreset = async (preset: ImportPresetDetail) => {
     const action = preset.is_customized ? 'reset to default' : 'delete';
-    if (!window.confirm(`Are you sure you want to ${action} "${preset.name}"?`)) return;
+    if (!(await confirmDialog(`Are you sure you want to ${action} "${preset.name}"?`))) return;
     try {
       if (preset.is_customized) {
         await resetImportPreset(preset.name);

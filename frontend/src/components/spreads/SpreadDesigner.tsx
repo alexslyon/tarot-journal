@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
 import type { SpreadPosition, DeckSlot } from '../../types';
 import './SpreadDesigner.css';
+import { confirmDialog } from '../common/ConfirmDialog';
 
 // Minimum canvas dimensions (used when empty or for small spreads)
 const MIN_CANVAS_W = 620;
@@ -135,9 +136,9 @@ export default function SpreadDesigner({
     }, 0);
   };
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (positions.length === 0) return;
-    if (!window.confirm('Clear all positions?')) return;
+    if (!(await confirmDialog('Clear all positions?'))) return;
     onChange([]);
     onSelectIndex(null);
   };

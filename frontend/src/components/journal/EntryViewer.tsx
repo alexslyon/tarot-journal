@@ -20,6 +20,7 @@ interface EntryViewerProps {
 }
 
 import { formatDateTime } from '../../utils/formatting';
+import { confirmDialog } from '../common/ConfirmDialog';
 
 export default function EntryViewer({ entryId, onEdit, onDeleted }: EntryViewerProps) {
   const queryClient = useQueryClient();
@@ -53,7 +54,7 @@ export default function EntryViewer({ entryId, onEdit, onDeleted }: EntryViewerP
   }, [entry]);
 
   const handleDelete = async () => {
-    if (!window.confirm('Delete this journal entry? This cannot be undone.')) return;
+    if (!(await confirmDialog({ message: 'Delete this journal entry? This cannot be undone.', title: 'Delete Entry', confirmLabel: 'Delete' }))) return;
     try {
       await deleteEntry(entryId);
       queryClient.invalidateQueries({ queryKey: ['entries'] });

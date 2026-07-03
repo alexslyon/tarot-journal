@@ -23,6 +23,7 @@ import type {
 } from '../../../types';
 import '../SettingsTab.css';
 import './ArchetypeLanguagesSection.css';
+import { confirmDialog } from '../../common/ConfirmDialog';
 
 const SUPPORTED_TYPES = [
   'Tarot', 'Lenormand', 'Playing Cards', 'Kipper', 'I Ching',
@@ -196,7 +197,7 @@ function LanguageList({
       const msg = count > 0
         ? `Delete "${lang.name}" and ${count} associated name${count === 1 ? '' : 's'}?`
         : `Delete "${lang.name}"?`;
-      if (!window.confirm(msg)) return;
+      if (!(await confirmDialog(msg))) return;
       await deleteArchetypeLanguage(lang.id);
       invalidate();
     } catch {
@@ -532,7 +533,7 @@ function NameRow({
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Delete this name?')) return;
+    if (!(await confirmDialog('Delete this name?'))) return;
     try {
       await deleteArchetypeName(entry.id);
       invalidate();

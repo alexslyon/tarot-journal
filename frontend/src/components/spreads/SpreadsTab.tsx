@@ -19,6 +19,7 @@ function hasDescriptionContent(desc: string | null | undefined): boolean {
 
 import { ensureHtml } from '../../utils/formatting';
 import './SpreadsTab.css';
+import { confirmDialog } from '../common/ConfirmDialog';
 
 export default function SpreadsTab() {
   const queryClient = useQueryClient();
@@ -113,7 +114,7 @@ export default function SpreadsTab() {
 
   const handleDelete = async () => {
     if (!selectedSpread) return;
-    if (!window.confirm(`Delete "${selectedSpread.name}"? This cannot be undone.`)) return;
+    if (!(await confirmDialog({ message: `Delete "${selectedSpread.name}"? This cannot be undone.`, title: 'Delete Spread', confirmLabel: 'Delete' }))) return;
     setError('');
     try {
       await deleteSpread(selectedSpread.id);

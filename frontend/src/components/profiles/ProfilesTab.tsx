@@ -12,6 +12,7 @@ import type { Profile } from '../../types';
 import ChartModal from '../astrology/ChartModal';
 import PlaceLookupButton from '../common/PlaceLookupButton';
 import './ProfilesTab.css';
+import { confirmDialog } from '../common/ConfirmDialog';
 
 export default function ProfilesTab() {
   const queryClient = useQueryClient();
@@ -167,7 +168,7 @@ export default function ProfilesTab() {
 
   const handleDelete = async () => {
     if (!selectedId) return;
-    if (!window.confirm(`Delete "${selectedProfile?.name}"? Journal entries referencing this profile will have their querent/reader cleared.`)) return;
+    if (!(await confirmDialog({ message: `Delete "${selectedProfile?.name}"? Journal entries referencing this profile will have their querent/reader cleared.`, title: 'Delete Profile', confirmLabel: 'Delete' }))) return;
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
       autoSaveTimerRef.current = null;
