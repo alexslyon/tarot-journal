@@ -182,9 +182,14 @@ export default function EntryList({
             title="Filter by querent"
           >
             <option value="">Any Querent</option>
-            {profiles.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
+            {profiles
+              // Same rule as the entry editor: hidden profiles stay out
+              // of the list, unless one is the currently active filter
+              // (so it remains visible and clearable).
+              .filter((p) => !p.hidden || p.id === filterQuerentId)
+              .map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
           </select>
         )}
       </div>
