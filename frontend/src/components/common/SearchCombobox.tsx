@@ -6,14 +6,14 @@ import {
   useRef,
   useState,
 } from 'react';
-import './CardCombobox.css';
+import './SearchCombobox.css';
 
 export interface ComboOption {
   id: number;
   label: string;
 }
 
-interface CardComboboxProps {
+interface SearchComboboxProps {
   options: ComboOption[];
   /** Currently selected option id (undefined = nothing selected) */
   value: number | undefined;
@@ -26,15 +26,15 @@ interface CardComboboxProps {
   placeholder?: string;
 }
 
-export interface CardComboboxHandle {
+export interface SearchComboboxHandle {
   focus: () => void;
 }
 
-/** Searchable card picker: type to filter ("tow" → The Tower), arrow
- *  keys to navigate, Enter or click to select. Replaces the 78-option
- *  <select> dropdowns that made large spreads laborious to log. */
-const CardCombobox = forwardRef<CardComboboxHandle, CardComboboxProps>(
-  function CardCombobox(
+/** Searchable picker: type to filter ("tow" → The Tower), arrow keys
+ *  to navigate, Enter or click to select. Used for cards, spreads, and
+ *  decks in the reading editor in place of long <select> dropdowns. */
+const SearchCombobox = forwardRef<SearchComboboxHandle, SearchComboboxProps>(
+  function SearchCombobox(
     { options, value, onSelect, onCommitted, disabled, placeholder },
     ref,
   ) {
@@ -128,10 +128,10 @@ const CardCombobox = forwardRef<CardComboboxHandle, CardComboboxProps>(
     };
 
     return (
-      <div className={`card-combobox ${disabled ? 'card-combobox--disabled' : ''}`}>
+      <div className={`search-combobox ${disabled ? 'search-combobox--disabled' : ''}`}>
         <input
           ref={inputRef}
-          className="card-combobox__input"
+          className="search-combobox__input"
           type="text"
           role="combobox"
           aria-expanded={open}
@@ -159,7 +159,7 @@ const CardCombobox = forwardRef<CardComboboxHandle, CardComboboxProps>(
         {value !== undefined && !disabled && !open && (
           <button
             type="button"
-            className="card-combobox__clear"
+            className="search-combobox__clear"
             title="Clear card"
             // mousedown fires before the input's blur, keeping focus flow sane
             onMouseDown={(e) => {
@@ -171,16 +171,16 @@ const CardCombobox = forwardRef<CardComboboxHandle, CardComboboxProps>(
           </button>
         )}
         {open && (
-          <ul className="card-combobox__list" ref={listRef} role="listbox">
+          <ul className="search-combobox__list" ref={listRef} role="listbox">
             {filtered.length === 0 && (
-              <li className="card-combobox__empty">No matching cards</li>
+              <li className="search-combobox__empty">No matching cards</li>
             )}
             {filtered.map((o, i) => (
               <li
                 key={o.id}
                 role="option"
                 aria-selected={o.id === value}
-                className={`card-combobox__option ${i === highlight ? 'card-combobox__option--active' : ''} ${o.id === value ? 'card-combobox__option--selected' : ''}`}
+                className={`search-combobox__option ${i === highlight ? 'search-combobox__option--active' : ''} ${o.id === value ? 'search-combobox__option--selected' : ''}`}
                 // mousedown (not click) so it fires before the input blurs
                 onMouseDown={(e) => {
                   e.preventDefault();
@@ -198,4 +198,4 @@ const CardCombobox = forwardRef<CardComboboxHandle, CardComboboxProps>(
   },
 );
 
-export default CardCombobox;
+export default SearchCombobox;

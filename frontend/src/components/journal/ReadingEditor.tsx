@@ -5,7 +5,7 @@ import { getCards } from '../../api/cards';
 import { getSpreads, getSpread } from '../../api/spreads';
 import { cardThumbnailUrl } from '../../api/images';
 import { deckMatchesType } from '../../utils/formatting';
-import CardCombobox, { type CardComboboxHandle } from '../common/CardCombobox';
+import SearchCombobox, { type SearchComboboxHandle } from '../common/SearchCombobox';
 import type { Card, Deck, Spread, SpreadPosition, DeckSlot } from '../../types';
 import './ReadingEditor.css';
 
@@ -258,7 +258,7 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
 
   // Combobox handles for the free-form (no spread) card list, so a
   // committed selection advances focus to the next card row.
-  const freeFormRefs = useRef<Array<CardComboboxHandle | null>>([]);
+  const freeFormRefs = useRef<Array<SearchComboboxHandle | null>>([]);
 
   return (
     <div className="reading-editor">
@@ -276,15 +276,12 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
       <div className="reading-editor__row">
         <div className="reading-editor__field">
           <label className="reading-editor__field-label">Spread</label>
-          <select
-            value={value.spread_id ?? ''}
-            onChange={(e) => handleSpreadChange(e.target.value ? Number(e.target.value) : null)}
-          >
-            <option value="">No Spread</option>
-            {spreads.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+          <SearchCombobox
+            options={spreads.map((s) => ({ id: s.id, label: s.name }))}
+            value={value.spread_id ?? undefined}
+            placeholder="No spread — type to search…"
+            onSelect={(opt) => handleSpreadChange(opt ? opt.id : null)}
+          />
         </div>
 
         {/* Show single deck selector if no slots or single slot */}
@@ -293,24 +290,21 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
             <label className="reading-editor__field-label">
               {deckSlots[0] ? `Deck (${deckSlots[0].cartomancy_type})` : 'Deck'}
             </label>
-            <select
-              value={deckSlots[0] ? (slotDecks[deckSlots[0].key] ?? '') : (value.deck_id ?? '')}
-              onChange={(e) => {
-                const deckId = e.target.value ? Number(e.target.value) : null;
+            <SearchCombobox
+              options={decks
+                .filter(d => useAnyDeck || !deckSlots[0] || deckMatchesType(d, deckSlots[0].cartomancy_type))
+                .map((d) => ({ id: d.id, label: d.name }))}
+              value={deckSlots[0] ? (slotDecks[deckSlots[0].key] ?? undefined) : (value.deck_id ?? undefined)}
+              placeholder="Select deck — type to search…"
+              onSelect={(opt) => {
+                const deckId = opt ? opt.id : null;
                 if (deckSlots[0]) {
                   handleSlotDeckChange(deckSlots[0].key, deckId);
                 } else {
                   handleDeckChange(deckId);
                 }
               }}
-            >
-              <option value="">Select Deck</option>
-              {decks
-                .filter(d => useAnyDeck || !deckSlots[0] || deckMatchesType(d, deckSlots[0].cartomancy_type))
-                .map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-            </select>
+            />
           </div>
         )}
       </div>
@@ -335,18 +329,14 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
               <span className="reading-editor__slot-label">
                 {slot.label || slot.cartomancy_type}
               </span>
-              <select
-                className="reading-editor__slot-deck"
-                value={slotDecks[slot.key] ?? ''}
-                onChange={(e) => handleSlotDeckChange(slot.key, e.target.value ? Number(e.target.value) : null)}
-              >
-                <option value="">Select {slot.cartomancy_type} Deck</option>
-                {decks
+              <SearchCombobox
+                options={decks
                   .filter(d => useAnyDeck || deckMatchesType(d, slot.cartomancy_type))
-                  .map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-              </select>
+                  .map((d) => ({ id: d.id, label: d.name }))}
+                value={slotDecks[slot.key] ?? undefined}
+                placeholder={`Select ${slot.cartomancy_type} deck — type to search…`}
+                onSelect={(opt) => handleSlotDeckChange(slot.key, opt ? opt.id : null)}
+              />
             </div>
           ))}
         </div>
@@ -385,7 +375,7 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
             {value.cards.map((card, idx) => (
               <div key={card._key ?? `card-${idx}`} className="reading-editor__card-slot">
                 {deckCards.length > 0 ? (
-                  <CardCombobox
+                  <SearchCombobox
                     ref={(h) => { freeFormRefs.current[idx] = h; }}
                     options={deckCards.map(c => ({ id: c.id, label: labelForCard(c, deckCards) }))}
                     value={
@@ -581,7 +571,7 @@ function VisualSpreadEditor({
   // One combobox handle per position, so committing a card can hop
   // focus straight to the next position — a 10-card spread becomes
   // "tow<Enter> ace<Enter> ..." with no mouse round-trips.
-  const comboRefs = useRef<Array<CardComboboxHandle | null>>([]);
+  const comboRefs = useRef<Array<SearchComboboxHandle | null>>([]);
   const focusNextPosition = (idx: number) => {
     comboRefs.current[idx + 1]?.focus();
   };
@@ -662,7 +652,7 @@ function VisualSpreadEditor({
               {/* Card selector for this position. Value is the card id so
                   same-name variants (e.g. multiple "Two of Cups" in Terra
                   Volatile) are independently selectable. */}
-              <CardCombobox
+              <SearchCombobox
                 ref={(h) => { comboRefs.current[idx] = h; }}
                 options={currentDeckCards.map(c => ({ id: c.id, label: labelForCard(c, currentDeckCards) }))}
                 value={

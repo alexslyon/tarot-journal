@@ -1,10 +1,10 @@
-.card-combobox {
+.search-combobox {
   position: relative;
   flex: 1;
   min-width: 0;
 }
 
-.card-combobox__input {
+.search-combobox__input {
   width: 100%;
   box-sizing: border-box;
   background: var(--bg-input);
@@ -15,16 +15,16 @@
   font-size: var(--font-size-body);
 }
 
-.card-combobox__input:focus {
+.search-combobox__input:focus {
   outline: none;
   border-color: var(--accent);
 }
 
-.card-combobox--disabled .card-combobox__input {
+.search-combobox--disabled .search-combobox__input {
   opacity: 0.5;
 }
 
-.card-combobox__clear {
+.search-combobox__clear {
   position: absolute;
   right: 2px;
   top: 50%;
@@ -38,12 +38,12 @@
   line-height: 1;
 }
 
-.card-combobox__clear:hover {
+.search-combobox__clear:hover {
   color: var(--text-primary);
   background: none;
 }
 
-.card-combobox__list {
+.search-combobox__list {
   position: absolute;
   z-index: 40;
   top: calc(100% + 2px);
@@ -60,7 +60,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-.card-combobox__option {
+.search-combobox__option {
   padding: 4px 8px;
   border-radius: 3px;
   cursor: pointer;
@@ -71,16 +71,16 @@
   text-overflow: ellipsis;
 }
 
-.card-combobox__option--active {
+.search-combobox__option--active {
   background: var(--accent);
   color: var(--bg-primary);
 }
 
-.card-combobox__option--selected:not(.card-combobox__option--active) {
+.search-combobox__option--selected:not(.search-combobox__option--active) {
   color: var(--accent);
 }
 
-.card-combobox__empty {
+.search-combobox__empty {
   padding: 4px 8px;
   color: var(--text-dim);
   font-size: var(--font-size-body);
