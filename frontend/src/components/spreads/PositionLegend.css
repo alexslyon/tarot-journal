@@ -99,3 +99,24 @@
   opacity: 0.25;
   cursor: default;
 }
+
+/* Drag-and-drop reordering */
+.pos-legend__item[draggable="true"] {
+  cursor: grab;
+}
+
+.pos-legend__drag-handle {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  letter-spacing: -2px;
+  user-select: none;
+  margin-right: 2px;
+}
+
+.pos-legend__item--dragging {
+  opacity: 0.4;
+}
+
+.pos-legend__item--drag-over {
+  box-shadow: 0 -2px 0 0 var(--accent);
+}
