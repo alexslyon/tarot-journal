@@ -257,3 +257,24 @@
   gap: 6px;
   margin-top: 16px;
 }
+
+/* Drag-and-drop field reordering */
+.reference-sources__field-row[draggable="true"] {
+  cursor: grab;
+}
+
+.reference-sources__field-drag-handle {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  letter-spacing: -2px;
+  user-select: none;
+  margin-right: 2px;
+}
+
+.reference-sources__field-row--dragging {
+  opacity: 0.4;
+}
+
+.reference-sources__field-row--drag-over {
+  box-shadow: 0 -2px 0 0 var(--accent);
+}

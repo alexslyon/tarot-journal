@@ -26,6 +26,7 @@ import {
   createSourceField,
   updateSourceField,
   deleteSourceField,
+  reorderSourceFields,
 } from '../../../api/referenceSources';
 import { useToast } from '../../../context/ToastContext';
 import type { ReferenceSource, SourceField } from '../../../types';
@@ -407,6 +408,42 @@ function FieldsManager({
     invalidateOuter();
   }, [queryClient, source.id, cartomancyType, invalidateOuter]);
 
+  // Drag-and-drop reordering (same HTML5 DnD pattern as the
+  // Correspondences editor's column headers).
+  const [draggedFieldId, setDraggedFieldId] = useState<number | null>(null);
+  const [dragOverFieldId, setDragOverFieldId] = useState<number | null>(null);
+
+  const handleFieldDrop = useCallback(async (targetId: number) => {
+    const fromId = draggedFieldId;
+    setDraggedFieldId(null);
+    setDragOverFieldId(null);
+    if (fromId === null || fromId === targetId) return;
+
+    const ids = fields.map(f => f.id);
+    const fromIdx = ids.indexOf(fromId);
+    const toIdx = ids.indexOf(targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    ids.splice(fromIdx, 1);
+    ids.splice(toIdx, 0, fromId);
+
+    // Optimistically show the new order so the row lands where it was
+    // dropped instantly; the refetch after saving confirms it.
+    const byId = new Map(fields.map(f => [f.id, f]));
+    queryClient.setQueryData<SourceField[]>(
+      ['source-fields', source.id, cartomancyType],
+      ids.map(id => byId.get(id)!),
+    );
+
+    try {
+      await reorderSourceFields(source.id, cartomancyType, ids);
+    } catch (err) {
+      console.error('Failed to reorder fields:', err);
+      showToast('Failed to reorder fields.');
+    } finally {
+      invalidate();
+    }
+  }, [draggedFieldId, fields, source.id, cartomancyType, queryClient, invalidate, showToast]);
+
   const handleAdd = useCallback(async () => {
     const name = newName.trim();
     if (!name) return;
@@ -458,7 +495,25 @@ function FieldsManager({
       ) : (
         <ul className="reference-sources__fields-list">
           {fields.map(f => (
-            <FieldRow key={f.id} field={f} onChanged={invalidate} onDelete={handleDelete} />
+            <FieldRow
+              key={f.id}
+              field={f}
+              onChanged={invalidate}
+              onDelete={handleDelete}
+              dragging={draggedFieldId === f.id}
+              dragOver={dragOverFieldId === f.id && draggedFieldId !== f.id}
+              onDragStart={() => setDraggedFieldId(f.id)}
+              onDragOver={() => {
+                if (draggedFieldId !== null && draggedFieldId !== f.id) {
+                  setDragOverFieldId(f.id);
+                }
+              }}
+              onDrop={() => handleFieldDrop(f.id)}
+              onDragEnd={() => {
+                setDraggedFieldId(null);
+                setDragOverFieldId(null);
+              }}
+            />
           ))}
         </ul>
       )}
@@ -493,10 +548,22 @@ function FieldRow({
   field,
   onChanged,
   onDelete,
+  dragging,
+  dragOver,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
 }: {
   field: SourceField;
   onChanged: () => void;
   onDelete: (f: SourceField) => void;
+  dragging: boolean;
+  dragOver: boolean;
+  onDragStart: () => void;
+  onDragOver: () => void;
+  onDrop: () => void;
+  onDragEnd: () => void;
 }) {
   const { showToast } = useToast();
   const [editing, setEditing] = useState(false);
@@ -535,7 +602,31 @@ function FieldRow({
   }, [field.id, field.collapsible, onChanged, showToast]);
 
   return (
-    <li className="reference-sources__field-row">
+    <li
+      className={`reference-sources__field-row${dragging ? ' reference-sources__field-row--dragging' : ''}${dragOver ? ' reference-sources__field-row--drag-over' : ''}`}
+      // Not draggable while renaming, so drag doesn't fight with text
+      // selection in the input.
+      draggable={!editing}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = 'move';
+        onDragStart();
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        onDragOver();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        onDrop();
+      }}
+      onDragEnd={onDragEnd}
+    >
+      {!editing && (
+        <span className="reference-sources__field-drag-handle" aria-hidden="true" title="Drag to reorder">
+          ⋮⋮
+        </span>
+      )}
       {editing ? (
         <>
           <input
