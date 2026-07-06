@@ -313,13 +313,24 @@ function SourceFieldStack({
     [entries, archetype.id],
   );
 
-  // Collapsed by default; resets to collapsed whenever the active
-  // archetype changes so expansion choices on one card don't carry
-  // over to the next. Same UX as the Reference viewer's Notes tab.
+  // Collapsed by default. This component is keyed by source (not
+  // archetype), so expansion deliberately PERSISTS across card
+  // switches — working through one source card-by-card shouldn't
+  // require re-expanding it every time. Same UX as the Notes viewer.
   const [open, setOpen] = useState(false);
-  useEffect(() => {
-    setOpen(false);
-  }, [archetype.id]);
+
+  // Field-level disclosure state lives HERE (not in the field editor)
+  // for the same reason: the field editors are keyed per archetype and
+  // remount on card switch, which would reset their expansion.
+  const [openFieldIds, setOpenFieldIds] = useState<Set<number>>(new Set());
+  const toggleField = (fieldId: number) => {
+    setOpenFieldIds(prev => {
+      const next = new Set(prev);
+      if (next.has(fieldId)) next.delete(fieldId);
+      else next.add(fieldId);
+      return next;
+    });
+  };
 
   return (
     <section className="archetype-notes-edit__source-detail">
@@ -367,6 +378,8 @@ function SourceFieldStack({
                 sourceId={source.id}
                 field={f}
                 initialContent={entryForField(f.id)}
+                open={openFieldIds.has(f.id)}
+                onToggle={() => toggleField(f.id)}
               />
             ))
           )}
@@ -386,11 +399,17 @@ function ArchetypeFieldEditor({
   sourceId,
   field,
   initialContent,
+  open,
+  onToggle,
 }: {
   archetype: Archetype;
   sourceId: number;
   field: SourceField;
   initialContent: string;
+  /** Disclosure state is owned by SourceFieldStack so it survives the
+   *  per-archetype remount of this component (key includes archetype). */
+  open: boolean;
+  onToggle: () => void;
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -439,16 +458,11 @@ function ArchetypeFieldEditor({
   }, [content, archetype.id, field.id, sourceId, queryClient, showToast]);
 
   // Collapsible fields render with a chevron disclosure (collapsed
-  // by default). The editor stays mounted under display:none rather
+  // by default, expansion owned by the parent so it persists across
+  // card switches). The editor stays mounted under display:none rather
   // than unmounted so the 600ms-debounced save isn't cancelled when
   // the user collapses immediately after typing.
   const isCollapsible = !!field.collapsible;
-  const [open, setOpen] = useState(!isCollapsible);
-  // Default-collapse again whenever the archetype changes or the
-  // field flips into a collapsible flag.
-  useEffect(() => {
-    setOpen(!isCollapsible);
-  }, [archetype.id, isCollapsible]);
 
   const hasContent = useMemo(
     () => content.replace(/<[^>]*>/g, '').trim().length > 0,
@@ -469,7 +483,7 @@ function ArchetypeFieldEditor({
         type="button"
         className="archetype-notes-edit__field-toggle"
         aria-expanded={open}
-        onClick={() => setOpen(o => !o)}
+        onClick={onToggle}
       >
         <span
           className={`archetype-notes-edit__chevron ${open ? 'archetype-notes-edit__chevron--open' : ''}`}

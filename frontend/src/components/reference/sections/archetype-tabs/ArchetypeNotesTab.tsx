@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getArchetypeSourceEntries } from '../../../../api/referenceSources';
 import RichTextViewer from '../../../common/RichTextViewer';
@@ -50,12 +50,10 @@ export default function ArchetypeNotesTab({
   }, [entries]);
 
   // Which sources are expanded. Default is "all collapsed" — clicking
-  // a header toggles. Resets whenever the archetype changes so the
-  // viewer doesn't carry expansion state across cards.
+  // a header toggles. Expansion is keyed by source, so it deliberately
+  // PERSISTS across card switches: reading one source across many
+  // cards shouldn't require re-expanding it on every card.
   const [openSources, setOpenSources] = useState<Set<number>>(new Set());
-  useEffect(() => {
-    setOpenSources(new Set());
-  }, [archetype.id]);
 
   const toggleSource = (sourceId: number) => {
     setOpenSources(prev => {
