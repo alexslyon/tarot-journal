@@ -109,3 +109,9 @@
   color: var(--text-dim);
   font-size: var(--font-size-heading);
 }
+
+.entry-viewer__nav {
+  display: inline-flex;
+  gap: 4px;
+  margin-right: 8px;
+}

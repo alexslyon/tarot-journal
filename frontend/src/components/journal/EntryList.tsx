@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, Fragment } from 'react';
 import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { getEntries, searchEntries, getProfiles } from '../../api/entries';
 import { getEntryTags as getAllEntryTags } from '../../api/tags';
@@ -16,9 +16,12 @@ interface EntryListProps {
   /** "Find in Journal": restrict results to entries containing this card */
   cardFilter?: string | null;
   onClearCardFilter?: () => void;
+  /** Reports the ids of the entries currently shown, in list order —
+   *  drives prev/next navigation in the entry viewer. */
+  onVisibleEntries?: (ids: number[]) => void;
 }
 
-import { formatDate } from '../../utils/formatting';
+import { formatDate, formatTimeOnly, entryDateBucket } from '../../utils/formatting';
 
 export default function EntryList({
   selectedEntryId,
@@ -28,6 +31,7 @@ export default function EntryList({
   onImport,
   cardFilter,
   onClearCardFilter,
+  onVisibleEntries,
 }: EntryListProps) {
   const [query, setQuery] = useState('');
   const [filterTagId, setFilterTagId] = useState<number | undefined>(undefined);
@@ -109,6 +113,12 @@ export default function EntryList({
   const loading = isSearching ? searchLoading : entriesLoading;
   const loadError = isSearching ? searchError : entriesError;
   const retry = isSearching ? refetchSearch : refetchEntries;
+
+  // Let the journal tab know which entries are visible (and in what
+  // order) so the viewer can offer Newer/Older navigation.
+  useEffect(() => {
+    onVisibleEntries?.(entries.map(e => e.id));
+  }, [entries, onVisibleEntries]);
 
   const clearSearch = useCallback(() => {
     setQuery('');
@@ -221,23 +231,37 @@ export default function EntryList({
             {isSearching ? 'No entries found.' : 'No journal entries yet.'}
           </div>
         )}
-        {entries.map((entry) => (
-          <div
-            key={entry.id}
-            className={`entry-list__row ${entry.id === selectedEntryId ? 'entry-list__row--selected' : ''}`}
-            onClick={() => onSelectEntry(entry.id)}
-          >
-            <div className="entry-list__row-date">
-              {formatDate(entry.reading_datetime || entry.created_at)}
-            </div>
-            <div className="entry-list__row-title">
-              {entry.title || 'Untitled Entry'}
-            </div>
-            {entry.location_name && (
-              <div className="entry-list__row-location">{entry.location_name}</div>
-            )}
-          </div>
-        ))}
+        {entries.map((entry, i) => {
+          const dateStr = entry.reading_datetime || entry.created_at;
+          const bucket = entryDateBucket(dateStr);
+          const prev = i > 0 ? entries[i - 1] : null;
+          const showHeader =
+            !prev || entryDateBucket(prev.reading_datetime || prev.created_at) !== bucket;
+          // Rows under Today/Yesterday show the time (the header
+          // already names the day); older rows show the date.
+          const rowDate = bucket === 'Today' || bucket === 'Yesterday'
+            ? formatTimeOnly(dateStr)
+            : formatDate(dateStr);
+          return (
+            <Fragment key={entry.id}>
+              {showHeader && (
+                <div className="entry-list__group-header">{bucket}</div>
+              )}
+              <div
+                className={`entry-list__row ${entry.id === selectedEntryId ? 'entry-list__row--selected' : ''}`}
+                onClick={() => onSelectEntry(entry.id)}
+              >
+                <div className="entry-list__row-date">{rowDate}</div>
+                <div className="entry-list__row-title">
+                  {entry.title || 'Untitled Entry'}
+                </div>
+                {entry.location_name && (
+                  <div className="entry-list__row-location">{entry.location_name}</div>
+                )}
+              </div>
+            </Fragment>
+          );
+        })}
         {!isSearching && hasNextPage && (
           <button
             className="entry-list__load-older"

@@ -184,3 +184,16 @@
   font-size: var(--font-size-body);
   line-height: 1;
 }
+
+.entry-list__group-header {
+  padding: 8px 12px 3px;
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  position: sticky;
+  top: 0;
+  background: var(--bg-primary);
+  z-index: 1;
+}

@@ -26,6 +26,9 @@ export default function JournalTab({
   onFindCardInJournal,
 }: JournalTabProps) {
   const [selectedEntryId, setSelectedEntryId] = useState<number | null>(null);
+  // Ids of entries currently visible in the list (list order: newest
+  // first) — lets the viewer offer Newer/Older navigation.
+  const [visibleIds, setVisibleIds] = useState<number[]>([]);
   const [showEditor, setShowEditor] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
   const [templateEntryId, setTemplateEntryId] = useState<number | null>(null);
@@ -74,6 +77,7 @@ export default function JournalTab({
             onImport={() => setShowImport(true)}
             cardFilter={cardFilter}
             onClearCardFilter={onClearCardFilter}
+            onVisibleEntries={setVisibleIds}
           />
         </Panel>
         <Separator className="resize-handle" />
@@ -86,6 +90,16 @@ export default function JournalTab({
                 onNewFromEntry={handleNewFromEntry}
                 onFindCardInJournal={onFindCardInJournal}
                 onDeleted={handleDeleted}
+                // List is newest-first: "newer" is the previous index
+                newerEntryId={(() => {
+                  const idx = visibleIds.indexOf(selectedEntryId);
+                  return idx > 0 ? visibleIds[idx - 1] : null;
+                })()}
+                olderEntryId={(() => {
+                  const idx = visibleIds.indexOf(selectedEntryId);
+                  return idx >= 0 && idx < visibleIds.length - 1 ? visibleIds[idx + 1] : null;
+                })()}
+                onNavigateEntry={setSelectedEntryId}
               />
             ) : (
               <div className="journal-tab__placeholder">

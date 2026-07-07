@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getEntry, deleteEntry } from '../../api/entries';
 import { useToast } from '../../context/ToastContext';
@@ -22,12 +22,16 @@ interface EntryViewerProps {
   /** Filter the journal to entries containing a card (card viewer) */
   onFindCardInJournal?: (cardName: string) => void;
   onDeleted: () => void;
+  /** Adjacent entries in the list, for Newer/Older navigation */
+  newerEntryId?: number | null;
+  olderEntryId?: number | null;
+  onNavigateEntry?: (entryId: number) => void;
 }
 
 import { formatDateTime } from '../../utils/formatting';
 import { confirmDialog } from '../common/ConfirmDialog';
 
-export default function EntryViewer({ entryId, onEdit, onNewFromEntry, onFindCardInJournal, onDeleted }: EntryViewerProps) {
+export default function EntryViewer({ entryId, onEdit, onNewFromEntry, onFindCardInJournal, onDeleted, newerEntryId, olderEntryId, onNavigateEntry }: EntryViewerProps) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [viewingCardId, setViewingCardId] = useState<number | null>(null);
@@ -58,6 +62,32 @@ export default function EntryViewer({ entryId, onEdit, onNewFromEntry, onFindCar
     return { allCardIds: ids, cardToDeckMap: deckMap };
   }, [entry]);
 
+  // Left/right arrows flip between entries (newest first, so Left =
+  // newer, Right = older) — same idiom as the card viewer. Ignored
+  // while typing or while any dialog is open.
+  useEffect(() => {
+    if (!onNavigateEntry) return;
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      )) return;
+      if (document.querySelector('.modal-overlay, .confirm-dialog__overlay')) return;
+      if (e.key === 'ArrowLeft' && newerEntryId) {
+        e.preventDefault();
+        onNavigateEntry(newerEntryId);
+      } else if (e.key === 'ArrowRight' && olderEntryId) {
+        e.preventDefault();
+        onNavigateEntry(olderEntryId);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [newerEntryId, olderEntryId, onNavigateEntry]);
+
   const handleDelete = async () => {
     if (!(await confirmDialog({ message: 'Delete this journal entry? This cannot be undone.', title: 'Delete Entry', confirmLabel: 'Delete' }))) return;
     try {
@@ -86,6 +116,24 @@ export default function EntryViewer({ entryId, onEdit, onNewFromEntry, onFindCar
         <div className="entry-viewer__header">
           <h2 className="entry-viewer__title">{entry.title || 'Untitled Entry'}</h2>
           <div className="entry-viewer__actions">
+            {onNavigateEntry && (
+              <span className="entry-viewer__nav">
+                <button
+                  disabled={!newerEntryId}
+                  onClick={() => newerEntryId && onNavigateEntry(newerEntryId)}
+                  title="Newer entry (←)"
+                >
+                  &lsaquo; Newer
+                </button>
+                <button
+                  disabled={!olderEntryId}
+                  onClick={() => olderEntryId && onNavigateEntry(olderEntryId)}
+                  title="Older entry (→)"
+                >
+                  Older &rsaquo;
+                </button>
+              </span>
+            )}
             <button onClick={() => setChartOpen(true)} title="Open event chart">
               View Chart
             </button>
