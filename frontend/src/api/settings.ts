@@ -62,6 +62,18 @@ export async function updateDefaults(data: Partial<AppDefaults>): Promise<void> 
 
 // === Backup & Restore ===
 
+export interface BackupStatus {
+  last_auto_snapshot: string | null;
+  auto_snapshot_count: number;
+  last_backup_time: string | null;
+  last_backup_with_images_time: string | null;
+}
+
+export async function getBackupStatus(): Promise<BackupStatus> {
+  const res = await api.get('/api/backup/status');
+  return res.data;
+}
+
 export async function createBackup(includeImages: boolean): Promise<Blob> {
   const res = await api.post('/api/backup', { include_images: includeImages }, {
     responseType: 'blob',

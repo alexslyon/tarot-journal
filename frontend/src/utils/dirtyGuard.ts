@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { confirmDialog } from '../components/common/ConfirmDialog';
 
 /** Tracks whether any editor currently holds unsaved changes, and
@@ -8,6 +9,22 @@ import { confirmDialog } from '../components/common/ConfirmDialog';
 
 let dirtyCount = 0;
 let allowClose = false;
+
+/** True while any registered editor has unsaved changes. Used by the
+ *  top-level tab switcher to confirm before unmounting a dirty
+ *  non-modal editor (e.g. the Spread Designer). */
+export function hasDirtyEditors(): boolean {
+  return dirtyCount > 0;
+}
+
+/** Hook form: register while `isDirty` is true, auto-unregister when
+ *  it flips false or the component unmounts. Covers both app-quit and
+ *  tab-switch guards in one line. */
+export function useDirtyGuard(isDirty: boolean) {
+  useEffect(() => {
+    if (isDirty) return registerDirty();
+  }, [isDirty]);
+}
 
 /** Register a dirty editor. Returns an unregister function — call it
  *  when the editor saves, closes, or becomes clean again. */

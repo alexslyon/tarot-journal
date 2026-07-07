@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useDirtyGuard } from '../../utils/dirtyGuard';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { createSpread, updateSpread, deleteSpread, cloneSpread } from '../../api/spreads';
 import { useToast } from '../../context/ToastContext';
@@ -39,6 +40,34 @@ export default function SpreadsTab() {
   const [defaultDeckId, setDefaultDeckId] = useState<number | null>(null);
   const [deckSlots, setDeckSlots] = useState<DeckSlot[]>([]);
   const [viewerShowLabels, setViewerShowLabels] = useState(false);
+
+  // Unsaved-changes detection: the form state diverging from the
+  // selected spread (or any content on a brand-new spread). Feeds the
+  // shared dirty guard so quitting the app or switching tabs asks for
+  // confirmation instead of silently discarding a half-designed spread.
+  const isDirty = useMemo(() => {
+    if (isNew) {
+      return name.trim() !== '' || positions.length > 0;
+    }
+    if (!selectedSpread || !editing) return false;
+    if (name !== selectedSpread.name) return true;
+    if ((description || '') !== (selectedSpread.description || '')) return true;
+    const basePositions = Array.isArray(selectedSpread.positions) ? selectedSpread.positions : [];
+    if (JSON.stringify(positions) !== JSON.stringify(basePositions)) return true;
+    const baseAllowed = Array.isArray(selectedSpread.allowed_deck_types)
+      ? selectedSpread.allowed_deck_types : [];
+    if (JSON.stringify(allowedDeckTypes) !== JSON.stringify(baseAllowed)) return true;
+    if ((defaultDeckId ?? null) !== (selectedSpread.default_deck_id ?? null)) return true;
+    let baseSlots: DeckSlot[] = [];
+    const rawSlots = selectedSpread.deck_slots;
+    if (Array.isArray(rawSlots)) baseSlots = rawSlots;
+    else if (typeof rawSlots === 'string') {
+      try { baseSlots = JSON.parse(rawSlots); } catch { baseSlots = []; }
+    }
+    if (JSON.stringify(deckSlots) !== JSON.stringify(baseSlots)) return true;
+    return false;
+  }, [isNew, editing, selectedSpread, name, description, positions, allowedDeckTypes, defaultDeckId, deckSlots]);
+  useDirtyGuard(isDirty);
 
   // Populate form when a spread is selected
   useEffect(() => {

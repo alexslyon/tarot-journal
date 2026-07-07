@@ -1,8 +1,30 @@
 import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getDefaults, createBackup, restoreBackup } from '../../../api/settings';
+import { getDefaults, createBackup, restoreBackup, getBackupStatus } from '../../../api/settings';
 import '../SettingsTab.css';
 import { confirmDialog } from '../../common/ConfirmDialog';
+
+/** "today", "yesterday", "N days ago", or "never". */
+function relativeDays(dateStr: string | null): string {
+  if (!dateStr) return 'never';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return 'never';
+  const dayMs = 24 * 60 * 60 * 1000;
+  const startOfDay = (x: Date) =>
+    new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((startOfDay(new Date()) - startOfDay(d)) / dayMs);
+  if (diff <= 0) return 'today';
+  if (diff === 1) return 'yesterday';
+  return `${diff} days ago`;
+}
+
+/** Days since the date, or Infinity if never. */
+function daysSince(dateStr: string | null): number {
+  if (!dateStr) return Infinity;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return Infinity;
+  return (Date.now() - d.getTime()) / (24 * 60 * 60 * 1000);
+}
 
 export default function BackupSection() {
   const queryClient = useQueryClient();
@@ -16,6 +38,15 @@ export default function BackupSection() {
     queryKey: ['settings-defaults'],
     queryFn: getDefaults,
   });
+
+  const { data: status } = useQuery({
+    queryKey: ['backup-status'],
+    queryFn: getBackupStatus,
+  });
+
+  // Deck scans only live in with-images backups (and the user's own
+  // external backups), so nudge when that copy is aging.
+  const imagesBackupStale = status ? daysSince(status.last_backup_with_images_time) > 30 : false;
 
   const showMsg = (text: string, type: 'success' | 'error') => {
     setMessage({ text, type });
@@ -33,6 +64,7 @@ export default function BackupSection() {
       a.click();
       URL.revokeObjectURL(url);
       queryClient.invalidateQueries({ queryKey: ['settings-defaults'] });
+      queryClient.invalidateQueries({ queryKey: ['backup-status'] });
       showMsg('Backup created successfully', 'success');
     } catch (err) {
       console.error('Backup failed:', err);
@@ -74,7 +106,32 @@ export default function BackupSection() {
       )}
 
       <section className="settings-tab__section">
-        {defaults?.last_backup_time && (
+        {status && (
+          <div className="settings-tab__backup-status">
+            <p className="settings-tab__backup-status-line">
+              Automatic snapshot: <strong>{relativeDays(status.last_auto_snapshot)}</strong>
+              {status.auto_snapshot_count > 0 && (
+                <span className="settings-tab__backup-status-detail">
+                  {' '}({status.auto_snapshot_count} kept, written on every launch)
+                </span>
+              )}
+            </p>
+            <p className="settings-tab__backup-status-line">
+              Last manual backup: <strong>{relativeDays(status.last_backup_time)}</strong>
+            </p>
+            <p className={`settings-tab__backup-status-line${imagesBackupStale ? ' settings-tab__backup-status-line--warn' : ''}`}>
+              Last backup including card images:{' '}
+              <strong>{relativeDays(status.last_backup_with_images_time)}</strong>
+              {imagesBackupStale && (
+                <span className="settings-tab__backup-status-detail">
+                  {' '}— your card scans are only protected by with-images backups;
+                  consider making one
+                </span>
+              )}
+            </p>
+          </div>
+        )}
+        {!status && defaults?.last_backup_time && (
           <p className="settings-tab__last-backup">
             Last backup: {new Date(defaults.last_backup_time).toLocaleString()}
           </p>

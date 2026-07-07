@@ -576,8 +576,12 @@ class ImportExportMixin:
             except OSError:
                 pass
 
-        # Store last backup time in settings
+        # Store last backup time in settings. Track with-images backups
+        # separately — they're the only backups that protect the deck
+        # scans, so the UI reports their staleness on its own.
         self.set_setting("last_backup_time", datetime.now().isoformat())
+        if include_images:
+            self.set_setting("last_backup_with_images_time", datetime.now().isoformat())
 
         logger.info("Backup complete: %d entries, %d decks, %d images",
                      entry_count, deck_count, images_added if include_images else 0)

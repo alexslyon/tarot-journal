@@ -74,8 +74,10 @@ def create_app():
     # corruption or accidental data loss even if the user never
     # presses the manual Backup button. A failed snapshot must never
     # prevent the app from starting, hence the broad catch.
+    auto_backup_dir = os.path.join(data_dir, 'backups', 'auto')
+    app.config['AUTO_BACKUP_DIR'] = auto_backup_dir
     try:
-        db.auto_backup(os.path.join(data_dir, 'backups', 'auto'), keep=10)
+        db.auto_backup(auto_backup_dir, keep=10)
     except Exception as e:
         from logger_config import get_logger
         get_logger('backend').warning("Automatic startup backup failed: %s", e)

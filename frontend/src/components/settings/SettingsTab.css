@@ -430,3 +430,28 @@
 .settings-tab__clear-cache-btn {
   color: var(--text-secondary) !important;
 }
+
+/* Backup status block */
+.settings-tab__backup-status {
+  margin-bottom: 14px;
+}
+
+.settings-tab__backup-status-line {
+  margin: 2px 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-body);
+}
+
+.settings-tab__backup-status-line strong {
+  color: var(--text-primary);
+}
+
+.settings-tab__backup-status-line--warn,
+.settings-tab__backup-status-line--warn strong {
+  color: var(--warning);
+}
+
+.settings-tab__backup-status-detail {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+}

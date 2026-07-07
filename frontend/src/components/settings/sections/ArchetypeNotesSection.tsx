@@ -432,15 +432,20 @@ function ArchetypeFieldEditor({
 
   const firstRunRef = useRef(true);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Content that has been typed but not yet saved by the debounce.
+  // Null when everything on screen is persisted.
+  const pendingSaveRef = useRef<string | null>(null);
   useEffect(() => {
     if (firstRunRef.current) {
       firstRunRef.current = false;
       return;
     }
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    pendingSaveRef.current = content;
     saveTimerRef.current = setTimeout(async () => {
       try {
         await setArchetypeSourceEntry(archetype.id, field.id, content);
+        if (pendingSaveRef.current === content) pendingSaveRef.current = null;
         queryClient.invalidateQueries({
           queryKey: ['source-entries', sourceId],
         });
@@ -456,6 +461,26 @@ function ArchetypeFieldEditor({
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
   }, [content, archetype.id, field.id, sourceId, queryClient, showToast]);
+
+  // Flush on unmount: switching cards or tabs (or closing Settings)
+  // mid-typing used to cancel the debounced save and silently drop the
+  // last ≤600ms of writing. This component is keyed per (archetype,
+  // field), so the ids are stable for the instance's lifetime.
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      const pending = pendingSaveRef.current;
+      if (pending !== null) {
+        setArchetypeSourceEntry(archetype.id, field.id, pending)
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ['source-entries', sourceId] });
+            queryClient.invalidateQueries({ queryKey: ['archetype-source-entries', archetype.id] });
+          })
+          .catch(err => console.error('Failed to flush unsaved entry:', err));
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Collapsible fields render with a chevron disclosure (collapsed
   // by default, expansion owned by the parent so it persists across

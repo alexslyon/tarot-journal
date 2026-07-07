@@ -3,7 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { ConfirmDialogHost } from './components/common/ConfirmDialog';
-import { installQuitGuard } from './utils/dirtyGuard';
+import { installQuitGuard, hasDirtyEditors } from './utils/dirtyGuard';
+import { confirmDialog } from './components/common/ConfirmDialog';
 import TabNav, { type TabId } from './components/layout/TabNav';
 import LibraryTab from './components/library/LibraryTab';
 import JournalTab from './components/journal/JournalTab';
@@ -41,10 +42,27 @@ export default function App() {
   // set from the Library tab and consumed by the Journal tab.
   const [journalCardFilter, setJournalCardFilter] = useState<string | null>(null);
 
-  const handleFindCardInJournal = useCallback((cardName: string) => {
-    setJournalCardFilter(cardName);
-    setActiveTab('journal');
-  }, []);
+  // Switching top-level tabs unmounts the current tab's editors, so a
+  // dirty non-modal editor (e.g. a half-designed spread) would lose
+  // its work silently. Every tab-switch path goes through this guard.
+  const guardedSwitchTab = useCallback(async (tab: TabId): Promise<boolean> => {
+    if (tab !== activeTab && hasDirtyEditors()) {
+      const discard = await confirmDialog({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Switch tabs and discard them?',
+        confirmLabel: 'Discard & Switch',
+      });
+      if (!discard) return false;
+    }
+    setActiveTab(tab);
+    return true;
+  }, [activeTab]);
+
+  const handleFindCardInJournal = useCallback(async (cardName: string) => {
+    if (await guardedSwitchTab('journal')) {
+      setJournalCardFilter(cardName);
+    }
+  }, [guardedSwitchTab]);
 
   const handleClearCardFilter = useCallback(() => setJournalCardFilter(null), []);
 
@@ -61,22 +79,23 @@ export default function App() {
       if (e.key.toLowerCase() === 'n' && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
         if (document.querySelector('.modal-overlay, .confirm-dialog__overlay')) return;
         e.preventDefault();
-        setActiveTab('journal');
-        setPendingNewEntry(true);
+        guardedSwitchTab('journal').then((switched) => {
+          if (switched) setPendingNewEntry(true);
+        });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [guardedSwitchTab]);
 
   const handleNewEntryHandled = useCallback(() => setPendingNewEntry(false), []);
 
-  const handleTabChange = useCallback((tab: TabId, section?: string) => {
-    setActiveTab(tab);
+  const handleTabChange = useCallback(async (tab: TabId, section?: string) => {
+    if (!(await guardedSwitchTab(tab))) return;
     if (tab === 'settings' && section) {
       setSettingsSection(section);
     }
-  }, []);
+  }, [guardedSwitchTab]);
 
   const handleSettingsSectionViewed = useCallback(() => {
     setSettingsSection(undefined);

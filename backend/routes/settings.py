@@ -113,6 +113,32 @@ def update_defaults():
 
 # === Backup & Restore ===
 
+@settings_bp.route('/api/backup/status')
+def backup_status():
+    """Report backup recency so the UI can show (and nudge about)
+    how protected the user's data currently is."""
+    db = current_app.config['DB']
+
+    latest_auto = None
+    auto_count = 0
+    auto_dir = current_app.config.get('AUTO_BACKUP_DIR')
+    if auto_dir and os.path.isdir(auto_dir):
+        import glob
+        from datetime import datetime
+        snaps = sorted(glob.glob(os.path.join(auto_dir, 'tarot_journal_auto_*.db')))
+        auto_count = len(snaps)
+        if snaps:
+            latest_auto = datetime.fromtimestamp(
+                os.path.getmtime(snaps[-1])).isoformat()
+
+    return jsonify({
+        'last_auto_snapshot': latest_auto,
+        'auto_snapshot_count': auto_count,
+        'last_backup_time': db.get_setting('last_backup_time'),
+        'last_backup_with_images_time': db.get_setting('last_backup_with_images_time'),
+    })
+
+
 @settings_bp.route('/api/backup', methods=['POST'])
 def create_backup():
     db = current_app.config['DB']
