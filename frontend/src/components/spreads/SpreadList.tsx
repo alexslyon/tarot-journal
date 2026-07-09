@@ -47,6 +47,14 @@ export default function SpreadList({
               key={spread.id}
               className={`spread-list__row ${spread.id === selectedSpreadId ? 'spread-list__row--selected' : ''}`}
               onClick={() => onSelect(spread)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSelect(spread);
+                }
+              }}
             >
               <span className="spread-list__name">{spread.name}</span>
               <span className="spread-list__count">{positions.length} pos</span>

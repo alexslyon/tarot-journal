@@ -128,3 +128,10 @@ button.danger {
 .text-dim {
   color: var(--text-dim);
 }
+
+/* Keyboard focus indicator for list rows and grid cells made
+   focusable via role="button" (mouse clicks don't trigger it). */
+[role="button"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

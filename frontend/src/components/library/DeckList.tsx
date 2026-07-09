@@ -119,6 +119,14 @@ export default function DeckList({ selectedDeckId, onSelectDeck, onEditDeck, onI
             className={`deck-list__row ${deck.id === selectedDeckId ? 'deck-list__row--selected' : ''}`}
             onClick={() => onSelectDeck(deck)}
             onDoubleClick={() => onEditDeck?.(deck.id)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onSelectDeck(deck);
+              }
+            }}
           >
             <div className="deck-list__row-content">
               <span className="deck-list__name">

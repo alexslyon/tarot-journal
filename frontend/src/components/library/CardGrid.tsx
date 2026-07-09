@@ -99,6 +99,14 @@ export default function CardGrid({ deckId, deckName, onCardClick, searchResults,
               className={`card-grid__card ${selectedIds?.has(card.id) ? 'card-grid__card--selected' : ''}`}
               onClick={() => onCardClick?.(card)}
               title={card.name}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onCardClick?.(card);
+                }
+              }}
             >
               {selectable && (
                 <div className="card-grid__checkbox" onClick={(e) => toggleSelect(card.id, e)}>

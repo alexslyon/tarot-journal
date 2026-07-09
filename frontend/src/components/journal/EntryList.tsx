@@ -250,6 +250,14 @@ export default function EntryList({
               <div
                 className={`entry-list__row ${entry.id === selectedEntryId ? 'entry-list__row--selected' : ''}`}
                 onClick={() => onSelectEntry(entry.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectEntry(entry.id);
+                  }
+                }}
               >
                 <div className="entry-list__row-date">{rowDate}</div>
                 <div className="entry-list__row-title">
