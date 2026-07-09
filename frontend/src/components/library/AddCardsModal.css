@@ -14,7 +14,7 @@
   color: var(--danger);
   font-size: var(--font-size-body);
   padding: 8px 12px;
-  background: rgba(217, 83, 79, 0.1);
+  background: var(--danger-tint);
   border-radius: 4px;
 }
 

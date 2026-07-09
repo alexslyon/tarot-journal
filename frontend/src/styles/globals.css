@@ -22,6 +22,10 @@
   --success: #5cb85c;
   --warning: #f0ad4e;
   --danger: #d9534f;
+  /* Translucent wash of the danger color for warning backgrounds.
+     Derived via color-mix so it follows the theme's --danger, including
+     the runtime value injected by ThemeContext. */
+  --danger-tint: color-mix(in srgb, var(--danger) 12%, transparent);
   --card-slot: #292c31;
 
   --font-display: system-ui, -apple-system, 'SF Pro Display', 'Arial Hebrew', sans-serif;

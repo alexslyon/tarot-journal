@@ -143,7 +143,7 @@
 
 .card-edit__error {
   padding: 10px 12px;
-  background: rgba(217, 83, 79, 0.15);
+  background: var(--danger-tint);
   border: 1px solid var(--danger);
   border-radius: 4px;
   color: var(--danger);
@@ -238,8 +238,8 @@
 }
 
 .card-edit__cf-delete:hover {
-  color: var(--danger, #e74c3c);
-  border-color: var(--danger, #e74c3c);
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 .card-edit__cf-select {

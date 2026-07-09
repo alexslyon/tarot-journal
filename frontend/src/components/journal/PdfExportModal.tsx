@@ -6,6 +6,7 @@ import {
   type ArchetypeFieldOption,
 } from '../../api/pdfExport';
 import { useToast } from '../../context/ToastContext';
+import Modal, { ModalCancelButton } from '../common/Modal';
 import { useEntryBreakdown } from '../../utils/readingBreakdown';
 import { CORRESPONDENCE_FIELD_LABELS } from '../../types';
 import type { JournalEntryFull, BreakdownSettings } from '../../types';
@@ -261,26 +262,8 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
   if (!open) return null;
 
   return (
-    <div className="pdf-export-modal__backdrop" onClick={onClose}>
-      <div
-        className="pdf-export-modal"
-        role="dialog"
-        aria-modal="true"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="pdf-export-modal__header">
-          <h2>Export to PDF</h2>
-          <button
-            type="button"
-            className="pdf-export-modal__close"
-            aria-label="Close"
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="pdf-export-modal__body">
+    <Modal open={true} onClose={onClose} title="Export to PDF" width={520}>
+      <div className="pdf-export-modal__body">
           {hasMultipleReadings && (
             <section className="pdf-export-modal__section">
               <h3>Readings to include</h3>
@@ -454,25 +437,19 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
           </section>
         </div>
 
-        <div className="pdf-export-modal__footer">
-          <button
-            type="button"
-            className="pdf-export-modal__cancel"
-            onClick={onClose}
-            disabled={generating}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="pdf-export-modal__generate"
-            onClick={handleGenerate}
-            disabled={noneSelected || generating}
-          >
-            {generating ? 'Generating…' : 'Generate PDF'}
-          </button>
-        </div>
+      <div className="pdf-export-modal__footer">
+        <ModalCancelButton className="pdf-export-modal__cancel" disabled={generating}>
+          Cancel
+        </ModalCancelButton>
+        <button
+          type="button"
+          className="pdf-export-modal__generate"
+          onClick={handleGenerate}
+          disabled={noneSelected || generating}
+        >
+          {generating ? 'Generating…' : 'Generate PDF'}
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 }

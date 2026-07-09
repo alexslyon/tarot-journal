@@ -10,7 +10,7 @@
   font-size: var(--font-size-small);
   padding: 8px 12px;
   margin: 12px 20px 0;
-  background-color: var(--danger-bg, rgba(220, 53, 69, 0.1));
+  background-color: var(--danger-tint);
   border: 1px solid var(--danger);
   border-radius: 4px;
 }

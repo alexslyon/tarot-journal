@@ -106,7 +106,7 @@
 
 .batch-edit__error {
   padding: 10px 12px;
-  background: rgba(217, 83, 79, 0.15);
+  background: var(--danger-tint);
   border: 1px solid var(--danger);
   border-radius: 4px;
   color: var(--danger);
