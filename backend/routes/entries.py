@@ -117,7 +117,10 @@ def list_entries():
     # Clamp values to prevent memory exhaustion
     limit = max(1, min(limit, MAX_LIMIT))
     offset = max(0, offset)
-    rows = db.get_entries(limit=limit, offset=offset)
+    sort_by = request.args.get('sort', 'reading')
+    if sort_by not in ('reading', 'created'):
+        sort_by = 'reading'
+    rows = db.get_entries(limit=limit, offset=offset, sort_by=sort_by)
     return jsonify([row_to_dict(r) for r in rows])
 
 
@@ -142,6 +145,7 @@ def search_entries():
         date_from=request.args.get('date_from') or None,
         date_to=request.args.get('date_to') or None,
         querent_id=request.args.get('querent_id', type=int),
+        sort_by=request.args.get('sort', 'reading'),
     )
     return jsonify([row_to_dict(r) for r in rows])
 

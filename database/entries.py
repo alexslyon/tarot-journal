@@ -69,11 +69,22 @@ class EntriesMixin:
         self._commit()
 
     # === Journal Entries ===
-    def get_entries(self, limit: int = 50, offset: int = 0):
+    # Whitelisted sort expressions for entry listings. 'reading' sorts
+    # by when the reading happened (falling back to created_at for
+    # entries without a reading datetime); 'created' by row creation.
+    _ENTRY_SORTS = {
+        'reading': 'COALESCE(reading_datetime, created_at) DESC',
+        'created': 'created_at DESC',
+    }
+
+    def get_entries(self, limit: int = 50, offset: int = 0,
+                    sort_by: str = 'reading'):
+        order = self._ENTRY_SORTS.get(sort_by, self._ENTRY_SORTS['reading'])
         cursor = self.conn.cursor()
-        cursor.execute('''
+        # Safe dynamic SQL: `order` comes from the whitelist above.
+        cursor.execute(f'''
             SELECT * FROM journal_entries
-            ORDER BY created_at DESC
+            ORDER BY {order}
             LIMIT ? OFFSET ?
         ''', (limit, offset))
         return cursor.fetchall()
@@ -87,7 +98,7 @@ class EntriesMixin:
                       deck_id: int = None, spread_id: int = None,
                       cartomancy_type: str = None, card_name: str = None,
                       date_from: str = None, date_to: str = None,
-                      querent_id: int = None):
+                      querent_id: int = None, sort_by: str = 'reading'):
         """Search entries with various filters"""
         cursor = self.conn.cursor()
 
@@ -145,7 +156,10 @@ class EntriesMixin:
         sql += ' ' + ' '.join(joins)
         if conditions:
             sql += ' WHERE ' + ' AND '.join(conditions)
-        sql += ' ORDER BY je.created_at DESC'
+        if sort_by == 'created':
+            sql += ' ORDER BY je.created_at DESC'
+        else:
+            sql += ' ORDER BY COALESCE(je.reading_datetime, je.created_at) DESC'
 
         cursor.execute(sql, params)
         return cursor.fetchall()

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, Fragment } from 'react';
 import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
-import { getEntries, searchEntries, getProfiles } from '../../api/entries';
+import { getEntries, searchEntries, getProfiles, type EntrySort } from '../../api/entries';
 import { getEntryTags as getAllEntryTags } from '../../api/tags';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import type { JournalEntry, Tag, Profile } from '../../types';
@@ -38,6 +38,19 @@ export default function EntryList({
   const [filterQuerentId, setFilterQuerentId] = useState<number | undefined>(undefined);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  // Sort by when the reading happened (default) or when the entry was
+  // created. Remembered across sessions.
+  const [sortBy, setSortBy] = useState<EntrySort>(() =>
+    localStorage.getItem('journal-sort') === 'created' ? 'created' : 'reading',
+  );
+  const changeSort = (s: EntrySort) => {
+    setSortBy(s);
+    try { localStorage.setItem('journal-sort', s); } catch { /* ignore */ }
+  };
+  // Group headers and row dates follow whichever date is being sorted
+  // on, so the sections always run in order.
+  const sortDateOf = (e: JournalEntry) =>
+    sortBy === 'created' ? e.created_at : (e.reading_datetime || e.created_at);
   // Search is live: results filter as you type (debounced so we don't
   // query on every keystroke). Any text or filter = searching.
   const debouncedQuery = useDebouncedValue(query, 300);
@@ -72,8 +85,8 @@ export default function EntryList({
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['entries'],
-    queryFn: ({ pageParam }) => getEntries(PAGE_SIZE, pageParam),
+    queryKey: ['entries', sortBy],
+    queryFn: ({ pageParam }) => getEntries(PAGE_SIZE, pageParam, sortBy),
     initialPageParam: 0,
     getNextPageParam: (lastPage: JournalEntry[], allPages: JournalEntry[][]) =>
       lastPage.length === PAGE_SIZE ? allPages.length * PAGE_SIZE : undefined,
@@ -92,6 +105,7 @@ export default function EntryList({
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
         card_name: cardFilter || undefined,
+        sort: sortBy,
       }
     : null;
 
@@ -172,6 +186,15 @@ export default function EntryList({
         </div>
       )}
       <div className="entry-list__filters">
+        <select
+          className="entry-list__tag-filter"
+          value={sortBy}
+          onChange={(e) => changeSort(e.target.value as EntrySort)}
+          title="Sort entries by"
+        >
+          <option value="reading">By reading date</option>
+          <option value="created">By date created</option>
+        </select>
         {tags.length > 0 && (
           <select
             className="entry-list__tag-filter"
@@ -232,11 +255,10 @@ export default function EntryList({
           </div>
         )}
         {entries.map((entry, i) => {
-          const dateStr = entry.reading_datetime || entry.created_at;
+          const dateStr = sortDateOf(entry);
           const bucket = entryDateBucket(dateStr);
           const prev = i > 0 ? entries[i - 1] : null;
-          const showHeader =
-            !prev || entryDateBucket(prev.reading_datetime || prev.created_at) !== bucket;
+          const showHeader = !prev || entryDateBucket(sortDateOf(prev)) !== bucket;
           // Rows under Today/Yesterday show the time (the header
           // already names the day); older rows show the date.
           const rowDate = bucket === 'Today' || bucket === 'Yesterday'

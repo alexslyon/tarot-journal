@@ -6,8 +6,14 @@ import type {
 
 // ── Entries ──────────────────────────────────────────────────
 
-export async function getEntries(limit = 50, offset = 0): Promise<JournalEntry[]> {
-  const res = await api.get('/api/entries', { params: { limit, offset } });
+export type EntrySort = 'reading' | 'created';
+
+export async function getEntries(
+  limit = 50,
+  offset = 0,
+  sort: EntrySort = 'reading',
+): Promise<JournalEntry[]> {
+  const res = await api.get('/api/entries', { params: { limit, offset, sort } });
   return res.data;
 }
 
@@ -26,8 +32,10 @@ export async function searchEntries(params: {
   date_from?: string;
   date_to?: string;
   querent_id?: number;
+  sort?: EntrySort;
 }): Promise<JournalEntry[]> {
   const p: Record<string, string> = {};
+  if (params.sort) p.sort = params.sort;
   if (params.query) p.query = params.query;
   if (params.tag_ids?.length) p.tag_ids = params.tag_ids.join(',');
   if (params.deck_id) p.deck_id = String(params.deck_id);

@@ -36,3 +36,27 @@ def test_date_filter_uses_reading_datetime_not_created_at(db):
     # ...and not match a search for the (current) creation date window
     results_now = db.search_entries(date_from="2026-07-01", date_to="2026-12-31")
     assert "backdated reading" not in [r["title"] for r in results_now]
+
+
+def test_entries_sort_by_reading_vs_created(db):
+    """An entry logged today about an old reading sorts first by
+    creation but last by reading date."""
+    a = db.add_entry(title="old reading, logged now",
+                     reading_datetime="2026-01-05T10:00:00")
+    b = db.add_entry(title="recent reading, logged earlier",
+                     reading_datetime="2026-07-01T10:00:00")
+    # Make creation order unambiguous: a created after b
+    db.conn.execute("UPDATE journal_entries SET created_at='2026-07-08T12:00:00' WHERE id=?", (a,))
+    db.conn.execute("UPDATE journal_entries SET created_at='2026-07-02T12:00:00' WHERE id=?", (b,))
+    db.conn.commit()
+
+    by_reading = [r["title"] for r in db.get_entries(sort_by="reading")]
+    by_created = [r["title"] for r in db.get_entries(sort_by="created")]
+    assert by_reading == ["recent reading, logged earlier", "old reading, logged now"]
+    assert by_created == ["old reading, logged now", "recent reading, logged earlier"]
+
+    # search honors the same sort switch
+    s_reading = [r["title"] for r in db.search_entries(query="reading", sort_by="reading")]
+    s_created = [r["title"] for r in db.search_entries(query="reading", sort_by="created")]
+    assert s_reading == by_reading
+    assert s_created == by_created
