@@ -22,15 +22,42 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
   const [selectedSystemId, setSelectedSystemId] = useState<number | null>(null);
   const [compareIds, setCompareIds] = useState<number[]>([]);
   const [filterText, setFilterText] = useState('');
+  const [typeFilter, setTypeFilter] = useState('Tarot');
 
   const { data: systems = [] } = useQuery<CorrespondenceSystem[]>({
     queryKey: ['correspondence-systems'],
     queryFn: getCorrespondenceSystems,
   });
 
-  // Auto-select first system
-  if (systems.length > 0 && selectedSystemId === null) {
-    setSelectedSystemId(systems[0].id);
+  // Deck-type filter: only offer types that actually have systems,
+  // defaulting to Tarot (or the first available type if no Tarot
+  // systems exist).
+  const availableTypes = useMemo(() => {
+    const types = [...new Set(systems.map(s => s.cartomancy_type || 'Tarot'))];
+    types.sort((a, b) => (a === 'Tarot' ? -1 : b === 'Tarot' ? 1 : a.localeCompare(b)));
+    return types;
+  }, [systems]);
+  const activeType = availableTypes.includes(typeFilter)
+    ? typeFilter
+    : (availableTypes[0] ?? 'Tarot');
+  const typedSystems = useMemo(
+    () => systems.filter(s => (s.cartomancy_type || 'Tarot') === activeType),
+    [systems, activeType],
+  );
+
+  const changeType = (t: string) => {
+    setTypeFilter(t);
+    // Selections belong to the previous type; reset so the first
+    // system of the new type auto-selects.
+    setSelectedSystemId(null);
+    setCompareIds([]);
+  };
+
+  // Auto-select first system of the active type (also covers the
+  // selected system disappearing when the type changes)
+  if (typedSystems.length > 0 &&
+      (selectedSystemId === null || !typedSystems.some(s => s.id === selectedSystemId))) {
+    setSelectedSystemId(typedSystems[0].id);
   }
 
   const { data: systemDetail } = useQuery({
@@ -112,6 +139,18 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
     <div className="reference-section">
       <div className="corr-viewer__header">
         <h2 className="reference-section__title">Correspondences</h2>
+        {availableTypes.length > 1 && (
+          <select
+            className="corr-viewer__type-select"
+            value={activeType}
+            onChange={e => changeType(e.target.value)}
+            title="Deck type"
+          >
+            {availableTypes.map(t => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        )}
         {onEditCorrespondences && (
           <button
             className="corr-viewer__edit-btn"
@@ -147,7 +186,7 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
               onChange={e => setSelectedSystemId(Number(e.target.value))}
               className="corr-viewer__system-select"
             >
-              {systems.map(sys => (
+              {typedSystems.map(sys => (
                 <option key={sys.id} value={sys.id}>{sys.name}</option>
               ))}
             </select>
@@ -227,7 +266,7 @@ export default function CorrespondencesViewer({ onEditCorrespondences }: Corresp
         <div className="reference-section__card">
           <p className="reference-section__hint">Select two or more systems to compare.</p>
           <div className="corr-viewer__compare-select">
-            {systems.map(sys => (
+            {typedSystems.map(sys => (
               <label key={sys.id} className="corr-viewer__compare-check">
                 <input
                   type="checkbox"

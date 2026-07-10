@@ -234,3 +234,8 @@
 .corr-viewer__group-category:first-child .corr-viewer__group-category-heading {
   margin-top: 0;
 }
+
+.corr-viewer__type-select {
+  margin-left: auto;
+  margin-right: 8px;
+}
