@@ -408,7 +408,7 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
                 {deckCards.length > 0 ? (
                   <SearchCombobox
                     ref={(h) => { freeFormRefs.current[idx] = h; }}
-                    options={deckCards.map(c => ({ id: c.id, label: labelForCard(c, deckCards) }))}
+                    options={deckCards.map(c => cardComboOption(c, deckCards))}
                     value={
                       card.card_id
                         ?? (card.name ? deckCards.find(c => c.name === card.name)?.id : undefined)
@@ -491,6 +491,20 @@ function labelForCard(card: VariantCard, allCards: VariantCard[]): string {
   const ordered = [...sameName].sort(compareVariants);
   const variantIdx = ordered.findIndex(c => c.id === card.id) + 1;
   return `${card.name} (variant ${variantIdx})`;
+}
+
+/** Combobox option for a card: searches match the deck's own card name
+ *  AND the archetype ("Ace of Wands" finds "As de Bâtons"), with the
+ *  archetype shown dimmed so the match is self-explanatory. */
+function cardComboOption(card: Card, allCards: Card[]) {
+  const archetype =
+    card.archetype && card.archetype !== card.name ? card.archetype : undefined;
+  return {
+    id: card.id,
+    label: labelForCard(card, allCards),
+    keywords: archetype ? [archetype] : undefined,
+    hint: archetype,
+  };
 }
 
 function getCardImageStyle(
@@ -685,7 +699,7 @@ function VisualSpreadEditor({
                   Volatile) are independently selectable. */}
               <SearchCombobox
                 ref={(h) => { comboRefs.current[idx] = h; }}
-                options={currentDeckCards.map(c => ({ id: c.id, label: labelForCard(c, currentDeckCards) }))}
+                options={currentDeckCards.map(c => cardComboOption(c, currentDeckCards))}
                 value={
                   card?.card_id
                     ?? (card?.name ? getCardId(card.name, posDeckId) : undefined)

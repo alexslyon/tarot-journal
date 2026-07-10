@@ -11,6 +11,12 @@ import './SearchCombobox.css';
 export interface ComboOption {
   id: number;
   label: string;
+  /** Alternate names the option also matches on (e.g. a card's
+   *  archetype: searching "Ace of Wands" finds "As de Bâtons"). */
+  keywords?: string[];
+  /** Dimmed text shown after the label in the list — makes keyword
+   *  matches self-explanatory (typically the archetype name). */
+  hint?: string;
 }
 
 interface SearchComboboxProps {
@@ -58,19 +64,28 @@ const SearchCombobox = forwardRef<SearchComboboxHandle, SearchComboboxProps>(
 
     // Prefix matches rank above substring matches, so "tow" puts
     // "Tower" before "Two of Cups"... and vice versa for "two".
+    // Label matches always rank above keyword (alternate-name) matches.
     const filtered = useMemo(() => {
       const q = query.trim().toLowerCase();
       if (!q) return options;
       const starts: ComboOption[] = [];
       const wordStarts: ComboOption[] = [];
       const contains: ComboOption[] = [];
+      const keywordStarts: ComboOption[] = [];
+      const keywordContains: ComboOption[] = [];
       for (const o of options) {
         const label = o.label.toLowerCase();
-        if (label.startsWith(q)) starts.push(o);
-        else if (label.split(/\s+/).some((w) => w.startsWith(q))) wordStarts.push(o);
-        else if (label.includes(q)) contains.push(o);
+        if (label.startsWith(q)) { starts.push(o); continue; }
+        if (label.split(/\s+/).some((w) => w.startsWith(q))) { wordStarts.push(o); continue; }
+        if (label.includes(q)) { contains.push(o); continue; }
+        const kws = o.keywords?.map((k) => k.toLowerCase()) ?? [];
+        if (kws.some((k) => k.startsWith(q) || k.split(/\s+/).some((w) => w.startsWith(q)))) {
+          keywordStarts.push(o);
+        } else if (kws.some((k) => k.includes(q))) {
+          keywordContains.push(o);
+        }
       }
-      return [...starts, ...wordStarts, ...contains];
+      return [...starts, ...wordStarts, ...contains, ...keywordStarts, ...keywordContains];
     }, [options, query]);
 
     useEffect(() => setHighlight(0), [query]);
@@ -189,6 +204,9 @@ const SearchCombobox = forwardRef<SearchComboboxHandle, SearchComboboxProps>(
                 onMouseEnter={() => setHighlight(i)}
               >
                 {o.label}
+                {o.hint && (
+                  <span className="search-combobox__option-hint"> — {o.hint}</span>
+                )}
               </li>
             ))}
           </ul>
