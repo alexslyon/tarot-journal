@@ -233,7 +233,10 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
       let querentIdsVal = defaultQuerentIds;
       let readerVal = defaultReader;
       let tagIdsVal: number[] = [];
-      let readingsVal: ReadingData[] = [];
+      // A fresh entry starts with one open reading slot — logging a
+      // reading is why the editor was opened, so don't make the user
+      // click "+ Add Reading" first.
+      let readingsVal: ReadingData[] = [emptyReading()];
 
       if (useTemplate && templateEntry) {
         titleVal = templateEntry.title || '';
@@ -362,8 +365,14 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
       // unlike the old delete-then-re-add flow, which could destroy
       // them if a save failed partway.
       let readingsFailed = false;
+      // Skip completely untouched reading slots (no spread, no deck,
+      // no cards) — new entries open with one ready to fill, and an
+      // unused slot shouldn't save an empty reading.
+      const meaningfulReadings = readings.filter(
+        r => r.spread_id || r.deck_id || r.cards.some(c => c.name.trim()),
+      );
       try {
-        await replaceEntryReadings(savedEntryId, readings.map((r, i) => ({
+        await replaceEntryReadings(savedEntryId, meaningfulReadings.map((r, i) => ({
           spread_id: r.spread_id,
           spread_name: r.spread_name || undefined,
           deck_id: r.deck_id,
