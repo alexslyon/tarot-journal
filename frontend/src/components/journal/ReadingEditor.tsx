@@ -494,8 +494,8 @@ function labelForCard(card: VariantCard, allCards: VariantCard[]): string {
 }
 
 /** Combobox option for a card: searches match the deck's own card name
- *  AND the archetype ("Ace of Wands" finds "As de Bâtons"), with the
- *  archetype shown dimmed so the match is self-explanatory. */
+ *  AND the archetype ("Ace of Wands" finds "As de Bâtons"); only the
+ *  deck's own card name is displayed. */
 function cardComboOption(card: Card, allCards: Card[]) {
   const archetype =
     card.archetype && card.archetype !== card.name ? card.archetype : undefined;
@@ -503,7 +503,6 @@ function cardComboOption(card: Card, allCards: Card[]) {
     id: card.id,
     label: labelForCard(card, allCards),
     keywords: archetype ? [archetype] : undefined,
-    hint: archetype,
   };
 }
 

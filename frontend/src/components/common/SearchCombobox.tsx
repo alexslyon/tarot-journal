@@ -14,9 +14,6 @@ export interface ComboOption {
   /** Alternate names the option also matches on (e.g. a card's
    *  archetype: searching "Ace of Wands" finds "As de Bâtons"). */
   keywords?: string[];
-  /** Dimmed text shown after the label in the list — makes keyword
-   *  matches self-explanatory (typically the archetype name). */
-  hint?: string;
 }
 
 interface SearchComboboxProps {
@@ -204,9 +201,6 @@ const SearchCombobox = forwardRef<SearchComboboxHandle, SearchComboboxProps>(
                 onMouseEnter={() => setHighlight(i)}
               >
                 {o.label}
-                {o.hint && (
-                  <span className="search-combobox__option-hint"> — {o.hint}</span>
-                )}
               </li>
             ))}
           </ul>

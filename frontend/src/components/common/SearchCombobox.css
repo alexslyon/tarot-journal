@@ -85,13 +85,3 @@
   color: var(--text-dim);
   font-size: var(--font-size-body);
 }
-
-.search-combobox__option-hint {
-  color: var(--text-dim);
-  font-size: var(--font-size-small);
-}
-
-.search-combobox__option--active .search-combobox__option-hint {
-  color: inherit;
-  opacity: 0.75;
-}
