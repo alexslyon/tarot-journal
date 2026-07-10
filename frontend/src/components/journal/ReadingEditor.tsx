@@ -10,6 +10,10 @@ import type { Card, Deck, Spread, SpreadPosition, DeckSlot } from '../../types';
 import './ReadingEditor.css';
 
 export interface ReadingData {
+  /** Client-side identity for React keys — lets readings be reordered
+   *  or removed without adjacent readings inheriting each other's
+   *  editor state. Never persisted (the save maps fields explicitly). */
+  _key?: string;
   spread_id: number | null;
   spread_name: string | null;
   deck_id: number | null;
@@ -38,9 +42,12 @@ interface ReadingEditorProps {
   index: number;
   /** Default deck IDs by cartomancy type name */
   defaultDecks?: Record<string, number | null>;
+  /** Reorder this reading within the entry (undefined = can't move) */
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
-export default function ReadingEditor({ value, onChange, onRemove, index, defaultDecks }: ReadingEditorProps) {
+export default function ReadingEditor({ value, onChange, onRemove, index, defaultDecks, onMoveUp, onMoveDown }: ReadingEditorProps) {
   const { data: decks = [] } = useQuery({
     queryKey: ['decks'],
     queryFn: () => getDecks(),
@@ -264,13 +271,37 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
     <div className="reading-editor">
       <div className="reading-editor__header">
         <span className="reading-editor__label">Reading {index + 1}</span>
-        <button
-          className="reading-editor__remove-btn"
-          onClick={onRemove}
-          title="Remove reading"
-        >
-          &times;
-        </button>
+        <span className="reading-editor__header-actions">
+          {(onMoveUp || onMoveDown) && (
+            <>
+              <button
+                className="reading-editor__move-btn"
+                disabled={!onMoveUp}
+                onClick={onMoveUp}
+                title="Move reading up"
+                aria-label={`Move reading ${index + 1} up`}
+              >
+                ▲
+              </button>
+              <button
+                className="reading-editor__move-btn"
+                disabled={!onMoveDown}
+                onClick={onMoveDown}
+                title="Move reading down"
+                aria-label={`Move reading ${index + 1} down`}
+              >
+                ▼
+              </button>
+            </>
+          )}
+          <button
+            className="reading-editor__remove-btn"
+            onClick={onRemove}
+            title="Remove reading"
+          >
+            &times;
+          </button>
+        </span>
       </div>
 
       <div className="reading-editor__row">

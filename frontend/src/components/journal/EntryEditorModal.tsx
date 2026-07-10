@@ -46,6 +46,7 @@ interface EntryEditorModalProps {
 
 function emptyReading(): ReadingData {
   return {
+    _key: crypto.randomUUID(),
     spread_id: null,
     spread_name: null,
     deck_id: null,
@@ -166,6 +167,7 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
 
       // Convert existing readings to ReadingData
       const readingData: ReadingData[] = existingEntry.readings.map(r => ({
+        _key: crypto.randomUUID(),
         spread_id: r.spread_id,
         spread_name: r.spread_name,
         deck_id: r.deck_id,
@@ -244,6 +246,7 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
         // stay on the empty cards so multi-deck slot assignments carry
         // over (the reading editor derives slot decks from them).
         readingsVal = templateEntry.readings.map(r => ({
+          _key: crypto.randomUUID(),
           spread_id: r.spread_id,
           spread_name: r.spread_name,
           deck_id: r.deck_id,
@@ -310,6 +313,18 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
 
   const removeReading = (idx: number) => {
     setReadings(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Swap a reading with its neighbor. Saved position_order follows
+  // array order, so the new arrangement persists on save.
+  const moveReading = (idx: number, direction: -1 | 1) => {
+    setReadings(prev => {
+      const target = idx + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
   };
 
   const handleSave = async () => {
@@ -629,18 +644,17 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
           <div className="entry-editor__section">
             <div className="entry-editor__section-header">
               <h3 className="entry-editor__section-title">Readings</h3>
-              <button className="entry-editor__add-btn" onClick={addReading}>
-                + Add Reading
-              </button>
             </div>
             {readings.map((reading, idx) => (
               <ReadingEditor
-                key={idx}
+                key={reading._key ?? `reading-${idx}`}
                 index={idx}
                 value={reading}
                 onChange={(data) => updateReading(idx, data)}
                 onRemove={() => removeReading(idx)}
                 defaultDecks={defaults?.default_decks}
+                onMoveUp={idx > 0 ? () => moveReading(idx, -1) : undefined}
+                onMoveDown={idx < readings.length - 1 ? () => moveReading(idx, 1) : undefined}
               />
             ))}
             {readings.length === 0 && (
@@ -648,6 +662,11 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
                 No readings added yet. Click "+ Add Reading" to record a card reading.
               </div>
             )}
+            {/* Below the readings so adding the next one doesn't mean
+                scrolling back past everything already entered. */}
+            <button className="entry-editor__add-btn" onClick={addReading}>
+              + Add Reading
+            </button>
           </div>
 
           {/* Notes */}

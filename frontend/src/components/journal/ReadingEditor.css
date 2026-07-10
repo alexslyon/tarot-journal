@@ -302,3 +302,29 @@
   margin-left: 4px;
   font-weight: 700;
 }
+
+.reading-editor__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.reading-editor__move-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: var(--font-size-small);
+  line-height: 1;
+}
+
+.reading-editor__move-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: none;
+}
+
+.reading-editor__move-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
