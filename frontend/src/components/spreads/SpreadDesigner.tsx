@@ -316,10 +316,13 @@ export default function SpreadDesigner({
         const pt = getSVGPoint(e);
         const dx = pt.x - dragging.startMouseX;
         const dy = pt.y - dragging.startMouseY;
-        // Negative coordinates are allowed mid-gesture (the canvas has
-        // margin on all four sides); mouse-up normalizes them away.
-        const newX = snap(dragging.startPosX + dx);
-        const newY = snap(dragging.startPosY + dy);
+        // The card follows the mouse smoothly during the drag; grid
+        // snapping is applied once on release, so it doesn't jump
+        // between grid cells under the cursor. Negative coordinates
+        // are allowed mid-gesture (the canvas has margin on all four
+        // sides); mouse-up normalizes them away.
+        const newX = Math.round(dragging.startPosX + dx);
+        const newY = Math.round(dragging.startPosY + dy);
         const updated = [...positions];
         updated[dragging.index] = { ...updated[dragging.index], x: newX, y: newY };
         onChange(updated);
@@ -330,8 +333,9 @@ export default function SpreadDesigner({
         // when canvas dimensions change during drag
         const dx = (e.clientX - resizing.startClientX) * resizing.scaleX;
         const dy = (e.clientY - resizing.startClientY) * resizing.scaleY;
-        const newW = snap(Math.max(40, resizing.startW + dx));
-        const newH = snap(Math.max(40, resizing.startH + dy));
+        // Smooth while resizing; snapped on release (see handleMouseUp)
+        const newW = Math.round(Math.max(40, resizing.startW + dx));
+        const newH = Math.round(Math.max(40, resizing.startH + dy));
         // No upper limit on size; canvas will grow to fit
         const updated = [...positions];
         updated[resizing.index] = { ...updated[resizing.index], width: newW, height: newH };
@@ -342,14 +346,27 @@ export default function SpreadDesigner({
   );
 
   const handleMouseUp = useCallback(() => {
-    if (dragging || resizing) {
-      const normalized = normalizePositions(positions);
-      if (normalized !== positions) onChange(normalized);
+    const gestureIndex = dragging?.index ?? resizing?.index ?? null;
+    if (gestureIndex !== null && positions[gestureIndex]) {
+      // Apply the grid snap once, at the end of the gesture.
+      let next = [...positions];
+      const p = next[gestureIndex];
+      if (dragging) {
+        next[gestureIndex] = { ...p, x: snap(p.x), y: snap(p.y) };
+      } else if (resizing) {
+        next[gestureIndex] = {
+          ...p,
+          width: Math.max(40, snap(p.width)),
+          height: Math.max(40, snap(p.height)),
+        };
+      }
+      next = normalizePositions(next);
+      onChange(next);
     }
     frozenBoxRef.current = null;
     setDragging(null);
     setResizing(null);
-  }, [dragging, resizing, positions, onChange, normalizePositions]);
+  }, [dragging, resizing, positions, onChange, normalizePositions, snap]);
 
   const handleCanvasClick = () => {
     onSelectIndex(null);
