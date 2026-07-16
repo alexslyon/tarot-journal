@@ -322,3 +322,24 @@ g:hover > .designer__resize-handle {
   font-size: var(--font-size-small);
   padding: 3px 8px;
 }
+
+/* Canvas minimum-size controls */
+.designer__canvas-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+}
+
+.designer__canvas-size input {
+  width: 62px;
+  padding: 2px 4px;
+  font-size: var(--font-size-small);
+}
+
+.designer__canvas-size button {
+  font-size: var(--font-size-small);
+  padding: 3px 8px;
+}

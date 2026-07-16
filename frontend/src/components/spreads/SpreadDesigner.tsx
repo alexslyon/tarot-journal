@@ -3,14 +3,17 @@ import type { SpreadPosition, DeckSlot } from '../../types';
 import './SpreadDesigner.css';
 import { confirmDialog } from '../common/ConfirmDialog';
 
-// Minimum canvas dimensions (used when empty or for small spreads)
+// Minimum canvas dimensions (used when empty or for small spreads);
+// the toolbar lets the user raise them per session.
 const MIN_CANVAS_W = 620;
 const MIN_CANVAS_H = 460;
 const GRID_SIZE = 20;
 const DEFAULT_W = 80;
 const DEFAULT_H = 120;
 const HANDLE_SIZE = 16;
-const CANVAS_PADDING = 20; // Padding around content
+// Working margin shown around the spread on ALL four sides, so there
+// is always room to drag a card outward in any direction.
+const WORK_MARGIN = 60;
 
 interface SpreadDesignerProps {
   positions: SpreadPosition[];
@@ -68,41 +71,70 @@ export default function SpreadDesigner({
       .sort((a, b) => (a.pos.z_index ?? a.idx) - (b.pos.z_index ?? b.idx));
   }, [positions]);
 
-  // Calculate dynamic canvas dimensions based on position bounding box
-  const canvasDimensions = useMemo(() => {
+  // User-adjustable minimum canvas size (session-level working area).
+  const [minCanvas, setMinCanvas] = useState({ w: MIN_CANVAS_W, h: MIN_CANVAS_H });
+
+  // Canvas viewport: the spread's bounding box plus a working margin
+  // on ALL four sides (origin can go negative — SVG viewBox handles
+  // that), never smaller than the user's minimum size. Content is
+  // never clipped: the box always grows to fit.
+  const computedBox = useMemo(() => {
     if (positions.length === 0) {
-      return { width: MIN_CANVAS_W, height: MIN_CANVAS_H };
+      return { x: 0, y: 0, width: minCanvas.w, height: minCanvas.h };
     }
-    // Find the bounding box of all positions
+    const minX = Math.min(...positions.map(p => p.x || 0));
+    const minY = Math.min(...positions.map(p => p.y || 0));
     const maxX = Math.max(...positions.map(p => (p.x || 0) + (p.width || DEFAULT_W)));
     const maxY = Math.max(...positions.map(p => (p.y || 0) + (p.height || DEFAULT_H)));
-    // Use the larger of content bounds + padding or minimum dimensions
     return {
-      width: Math.max(MIN_CANVAS_W, maxX + CANVAS_PADDING),
-      height: Math.max(MIN_CANVAS_H, maxY + CANVAS_PADDING),
+      x: minX - WORK_MARGIN,
+      y: minY - WORK_MARGIN,
+      width: Math.max(maxX - minX + 2 * WORK_MARGIN, minCanvas.w),
+      height: Math.max(maxY - minY + 2 * WORK_MARGIN, minCanvas.h),
     };
-  }, [positions]);
+  }, [positions, minCanvas]);
+
+  // Freeze the viewport during drag/resize gestures. Recomputing it
+  // mid-drag rescales the view under the cursor — a feedback loop that
+  // made cards shoot toward the edge. The frozen box is captured at
+  // gesture start and released on mouse-up.
+  const frozenBoxRef = useRef<typeof computedBox | null>(null);
+  const canvasBox = frozenBoxRef.current ?? computedBox;
+
+  // After a gesture (or nudge) that pushed cards into negative
+  // coordinates, shift the whole layout back to non-negative — other
+  // views (journal, PDF) offset by the bounding box, so the shift is
+  // invisible, but stored data stays tidy. Shift by whole grid steps
+  // so everything stays grid-aligned.
+  const normalizePositions = useCallback((list: SpreadPosition[]): SpreadPosition[] => {
+    const minX = Math.min(...list.map(p => p.x || 0));
+    const minY = Math.min(...list.map(p => p.y || 0));
+    if (minX >= 0 && minY >= 0) return list;
+    const shiftX = minX < 0 ? Math.ceil(-minX / GRID_SIZE) * GRID_SIZE : 0;
+    const shiftY = minY < 0 ? Math.ceil(-minY / GRID_SIZE) * GRID_SIZE : 0;
+    return list.map(p => ({ ...p, x: (p.x || 0) + shiftX, y: (p.y || 0) + shiftY }));
+  }, []);
 
   const snap = useCallback(
     (val: number) => (gridEnabled ? Math.round(val / GRID_SIZE) * GRID_SIZE : Math.round(val)),
     [gridEnabled],
   );
 
-  // Convert screen coordinates to viewBox (logical) coordinates
+  // Convert screen coordinates to viewBox (logical) coordinates.
+  // Uses the gesture-frozen box so the mapping stays stable mid-drag.
   const getSVGPoint = useCallback(
     (e: React.MouseEvent) => {
       const svg = svgRef.current;
       if (!svg) return { x: 0, y: 0 };
       const rect = svg.getBoundingClientRect();
-      // Calculate scale factor from rendered size to viewBox size
-      const scaleX = canvasDimensions.width / rect.width;
-      const scaleY = canvasDimensions.height / rect.height;
+      const scaleX = canvasBox.width / rect.width;
+      const scaleY = canvasBox.height / rect.height;
       return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY,
+        x: canvasBox.x + (e.clientX - rect.left) * scaleX,
+        y: canvasBox.y + (e.clientY - rect.top) * scaleY,
       };
     },
-    [canvasDimensions],
+    [canvasBox],
   );
 
   const handleAddPosition = () => {
@@ -114,8 +146,8 @@ export default function SpreadDesigner({
       positions[positions.length - 1];
     const w = template?.width || DEFAULT_W;
     const h = template?.height || DEFAULT_H;
-    const cx = snap(canvasDimensions.width / 2 - w / 2);
-    const cy = snap(canvasDimensions.height / 2 - h / 2);
+    const cx = snap(canvasBox.x + canvasBox.width / 2 - w / 2);
+    const cy = snap(canvasBox.y + canvasBox.height / 2 - h / 2);
     const newIndex = positions.length;
     const defaultLabel = `Position ${newIndex + 1}`;
     const defaultKey = String(newIndex + 1);
@@ -230,16 +262,12 @@ export default function SpreadDesigner({
       const pos = positions[selectedIndex];
       if (!pos) return;
       const updated = [...positions];
-      updated[selectedIndex] = {
-        ...pos,
-        x: Math.max(0, pos.x + dx),
-        y: Math.max(0, pos.y + dy),
-      };
-      onChange(updated);
+      updated[selectedIndex] = { ...pos, x: pos.x + dx, y: pos.y + dy };
+      onChange(normalizePositions(updated));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [readOnly, selectedIndex, positions, onChange, duplicatePosition]);
+  }, [readOnly, selectedIndex, positions, onChange, duplicatePosition, normalizePositions]);
 
   // ── Mouse handlers ──
 
@@ -248,6 +276,7 @@ export default function SpreadDesigner({
     e.stopPropagation();
     const pt = getSVGPoint(e);
     const pos = positions[index];
+    frozenBoxRef.current = computedBox;
     setDragging({
       index,
       startMouseX: pt.x,
@@ -269,14 +298,15 @@ export default function SpreadDesigner({
     const rect = svg.getBoundingClientRect();
     // Store screen coordinates and lock scale factors at start of resize
     // This prevents jumpy behavior when canvas dimensions change during drag
+    frozenBoxRef.current = computedBox;
     setResizing({
       index,
       startClientX: e.clientX,
       startClientY: e.clientY,
       startW: pos.width,
       startH: pos.height,
-      scaleX: canvasDimensions.width / rect.width,
-      scaleY: canvasDimensions.height / rect.height,
+      scaleX: computedBox.width / rect.width,
+      scaleY: computedBox.height / rect.height,
     });
   };
 
@@ -286,11 +316,10 @@ export default function SpreadDesigner({
         const pt = getSVGPoint(e);
         const dx = pt.x - dragging.startMouseX;
         const dy = pt.y - dragging.startMouseY;
-        let newX = snap(dragging.startPosX + dx);
-        let newY = snap(dragging.startPosY + dy);
-        // Only prevent negative coordinates; canvas will grow to fit
-        newX = Math.max(0, newX);
-        newY = Math.max(0, newY);
+        // Negative coordinates are allowed mid-gesture (the canvas has
+        // margin on all four sides); mouse-up normalizes them away.
+        const newX = snap(dragging.startPosX + dx);
+        const newY = snap(dragging.startPosY + dy);
         const updated = [...positions];
         updated[dragging.index] = { ...updated[dragging.index], x: newX, y: newY };
         onChange(updated);
@@ -313,9 +342,14 @@ export default function SpreadDesigner({
   );
 
   const handleMouseUp = useCallback(() => {
+    if (dragging || resizing) {
+      const normalized = normalizePositions(positions);
+      if (normalized !== positions) onChange(normalized);
+    }
+    frozenBoxRef.current = null;
     setDragging(null);
     setResizing(null);
-  }, []);
+  }, [dragging, resizing, positions, onChange, normalizePositions]);
 
   const handleCanvasClick = () => {
     onSelectIndex(null);
@@ -461,14 +495,16 @@ export default function SpreadDesigner({
 
   const gridLines = [];
   if (gridEnabled) {
-    for (let x = GRID_SIZE; x < canvasDimensions.width; x += GRID_SIZE) {
+    const gx0 = Math.ceil(canvasBox.x / GRID_SIZE) * GRID_SIZE;
+    const gy0 = Math.ceil(canvasBox.y / GRID_SIZE) * GRID_SIZE;
+    for (let x = gx0; x < canvasBox.x + canvasBox.width; x += GRID_SIZE) {
       gridLines.push(
-        <line key={`gx-${x}`} x1={x} y1={0} x2={x} y2={canvasDimensions.height} className="designer__grid-line" />,
+        <line key={`gx-${x}`} x1={x} y1={canvasBox.y} x2={x} y2={canvasBox.y + canvasBox.height} className="designer__grid-line" />,
       );
     }
-    for (let y = GRID_SIZE; y < canvasDimensions.height; y += GRID_SIZE) {
+    for (let y = gy0; y < canvasBox.y + canvasBox.height; y += GRID_SIZE) {
       gridLines.push(
-        <line key={`gy-${y}`} x1={0} y1={y} x2={canvasDimensions.width} y2={y} className="designer__grid-line" />,
+        <line key={`gy-${y}`} x1={canvasBox.x} y1={y} x2={canvasBox.x + canvasBox.width} y2={y} className="designer__grid-line" />,
       );
     }
   }
@@ -495,6 +531,36 @@ export default function SpreadDesigner({
             />
             <span>Show Labels</span>
           </label>
+          <span className="designer__canvas-size" title="Minimum working area — the canvas still grows if the spread needs more room">
+            <span>Canvas ≥</span>
+            <input
+              type="number"
+              min={200}
+              step={GRID_SIZE}
+              value={minCanvas.w}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (Number.isFinite(n)) setMinCanvas(mc => ({ ...mc, w: Math.max(200, n) }));
+              }}
+            />
+            <span>×</span>
+            <input
+              type="number"
+              min={200}
+              step={GRID_SIZE}
+              value={minCanvas.h}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (Number.isFinite(n)) setMinCanvas(mc => ({ ...mc, h: Math.max(200, n) }));
+              }}
+            />
+            <button
+              onClick={() => setMinCanvas({ w: MIN_CANVAS_W, h: MIN_CANVAS_H })}
+              title="Reset to the default working area (canvas hugs the spread + margin)"
+            >
+              Fit
+            </button>
+          </span>
         </div>
       )}
 
@@ -536,15 +602,15 @@ export default function SpreadDesigner({
         <svg
           ref={svgRef}
           className="designer__canvas"
-          viewBox={`0 0 ${canvasDimensions.width} ${canvasDimensions.height}`}
-          style={{ aspectRatio: `${canvasDimensions.width} / ${canvasDimensions.height}` }}
+          viewBox={`${canvasBox.x} ${canvasBox.y} ${canvasBox.width} ${canvasBox.height}`}
+          style={{ aspectRatio: `${canvasBox.width} / ${canvasBox.height}` }}
           onMouseMove={readOnly ? undefined : handleMouseMove}
           onMouseUp={readOnly ? undefined : handleMouseUp}
           onMouseLeave={readOnly ? undefined : handleMouseUp}
           onClick={readOnly ? undefined : handleCanvasClick}
         >
           {/* Background */}
-          <rect width={canvasDimensions.width} height={canvasDimensions.height} className="designer__bg" />
+          <rect x={canvasBox.x} y={canvasBox.y} width={canvasBox.width} height={canvasBox.height} className="designer__bg" />
 
           {/* Grid (hidden in read-only mode) */}
           {!readOnly && gridLines}
