@@ -37,6 +37,13 @@
 .spread-display__canvas-inner {
   position: absolute;
   inset: 8px;
+  /* Contain the slots' z-indexes: "Send to Back" in the designer can
+     produce negative z_index values (e.g. a significator stacked
+     under position 1), and without a stacking context here a negative
+     z-index child paints behind the panel background — an invisible
+     card. Isolated, it paints below its siblings but above the
+     canvas, which is the intended stacking. */
+  isolation: isolate;
 }
 
 .spread-display__slot {
