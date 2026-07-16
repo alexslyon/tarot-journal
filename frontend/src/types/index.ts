@@ -131,6 +131,9 @@ export interface CardUsed {
   deck_name?: string;
   position_index?: number;
   card_id?: number;
+  /** For extra cards beyond the spread's positions: the position
+   *  index this card clarifies (undefined = plain additional card) */
+  clarifies?: number;
   /** Current name from database (if card was renamed after entry was created) */
   current_name?: string;
   // Enriched server-side for the Reading Breakdown when card_id resolves:

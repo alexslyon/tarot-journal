@@ -328,3 +328,22 @@
   opacity: 0.3;
   cursor: default;
 }
+
+/* Extra cards (clarifiers / variable-count pulls) */
+.reading-editor__extras {
+  margin-top: 8px;
+}
+
+.reading-editor__extras-title {
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.reading-editor__clarifies-select {
+  max-width: 190px;
+  font-size: var(--font-size-small);
+}

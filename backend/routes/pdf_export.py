@@ -266,6 +266,7 @@ def _hydrate_entry_for_pdf(db, entry_id: int, cache=None) -> dict | None:
                 # when the card-detail section is assembled.
                 'custom_fields': _merge_custom_fields(db, card_id, card_db) if card_id else [],
                 'archetype_entries': _archetype_entries(db, archetype_id, cartomancy_type),
+                'clarifies': c.get('clarifies'),
             })
         rd['cards_used'] = hydrated_cards
 
@@ -287,6 +288,23 @@ def _hydrate_entry_for_pdf(db, entry_id: int, cache=None) -> dict | None:
                     spread_cache[sid] = sp
             spread = spread_cache.get(sid)
         rd['spread'] = spread
+
+        # Extra cards (clarifiers / additional pulls beyond the
+        # spread's positions), labelled for the template. Identified
+        # by stored position_index since saved arrays are compacted.
+        extra_cards = []
+        if spread and spread.get('positions'):
+            poscount = len(spread['positions'])
+            for c in hydrated_cards:
+                pi = c.get('position_index')
+                if pi is not None and pi >= poscount:
+                    label = None
+                    ci = c.get('clarifies')
+                    if ci is not None and 0 <= ci < poscount:
+                        pos = spread['positions'][ci]
+                        label = pos.get('key') or str(ci + 1)
+                    extra_cards.append({**c, 'clarifies_label': label})
+        rd['extra_cards'] = extra_cards
         readings.append(rd)
     entry['readings'] = readings
 

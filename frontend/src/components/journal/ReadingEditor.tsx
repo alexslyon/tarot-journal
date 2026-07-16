@@ -27,6 +27,9 @@ export interface ReadingData {
     position_index?: number;
     /** Card ID for reliable lookup even if card name changes */
     card_id?: number;
+    /** Extra cards only: index of the spread position this clarifies
+     *  (undefined = plain additional card) */
+    clarifies?: number;
     /** Client-side unique key for React rendering (not persisted to backend) */
     _key?: string;
   }>;
@@ -148,25 +151,37 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
     }
   }, [value.spread_id, spread, defaultDecks, decks.length]);
 
-  // When spread changes, resize cards array to match positions
+  // When a spread is selected, normalize the cards array: one slot per
+  // position (aligned by each card's stored position_index — saved
+  // readings drop empty slots, so pure array order can misalign),
+  // followed by any extra cards (clarifiers etc.), which are never
+  // truncated.
   useEffect(() => {
-    if (positions.length > 0 && value.cards.length !== positions.length) {
-      const newCards = positions.map((pos, idx) => {
-        const existing = value.cards[idx];
-        const slotKey = pos.deck_slot || deckSlots[0]?.key;
-        const slotDeckId = slotKey ? slotDecks[slotKey] : undefined;
-        const deck = decks.find(d => d.id === slotDeckId);
-        return existing || {
-          name: '',
-          reversed: false,
-          position_index: idx,
-          deck_id: slotDeckId,
-          deck_name: deck?.name,
-        };
-      });
-      onChange({ ...value, cards: newCards });
-    }
-  }, [positions.length]);
+    if (positions.length === 0 || value.cards.length >= positions.length) return;
+    // Legacy readings stored cards without position_index; for those,
+    // array order is all we have.
+    const hasIndexes = value.cards.some(c => c.position_index != null);
+    const base = positions.map((pos, idx) => {
+      const existing = hasIndexes
+        ? value.cards.find(c => c.position_index === idx)
+        : value.cards[idx];
+      if (existing) return existing;
+      const slotKey = pos.deck_slot || deckSlots[0]?.key;
+      const slotDeckId = slotKey ? slotDecks[slotKey] : undefined;
+      const deck = decks.find(d => d.id === slotDeckId);
+      return {
+        name: '',
+        reversed: false,
+        position_index: idx,
+        deck_id: slotDeckId,
+        deck_name: deck?.name,
+      };
+    });
+    const extrasKept = hasIndexes
+      ? value.cards.filter(c => (c.position_index ?? -1) >= positions.length)
+      : [];
+    onChange({ ...value, cards: [...base, ...extrasKept] });
+  }, [positions.length, value.cards.length]);
 
   const handleSpreadChange = (spreadId: number | null) => {
     const selectedSpread = spreads.find(s => s.id === spreadId);
@@ -262,6 +277,52 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
 
   // Check if spread uses multi-deck slots
   const hasMultipleSlots = deckSlots.length > 1;
+
+  // ── Extra cards (clarifiers / variable-count pulls) ──
+  // Cards beyond the spread's positions belong to this reading only —
+  // the spread definition is untouched. Each may optionally mark which
+  // position it clarifies.
+  const extras = positions.length > 0 ? value.cards.slice(positions.length) : [];
+  const extrasDeckId =
+    value.deck_id ?? (deckSlots[0] ? slotDecks[deckSlots[0].key] : undefined) ?? undefined;
+  const { data: extrasDeckCards = [] } = useQuery({
+    queryKey: ['cards', extrasDeckId],
+    queryFn: () => getCards(extrasDeckId!),
+    enabled: extrasDeckId != null && positions.length > 0,
+  });
+
+  const addExtraCard = () => {
+    const deck = decks.find(d => d.id === extrasDeckId);
+    onChange({
+      ...value,
+      cards: [
+        ...value.cards,
+        {
+          name: '',
+          reversed: false,
+          position_index: value.cards.length,
+          deck_id: extrasDeckId,
+          deck_name: deck?.name,
+          _key: crypto.randomUUID(),
+        },
+      ],
+    });
+  };
+
+  const updateExtra = (extraIdx: number, updates: Partial<ReadingData['cards'][0]>) => {
+    const idx = positions.length + extraIdx;
+    const newCards = [...value.cards];
+    newCards[idx] = { ...newCards[idx], ...updates, position_index: idx };
+    onChange({ ...value, cards: newCards });
+  };
+
+  const removeExtra = (extraIdx: number) => {
+    const idx = positions.length + extraIdx;
+    const newCards = value.cards
+      .filter((_, i) => i !== idx)
+      .map((c, i) => (i >= positions.length ? { ...c, position_index: i } : c));
+    onChange({ ...value, cards: newCards });
+  };
 
   // Combobox handles for the free-form (no spread) card list, so a
   // committed selection advances focus to the next card row.
@@ -377,6 +438,7 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
       <div className="reading-editor__cards">
         {positions.length > 0 ? (
           // Spread with positions: show visual canvas layout
+          <>
           <VisualSpreadEditor
             positions={positions}
             cards={value.cards}
@@ -400,6 +462,67 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
               onChange({ ...value, cards: newCards });
             }}
           />
+
+          {/* Extra cards: clarifiers and variable-count pulls beyond
+              the spread's positions. Belong to this reading only. */}
+          <div className="reading-editor__extras">
+            {extras.length > 0 && (
+              <div className="reading-editor__extras-title">Extra cards</div>
+            )}
+            {extras.map((card, ei) => (
+              <div key={card._key ?? `extra-${ei}`} className="reading-editor__card-slot">
+                <SearchCombobox
+                  options={extrasDeckCards.map(c => cardComboOption(c, extrasDeckCards))}
+                  value={
+                    card.card_id
+                      ?? (card.name ? extrasDeckCards.find(c => c.name === card.name)?.id : undefined)
+                  }
+                  disabled={extrasDeckId == null}
+                  placeholder={extrasDeckId == null ? 'Select deck above' : 'Type to search cards…'}
+                  onSelect={(opt) => {
+                    const selected = opt ? extrasDeckCards.find(c => c.id === opt.id) : undefined;
+                    updateExtra(ei, { name: selected?.name ?? '', card_id: selected?.id });
+                  }}
+                />
+                <label className="reading-editor__reversed">
+                  <input
+                    type="checkbox"
+                    checked={card.reversed}
+                    onChange={(e) => updateExtra(ei, { reversed: e.target.checked })}
+                  />
+                  <span>R</span>
+                </label>
+                <select
+                  className="reading-editor__clarifies-select"
+                  value={card.clarifies ?? ''}
+                  title="Which position this card clarifies (optional)"
+                  onChange={(e) =>
+                    updateExtra(ei, {
+                      clarifies: e.target.value === '' ? undefined : Number(e.target.value),
+                    })
+                  }
+                >
+                  <option value="">Extra card</option>
+                  {positions.map((pos, pi) => (
+                    <option key={pi} value={pi}>
+                      Clarifies {pos.key || pi + 1}{pos.label ? ` — ${pos.label}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="reading-editor__card-remove"
+                  onClick={() => removeExtra(ei)}
+                  title="Remove extra card"
+                >
+                  &times;
+                </button>
+              </div>
+            ))}
+            <button className="reading-editor__add-card" onClick={addExtraCard}>
+              + Add Card (clarifier / extra)
+            </button>
+          </div>
+          </>
         ) : (
           // No spread: free-form card list
           <>

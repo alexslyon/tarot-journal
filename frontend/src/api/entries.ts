@@ -101,7 +101,7 @@ export async function addEntryReading(entryId: number, data: {
   deck_id?: number | null;
   deck_name?: string;
   cartomancy_type?: string;
-  cards_used?: Array<{ name: string; reversed?: boolean; deck_id?: number; deck_name?: string; position_index?: number }>;
+  cards_used?: Array<{ name: string; reversed?: boolean; deck_id?: number; deck_name?: string; position_index?: number; card_id?: number; clarifies?: number }>;
   position_order?: number;
 }): Promise<{ id: number }> {
   const res = await api.post(`/api/entries/${entryId}/readings`, data);
@@ -122,7 +122,7 @@ export async function replaceEntryReadings(entryId: number, readings: Array<{
   deck_id?: number | null;
   deck_name?: string;
   cartomancy_type?: string;
-  cards_used?: Array<{ name: string; reversed?: boolean; deck_id?: number; deck_name?: string; position_index?: number; card_id?: number }>;
+  cards_used?: Array<{ name: string; reversed?: boolean; deck_id?: number; deck_name?: string; position_index?: number; card_id?: number; clarifies?: number }>;
   position_order?: number;
 }>): Promise<{ ids: number[] }> {
   const res = await api.put(`/api/entries/${entryId}/readings`, { readings });

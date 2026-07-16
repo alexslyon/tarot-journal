@@ -180,6 +180,7 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
           deck_name: c.deck_name,
           position_index: c.position_index ?? idx,
           card_id: c.card_id,  // Preserve card_id for reliable lookup
+          clarifies: c.clarifies,
         })),
       }));
 
@@ -387,6 +388,7 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
               deck_name: c.deck_name,
               position_index: c.position_index,
               card_id: c.card_id,  // Store card_id so entries survive card renames
+              clarifies: c.clarifies,
             })),
           position_order: i,
         })));

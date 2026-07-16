@@ -68,7 +68,8 @@ function PositionedLayout({
       >
         <div className="spread-display__canvas-inner">
           {positions.map((pos, idx) => {
-            const card = cards.find(c => c.position_index === idx) || cards[idx];
+            const card = cards.find(c => c.position_index === idx)
+              ?? (cards[idx]?.position_index == null ? cards[idx] : undefined);
             // Calculate position as percentage of content area (offset by minX/minY)
             const leftPct = ((pos.x || 0) - minX) / contentWidth * 100;
             const topPct = ((pos.y || 0) - minY) / contentHeight * 100;
@@ -110,6 +111,36 @@ function PositionedLayout({
           })}
         </div>
       </div>
+
+      {/* Extra cards (clarifiers / additional pulls beyond the
+          spread's positions). Identified by stored position_index —
+          saved card arrays are compacted, so length alone is no guide. */}
+      {cards.some(c => (c.position_index ?? -1) >= positions.length) && (
+        <div className="spread-display__extras">
+          <div className="spread-display__extras-title">Extra cards</div>
+          <div className="spread-display__card-row">
+            {cards.filter(c => (c.position_index ?? -1) >= positions.length).map((card, i) => {
+              const target = card.clarifies != null ? positions[card.clarifies] : undefined;
+              const targetLabel = target
+                ? (target.key || String((card.clarifies as number) + 1))
+                : null;
+              return (
+                <div key={i} className="spread-display__card-item">
+                  <CardSlot card={card} onDoubleClick={onCardDoubleClick} />
+                  {targetLabel && (
+                    <span
+                      className="spread-display__clarifies-badge"
+                      title={`Clarifies ${target?.label || `position ${targetLabel}`}`}
+                    >
+                      ↳ clarifies {targetLabel}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Legend showing position labels and card names */}
       <div className="spread-display__legend">
