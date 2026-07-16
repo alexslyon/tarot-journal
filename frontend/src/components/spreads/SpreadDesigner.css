@@ -281,3 +281,44 @@ g:hover > .designer__resize-handle {
 .designer--readonly .designer__position:hover {
   stroke-width: 1.5;
 }
+
+/* Numeric inspector for the selected position */
+.designer__inspector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.designer__inspector-name {
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.designer__inspector-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+}
+
+.designer__inspector-field input {
+  width: 58px;
+  padding: 2px 4px;
+  font-size: var(--font-size-small);
+}
+
+.designer__inspector button {
+  font-size: var(--font-size-small);
+  padding: 3px 8px;
+}

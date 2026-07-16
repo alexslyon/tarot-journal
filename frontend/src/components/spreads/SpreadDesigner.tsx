@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import type { SpreadPosition, DeckSlot } from '../../types';
 import './SpreadDesigner.css';
 import { confirmDialog } from '../common/ConfirmDialog';
@@ -106,8 +106,16 @@ export default function SpreadDesigner({
   );
 
   const handleAddPosition = () => {
-    const cx = snap(canvasDimensions.width / 2 - DEFAULT_W / 2);
-    const cy = snap(canvasDimensions.height / 2 - DEFAULT_H / 2);
+    // New positions match the size (and rotation) of the selected
+    // position — or the last one — so additions to an existing layout
+    // fit without hand-resizing. 80×120 only for the first card.
+    const template =
+      (selectedIndex !== null ? positions[selectedIndex] : undefined) ??
+      positions[positions.length - 1];
+    const w = template?.width || DEFAULT_W;
+    const h = template?.height || DEFAULT_H;
+    const cx = snap(canvasDimensions.width / 2 - w / 2);
+    const cy = snap(canvasDimensions.height / 2 - h / 2);
     const newIndex = positions.length;
     const defaultLabel = `Position ${newIndex + 1}`;
     const defaultKey = String(newIndex + 1);
@@ -115,7 +123,11 @@ export default function SpreadDesigner({
     const maxZ = positions.reduce((max, p, i) => Math.max(max, p.z_index ?? i), -1);
     onChange([
       ...positions,
-      { x: cx, y: cy, width: DEFAULT_W, height: DEFAULT_H, label: defaultLabel, key: defaultKey, z_index: maxZ + 1 },
+      {
+        x: cx, y: cy, width: w, height: h,
+        rotated: template?.rotated || undefined,
+        label: defaultLabel, key: defaultKey, z_index: maxZ + 1,
+      },
     ]);
     onSelectIndex(newIndex);
     // Open context menu for the new position so user can edit
@@ -142,6 +154,92 @@ export default function SpreadDesigner({
     onChange([]);
     onSelectIndex(null);
   };
+
+  // Duplicate a position: same size/rotation, offset one grid step,
+  // placed on top. Key clears so the copy shows its own number.
+  const duplicatePosition = useCallback((index: number) => {
+    const pos = positions[index];
+    if (!pos) return;
+    const maxZ = positions.reduce((max, p, i) => Math.max(max, p.z_index ?? i), -1);
+    onChange([
+      ...positions,
+      {
+        ...pos,
+        x: pos.x + GRID_SIZE,
+        y: pos.y + GRID_SIZE,
+        key: undefined,
+        label: pos.label ? `${pos.label} copy` : `Position ${positions.length + 1}`,
+        z_index: maxZ + 1,
+      },
+    ]);
+    onSelectIndex(positions.length);
+  }, [positions, onChange, onSelectIndex]);
+
+  // Numeric inspector: set one dimension of the selected position
+  const setSelectedField = (field: 'x' | 'y' | 'width' | 'height', raw: string) => {
+    if (selectedIndex === null) return;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return;
+    const min = field === 'x' || field === 'y' ? 0 : 40;
+    const updated = [...positions];
+    updated[selectedIndex] = { ...updated[selectedIndex], [field]: Math.max(min, Math.round(n)) };
+    onChange(updated);
+  };
+
+  // Apply the selected position's size to every position (respecting
+  // each one's own rotation by swapping the dimensions where needed).
+  const applySizeToAll = () => {
+    if (selectedIndex === null) return;
+    const src = positions[selectedIndex];
+    if (!src) return;
+    onChange(positions.map(p => {
+      const sameOrientation = !!p.rotated === !!src.rotated;
+      return {
+        ...p,
+        width: sameOrientation ? src.width : src.height,
+        height: sameOrientation ? src.height : src.width,
+      };
+    }));
+  };
+
+  // Keyboard: arrows nudge the selected position by one grid step
+  // (Shift = 1px for fine placement); Cmd/Ctrl+D duplicates.
+  useEffect(() => {
+    if (readOnly || selectedIndex === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      )) return;
+      if (e.key.toLowerCase() === 'd' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        duplicatePosition(selectedIndex);
+        return;
+      }
+      const step = e.shiftKey ? 1 : GRID_SIZE;
+      let dx = 0, dy = 0;
+      if (e.key === 'ArrowLeft') dx = -step;
+      else if (e.key === 'ArrowRight') dx = step;
+      else if (e.key === 'ArrowUp') dy = -step;
+      else if (e.key === 'ArrowDown') dy = step;
+      else return;
+      e.preventDefault();
+      const pos = positions[selectedIndex];
+      if (!pos) return;
+      const updated = [...positions];
+      updated[selectedIndex] = {
+        ...pos,
+        x: Math.max(0, pos.x + dx),
+        y: Math.max(0, pos.y + dy),
+      };
+      onChange(updated);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [readOnly, selectedIndex, positions, onChange, duplicatePosition]);
 
   // ── Mouse handlers ──
 
@@ -400,6 +498,40 @@ export default function SpreadDesigner({
         </div>
       )}
 
+      {/* Numeric inspector for the selected position — exact placement
+          and sizing without fighting the drag handles. Values track
+          live while dragging. */}
+      {!readOnly && selectedIndex !== null && positions[selectedIndex] && (
+        <div className="designer__inspector">
+          <span className="designer__inspector-name">
+            {positions[selectedIndex].key || selectedIndex + 1}
+            {positions[selectedIndex].label ? ` · ${positions[selectedIndex].label}` : ''}
+          </span>
+          {(['x', 'y', 'width', 'height'] as const).map(f => (
+            <label key={f} className="designer__inspector-field">
+              <span>{f === 'width' ? 'W' : f === 'height' ? 'H' : f.toUpperCase()}</span>
+              <input
+                type="number"
+                value={Math.round(positions[selectedIndex][f] ?? 0)}
+                min={f === 'x' || f === 'y' ? 0 : 40}
+                step={1}
+                onChange={(e) => setSelectedField(f, e.target.value)}
+              />
+            </label>
+          ))}
+          <button
+            onClick={applySizeToAll}
+            disabled={positions.length < 2}
+            title="Resize every position to match this one"
+          >
+            Match Size to All
+          </button>
+          <button onClick={() => duplicatePosition(selectedIndex)} title="Duplicate (Cmd+D)">
+            Duplicate
+          </button>
+        </div>
+      )}
+
       <div className="designer__canvas-wrapper">
         <svg
           ref={svgRef}
@@ -542,6 +674,9 @@ export default function SpreadDesigner({
             ) : (
               <>
                 <button onClick={handleEditPosition}>Edit Label / Key</button>
+                <button onClick={() => { duplicatePosition(contextMenu.index); setContextMenu(null); }}>
+                  Duplicate
+                </button>
                 <button onClick={handleRotatePosition}>
                   {positions[contextMenu.index]?.rotated ? 'Unrotate' : 'Rotate 90°'}
                 </button>
