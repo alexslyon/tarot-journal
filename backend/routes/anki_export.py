@@ -97,6 +97,55 @@ def anki_export(deck_id, data):
 
         card_custom_fields[card['id']] = {**legacy, **table_fields}
 
+    # Archetype-note fields ('archnote:<field_id>' keys): pull authored
+    # content per (archetype, field) and map each card to its archetype
+    # within the deck's cartomancy type(s).
+    archnote_ids = []
+    for f in fields:
+        if f.startswith('archnote:'):
+            try:
+                archnote_ids.append(int(f.split(':', 1)[1]))
+            except ValueError:
+                pass
+
+    archnote_content = {}   # (archetype_id, field_id) -> content
+    archnote_labels = {}    # field_id -> "Source: Field"
+    card_archetype_id = {}  # card_id -> archetype_id
+    if archnote_ids:
+        placeholders = ','.join('?' * len(archnote_ids))
+        cursor = db.conn.cursor()
+        cursor.execute(f'''
+            SELECT f.id, f.name, s.name AS source_name
+            FROM source_fields f
+            JOIN reference_sources s ON s.id = f.source_id
+            WHERE f.id IN ({placeholders})
+        ''', archnote_ids)
+        for r in cursor.fetchall():
+            archnote_labels[r['id']] = f"{r['source_name']}: {r['name']}"
+
+        cursor.execute(f'''
+            SELECT archetype_id, field_id, content
+            FROM archetype_source_entries
+            WHERE field_id IN ({placeholders})
+        ''', archnote_ids)
+        for r in cursor.fetchall():
+            archnote_content[(r['archetype_id'], r['field_id'])] = r['content'] or ''
+
+        name_to_archetype = {}
+        for t in (deck.get('cartomancy_types') or []):
+            for a in db.get_archetypes(t['name']):
+                name_to_archetype.setdefault(a['name'], a['id'])
+        for card in cards:
+            arch_name = card.get('archetype')
+            if arch_name and arch_name in name_to_archetype:
+                card_archetype_id[card['id']] = name_to_archetype[arch_name]
+
+    def parse_archnote_key(key):
+        try:
+            return int(key.split(':', 1)[1])
+        except (ValueError, IndexError):
+            return None
+
     # Correspondence field names (for detecting which fields are correspondences)
     from database.correspondences import CORRESPONDENCE_FIELDS
 
@@ -132,6 +181,9 @@ def anki_export(deck_id, data):
                 header_labels.append('Sort Number')
             elif f == 'notes':
                 header_labels.append('Notes')
+            elif f.startswith('archnote:'):
+                fid = parse_archnote_key(f)
+                header_labels.append(archnote_labels.get(fid, f))
             elif f in CORRESPONDENCE_FIELDS:
                 header_labels.append(FIELD_LABELS.get(f, f.replace('_', ' ').title()))
             else:
@@ -161,6 +213,11 @@ def anki_export(deck_id, data):
                     row.append(sanitize(card.get('card_order')))
                 elif f == 'notes':
                     row.append(sanitize(card.get('notes')))
+                elif f.startswith('archnote:'):
+                    fid = parse_archnote_key(f)
+                    aid = card_archetype_id.get(card['id'])
+                    value = archnote_content.get((aid, fid), '') if fid and aid else ''
+                    row.append(sanitize(value))
                 elif f in CORRESPONDENCE_FIELDS:
                     row.append(sanitize(corr.get(f)))
                 else:
@@ -242,5 +299,32 @@ def anki_fields(deck_id):
             'label': row['field_name'],
             'always': False,
         })
+
+    # Archetype Notes fields (Reference sources): every source field of
+    # the deck's cartomancy type(s) that has authored content for at
+    # least one archetype, individually selectable as "Source: Field".
+    # Not flagged 'populated' so they stay opt-in rather than
+    # auto-selected.
+    type_names = [t['name'] for t in (deck.get('cartomancy_types') or [])]
+    if type_names:
+        placeholders = ','.join('?' * len(type_names))
+        cursor.execute(f'''
+            SELECT DISTINCT f.id, f.name, f.sort_order, s.name AS source_name
+            FROM source_fields f
+            JOIN reference_sources s ON s.id = f.source_id
+            WHERE f.cartomancy_type IN ({placeholders})
+              AND EXISTS (
+                SELECT 1 FROM archetype_source_entries e
+                WHERE e.field_id = f.id
+                  AND e.content IS NOT NULL AND TRIM(e.content) != ''
+              )
+            ORDER BY s.name, f.sort_order, f.id
+        ''', type_names)
+        for row in cursor.fetchall():
+            fields.append({
+                'key': f'archnote:{row["id"]}',
+                'label': f'{row["source_name"]}: {row["name"]}',
+                'always': False,
+            })
 
     return jsonify(fields)
