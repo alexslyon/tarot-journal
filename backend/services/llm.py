@@ -25,6 +25,10 @@ from __future__ import annotations
 
 import requests
 
+from logger_config import get_logger
+
+logger = get_logger(__name__)
+
 # Timeouts are generous: a Scribe extraction over a whole book chapter
 # can legitimately take minutes.
 REQUEST_TIMEOUT = 600  # seconds
@@ -142,6 +146,18 @@ def _chat_anthropic(config, model, messages, system, max_tokens) -> str:
     except anthropic.APIConnectionError:
         raise LLMError("Could not reach the Anthropic API. Check your internet connection.")
 
+    usage = getattr(response, 'usage', None)
+    if usage:
+        # cache_write > 0 on a session's first turn, cache_read > 0 on
+        # later turns = prompt caching is working end to end.
+        logger.info(
+            "Anthropic call (%s): input=%s output=%s cache_write=%s cache_read=%s",
+            model,
+            getattr(usage, 'input_tokens', '?'),
+            getattr(usage, 'output_tokens', '?'),
+            getattr(usage, 'cache_creation_input_tokens', '?'),
+            getattr(usage, 'cache_read_input_tokens', '?'),
+        )
     if response.stop_reason == 'refusal':
         raise LLMError("The model declined this request (safety refusal).")
     text = ''.join(b.text for b in response.content if b.type == 'text')
