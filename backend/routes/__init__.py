@@ -25,6 +25,7 @@ def register_blueprints(app):
     from backend.routes.anki_export import anki_export_bp
     from backend.routes.llm_export import llm_export_bp
     from backend.routes.llm import llm_bp
+    from backend.routes.scribe import scribe_bp
     from backend.routes.pdf_export import pdf_export_bp
     from backend.routes.geocode import geocode_bp
 
@@ -47,5 +48,6 @@ def register_blueprints(app):
     app.register_blueprint(anki_export_bp)
     app.register_blueprint(llm_export_bp)
     app.register_blueprint(llm_bp)
+    app.register_blueprint(scribe_bp)
     app.register_blueprint(pdf_export_bp)
     app.register_blueprint(geocode_bp)

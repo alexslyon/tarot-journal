@@ -35,6 +35,10 @@ cairosvg==2.8.2
 # AI assistant features (Settings → AI, the Scribe). The official
 # Anthropic SDK talks to Claude; OpenAI/local providers use requests.
 anthropic==0.120.0
+# The Scribe reads book files: pypdf extracts PDF text layers, mobi
+# unpacks Kindle-format ebooks (EPUB needs only the standard library).
+pypdf==6.13.0
+mobi==0.4.1
 
 # Development: test suite (run with `npm run test:backend` or
 # `.venv/bin/python3 -m pytest`).
