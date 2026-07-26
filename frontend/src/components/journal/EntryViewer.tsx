@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getEntry, deleteEntry } from '../../api/entries';
+import { getEntry, deleteEntry, getEntryLlmMarkdown } from '../../api/entries';
 import { useToast } from '../../context/ToastContext';
 import RichTextViewer from '../common/RichTextViewer';
 import SpreadDisplay from './SpreadDisplay';
@@ -88,6 +88,21 @@ export default function EntryViewer({ entryId, onEdit, onNewFromEntry, onFindCar
     return () => window.removeEventListener('keydown', onKey);
   }, [newerEntryId, olderEntryId, onNavigateEntry]);
 
+  // "Copy for AI": the entry as structured markdown on the clipboard,
+  // ready to paste into Claude / ChatGPT / a local model. The app
+  // itself never interprets — this hands the context to a
+  // conversation the user drives.
+  const handleCopyForAi = async () => {
+    try {
+      const markdown = await getEntryLlmMarkdown(entryId);
+      await navigator.clipboard.writeText(markdown);
+      showToast('Copied — paste into your AI chat of choice.', 'success');
+    } catch (err) {
+      console.error('Failed to copy entry for AI:', err);
+      showToast('Failed to copy entry.');
+    }
+  };
+
   const handleDelete = async () => {
     if (!(await confirmDialog({ message: 'Delete this journal entry? This cannot be undone.', title: 'Delete Entry', confirmLabel: 'Delete' }))) return;
     try {
@@ -143,6 +158,12 @@ export default function EntryViewer({ entryId, onEdit, onNewFromEntry, onFindCar
               disabled={!entry.readings?.length}
             >
               Export PDF
+            </button>
+            <button
+              onClick={handleCopyForAi}
+              title="Copy this entry as structured text for pasting into an AI chat"
+            >
+              Copy for AI
             </button>
             <button onClick={() => onEdit(entryId)}>Edit</button>
             {onNewFromEntry && (

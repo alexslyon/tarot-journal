@@ -129,6 +129,13 @@ export async function replaceEntryReadings(entryId: number, readings: Array<{
   return res.data;
 }
 
+/** The entry rendered as LLM-ready markdown (the "Librarian" export)
+ *  for pasting into any AI chat. */
+export async function getEntryLlmMarkdown(entryId: number): Promise<string> {
+  const res = await api.get(`/api/entries/${entryId}/llm-export`);
+  return res.data.markdown;
+}
+
 // ── Follow-up Notes ──────────────────────────────────────────
 
 export async function getFollowUpNotes(entryId: number): Promise<FollowUpNote[]> {
