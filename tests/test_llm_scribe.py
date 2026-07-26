@@ -147,3 +147,58 @@ def test_apply_writes(client, db):
 
     entries = client.get(f"/api/archetypes/{arch_id}/source-entries").get_json()
     assert any(e.get('content') == 'A meaning.' for e in entries)
+
+
+def test_anthropic_prompt_caching_shape(client):
+    """The Anthropic call caches the system prompt and marks the end of
+    the conversation, so refinement turns re-read the book at ~10% price."""
+    client.put('/api/llm/config', json={
+        'provider': 'anthropic', 'api_key': 'sk-ant-test', 'model': 'claude-opus-5',
+    })
+
+    captured = {}
+
+    class FakeStream:
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+        def get_final_message(self):
+            class Block:
+                type = 'text'
+                text = 'extracted!'
+            class Msg:
+                stop_reason = 'end_turn'
+                content = [Block()]
+            return Msg()
+
+    class FakeMessages:
+        def stream(self, **kwargs):
+            captured.update(kwargs)
+            return FakeStream()
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.messages = FakeMessages()
+
+    with patch('anthropic.Anthropic', FakeClient):
+        r = client.post('/api/llm/chat', json={
+            'system': 'You are the Scribe.',
+            'messages': [
+                {'role': 'user', 'content': [{'type': 'text', 'text': 'book text here'}]},
+                {'role': 'assistant', 'content': 'proposals...'},
+                {'role': 'user', 'content': 'fix the Queen of Cups'},
+            ],
+        })
+
+    assert r.status_code == 200 and r.get_json()['text'] == 'extracted!'
+    # System prompt carries a cache marker
+    assert captured['system'][0]['cache_control'] == {'type': 'ephemeral'}
+    msgs = captured['messages']
+    # Only the LAST message is marked; earlier ones stay unmarked so the
+    # cached prefix bytes are identical across turns
+    assert 'cache_control' not in msgs[0]['content'][-1]
+    assert isinstance(msgs[1]['content'], str)
+    # Final message: string content converted to block form + marked
+    assert msgs[2]['content'][-1]['cache_control'] == {'type': 'ephemeral'}
+    assert msgs[2]['content'][-1]['text'] == 'fix the Queen of Cups'

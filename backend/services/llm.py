@@ -105,14 +105,27 @@ def _chat_anthropic(config, model, messages, system, max_tokens) -> str:
                                  timeout=float(REQUEST_TIMEOUT))
     kwargs = {}
     if system:
-        kwargs['system'] = system
+        # The system prompt is stable for a whole Scribe session — cache
+        # it so refinement turns don't re-bill it at full price.
+        kwargs['system'] = [{
+            'type': 'text',
+            'text': system,
+            'cache_control': {'type': 'ephemeral'},
+        }]
+    converted = [_to_anthropic_message(m) for m in messages]
+    # Prompt caching: mark the end of the conversation so the next turn
+    # re-reads everything before it (book text included) at ~10% of the
+    # normal input price instead of full price. Prefixes shorter than
+    # the model's minimum just silently don't cache — no harm done.
+    if converted:
+        _mark_cache_breakpoint(converted[-1])
     try:
         # Streaming keeps long extractions from hitting HTTP timeouts;
         # get_final_message() collects the whole reply for us.
         with client.messages.stream(
             model=model,
             max_tokens=max_tokens,
-            messages=[_to_anthropic_message(m) for m in messages],
+            messages=converted,
             **kwargs,
         ) as stream:
             response = stream.get_final_message()
@@ -133,6 +146,17 @@ def _chat_anthropic(config, model, messages, system, max_tokens) -> str:
     if not text:
         raise LLMError("The model returned an empty response.")
     return text
+
+
+def _mark_cache_breakpoint(msg: dict) -> None:
+    """Put a cache_control marker on the message's last content block
+    (converting plain-string content to block form if needed)."""
+    content = msg['content']
+    if isinstance(content, str):
+        content = [{'type': 'text', 'text': content}]
+        msg['content'] = content
+    if content:
+        content[-1]['cache_control'] = {'type': 'ephemeral'}
 
 
 def _to_anthropic_message(msg: dict) -> dict:
