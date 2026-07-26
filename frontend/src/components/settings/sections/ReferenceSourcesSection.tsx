@@ -29,6 +29,7 @@ import {
   reorderSourceFields,
 } from '../../../api/referenceSources';
 import { useToast } from '../../../context/ToastContext';
+import ScribeModal from '../../scribe/ScribeModal';
 import type { ReferenceSource, SourceField } from '../../../types';
 import '../SettingsTab.css';
 import './ReferenceSourcesSection.css';
@@ -84,6 +85,7 @@ export default function ReferenceSourcesSection() {
 
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ReferenceSource | null>(null);
+  const [scribeTarget, setScribeTarget] = useState<ReferenceSource | null>(null);
 
   return (
     <div className="settings-tab__scroll reference-sources">
@@ -111,6 +113,7 @@ export default function ReferenceSourcesSection() {
                 setExpandedId(prev => (prev === s.id ? null : s.id))
               }
               onDeleteRequest={() => setDeleteTarget(s)}
+              onScribeRequest={() => setScribeTarget(s)}
               onChanged={invalidateAll}
             />
           ))}
@@ -180,6 +183,14 @@ export default function ReferenceSourcesSection() {
         )}
       </section>
 
+      {scribeTarget && (
+        <ScribeModal
+          source={scribeTarget}
+          open
+          onClose={() => setScribeTarget(null)}
+        />
+      )}
+
       {deleteTarget && (
         <DeleteDialog
           source={deleteTarget}
@@ -206,12 +217,14 @@ function SourceRow({
   expanded,
   onToggle,
   onDeleteRequest,
+  onScribeRequest,
   onChanged,
 }: {
   source: ReferenceSource;
   expanded: boolean;
   onToggle: () => void;
   onDeleteRequest: () => void;
+  onScribeRequest: () => void;
   onChanged: () => void;
 }) {
   return (
@@ -238,6 +251,12 @@ function SourceRow({
           <span className="reference-sources__type-badge">
             {source.cartomancy_types.join(', ')}
           </span>
+        </button>
+        <button
+          onClick={onScribeRequest}
+          title="Import this book's content with the AI assistant"
+        >
+          Import with AI…
         </button>
         <button
           className="danger"
