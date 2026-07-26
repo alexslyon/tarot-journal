@@ -35,6 +35,13 @@ interface ScribeModalProps {
   onClose: () => void;
 }
 
+/** One extraction request: a chunk of book text, or a group of page
+ *  photos. Each unit is sent as its own message in the conversation. */
+interface ExtractionUnit {
+  label: string;
+  parts: LlmMessagePart[];
+}
+
 // ── Source material the user has added ───────────────────────
 interface Material {
   id: number;
@@ -61,6 +68,11 @@ interface Proposal {
 // Keep prompts under control: ~200k tokens of book text is plenty for
 // one import session and stays inside big-model context windows.
 const MAX_SOURCE_CHARS = 800_000;
+// The APP drives batching, not the model: long books are cut into
+// parts of this size and each part is one small, fast request. Replies
+// stay far below output limits and timeouts no matter the book length.
+const CHUNK_CHARS = 120_000;
+const IMAGES_PER_UNIT = 8;
 // Downscale photos so a stack of LWB pages doesn't blow request limits.
 const IMAGE_MAX_EDGE = 2000;
 
@@ -86,7 +98,13 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
   const [busy, setBusy] = useState(false);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [applying, setApplying] = useState(false);
+  // Parts of the book still waiting to be sent (nonempty after a
+  // mid-extraction failure — powers the Resume button).
+  const [pendingUnits, setPendingUnits] = useState<ExtractionUnit[]>([]);
   const systemPromptRef = useRef('');
+  // Mirror of `proposals` that async loops can read without stale
+  // closures (several merges can land within one render cycle).
+  const proposalsRef = useRef<Proposal[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const { data: llmConfig } = useQuery({ queryKey: ['llm-config'], queryFn: getLlmConfig, enabled: open });
@@ -129,6 +147,8 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
     setMessages([]);
     setDisplayMessages([]);
     setProposals([]);
+    proposalsRef.current = [];
+    setPendingUnits([]);
     setChatInput('');
     setCtype(source.cartomancy_types[0] || 'Tarot');
     setDeckId('');
@@ -196,41 +216,50 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
   const canStart = materials.length > 0 && targetLabels.length > 0 && !extracting;
 
   const handleStart = async () => {
-    const system = buildSystemPrompt(ctype, archetypes, targetLabels, source.name);
-    systemPromptRef.current = system;
+    systemPromptRef.current = buildSystemPrompt(ctype, archetypes, targetLabels, source.name);
 
-    const parts: LlmMessagePart[] = [];
-    let text = 'Here is the source material to extract from:\n\n';
-    let truncated = false;
-    for (const m of materials) {
-      if (m.kind === 'text' && m.text) {
-        let chunk = `--- ${m.filename} ---\n${m.text}\n\n`;
-        if (text.length + chunk.length > MAX_SOURCE_CHARS) {
-          chunk = chunk.slice(0, Math.max(0, MAX_SOURCE_CHARS - text.length));
-          truncated = true;
-        }
-        text += chunk;
-      }
-    }
-    text += '\nPlease extract the content for the target fields now.';
-    parts.push({ type: 'text', text });
-    for (const m of materials) {
-      if (m.kind === 'image' && m.data) {
-        parts.push({ type: 'image', media_type: m.mediaType, data: m.data });
-      }
-    }
-    if (truncated) {
+    const totalText = materials.reduce((n, m) => n + (m.text?.length || 0), 0);
+    if (totalText > MAX_SOURCE_CHARS) {
       showToast('The source text was very long and was truncated — consider importing in smaller pieces.');
     }
+    const units = buildUnits(materials);
+    if (!units.length) return;
 
-    const firstMessage: LlmMessage = { role: 'user', content: parts };
+    setMessages([]);
+    setProposals([]);
+    proposalsRef.current = [];
+    setDisplayMessages([]);
     setStage('chat');
-    setDisplayMessages([{ role: 'user', text: `Sent ${materials.length} source file${materials.length === 1 ? '' : 's'} for extraction.` }]);
-    await sendToModel([firstMessage]);
+    await runExtraction(units, []);
+  };
+
+  /** Send each part of the book as its own request, merging the cards
+   *  it yields into the running list. On failure, remember where we
+   *  stopped so the Resume button can pick up from that part. */
+  const runExtraction = async (units: ExtractionUnit[], startHistory: LlmMessage[]) => {
+    let history = startHistory;
+    for (let i = 0; i < units.length; i++) {
+      const unit = units[i];
+      setDisplayMessages(prev => [...prev, { role: 'user', text: `Reading ${unit.label}…` }]);
+      const next = await callModel([...history, { role: 'user', content: unit.parts }]);
+      if (!next) {
+        setPendingUnits(units.slice(i));
+        setDisplayMessages(prev => [...prev, {
+          role: 'error',
+          text: `Stopped at ${unit.label} — ${units.length - i} part${units.length - i === 1 ? '' : 's'} left. Cards already extracted are safe; use "Resume extraction" to continue.`,
+        }]);
+        return;
+      }
+      history = next;
+    }
+    setPendingUnits([]);
   };
 
   // ── Chat plumbing ──────────────────────────────────────────
-  const sendToModel = async (history: LlmMessage[]) => {
+
+  /** One model round-trip: send history, show the reply, merge any
+   *  proposals. Returns the new history, or null on failure. */
+  const callModel = async (history: LlmMessage[]): Promise<LlmMessage[] | null> => {
     setBusy(true);
     try {
       const { text: reply, truncated } = await llmChat({
@@ -239,36 +268,33 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
         max_tokens: 64000,
       });
       const { visible, parsed } = splitReply(reply);
-      setMessages([...history, { role: 'assistant', content: reply }]);
+      const newHistory: LlmMessage[] = [...history, { role: 'assistant', content: reply }];
+      setMessages(newHistory);
       if (parsed) {
-        const resolved = resolveProposals(parsed, archetypes, deckCards, proposals);
-        setProposals(resolved);
+        const merged = mergeProposals(proposalsRef.current, parsed, archetypes, deckCards);
+        proposalsRef.current = merged;
+        setProposals(merged);
         setDisplayMessages(prev => [...prev, {
           role: 'assistant',
-          text: visible || `Updated ${resolved.length} card proposal${resolved.length === 1 ? '' : 's'} — review them on the right.`,
+          text: visible || `Updated ${parsed.length} card${parsed.length === 1 ? '' : 's'} (${merged.length} total) — review on the right.`,
         }]);
-        if (truncated) {
-          setDisplayMessages(prev => [...prev, {
-            role: 'error',
-            text: `The reply was cut off at the length limit — ${resolved.length} card${resolved.length === 1 ? '' : 's'} were recovered. Tell the model to continue with the remaining cards (it will re-send the full set), or target fewer fields per pass.`,
-          }]);
-        }
       } else {
         setDisplayMessages(prev => [...prev, { role: 'assistant', text: visible || reply }]);
-        if (truncated) {
-          setDisplayMessages(prev => [...prev, {
-            role: 'error',
-            text: 'The reply was cut off at the length limit before any proposals could be read. Try targeting fewer fields per pass, or ask the model to extract a smaller batch of cards first (e.g. "start with the Major Arcana only").',
-          }]);
-        }
       }
+      if (truncated) {
+        setDisplayMessages(prev => [...prev, {
+          role: 'error',
+          text: 'This reply was cut off at the length limit, so some cards from this part may be missing. Once extraction finishes, ask the model to re-check this part.',
+        }]);
+      }
+      return newHistory;
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } };
       setDisplayMessages(prev => [...prev, {
         role: 'error',
         text: e.response?.data?.error || 'The model request failed. You can try sending again.',
       }]);
-      setMessages(history); // keep history so the user can retry
+      return null;
     } finally {
       setBusy(false);
     }
@@ -279,7 +305,7 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
     if (!text || busy) return;
     setChatInput('');
     setDisplayMessages(prev => [...prev, { role: 'user', text }]);
-    await sendToModel([...messages, { role: 'user', content: text }]);
+    await callModel([...messages, { role: 'user', content: text }]);
   };
 
   // ── Apply ──────────────────────────────────────────────────
@@ -469,6 +495,14 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
                 </div>
               ))}
               {busy && <div className="scribe__msg scribe__msg--assistant scribe__msg--busy">Working…</div>}
+              {pendingUnits.length > 0 && !busy && (
+                <button
+                  className="scribe__resume"
+                  onClick={() => runExtraction(pendingUnits, messages)}
+                >
+                  Resume extraction ({pendingUnits.length} part{pendingUnits.length === 1 ? '' : 's'} left)
+                </button>
+              )}
               <div ref={chatEndRef} />
             </div>
             <div className="scribe__chat-input">
@@ -604,17 +638,17 @@ Target fields to fill for each card: ${targetLabels.map(l => `"${l}"`).join(', '
 
 How to respond — these rules are strict, the app parses your output:
 - Extracted card content goes ONLY inside a fenced code block tagged json. NEVER put card meanings, keywords, or field content in the prose part of your reply — the app cannot read prose, and content outside the JSON block is lost.
-- Start extracting immediately from the provided material. Do not ask for confirmation or clarification first; extract what you can and note open questions afterwards.
-- Every reply that extracts or changes anything must include exactly ONE such block containing the COMPLETE current set of proposals (never a delta), in this exact shape:
+- The source material arrives in one or more parts, each in its own message. When a part arrives, immediately extract the card content found in THAT part — no confirmation or clarification questions first.
+- The app keeps a running list of proposals and MERGES each JSON block you send into it. So each block contains ONLY the cards you are adding or changing in this reply — never re-send cards that haven't changed. One block per reply, in this exact shape:
 \`\`\`json
 {"proposals": [{"card": "<archetype name>", "fields": {"<field name>": "<content>"}, "flags": ["<optional short notes>"]}]}
 \`\`\`
-- If the source is long, work in cumulative batches: emit the complete set of cards you have finished so far (a valid, closed JSON block), state which cards remain, and continue when the user says to. Never let the JSON block get cut off mid-card — a smaller complete batch beats a larger broken one.
 - Use the app's archetype names exactly as listed above whenever you are confident of the match (books often use variant names or other languages). If you cannot match a card confidently, keep the source's name and add a flag explaining the uncertainty.
+- A card's text can be split across a part boundary. If a part ends mid-card, extract what's there and flag it ("may continue in next part"); when the next part completes it, re-send that one card with its full content.
 - Field content must be faithful to the source text — do not summarize, paraphrase, or embellish. Light cleanup is encouraged: fix obvious OCR artifacts (garbled characters, broken headers, stray symbols like ¥), merge hyphenated line breaks, and remove accidentally duplicated passages, but note significant repairs in flags.
-- If the material only covers some cards, only include those cards.
+- If a part contains no card content (front matter, essays, spreads), say so in one sentence — no JSON block needed.
 - Outside the JSON block, reply conversationally and briefly: what you found, what's uncertain or missing, answers to the user's questions.
-- When the user requests changes, apply them and emit the complete updated JSON block again.`;
+- When the user requests changes, emit only the affected cards (each with all of its fields, not just the changed one) in the JSON block.`;
 }
 
 type RawProposal = { card: string; fields: Record<string, string>; flags?: string[] };
@@ -701,33 +735,124 @@ function parseProposals(jsonText: string): RawProposal[] | null {
   }
 }
 
-/** Attach archetype/card ids and carry over checkbox state. */
-function resolveProposals(
-  parsed: { card: string; fields: Record<string, string>; flags?: string[] }[],
+/** Merge a JSON block's cards into the running proposal list.
+ *
+ *  Keyed by card name (case-insensitive): a re-sent card updates its
+ *  existing row field-by-field and keeps its checkbox state; a new
+ *  card is appended. Nothing is ever dropped — the model only sends
+ *  additions and changes, never the full set. */
+function mergeProposals(
+  previous: Proposal[],
+  incoming: RawProposal[],
   archetypes: Archetype[],
   deckCards: Card[],
-  previous: Proposal[],
 ): Proposal[] {
   const archByName = new Map(archetypes.map(a => [a.name.toLowerCase(), a.id]));
-  const prevChecked = new Map(previous.map(p => [p.card.toLowerCase(), p.checked]));
-  return parsed
-    .filter(p => p && typeof p.card === 'string' && p.fields && typeof p.fields === 'object')
-    .map(p => {
-      const key = p.card.toLowerCase();
-      const archetypeId = archByName.get(key);
-      const card = deckCards.find(c =>
-        (c.archetype || '').toLowerCase() === key || c.name.toLowerCase() === key);
-      const matched = archetypeId != null || card != null;
-      return {
-        card: p.card,
-        fields: Object.fromEntries(
-          Object.entries(p.fields).filter(([, v]) => typeof v === 'string')),
-        flags: Array.isArray(p.flags) ? p.flags.filter(f => typeof f === 'string') : undefined,
+  const result = [...previous];
+  const indexByKey = new Map(result.map((p, i) => [p.card.toLowerCase(), i] as const));
+
+  for (const raw of incoming) {
+    if (!raw || typeof raw.card !== 'string' || !raw.fields || typeof raw.fields !== 'object') continue;
+    const key = raw.card.toLowerCase();
+    const archetypeId = archByName.get(key);
+    const card = deckCards.find(c =>
+      (c.archetype || '').toLowerCase() === key || c.name.toLowerCase() === key);
+    const fields = Object.fromEntries(
+      Object.entries(raw.fields).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
+    const flags = Array.isArray(raw.flags) ? raw.flags.filter(f => typeof f === 'string') : undefined;
+
+    const existingIdx = indexByKey.get(key);
+    if (existingIdx != null) {
+      const existing = result[existingIdx];
+      result[existingIdx] = {
+        ...existing,
+        fields: { ...existing.fields, ...fields },
+        flags: flags ?? existing.flags,
+        archetypeId: existing.archetypeId ?? archetypeId,
+        cardId: existing.cardId ?? card?.id,
+      };
+    } else {
+      result.push({
+        card: raw.card,
+        fields,
+        flags,
         archetypeId,
         cardId: card?.id,
-        checked: prevChecked.get(key) ?? matched,
-      };
+        checked: archetypeId != null || card != null,
+      });
+      indexByKey.set(key, result.length - 1);
+    }
+  }
+  return result;
+}
+
+/** Cut the source material into extraction units: text files split at
+ *  paragraph boundaries into CHUNK_CHARS pieces, photos in groups. */
+function buildUnits(materials: Material[]): ExtractionUnit[] {
+  const units: ExtractionUnit[] = [];
+  let used = 0;
+  for (const m of materials) {
+    if (m.kind !== 'text' || !m.text) continue;
+    let text = m.text;
+    if (used + text.length > MAX_SOURCE_CHARS) {
+      text = text.slice(0, Math.max(0, MAX_SOURCE_CHARS - used));
+    }
+    used += text.length;
+    if (!text) continue;
+    const chunks = splitIntoChunks(text);
+    chunks.forEach((chunk, i) => {
+      const label = chunks.length > 1
+        ? `${m.filename} (part ${i + 1} of ${chunks.length})`
+        : m.filename;
+      units.push({
+        label,
+        parts: [{
+          type: 'text',
+          text: `Source material — ${label}. Extract the card content found in this part now:\n\n${chunk}`,
+        }],
+      });
     });
+  }
+  const images = materials.filter(m => m.kind === 'image' && m.data);
+  for (let i = 0; i < images.length; i += IMAGES_PER_UNIT) {
+    const group = images.slice(i, i + IMAGES_PER_UNIT);
+    const label = images.length > IMAGES_PER_UNIT
+      ? `photos ${i + 1}–${i + group.length} of ${images.length}`
+      : `${group.length} photo${group.length === 1 ? '' : 's'}`;
+    units.push({
+      label,
+      parts: [
+        {
+          type: 'text',
+          text: `Source material — ${label}. Extract the card content found in these page photos now:`,
+        },
+        ...group.map(m => ({
+          type: 'image' as const,
+          media_type: m.mediaType,
+          data: m.data,
+        })),
+      ],
+    });
+  }
+  return units;
+}
+
+function splitIntoChunks(text: string, max = CHUNK_CHARS): string[] {
+  if (text.length <= max) return [text];
+  const chunks: string[] = [];
+  let pos = 0;
+  while (pos < text.length) {
+    let end = Math.min(pos + max, text.length);
+    if (end < text.length) {
+      // Prefer breaking at a paragraph gap so cards aren't split
+      // mid-sentence more than necessary.
+      const gap = text.lastIndexOf('\n\n', end);
+      if (gap > pos + max * 0.5) end = gap;
+    }
+    chunks.push(text.slice(pos, end));
+    pos = end;
+  }
+  return chunks;
 }
 
 // ── Image reading (downscale in-browser) ─────────────────────

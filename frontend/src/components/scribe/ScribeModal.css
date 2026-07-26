@@ -286,3 +286,18 @@
   max-height: 220px;
   overflow-y: auto;
 }
+
+.scribe__resume {
+  align-self: center;
+  margin: 4px 0;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: var(--bg-primary);
+  border-radius: 6px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.scribe__resume:hover {
+  background: var(--accent-dim, var(--bg-tertiary));
+}
