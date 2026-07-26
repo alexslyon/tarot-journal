@@ -32,6 +32,10 @@ jinja2==3.1.6
 # chart wheel (solid black) because of how kerykeion styles it.
 cairosvg==2.8.2
 
+# AI assistant features (Settings → AI, the Scribe). The official
+# Anthropic SDK talks to Claude; OpenAI/local providers use requests.
+anthropic==0.120.0
+
 # Development: test suite (run with `npm run test:backend` or
 # `.venv/bin/python3 -m pytest`).
 pytest==8.4.2
