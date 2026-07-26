@@ -65,10 +65,10 @@ def llm_chat():
     messages = data.get('messages') or []
     if not messages:
         return jsonify({'error': 'messages is required'}), 400
-    max_tokens = min(int(data.get('max_tokens') or llm.DEFAULT_MAX_TOKENS), 32000)
+    max_tokens = min(int(data.get('max_tokens') or llm.DEFAULT_MAX_TOKENS), 64000)
     try:
-        text = llm.chat(config, messages, system=data.get('system'),
-                        max_tokens=max_tokens)
+        result = llm.chat(config, messages, system=data.get('system'),
+                          max_tokens=max_tokens)
     except llm.LLMError as e:
         return jsonify({'error': str(e)}), 502
-    return jsonify({'text': text})
+    return jsonify(result)

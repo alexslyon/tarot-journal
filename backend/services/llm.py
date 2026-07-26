@@ -74,8 +74,10 @@ def save_config(db, data: dict) -> None:
 # ── The one call everything uses ─────────────────────────────────────
 
 def chat(config: dict, messages: list, system: str | None = None,
-         max_tokens: int = DEFAULT_MAX_TOKENS) -> str:
-    """Send a conversation, return the assistant's text reply."""
+         max_tokens: int = DEFAULT_MAX_TOKENS) -> dict:
+    """Send a conversation. Returns {'text': str, 'truncated': bool} —
+    truncated means the reply hit max_tokens and is cut off mid-thought,
+    which callers should surface rather than silently accept."""
     provider = config.get('provider') or 'anthropic'
     model = config.get('model') or DEFAULT_MODELS.get(provider)
     if not model:
@@ -91,7 +93,7 @@ def test_connection(config: dict) -> str:
         config,
         [{'role': 'user', 'content': "Reply with the single word: OK"}],
         max_tokens=1024,
-    )
+    )['text']
 
 
 # ── Anthropic (official SDK) ─────────────────────────────────────────
@@ -145,7 +147,7 @@ def _chat_anthropic(config, model, messages, system, max_tokens) -> str:
     text = ''.join(b.text for b in response.content if b.type == 'text')
     if not text:
         raise LLMError("The model returned an empty response.")
-    return text
+    return {'text': text, 'truncated': response.stop_reason == 'max_tokens'}
 
 
 def _mark_cache_breakpoint(msg: dict) -> None:
@@ -214,12 +216,13 @@ def _chat_openai_style(config, model, messages, system, max_tokens) -> str:
         data = _post_openai(base_url, headers, body, retry_token_param=False)
 
     try:
-        text = data['choices'][0]['message']['content']
+        choice = data['choices'][0]
+        text = choice['message']['content']
     except (KeyError, IndexError, TypeError):
         raise LLMError("The server returned an unexpected response format.")
     if not text:
         raise LLMError("The model returned an empty response.")
-    return text
+    return {'text': text, 'truncated': choice.get('finish_reason') == 'length'}
 
 
 def _post_openai(base_url, headers, body, retry_token_param=True):

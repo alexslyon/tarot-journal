@@ -233,10 +233,10 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
   const sendToModel = async (history: LlmMessage[]) => {
     setBusy(true);
     try {
-      const reply = await llmChat({
+      const { text: reply, truncated } = await llmChat({
         messages: history,
         system: systemPromptRef.current,
-        max_tokens: 32000,
+        max_tokens: 64000,
       });
       const { visible, parsed } = splitReply(reply);
       setMessages([...history, { role: 'assistant', content: reply }]);
@@ -247,8 +247,20 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
           role: 'assistant',
           text: visible || `Updated ${resolved.length} card proposal${resolved.length === 1 ? '' : 's'} — review them on the right.`,
         }]);
+        if (truncated) {
+          setDisplayMessages(prev => [...prev, {
+            role: 'error',
+            text: `The reply was cut off at the length limit — ${resolved.length} card${resolved.length === 1 ? '' : 's'} were recovered. Tell the model to continue with the remaining cards (it will re-send the full set), or target fewer fields per pass.`,
+          }]);
+        }
       } else {
         setDisplayMessages(prev => [...prev, { role: 'assistant', text: visible || reply }]);
+        if (truncated) {
+          setDisplayMessages(prev => [...prev, {
+            role: 'error',
+            text: 'The reply was cut off at the length limit before any proposals could be read. Try targeting fewer fields per pass, or ask the model to extract a smaller batch of cards first (e.g. "start with the Major Arcana only").',
+          }]);
+        }
       }
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } };
@@ -590,33 +602,103 @@ The app's ${ctype} card archetypes are: ${names}
 
 Target fields to fill for each card: ${targetLabels.map(l => `"${l}"`).join(', ')}
 
-How to respond:
-- Whenever you have extracted or changed proposals, include ONE fenced code block tagged json containing the COMPLETE current set of proposals (not a delta), in this exact shape:
+How to respond — these rules are strict, the app parses your output:
+- Extracted card content goes ONLY inside a fenced code block tagged json. NEVER put card meanings, keywords, or field content in the prose part of your reply — the app cannot read prose, and content outside the JSON block is lost.
+- Start extracting immediately from the provided material. Do not ask for confirmation or clarification first; extract what you can and note open questions afterwards.
+- Every reply that extracts or changes anything must include exactly ONE such block containing the COMPLETE current set of proposals (never a delta), in this exact shape:
 \`\`\`json
 {"proposals": [{"card": "<archetype name>", "fields": {"<field name>": "<content>"}, "flags": ["<optional short notes>"]}]}
 \`\`\`
+- If the source is long, work in cumulative batches: emit the complete set of cards you have finished so far (a valid, closed JSON block), state which cards remain, and continue when the user says to. Never let the JSON block get cut off mid-card — a smaller complete batch beats a larger broken one.
 - Use the app's archetype names exactly as listed above whenever you are confident of the match (books often use variant names or other languages). If you cannot match a card confidently, keep the source's name and add a flag explaining the uncertainty.
 - Field content must be faithful to the source text — do not summarize, paraphrase, or embellish. Light cleanup is encouraged: fix obvious OCR artifacts (garbled characters, broken headers, stray symbols like ¥), merge hyphenated line breaks, and remove accidentally duplicated passages, but note significant repairs in flags.
 - If the material only covers some cards, only include those cards.
-- Outside the JSON block, reply conversationally and briefly: describe what you found, mention anything uncertain or missing, and answer the user's questions. Keep card content out of the prose — it belongs in the JSON.
+- Outside the JSON block, reply conversationally and briefly: what you found, what's uncertain or missing, answers to the user's questions.
 - When the user requests changes, apply them and emit the complete updated JSON block again.`;
 }
 
-/** Split a model reply into visible prose and the parsed JSON block. */
-function splitReply(reply: string): {
-  visible: string;
-  parsed: { card: string; fields: Record<string, string>; flags?: string[] }[] | null;
-} {
-  const matches = [...reply.matchAll(/```json\s*([\s\S]*?)```/g)];
-  let parsed = null;
-  if (matches.length) {
-    try {
-      const obj = JSON.parse(matches[matches.length - 1][1]);
-      if (Array.isArray(obj?.proposals)) parsed = obj.proposals;
-    } catch { /* leave parsed null; show raw reply */ }
+type RawProposal = { card: string; fields: Record<string, string>; flags?: string[] };
+
+/** Split a model reply into visible prose and the parsed proposals.
+ *
+ *  Deliberately forgiving about the block format: models sometimes tag
+ *  the fence differently (```JSON, bare ```), skip the fence entirely,
+ *  or get cut off at the reply-length limit mid-JSON. A truncated
+ *  proposals array is salvaged up to its last complete card so a long
+ *  extraction degrades to "most cards + a warning" instead of nothing. */
+function splitReply(reply: string): { visible: string; parsed: RawProposal[] | null } {
+  const candidates: string[] = [];
+  // Closed fences, any tag casing, last one wins
+  for (const m of reply.matchAll(/```[a-zA-Z]*\s*([\s\S]*?)```/g)) {
+    if (m[1].includes('"proposals"')) candidates.push(m[1]);
   }
-  const visible = reply.replace(/```json[\s\S]*?```/g, '').replace(/\n{3,}/g, '\n\n').trim();
+  // Unterminated final fence (typical of a truncated reply)
+  if (!candidates.length) {
+    const open = reply.match(/```[a-zA-Z]*\s*([\s\S]*)$/);
+    if (open && open[1].includes('"proposals"')) candidates.push(open[1]);
+  }
+  // No fence at all — bare JSON object somewhere in the reply
+  if (!candidates.length) {
+    const idx = reply.search(/\{\s*"proposals"/);
+    if (idx !== -1) candidates.push(reply.slice(idx));
+  }
+
+  let parsed: RawProposal[] | null = null;
+  for (let i = candidates.length - 1; i >= 0 && !parsed; i--) {
+    parsed = parseProposals(candidates[i]);
+  }
+
+  // Prose = the reply minus fenced blocks (terminated or not) and any
+  // bare proposals JSON we managed to parse.
+  let visible = reply.replace(/```[\s\S]*?(```|$)/g, '');
+  if (parsed) visible = visible.replace(/\{\s*"proposals"[\s\S]*$/, '');
+  visible = visible.replace(/\n{3,}/g, '\n\n').trim();
   return { visible, parsed };
+}
+
+/** Parse a proposals JSON string; on failure, salvage every complete
+ *  card object from a truncated array. */
+function parseProposals(jsonText: string): RawProposal[] | null {
+  try {
+    const obj = JSON.parse(jsonText);
+    if (Array.isArray(obj?.proposals)) return obj.proposals;
+    return null;
+  } catch { /* fall through to salvage */ }
+
+  const keyIdx = jsonText.indexOf('"proposals"');
+  if (keyIdx === -1) return null;
+  const arrStart = jsonText.indexOf('[', keyIdx);
+  if (arrStart === -1) return null;
+
+  // Walk the array tracking strings/escapes/nesting; remember where
+  // each complete top-level object ends, then rebuild a closed array.
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let lastComplete = -1;
+  for (let i = arrStart; i < jsonText.length; i++) {
+    const ch = jsonText[i];
+    if (escaped) { escaped = false; continue; }
+    if (inString) {
+      if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{' || ch === '[') depth++;
+    else if (ch === '}' || ch === ']') {
+      depth--;
+      if (depth === 1) lastComplete = i; // back at array level: object done
+      if (depth === 0) break;            // array itself closed
+    }
+  }
+  if (lastComplete === -1) return null;
+  try {
+    const arr = JSON.parse(jsonText.slice(arrStart, lastComplete + 1) + ']');
+    return Array.isArray(arr) && arr.length ? arr : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Attach archetype/card ids and carry over checkbox state. */

@@ -48,12 +48,13 @@ export async function testLlmConnection(): Promise<{ ok: boolean; model?: string
   }
 }
 
-/** Generic chat completion. Long timeout — extractions can take minutes. */
+/** Generic chat completion. Long timeout — extractions can take minutes.
+ *  `truncated` means the model hit its reply-length limit mid-answer. */
 export async function llmChat(data: {
   messages: LlmMessage[];
   system?: string;
   max_tokens?: number;
-}): Promise<string> {
+}): Promise<{ text: string; truncated: boolean }> {
   const res = await api.post('/api/llm/chat', data, { timeout: 620_000 });
-  return res.data.text;
+  return res.data;
 }
