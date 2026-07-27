@@ -78,7 +78,12 @@ const IMAGES_PER_UNIT = 8;
 const CONCURRENT_PARTS = 3;
 // Chunks overlap so a card cut at one part's end appears whole at the
 // next part's start; the merge keeps whichever version is longer.
-const CHUNK_OVERLAP = 3_000;
+// Sized for books with long per-card essays (several pages ≈ 8k chars);
+// anything longer still gets caught by the automatic completion pass.
+const CHUNK_OVERLAP = 8_000;
+// Flags the model uses when a card's text was cut off at a boundary —
+// these trigger the automatic completion pass after extraction.
+const INCOMPLETE_FLAG = /cut\s*off|incomplete|truncat|continu/i;
 // Downscale photos so a stack of LWB pages doesn't blow request limits.
 const IMAGE_MAX_EDGE = 2000;
 
@@ -318,6 +323,36 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
       }]);
     }
     setBusy(false);
+    // With every part in, boundary-straddling cards can be completed
+    // automatically: the stitched conversation contains all parts, so
+    // one repair request can see across the cut. (After a Resume run
+    // finishes the missing parts, this fires then instead.)
+    if (!failedUnits.length) {
+      await completeFlaggedCards(history);
+    }
+  };
+
+  /** One-shot follow-up: re-request full content for any card the
+   *  model flagged as cut off at a part boundary. */
+  const completeFlaggedCards = async (history: LlmMessage[]) => {
+    const flagged = proposalsRef.current.filter(p =>
+      p.flags?.some(f => INCOMPLETE_FLAG.test(f)));
+    if (!flagged.length) return;
+    const names = flagged.map(p => p.card).join(', ');
+    setDisplayMessages(prev => [...prev, {
+      role: 'user',
+      text: `Auto-completing ${flagged.length} card${flagged.length === 1 ? '' : 's'} flagged as cut off: ${names}`,
+    }]);
+    await callModel([...history, {
+      role: 'user',
+      content:
+        `These cards were flagged as incomplete or cut off at a part boundary: ${names}. ` +
+        'All source parts are above in this conversation, and neighbouring parts overlap, ' +
+        'so the complete text for each card should be visible across them. Re-send each of ' +
+        'these cards with its complete field content assembled from all relevant parts. ' +
+        'For every card you resolve, include "flags": [] (or a flag stating what is genuinely ' +
+        'missing from the source, if the text truly ends mid-sentence in the book itself).',
+    }]);
   };
 
   // ── Chat plumbing ──────────────────────────────────────────
@@ -709,7 +744,7 @@ How to respond — these rules are strict, the app parses your output:
 {"proposals": [{"card": "<archetype name>", "fields": {"<field name>": "<content>"}, "flags": ["<optional short notes>"]}]}
 \`\`\`
 - Use the app's archetype names exactly as listed above whenever you are confident of the match (books often use variant names or other languages). If you cannot match a card confidently, keep the source's name and add a flag explaining the uncertainty.
-- Parts overlap slightly, so a card whose text is cut off at the end of one part usually appears complete in another; always extract the complete version you can see. If a card's text still looks cut off, extract what's there and add a flag ("text appears cut off").
+- Parts overlap, so a card whose text is cut off at the end of one part usually appears complete in another; always extract the complete version you can see. If a card's text still looks cut off, extract what's there and add a flag containing the words "cut off" — the app uses that flag to request completion automatically.
 - Field content must be faithful to the source text — do not summarize, paraphrase, or embellish. Light cleanup is encouraged: fix obvious OCR artifacts (garbled characters, broken headers, stray symbols like ¥), merge hyphenated line breaks, and remove accidentally duplicated passages, but note significant repairs in flags.
 - If a part contains no card content (front matter, essays, spreads), say so in one sentence — no JSON block needed.
 - Outside the JSON block, reply conversationally and briefly: what you found, what's uncertain or missing, answers to the user's questions.
