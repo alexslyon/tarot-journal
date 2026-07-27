@@ -113,10 +113,19 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
   // mid-extraction failure — powers the Resume button).
   const [pendingUnits, setPendingUnits] = useState<ExtractionUnit[]>([]);
   const systemPromptRef = useRef('');
-  // Mirror of `proposals` that async loops can read without stale
-  // closures (several merges can land within one render cycle).
+  // Source of truth for proposal logic. React state is only its render
+  // mirror — EVERY change must go through updateProposals below, so
+  // async merges and user checkbox clicks can never diverge (a merge
+  // building on a stale copy would visually revert the panel).
   const proposalsRef = useRef<Proposal[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const updateProposals = (fn: (current: Proposal[]) => Proposal[]): Proposal[] => {
+    const next = fn(proposalsRef.current);
+    proposalsRef.current = next;
+    setProposals(next);
+    return next;
+  };
 
   const { data: llmConfig } = useQuery({ queryKey: ['llm-config'], queryFn: getLlmConfig, enabled: open });
   const { data: fields = [] } = useQuery<SourceField[]>({
@@ -157,8 +166,7 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
     setMaterials([]);
     setMessages([]);
     setDisplayMessages([]);
-    setProposals([]);
-    proposalsRef.current = [];
+    updateProposals(() => []);
     setPendingUnits([]);
     setChatInput('');
     setCtype(source.cartomancy_types[0] || 'Tarot');
@@ -237,8 +245,7 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
     if (!units.length) return;
 
     setMessages([]);
-    setProposals([]);
-    proposalsRef.current = [];
+    updateProposals(() => []);
     setDisplayMessages([]);
     setStage('chat');
     await runExtraction(units, []);
@@ -270,10 +277,8 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
           });
           const { visible, parsed } = splitReply(reply);
           if (parsed) {
-            const merged = mergeProposals(
-              proposalsRef.current, parsed, archetypes, deckCards, true);
-            proposalsRef.current = merged;
-            setProposals(merged);
+            const merged = updateProposals(current =>
+              mergeProposals(current, parsed, archetypes, deckCards, true));
             setDisplayMessages(prev => [...prev, {
               role: 'assistant',
               text: `[${unit.label}] ${visible || `${parsed.length} card${parsed.length === 1 ? '' : 's'} extracted (${merged.length} total).`}`,
@@ -371,9 +376,8 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
       const newHistory: LlmMessage[] = [...history, { role: 'assistant', content: reply }];
       setMessages(newHistory);
       if (parsed) {
-        const merged = mergeProposals(proposalsRef.current, parsed, archetypes, deckCards);
-        proposalsRef.current = merged;
-        setProposals(merged);
+        const merged = updateProposals(current =>
+          mergeProposals(current, parsed, archetypes, deckCards));
         setDisplayMessages(prev => [...prev, {
           role: 'assistant',
           text: visible || `Updated ${parsed.length} card${parsed.length === 1 ? '' : 's'} (${merged.length} total) — review on the right.`,
@@ -625,8 +629,8 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
               <strong>{proposals.length} card{proposals.length === 1 ? '' : 's'} proposed</strong>
               {proposals.length > 0 && (
                 <span className="scribe__review-bulk">
-                  <button onClick={() => setProposals(p => p.map(x => ({ ...x, checked: true })))}>All</button>
-                  <button onClick={() => setProposals(p => p.map(x => ({ ...x, checked: false })))}>None</button>
+                  <button onClick={() => updateProposals(p => p.map(x => ({ ...x, checked: true })))}>All</button>
+                  <button onClick={() => updateProposals(p => p.map(x => ({ ...x, checked: false })))}>None</button>
                 </span>
               )}
             </div>
@@ -643,7 +647,7 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
                   selectedFields={selectedFields}
                   cardFieldNames={deckId !== '' ? cardFieldNames : []}
                   existingKeys={existingKeys}
-                  onToggle={() => setProposals(prev =>
+                  onToggle={() => updateProposals(prev =>
                     prev.map((x, j) => j === i ? { ...x, checked: !x.checked } : x))}
                 />
               ))}
