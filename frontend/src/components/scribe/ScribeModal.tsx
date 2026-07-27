@@ -73,6 +73,12 @@ const MAX_SOURCE_CHARS = 800_000;
 // stay far below output limits and timeouts no matter the book length.
 const CHUNK_CHARS = 120_000;
 const IMAGES_PER_UNIT = 8;
+// Parts are independent, so several can extract at once — wall-clock
+// time divides accordingly. Kept modest to stay under API rate limits.
+const CONCURRENT_PARTS = 3;
+// Chunks overlap so a card cut at one part's end appears whole at the
+// next part's start; the merge keeps whichever version is longer.
+const CHUNK_OVERLAP = 3_000;
 // Downscale photos so a stack of LWB pages doesn't blow request limits.
 const IMAGE_MAX_EDGE = 2000;
 
@@ -233,26 +239,85 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
     await runExtraction(units, []);
   };
 
-  /** Send each part of the book as its own request, merging the cards
-   *  it yields into the running list. On failure, remember where we
-   *  stopped so the Resume button can pick up from that part. */
+  /** Extract every part, several at a time. Each part is its own
+   *  independent request (system prompt + that part only), so they can
+   *  run concurrently; results merge into the running list as they
+   *  land. Afterwards the (part, reply) pairs are stitched into one
+   *  conversation in book order so refinement chat has full context.
+   *  Failed parts are collected for the Resume button. */
   const runExtraction = async (units: ExtractionUnit[], startHistory: LlmMessage[]) => {
-    let history = startHistory;
-    for (let i = 0; i < units.length; i++) {
-      const unit = units[i];
-      setDisplayMessages(prev => [...prev, { role: 'user', text: `Reading ${unit.label}…` }]);
-      const next = await callModel([...history, { role: 'user', content: unit.parts }]);
-      if (!next) {
-        setPendingUnits(units.slice(i));
-        setDisplayMessages(prev => [...prev, {
-          role: 'error',
-          text: `Stopped at ${unit.label} — ${units.length - i} part${units.length - i === 1 ? '' : 's'} left. Cards already extracted are safe; use "Resume extraction" to continue.`,
-        }]);
-        return;
+    setBusy(true);
+    const results: ({ userMsg: LlmMessage; reply: string } | null)[] =
+      new Array(units.length).fill(null);
+    let nextIdx = 0;
+
+    const worker = async () => {
+      while (nextIdx < units.length) {
+        const i = nextIdx++;
+        const unit = units[i];
+        setDisplayMessages(prev => [...prev, { role: 'user', text: `Reading ${unit.label}…` }]);
+        const userMsg: LlmMessage = { role: 'user', content: unit.parts };
+        try {
+          const { text: reply, truncated } = await llmChat({
+            messages: [...startHistory, userMsg],
+            system: systemPromptRef.current,
+            max_tokens: 64000,
+          });
+          const { visible, parsed } = splitReply(reply);
+          if (parsed) {
+            const merged = mergeProposals(
+              proposalsRef.current, parsed, archetypes, deckCards, true);
+            proposalsRef.current = merged;
+            setProposals(merged);
+            setDisplayMessages(prev => [...prev, {
+              role: 'assistant',
+              text: `[${unit.label}] ${visible || `${parsed.length} card${parsed.length === 1 ? '' : 's'} extracted (${merged.length} total).`}`,
+            }]);
+          } else {
+            setDisplayMessages(prev => [...prev, {
+              role: 'assistant',
+              text: `[${unit.label}] ${visible || reply}`,
+            }]);
+          }
+          if (truncated) {
+            setDisplayMessages(prev => [...prev, {
+              role: 'error',
+              text: `[${unit.label}] This reply was cut off at the length limit — some of its cards may be missing. Ask the model to re-check this part afterwards.`,
+            }]);
+          }
+          results[i] = { userMsg, reply };
+        } catch (err: unknown) {
+          const e = err as { response?: { data?: { error?: string } } };
+          setDisplayMessages(prev => [...prev, {
+            role: 'error',
+            text: `[${unit.label}] ${e.response?.data?.error || 'The model request failed.'}`,
+          }]);
+        }
       }
-      history = next;
+    };
+
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENT_PARTS, units.length) }, worker),
+    );
+
+    // Stitch successful rounds into one conversation, in book order,
+    // so refinement questions can reference any part of the source.
+    let history = startHistory;
+    const failedUnits: ExtractionUnit[] = [];
+    units.forEach((unit, i) => {
+      const r = results[i];
+      if (r) history = [...history, r.userMsg, { role: 'assistant', content: r.reply }];
+      else failedUnits.push(unit);
+    });
+    setMessages(history);
+    setPendingUnits(failedUnits);
+    if (failedUnits.length) {
+      setDisplayMessages(prev => [...prev, {
+        role: 'error',
+        text: `${failedUnits.length} part${failedUnits.length === 1 ? '' : 's'} failed — cards already extracted are safe. "Resume extraction" retries just the failed parts.`,
+      }]);
     }
-    setPendingUnits([]);
+    setBusy(false);
   };
 
   // ── Chat plumbing ──────────────────────────────────────────
@@ -644,7 +709,7 @@ How to respond — these rules are strict, the app parses your output:
 {"proposals": [{"card": "<archetype name>", "fields": {"<field name>": "<content>"}, "flags": ["<optional short notes>"]}]}
 \`\`\`
 - Use the app's archetype names exactly as listed above whenever you are confident of the match (books often use variant names or other languages). If you cannot match a card confidently, keep the source's name and add a flag explaining the uncertainty.
-- A card's text can be split across a part boundary. If a part ends mid-card, extract what's there and flag it ("may continue in next part"); when the next part completes it, re-send that one card with its full content.
+- Parts overlap slightly, so a card whose text is cut off at the end of one part usually appears complete in another; always extract the complete version you can see. If a card's text still looks cut off, extract what's there and add a flag ("text appears cut off").
 - Field content must be faithful to the source text — do not summarize, paraphrase, or embellish. Light cleanup is encouraged: fix obvious OCR artifacts (garbled characters, broken headers, stray symbols like ¥), merge hyphenated line breaks, and remove accidentally duplicated passages, but note significant repairs in flags.
 - If a part contains no card content (front matter, essays, spreads), say so in one sentence — no JSON block needed.
 - Outside the JSON block, reply conversationally and briefly: what you found, what's uncertain or missing, answers to the user's questions.
@@ -740,12 +805,18 @@ function parseProposals(jsonText: string): RawProposal[] | null {
  *  Keyed by card name (case-insensitive): a re-sent card updates its
  *  existing row field-by-field and keeps its checkbox state; a new
  *  card is appended. Nothing is ever dropped — the model only sends
- *  additions and changes, never the full set. */
+ *  additions and changes, never the full set.
+ *
+ *  preferLonger is used during extraction, where overlapping parts can
+ *  finish in any order: a complete version of a boundary-straddling
+ *  card must not be clobbered by the cut-off version arriving later.
+ *  Refinement merges leave it off so "shorten this field" works. */
 function mergeProposals(
   previous: Proposal[],
   incoming: RawProposal[],
   archetypes: Archetype[],
   deckCards: Card[],
+  preferLonger = false,
 ): Proposal[] {
   const archByName = new Map(archetypes.map(a => [a.name.toLowerCase(), a.id]));
   const result = [...previous];
@@ -764,9 +835,15 @@ function mergeProposals(
     const existingIdx = indexByKey.get(key);
     if (existingIdx != null) {
       const existing = result[existingIdx];
+      const mergedFields = { ...existing.fields };
+      for (const [k, v] of Object.entries(fields)) {
+        const current = mergedFields[k];
+        if (preferLonger && typeof current === 'string' && current.length > v.length) continue;
+        mergedFields[k] = v;
+      }
       result[existingIdx] = {
         ...existing,
-        fields: { ...existing.fields, ...fields },
+        fields: mergedFields,
         flags: flags ?? existing.flags,
         archetypeId: existing.archetypeId ?? archetypeId,
         cardId: existing.cardId ?? card?.id,
@@ -841,7 +918,7 @@ function splitIntoChunks(text: string, max = CHUNK_CHARS): string[] {
   if (text.length <= max) return [text];
   const chunks: string[] = [];
   let pos = 0;
-  while (pos < text.length) {
+  for (;;) {
     let end = Math.min(pos + max, text.length);
     if (end < text.length) {
       // Prefer breaking at a paragraph gap so cards aren't split
@@ -850,7 +927,9 @@ function splitIntoChunks(text: string, max = CHUNK_CHARS): string[] {
       if (gap > pos + max * 0.5) end = gap;
     }
     chunks.push(text.slice(pos, end));
-    pos = end;
+    if (end >= text.length) break;
+    // Step back so the next chunk re-covers the boundary region.
+    pos = Math.max(end - CHUNK_OVERLAP, pos + 1);
   }
   return chunks;
 }
