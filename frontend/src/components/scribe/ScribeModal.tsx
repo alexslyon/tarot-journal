@@ -65,9 +65,12 @@ interface Proposal {
   checked: boolean;
 }
 
-// Keep prompts under control: ~200k tokens of book text is plenty for
-// one import session and stays inside big-model context windows.
-const MAX_SOURCE_CHARS = 800_000;
+// Ceiling on total source text per session. Extraction itself has no
+// real limit (each part is its own small request); this guards the
+// refinement chat, whose stitched conversation holds the whole book
+// and must fit the big models' 1M-token context. ~3M chars ≈ 750k
+// tokens, leaving room for the extraction replies alongside it.
+const MAX_SOURCE_CHARS = 3_000_000;
 // The APP drives batching, not the model: long books are cut into
 // parts of this size and each part is one small, fast request. Replies
 // stay far below output limits and timeouts no matter the book length.
@@ -239,7 +242,7 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
 
     const totalText = materials.reduce((n, m) => n + (m.text?.length || 0), 0);
     if (totalText > MAX_SOURCE_CHARS) {
-      showToast('The source text was very long and was truncated — consider importing in smaller pieces.');
+      showToast(`This source is over ${Math.round(MAX_SOURCE_CHARS / 1_000_000)} million characters — only the first ${Math.round(MAX_SOURCE_CHARS / 1000)}k could be included. Import it as separate smaller files (e.g. split by chapters).`);
     }
     const units = buildUnits(materials);
     if (!units.length) return;
