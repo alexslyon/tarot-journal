@@ -36,10 +36,14 @@ interface ScribeModalProps {
 }
 
 /** One extraction request: a chunk of book text, or a group of page
- *  photos. Each unit is sent as its own message in the conversation. */
+ *  photos. Each unit is sent as its own message in the conversation.
+ *  text/images keep the raw material so a unit whose reply overflows
+ *  the output limit can be split in half and re-queued. */
 interface ExtractionUnit {
   label: string;
   parts: LlmMessagePart[];
+  text?: string;
+  images?: Material[];
 }
 
 // ── Source material the user has added ───────────────────────
@@ -72,9 +76,11 @@ interface Proposal {
 // tokens, leaving room for the extraction replies alongside it.
 const MAX_SOURCE_CHARS = 3_000_000;
 // The APP drives batching, not the model: long books are cut into
-// parts of this size and each part is one small, fast request. Replies
-// stay far below output limits and timeouts no matter the book length.
-const CHUNK_CHARS = 120_000;
+// parts of this size and each part is one small, fast request. Sized
+// so even a part that is wall-to-wall card text produces a reply
+// under the 64k output limit; a part that still overflows gets split
+// in half and re-queued automatically.
+const CHUNK_CHARS = 90_000;
 const IMAGES_PER_UNIT = 8;
 // Parts are independent, so several can extract at once — wall-clock
 // time divides accordingly. Kept modest to stay under API rate limits.
@@ -262,14 +268,19 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
    *  Failed parts are collected for the Resume button. */
   const runExtraction = async (units: ExtractionUnit[], startHistory: LlmMessage[]) => {
     setBusy(true);
-    const results: ({ userMsg: LlmMessage; reply: string } | null)[] =
-      new Array(units.length).fill(null);
+    // Local copy — split-on-overflow appends sub-units while workers
+    // are still draining the queue.
+    const queue = [...units];
+    const results: ({ userMsg: LlmMessage; reply: string } | null | undefined)[] = [];
+    // Units whose overflowing reply was replaced by two queued halves —
+    // not failures, so they don't go to the Resume list.
+    const splitAway = new Set<number>();
     let nextIdx = 0;
 
     const worker = async () => {
-      while (nextIdx < units.length) {
+      while (nextIdx < queue.length) {
         const i = nextIdx++;
-        const unit = units[i];
+        const unit = queue[i];
         setDisplayMessages(prev => [...prev, { role: 'user', text: `Reading ${unit.label}…` }]);
         const userMsg: LlmMessage = { role: 'user', content: unit.parts };
         try {
@@ -293,9 +304,19 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
             }]);
           }
           if (truncated) {
+            const subUnits = splitUnit(unit);
+            if (subUnits) {
+              splitAway.add(i);
+              queue.push(...subUnits);
+              setDisplayMessages(prev => [...prev, {
+                role: 'user',
+                text: `[${unit.label}] The reply hit the length limit — re-reading this part in ${subUnits.length} smaller pieces (cards already extracted are kept; complete versions win).`,
+              }]);
+              continue; // don't stitch the overflowed round into history
+            }
             setDisplayMessages(prev => [...prev, {
               role: 'error',
-              text: `[${unit.label}] This reply was cut off at the length limit — some of its cards may be missing. Ask the model to re-check this part afterwards.`,
+              text: `[${unit.label}] This reply was cut off at the length limit and the part can't be split further — some of its cards may be missing. Ask the model to re-check this part afterwards.`,
             }]);
           }
           results[i] = { userMsg, reply };
@@ -310,14 +331,15 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
     };
 
     await Promise.all(
-      Array.from({ length: Math.min(CONCURRENT_PARTS, units.length) }, worker),
+      Array.from({ length: Math.min(CONCURRENT_PARTS, queue.length) }, worker),
     );
 
     // Stitch successful rounds into one conversation, in book order,
     // so refinement questions can reference any part of the source.
     let history = startHistory;
     const failedUnits: ExtractionUnit[] = [];
-    units.forEach((unit, i) => {
+    queue.forEach((unit, i) => {
+      if (splitAway.has(i)) return;
       const r = results[i];
       if (r) history = [...history, r.userMsg, { role: 'assistant', content: r.reply }];
       else failedUnits.push(unit);
@@ -905,6 +927,35 @@ function mergeProposals(
   return result;
 }
 
+function makeTextUnit(label: string, text: string): ExtractionUnit {
+  return {
+    label,
+    text,
+    parts: [{
+      type: 'text',
+      text: `Source material — ${label}. Extract the card content found in this part now:\n\n${text}`,
+    }],
+  };
+}
+
+function makeImageUnit(label: string, group: Material[]): ExtractionUnit {
+  return {
+    label,
+    images: group,
+    parts: [
+      {
+        type: 'text',
+        text: `Source material — ${label}. Extract the card content found in these page photos now:`,
+      },
+      ...group.map(m => ({
+        type: 'image' as const,
+        media_type: m.mediaType,
+        data: m.data,
+      })),
+    ],
+  };
+}
+
 /** Cut the source material into extraction units: text files split at
  *  paragraph boundaries into CHUNK_CHARS pieces, photos in groups. */
 function buildUnits(materials: Material[]): ExtractionUnit[] {
@@ -923,13 +974,7 @@ function buildUnits(materials: Material[]): ExtractionUnit[] {
       const label = chunks.length > 1
         ? `${m.filename} (part ${i + 1} of ${chunks.length})`
         : m.filename;
-      units.push({
-        label,
-        parts: [{
-          type: 'text',
-          text: `Source material — ${label}. Extract the card content found in this part now:\n\n${chunk}`,
-        }],
-      });
+      units.push(makeTextUnit(label, chunk));
     });
   }
   const images = materials.filter(m => m.kind === 'image' && m.data);
@@ -938,22 +983,28 @@ function buildUnits(materials: Material[]): ExtractionUnit[] {
     const label = images.length > IMAGES_PER_UNIT
       ? `photos ${i + 1}–${i + group.length} of ${images.length}`
       : `${group.length} photo${group.length === 1 ? '' : 's'}`;
-    units.push({
-      label,
-      parts: [
-        {
-          type: 'text',
-          text: `Source material — ${label}. Extract the card content found in these page photos now:`,
-        },
-        ...group.map(m => ({
-          type: 'image' as const,
-          media_type: m.mediaType,
-          data: m.data,
-        })),
-      ],
-    });
+    units.push(makeImageUnit(label, group));
   }
   return units;
+}
+
+/** Halve a unit whose reply overflowed the output limit, so each half
+ *  yields a reply that fits. Returns null when it can't be split
+ *  smaller (tiny text, single photo). */
+function splitUnit(unit: ExtractionUnit): ExtractionUnit[] | null {
+  if (unit.text && unit.text.length > 20_000) {
+    const halves = splitIntoChunks(
+      unit.text, Math.ceil(unit.text.length / 2) + CHUNK_OVERLAP);
+    if (halves.length < 2) return null;
+    return halves.map((h, i) =>
+      makeTextUnit(`${unit.label} · piece ${i + 1} of ${halves.length}`, h));
+  }
+  if (unit.images && unit.images.length > 1) {
+    const mid = Math.ceil(unit.images.length / 2);
+    return [unit.images.slice(0, mid), unit.images.slice(mid)].map((g, i) =>
+      makeImageUnit(`${unit.label} · piece ${i + 1} of 2`, g));
+  }
+  return null;
 }
 
 function splitIntoChunks(text: string, max = CHUNK_CHARS): string[] {
