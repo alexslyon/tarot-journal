@@ -301,3 +301,36 @@
 .scribe__resume:hover {
   background: var(--accent-dim, var(--bg-tertiary));
 }
+
+.scribe__resolved {
+  font-size: var(--font-size-small);
+  color: var(--success, var(--accent));
+}
+
+.scribe__assign {
+  font-size: var(--font-size-small);
+  max-width: 180px;
+}
+
+.scribe__field-edit-btn {
+  margin-left: 8px;
+  font-size: var(--font-size-small);
+  padding: 0 8px;
+}
+
+.scribe__field-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scribe__field-edit textarea {
+  width: 100%;
+  font-size: var(--font-size-body);
+  resize: vertical;
+}
+
+.scribe__field-edit-actions {
+  display: flex;
+  gap: 8px;
+}

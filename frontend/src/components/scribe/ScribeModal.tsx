@@ -672,8 +672,23 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
                   selectedFields={selectedFields}
                   cardFieldNames={deckId !== '' ? cardFieldNames : []}
                   existingKeys={existingKeys}
+                  archetypes={archetypes}
+                  resolvedName={archetypes.find(a => a.id === p.archetypeId)?.name}
                   onToggle={() => updateProposals(prev =>
                     prev.map((x, j) => j === i ? { ...x, checked: !x.checked } : x))}
+                  onAssign={(archetypeId) => {
+                    const arch = archetypes.find(a => a.id === archetypeId);
+                    const key = (arch?.name || '').toLowerCase();
+                    const card = deckCards.find(c =>
+                      (c.archetype || '').toLowerCase() === key || c.name.toLowerCase() === key);
+                    updateProposals(prev => prev.map((x, j) => j === i
+                      ? { ...x, archetypeId, cardId: card?.id ?? x.cardId, checked: true }
+                      : x));
+                  }}
+                  onEditField={(label, value) => updateProposals(prev =>
+                    prev.map((x, j) => j === i
+                      ? { ...x, fields: { ...x.fields, [label]: value } }
+                      : x))}
                 />
               ))}
             </div>
@@ -698,15 +713,24 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
 // ── One proposal row ─────────────────────────────────────────
 
 function ProposalRow({
-  proposal, selectedFields, cardFieldNames, existingKeys, onToggle,
+  proposal, selectedFields, cardFieldNames, existingKeys, archetypes,
+  resolvedName, onToggle, onAssign, onEditField,
 }: {
   proposal: Proposal;
   selectedFields: SourceField[];
   cardFieldNames: string[];
   existingKeys: Set<string>;
+  archetypes: Archetype[];
+  /** The app archetype this row resolved to, when it differs from the
+   *  name the book used. */
+  resolvedName?: string;
   onToggle: () => void;
+  onAssign: (archetypeId: number) => void;
+  onEditField: (label: string, value: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
   const p = proposal;
   const unmatched = !p.archetypeId && !p.cardId;
 
@@ -722,7 +746,25 @@ function ProposalRow({
           <input type="checkbox" checked={p.checked} onChange={onToggle} disabled={unmatched} />
           <strong>{p.card}</strong>
         </label>
-        {unmatched && <span className="scribe__badge scribe__badge--warn">no matching card</span>}
+        {resolvedName && resolvedName.toLowerCase() !== p.card.toLowerCase() && (
+          <span className="scribe__resolved">→ {resolvedName}</span>
+        )}
+        {unmatched && (
+          <>
+            <span className="scribe__badge scribe__badge--warn">no matching card</span>
+            <select
+              className="scribe__assign"
+              value=""
+              onChange={e => { if (e.target.value) onAssign(Number(e.target.value)); }}
+              title="Pick which of the app's cards this proposal belongs to"
+            >
+              <option value="">Assign to card…</option>
+              {archetypes.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </>
+        )}
         {overwrites && <span className="scribe__badge">overwrites existing</span>}
         {(p.flags || []).map((f, i) => (
           <span key={i} className="scribe__badge scribe__badge--flag">{f}</span>
@@ -738,8 +780,36 @@ function ProposalRow({
               <span className="scribe__proposal-field-name">
                 {label}
                 {cardFieldNames.some(n => n.toLowerCase() === label.toLowerCase()) && ' (card field)'}
+                {editingField !== label && (
+                  <button
+                    className="scribe__field-edit-btn"
+                    onClick={() => { setEditingField(label); setDraft(content); }}
+                  >
+                    Edit
+                  </button>
+                )}
               </span>
-              <div className="scribe__proposal-field-text">{content}</div>
+              {editingField === label ? (
+                <div className="scribe__field-edit">
+                  <textarea
+                    value={draft}
+                    onChange={e => setDraft(e.target.value)}
+                    rows={Math.min(12, Math.max(4, draft.split('\n').length + 1))}
+                    autoFocus
+                  />
+                  <div className="scribe__field-edit-actions">
+                    <button
+                      className="primary"
+                      onClick={() => { onEditField(label, draft); setEditingField(null); }}
+                    >
+                      Save
+                    </button>
+                    <button onClick={() => setEditingField(null)}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="scribe__proposal-field-text">{content}</div>
+              )}
             </div>
           ))}
         </div>
