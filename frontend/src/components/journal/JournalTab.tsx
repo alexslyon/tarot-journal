@@ -5,6 +5,7 @@ import EntryViewer from './EntryViewer';
 import EntryEditorModal from './EntryEditorModal';
 import ExportModal from './ExportModal';
 import ImportModal from './ImportModal';
+import AnalystModal from './AnalystModal';
 import './JournalTab.css';
 
 interface JournalTabProps {
@@ -34,6 +35,7 @@ export default function JournalTab({
   const [templateEntryId, setTemplateEntryId] = useState<number | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showAnalyst, setShowAnalyst] = useState(false);
 
   const handleNewEntry = () => {
     setEditingEntryId(null);
@@ -75,6 +77,7 @@ export default function JournalTab({
             onNewEntry={handleNewEntry}
             onExport={() => setShowExport(true)}
             onImport={() => setShowImport(true)}
+            onAnalyst={() => setShowAnalyst(true)}
             cardFilter={cardFilter}
             onClearCardFilter={onClearCardFilter}
             onVisibleEntries={setVisibleIds}
@@ -124,6 +127,12 @@ export default function JournalTab({
           selectedEntryIds={selectedEntryId ? [selectedEntryId] : undefined}
         />
       )}
+
+      <AnalystModal
+        entryIds={visibleIds}
+        open={showAnalyst}
+        onClose={() => setShowAnalyst(false)}
+      />
 
       {showImport && (
         <ImportModal onClose={() => setShowImport(false)} />

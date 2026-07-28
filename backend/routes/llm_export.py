@@ -12,7 +12,9 @@ import html as html_mod
 import re
 from datetime import datetime
 
-from flask import Blueprint, current_app, jsonify
+from collections import Counter
+
+from flask import Blueprint, current_app, jsonify, request
 
 from backend.routes.pdf_export import _hydrate_entry_for_pdf
 from backend.routes.anki_export import FIELD_LABELS
@@ -184,3 +186,106 @@ def llm_export(entry_id):
     if not entry:
         return jsonify({'error': 'Entry not found'}), 404
     return jsonify({'markdown': build_entry_markdown(db, entry)})
+
+
+# ── Bulk export (the Analyst) ────────────────────────────────────────
+
+MAX_BULK_ENTRIES = 300
+
+
+def _aggregate_stats(entries: list) -> str:
+    """Deterministic counts the model should trust over its own tally.
+    Cards are counted by archetype where known, so the same card across
+    different decks aggregates together."""
+    card_counts = Counter()
+    spread_counts = Counter()
+    tag_counts = Counter()
+    querent_counts = Counter()
+    reversed_count = 0
+    total_cards = 0
+    dates = []
+    for e in entries:
+        when = e.get('reading_datetime') or e.get('created_at')
+        if when:
+            dates.append(str(when)[:10])
+        for t in (e.get('tags') or []):
+            if t.get('name'):
+                tag_counts[t['name']] += 1
+        for q in (e.get('querents') or []):
+            if q.get('name'):
+                querent_counts[q['name']] += 1
+        for rd in (e.get('readings') or []):
+            spread_name = rd.get('spread_name') or (rd.get('spread') or {}).get('name')
+            if spread_name:
+                spread_counts[spread_name] += 1
+            for c in (rd.get('cards_used') or []):
+                name = c.get('archetype') or c.get('name')
+                if not name:
+                    continue
+                card_counts[name] += 1
+                total_cards += 1
+                if c.get('reversed'):
+                    reversed_count += 1
+
+    def fmt(counter: Counter, n: int) -> str:
+        return ', '.join(f"{name} ×{count}" for name, count in counter.most_common(n))
+
+    lines = [
+        '## Statistics (computed by the app — trust these over manual counting)',
+        '',
+        f"- Entries: {len(entries)}",
+    ]
+    if dates:
+        lines.append(f"- Date range: {min(dates)} to {max(dates)}")
+    lines.append(f"- Cards drawn: {total_cards} ({reversed_count} reversed)")
+    if card_counts:
+        lines.append(f"- Most frequent cards (by archetype where known): {fmt(card_counts, 20)}")
+    if spread_counts:
+        lines.append(f"- Spreads used: {fmt(spread_counts, 10)}")
+    if querent_counts:
+        lines.append(f"- Querents: {fmt(querent_counts, 10)}")
+    if tag_counts:
+        lines.append(f"- Tags: {fmt(tag_counts, 15)}")
+    return '\n'.join(lines)
+
+
+@llm_export_bp.route('/api/entries/llm-export', methods=['POST'])
+def llm_export_bulk():
+    """Bundle several entries into one LLM-ready document.
+
+    Body: {"ids": [1, 2, ...]}. Entries are ordered chronologically
+    (oldest first) so trends read forward in time, prefixed with
+    app-computed statistics.
+    """
+    db = current_app.config['DB']
+    data = request.get_json() or {}
+    ids = data.get('ids')
+    if not ids or not isinstance(ids, list):
+        return jsonify({'error': 'ids is required'}), 400
+    entries = []
+    for entry_id in ids[:MAX_BULK_ENTRIES]:
+        entry = _hydrate_entry_for_pdf(db, int(entry_id))
+        if entry:
+            entries.append(entry)
+    if not entries:
+        return jsonify({'error': 'No matching entries found'}), 404
+    entries.sort(key=lambda e: str(e.get('reading_datetime') or e.get('created_at') or ''))
+
+    parts = [
+        f"# Journal excerpt — {len(entries)} entries",
+        '',
+        _aggregate_stats(entries),
+        '',
+        '---',
+        '',
+    ]
+    for e in entries:
+        parts.append(build_entry_markdown(db, e))
+        parts.append('---')
+        parts.append('')
+    markdown = '\n'.join(parts)
+    return jsonify({
+        'markdown': markdown,
+        'entry_count': len(entries),
+        'char_count': len(markdown),
+    })

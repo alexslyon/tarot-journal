@@ -202,3 +202,39 @@ def test_anthropic_prompt_caching_shape(client):
     # Final message: string content converted to block form + marked
     assert msgs[2]['content'][-1]['cache_control'] == {'type': 'ephemeral'}
     assert msgs[2]['content'][-1]['text'] == 'fix the Queen of Cups'
+
+
+def test_bulk_llm_export(client):
+    """Bulk export bundles entries chronologically with app-computed stats."""
+    types = client.get('/api/types').get_json()
+    deck = client.post('/api/decks', json={'name': 'Bulk Deck', 'type_ids': [types[0]['id']]}).get_json()
+
+    def make_entry(title, when, cards):
+        e = client.post('/api/entries', json={'title': title, 'reading_datetime': when}).get_json()
+        client.post(f"/api/entries/{e['id']}/readings", json={
+            'deck_id': deck['id'], 'deck_name': 'Bulk Deck',
+            'cards_used': [
+                {'name': n, 'reversed': rev, 'deck_id': deck['id'], 'position_index': i}
+                for i, (n, rev) in enumerate(cards)
+            ],
+        })
+        return e['id']
+
+    id_newer = make_entry('Second', '2026-07-20 10:00', [('The Fool', False), ('Death', True)])
+    id_older = make_entry('First', '2026-07-01 09:00', [('The Fool', False)])
+
+    r = client.post('/api/entries/llm-export', json={'ids': [id_newer, id_older]})
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data['entry_count'] == 2
+    md = data['markdown']
+    # Chronological: "First" appears before "Second"
+    assert md.index('First') < md.index('Second')
+    # Stats present and correct
+    assert 'The Fool ×2' in md
+    assert 'Cards drawn: 3 (1 reversed)' in md
+    assert '2026-07-01 to 2026-07-20' in md
+    assert data['char_count'] == len(md)
+
+    assert client.post('/api/entries/llm-export', json={}).status_code == 400
+    assert client.post('/api/entries/llm-export', json={'ids': [99999]}).status_code == 404

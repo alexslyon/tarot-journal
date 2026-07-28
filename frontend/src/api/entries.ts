@@ -136,6 +136,17 @@ export async function getEntryLlmMarkdown(entryId: number): Promise<string> {
   return res.data.markdown;
 }
 
+/** Several entries bundled into one LLM-ready document, chronological,
+ *  prefixed with app-computed statistics (the Analyst's source). */
+export async function getBulkLlmMarkdown(entryIds: number[]): Promise<{
+  markdown: string;
+  entry_count: number;
+  char_count: number;
+}> {
+  const res = await api.post('/api/entries/llm-export', { ids: entryIds });
+  return res.data;
+}
+
 // ── Follow-up Notes ──────────────────────────────────────────
 
 export async function getFollowUpNotes(entryId: number): Promise<FollowUpNote[]> {

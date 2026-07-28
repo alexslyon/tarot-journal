@@ -13,6 +13,8 @@ interface EntryListProps {
   onNewEntry: () => void;
   onExport: () => void;
   onImport: () => void;
+  /** Open the Analyst on the currently listed entries. */
+  onAnalyst: () => void;
   /** "Find in Journal": restrict results to entries containing this card */
   cardFilter?: string | null;
   onClearCardFilter?: () => void;
@@ -29,6 +31,7 @@ export default function EntryList({
   onNewEntry,
   onExport,
   onImport,
+  onAnalyst,
   cardFilter,
   onClearCardFilter,
   onVisibleEntries,
@@ -309,6 +312,13 @@ export default function EntryList({
         </button>
         <button className="entry-list__btn entry-list__btn--sm" onClick={onImport}>
           Import
+        </button>
+        <button
+          className="entry-list__btn entry-list__btn--sm"
+          onClick={onAnalyst}
+          title="Look for patterns across the entries currently listed"
+        >
+          Analyst
         </button>
       </div>
     </div>

@@ -1,0 +1,36 @@
+/* The Analyst — journal retrospective modal */
+
+.analyst__intro {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: var(--font-size-body);
+  color: var(--text-primary);
+}
+
+.analyst__intro p {
+  margin: 0;
+}
+
+.analyst__hint {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+}
+
+.analyst__warning {
+  font-size: var(--font-size-small);
+  color: var(--warning);
+}
+
+.analyst__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 62vh;
+  min-height: 400px;
+}
+
+.analyst__actions {
+  display: flex;
+  gap: 10px;
+}
