@@ -1,0 +1,20 @@
+/* The Mirror — reflection modal */
+
+.mirror__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 60vh;
+  min-height: 380px;
+}
+
+.mirror__warning {
+  font-size: var(--font-size-small);
+  color: var(--warning);
+  margin: 0;
+}
+
+.mirror__actions {
+  display: flex;
+  gap: 10px;
+}

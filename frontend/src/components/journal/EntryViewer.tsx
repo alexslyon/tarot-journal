@@ -10,6 +10,7 @@ import ChartModal from '../astrology/ChartModal';
 import CardViewModal from '../library/CardViewModal';
 import CardEditModal from '../library/CardEditModal';
 import PdfExportModal from './PdfExportModal';
+import MirrorModal from './MirrorModal';
 import type { JournalEntryFull } from '../../types';
 import './EntryViewer.css';
 
@@ -38,6 +39,7 @@ export default function EntryViewer({ entryId, onEdit, onNewFromEntry, onFindCar
   const [editingCardId, setEditingCardId] = useState<number | null>(null);
   const [chartOpen, setChartOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [mirrorOpen, setMirrorOpen] = useState(false);
 
   const { data: entry, isLoading, error } = useQuery<JournalEntryFull>({
     queryKey: ['entry', entryId],
@@ -164,6 +166,12 @@ export default function EntryViewer({ entryId, onEdit, onNewFromEntry, onFindCar
               title="Copy this entry as structured text for pasting into an AI chat"
             >
               Copy for AI
+            </button>
+            <button
+              onClick={() => setMirrorOpen(true)}
+              title="Reflect on this entry with the Mirror — it asks questions, never interprets"
+            >
+              Reflect
             </button>
             <button onClick={() => onEdit(entryId)}>Edit</button>
             {onNewFromEntry && (
@@ -293,6 +301,14 @@ export default function EntryViewer({ entryId, onEdit, onNewFromEntry, onFindCar
         entry={entry}
         open={exportOpen}
         onClose={() => setExportOpen(false)}
+      />
+
+      {/* Mirror (reflection) Modal */}
+      <MirrorModal
+        entryId={entryId}
+        entryTitle={entry.title}
+        open={mirrorOpen}
+        onClose={() => setMirrorOpen(false)}
       />
     </div>
   );
