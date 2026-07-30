@@ -98,6 +98,10 @@ const CHUNK_OVERLAP = 8_000;
 // Flags the model uses when a card's text was cut off at a boundary —
 // these trigger the automatic completion pass after extraction.
 const INCOMPLETE_FLAG = /cut\s*off|incomplete|truncat|continu/i;
+// Attempts per part before it lands on the Resume list: transient
+// failures (empty replies, overloads) usually clear on the second try.
+const UNIT_ATTEMPTS = 2;
+const RETRY_DELAY_MS = 3_000;
 // Downscale photos so a stack of LWB pages doesn't blow request limits.
 const IMAGE_MAX_EDGE = 2000;
 
@@ -328,6 +332,30 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     const splitAway = new Set<number>();
     let nextIdx = 0;
 
+    // One request with automatic retry: transient failures (an empty
+    // reply, a momentary overload, a rate-limit blip) get a second
+    // attempt after a pause before the part is declared failed.
+    const requestUnit = async (unit: ExtractionUnit, userMsg: LlmMessage) => {
+      for (let attempt = 1; ; attempt++) {
+        try {
+          return await llmChat({
+            feature: 'scribe',
+            messages: [...startHistory, userMsg],
+            system: systemPromptRef.current,
+            max_tokens: 64000,
+          });
+        } catch (err: unknown) {
+          if (attempt >= UNIT_ATTEMPTS) throw err;
+          const e = err as { response?: { data?: { error?: string } } };
+          setDisplayMessages(prev => [...prev, {
+            role: 'user',
+            text: `[${unit.label}] ${e.response?.data?.error || 'The request failed.'} Retrying…`,
+          }]);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        }
+      }
+    };
+
     const worker = async () => {
       while (nextIdx < queue.length) {
         const i = nextIdx++;
@@ -335,12 +363,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
         setDisplayMessages(prev => [...prev, { role: 'user', text: `Reading ${unit.label}…` }]);
         const userMsg: LlmMessage = { role: 'user', content: unit.parts };
         try {
-          const { text: reply, truncated } = await llmChat({
-        feature: 'scribe',
-            messages: [...startHistory, userMsg],
-            system: systemPromptRef.current,
-            max_tokens: 64000,
-          });
+          const { text: reply, truncated } = await requestUnit(unit, userMsg);
           const { visible, parsed } = splitReply(reply);
           if (parsed) {
             const merged = updateProposals(current =>
@@ -376,7 +399,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
           const e = err as { response?: { data?: { error?: string } } };
           setDisplayMessages(prev => [...prev, {
             role: 'error',
-            text: `[${unit.label}] ${e.response?.data?.error || 'The model request failed.'}`,
+            text: `[${unit.label}] ${e.response?.data?.error || 'The model request failed.'} (retried ${UNIT_ATTEMPTS - 1}×)`,
           }]);
         }
       }
