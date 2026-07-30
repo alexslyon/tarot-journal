@@ -96,16 +96,23 @@ def save_config(db, data: dict) -> None:
 # ── The one call everything uses ─────────────────────────────────────
 
 def chat(config: dict, messages: list, system: str | None = None,
-         max_tokens: int = DEFAULT_MAX_TOKENS) -> dict:
+         max_tokens: int = DEFAULT_MAX_TOKENS,
+         cache_conversation: bool = True) -> dict:
     """Send a conversation. Returns {'text': str, 'truncated': bool} —
     truncated means the reply hit max_tokens and is cut off mid-thought,
-    which callers should surface rather than silently accept."""
+    which callers should surface rather than silently accept.
+
+    cache_conversation=False marks only the (reused) system prompt for
+    prompt caching, not the conversation: one-shot requests whose
+    content will never be re-sent — like Scribe part extractions —
+    would otherwise pay the cache-write surcharge for nothing."""
     provider = config.get('provider') or 'anthropic'
     model = config.get('model') or DEFAULT_MODELS.get(provider)
     if not model:
         raise LLMError("No model configured. Set one in Settings → AI.")
     if provider == 'anthropic':
-        return _chat_anthropic(config, model, messages, system, max_tokens)
+        return _chat_anthropic(config, model, messages, system, max_tokens,
+                               cache_conversation)
     return _chat_openai_style(config, model, messages, system, max_tokens)
 
 
@@ -120,7 +127,8 @@ def test_connection(config: dict) -> str:
 
 # ── Anthropic (official SDK) ─────────────────────────────────────────
 
-def _chat_anthropic(config, model, messages, system, max_tokens) -> str:
+def _chat_anthropic(config, model, messages, system, max_tokens,
+                    cache_conversation=True) -> dict:
     import anthropic
 
     if not config.get('api_key'):
@@ -141,7 +149,8 @@ def _chat_anthropic(config, model, messages, system, max_tokens) -> str:
     # re-reads everything before it (book text included) at ~10% of the
     # normal input price instead of full price. Prefixes shorter than
     # the model's minimum just silently don't cache — no harm done.
-    if converted:
+    # One-shot requests skip this (cache writes cost +25%).
+    if converted and cache_conversation:
         _mark_cache_breakpoint(converted[-1])
     try:
         # Streaming keeps long extractions from hitting HTTP timeouts;

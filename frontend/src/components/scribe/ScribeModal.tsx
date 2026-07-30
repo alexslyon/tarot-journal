@@ -353,6 +353,11 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
             messages: [...startHistory, userMsg],
             system: systemPromptRef.current,
             max_tokens: 64000,
+            // One-shot: this part's content is never re-sent, so don't
+            // pay the cache-write surcharge on it. (The stitched
+            // conversation used for follow-ups and refinement IS
+            // cached — that's where re-reading happens.)
+            cache: false,
           });
         } catch (err: unknown) {
           if (attempt >= UNIT_ATTEMPTS) throw err;

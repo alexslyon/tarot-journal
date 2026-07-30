@@ -71,7 +71,8 @@ def llm_chat():
     max_tokens = min(int(data.get('max_tokens') or llm.DEFAULT_MAX_TOKENS), 64000)
     try:
         result = llm.chat(config, messages, system=data.get('system'),
-                          max_tokens=max_tokens)
+                          max_tokens=max_tokens,
+                          cache_conversation=bool(data.get('cache', True)))
     except llm.LLMError as e:
         return jsonify({'error': str(e)}), 502
     return jsonify(result)

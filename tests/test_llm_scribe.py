@@ -209,6 +209,21 @@ def test_anthropic_prompt_caching_shape(client):
     assert msgs[2]['content'][-1]['cache_control'] == {'type': 'ephemeral'}
     assert msgs[2]['content'][-1]['text'] == 'fix the Queen of Cups'
 
+    # One-shot requests (cache: false) skip the conversation marker —
+    # only the reusable system prompt stays cached.
+    with patch('anthropic.Anthropic', FakeClient):
+        client.post('/api/llm/chat', json={
+            'system': 'You are the Scribe.',
+            'cache': False,
+            'messages': [{'role': 'user', 'content': 'one-shot part text'}],
+        })
+    assert captured['system'][0]['cache_control'] == {'type': 'ephemeral'}
+    last = captured['messages'][-1]['content']
+    if isinstance(last, list):
+        assert 'cache_control' not in last[-1]
+    else:
+        assert isinstance(last, str)
+
 
 def test_bulk_llm_export(client):
     """Bulk export bundles entries chronologically with app-computed stats."""

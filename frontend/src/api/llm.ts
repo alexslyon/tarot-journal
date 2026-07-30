@@ -61,7 +61,13 @@ export async function llmChat(data: {
   max_tokens?: number;
   /** Selects that feature's model override, when one is configured. */
   feature?: LlmFeature;
+  /** false = one-shot request whose content will never be re-sent;
+   *  skips the prompt-cache write surcharge on the conversation. */
+  cache?: boolean;
 }): Promise<{ text: string; truncated: boolean }> {
-  const res = await api.post('/api/llm/chat', data, { timeout: 620_000 });
+  // A maxed-out (64k-token) reply can take over 15 minutes to
+  // generate; the wait ceiling must sit above the worst case, or the
+  // app abandons (but still pays for) an almost-finished reply.
+  const res = await api.post('/api/llm/chat', data, { timeout: 1_260_000 });
   return res.data;
 }
