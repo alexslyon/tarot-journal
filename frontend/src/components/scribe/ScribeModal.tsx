@@ -285,6 +285,7 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
         const userMsg: LlmMessage = { role: 'user', content: unit.parts };
         try {
           const { text: reply, truncated } = await llmChat({
+        feature: 'scribe',
             messages: [...startHistory, userMsg],
             system: systemPromptRef.current,
             max_tokens: 64000,
@@ -393,6 +394,7 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
     setBusy(true);
     try {
       const { text: reply, truncated } = await llmChat({
+        feature: 'scribe',
         messages: history,
         system: systemPromptRef.current,
         max_tokens: 64000,

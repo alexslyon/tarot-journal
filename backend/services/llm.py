@@ -42,6 +42,9 @@ DEFAULT_MODELS = {
 
 PROVIDERS = ('anthropic', 'openai', 'openai-compatible')
 
+# Features that may override the default model (Settings → AI).
+FEATURES = ('scribe', 'mirror', 'analyst')
+
 
 class LLMError(Exception):
     """A provider call failed; .args[0] is a user-readable message."""
@@ -49,15 +52,25 @@ class LLMError(Exception):
 
 # ── Configuration ────────────────────────────────────────────────────
 
-def get_config(db) -> dict:
+def get_config(db, feature: str | None = None) -> dict:
+    """The active LLM configuration. When `feature` names one of
+    FEATURES and that feature has a model override set, `model` is the
+    override; otherwise it's the default model."""
     provider = db.get_setting('llm_provider') or 'anthropic'
     if provider not in PROVIDERS:
         provider = 'anthropic'
+    model = db.get_setting('llm_model') or DEFAULT_MODELS.get(provider, '')
+    feature_models = {
+        f: db.get_setting(f'llm_model_{f}') or '' for f in FEATURES
+    }
+    if feature in FEATURES and feature_models[feature]:
+        model = feature_models[feature]
     return {
         'provider': provider,
         'api_key': db.get_setting('llm_api_key') or '',
         'base_url': db.get_setting('llm_base_url') or '',
-        'model': db.get_setting('llm_model') or DEFAULT_MODELS.get(provider, ''),
+        'model': model,
+        'feature_models': feature_models,
     }
 
 
@@ -73,6 +86,11 @@ def save_config(db, data: dict) -> None:
         db.set_setting('llm_base_url', (data['base_url'] or '').rstrip('/'))
     if 'model' in data:
         db.set_setting('llm_model', data['model'] or '')
+    if 'feature_models' in data:
+        overrides = data['feature_models'] or {}
+        for f in FEATURES:
+            if f in overrides:
+                db.set_setting(f'llm_model_{f}', (overrides[f] or '').strip())
 
 
 # ── The one call everything uses ─────────────────────────────────────

@@ -71,6 +71,7 @@ export default function AnalystModal({ entryIds, open, onClose }: AnalystModalPr
     setBusy(true);
     try {
       const { text: reply } = await llmChat({
+        feature: 'analyst',
         messages: history,
         system: ANALYST_SYSTEM,
         max_tokens: 4000,

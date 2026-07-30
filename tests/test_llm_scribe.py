@@ -238,3 +238,57 @@ def test_bulk_llm_export(client):
 
     assert client.post('/api/entries/llm-export', json={}).status_code == 400
     assert client.post('/api/entries/llm-export', json={'ids': [99999]}).status_code == 404
+
+
+def test_feature_model_overrides(client):
+    """Per-feature model overrides fall back to the default model."""
+    r = client.put('/api/llm/config', json={
+        'provider': 'anthropic', 'api_key': 'sk-ant-test',
+        'model': 'claude-sonnet-5',
+        'feature_models': {'mirror': 'claude-haiku-4-5', 'scribe': ''},
+    })
+    assert r.status_code == 200
+    cfg = client.get('/api/llm/config').get_json()
+    assert cfg['feature_models']['mirror'] == 'claude-haiku-4-5'
+    assert cfg['feature_models']['scribe'] == ''
+    assert cfg['model'] == 'claude-sonnet-5'
+
+    captured = {}
+
+    class FakeStream:
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+        def get_final_message(self):
+            class Block:
+                type = 'text'
+                text = 'ok'
+            class Msg:
+                stop_reason = 'end_turn'
+                content = [Block()]
+            return Msg()
+
+    class FakeMessages:
+        def stream(self, **kwargs):
+            captured.update(kwargs)
+            return FakeStream()
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            self.messages = FakeMessages()
+
+    msgs = [{'role': 'user', 'content': 'hi'}]
+    with patch('anthropic.Anthropic', FakeClient):
+        # mirror → its override
+        client.post('/api/llm/chat', json={'messages': msgs, 'feature': 'mirror'})
+        assert captured['model'] == 'claude-haiku-4-5'
+        # scribe (blank override) → default
+        client.post('/api/llm/chat', json={'messages': msgs, 'feature': 'scribe'})
+        assert captured['model'] == 'claude-sonnet-5'
+        # no feature → default
+        client.post('/api/llm/chat', json={'messages': msgs})
+        assert captured['model'] == 'claude-sonnet-5'
+        # unknown feature name → default, no crash
+        client.post('/api/llm/chat', json={'messages': msgs, 'feature': 'bogus'})
+        assert captured['model'] == 'claude-sonnet-5'

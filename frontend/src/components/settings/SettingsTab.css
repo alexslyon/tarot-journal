@@ -486,3 +486,20 @@
   cursor: pointer;
   text-decoration: underline;
 }
+
+.settings-tab__feature-model {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.settings-tab__feature-model-label {
+  flex: 0 0 200px;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+}
+
+.settings-tab__feature-model input {
+  flex: 1;
+}

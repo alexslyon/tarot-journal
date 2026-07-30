@@ -26,6 +26,7 @@ def get_llm_config():
         'base_url': config['base_url'],
         'has_api_key': bool(key),
         'api_key_hint': f"…{key[-4:]}" if len(key) >= 8 else '',
+        'feature_models': config['feature_models'],
     })
 
 
@@ -60,8 +61,10 @@ def llm_chat():
     Reply: {"text": "..."}
     """
     db = current_app.config['DB']
-    config = llm.get_config(db)
     data = request.get_json() or {}
+    # A feature name ("scribe" / "mirror" / "analyst") selects that
+    # feature's model override, when one is configured.
+    config = llm.get_config(db, feature=data.get('feature'))
     messages = data.get('messages') or []
     if not messages:
         return jsonify({'error': 'messages is required'}), 400

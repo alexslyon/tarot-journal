@@ -4,12 +4,16 @@ import api from './client';
 
 export type LlmProvider = 'anthropic' | 'openai' | 'openai-compatible';
 
+export type LlmFeature = 'scribe' | 'mirror' | 'analyst';
+
 export interface LlmConfig {
   provider: LlmProvider;
   model: string;
   base_url: string;
   has_api_key: boolean;
   api_key_hint: string;
+  /** Per-feature model overrides; '' means "use the default model". */
+  feature_models: Record<LlmFeature, string>;
 }
 
 /** One message in the neutral chat shape the backend accepts. */
@@ -34,6 +38,7 @@ export async function updateLlmConfig(data: {
   model?: string;
   base_url?: string;
   api_key?: string;
+  feature_models?: Partial<Record<LlmFeature, string>>;
 }): Promise<void> {
   await api.put('/api/llm/config', data);
 }
@@ -54,6 +59,8 @@ export async function llmChat(data: {
   messages: LlmMessage[];
   system?: string;
   max_tokens?: number;
+  /** Selects that feature's model override, when one is configured. */
+  feature?: LlmFeature;
 }): Promise<{ text: string; truncated: boolean }> {
   const res = await api.post('/api/llm/chat', data, { timeout: 620_000 });
   return res.data;

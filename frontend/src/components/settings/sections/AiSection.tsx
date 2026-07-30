@@ -5,6 +5,7 @@ import {
   updateLlmConfig,
   testLlmConnection,
   type LlmProvider,
+  type LlmFeature,
 } from '../../../api/llm';
 import '../SettingsTab.css';
 
@@ -20,6 +21,16 @@ const MODEL_PLACEHOLDERS: Record<LlmProvider, string> = {
   'openai-compatible': 'e.g. llama3, qwen2.5, mistral…',
 };
 
+const FEATURE_LABELS: { id: LlmFeature; label: string; hint: string }[] = [
+  { id: 'scribe', label: 'Scribe (book imports)', hint: 'transcription-heavy — a capable model pays off' },
+  { id: 'mirror', label: 'Mirror (reflections)', hint: 'short questions — a fast, cheap model is plenty' },
+  { id: 'analyst', label: 'Analyst (journal patterns)', hint: 'reads many entries per question' },
+];
+
+const EMPTY_FEATURE_MODELS: Record<LlmFeature, string> = {
+  scribe: '', mirror: '', analyst: '',
+};
+
 export default function AiSection() {
   const queryClient = useQueryClient();
   const { data: config } = useQuery({
@@ -31,6 +42,7 @@ export default function AiSection() {
   const [model, setModel] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [featureModels, setFeatureModels] = useState<Record<LlmFeature, string>>(EMPTY_FEATURE_MODELS);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -43,6 +55,7 @@ export default function AiSection() {
     setProvider(config.provider);
     setModel(config.model);
     setBaseUrl(config.base_url);
+    setFeatureModels({ ...EMPTY_FEATURE_MODELS, ...(config.feature_models || {}) });
   }, [config, dirty]);
 
   const showMsg = (text: string, type: 'success' | 'error') => {
@@ -66,6 +79,7 @@ export default function AiSection() {
         provider,
         model,
         base_url: baseUrl,
+        feature_models: featureModels,
         ...(apiKey ? { api_key: apiKey } : {}),
       });
       setApiKey('');
@@ -158,6 +172,29 @@ export default function AiSection() {
             placeholder={MODEL_PLACEHOLDERS[provider]}
             onChange={(e) => { setModel(e.target.value); markDirty(); }}
           />
+        </div>
+
+        <div className="settings-tab__field">
+          <label className="settings-tab__label">Per-feature models (optional)</label>
+          <p className="settings-tab__hint">
+            Leave blank to use the model above. Set one to give a feature
+            its own model — e.g. a cheaper, faster model for the Mirror.
+          </p>
+          {FEATURE_LABELS.map(f => (
+            <div key={f.id} className="settings-tab__feature-model">
+              <span className="settings-tab__feature-model-label">{f.label}</span>
+              <input
+                type="text"
+                value={featureModels[f.id]}
+                placeholder={model || MODEL_PLACEHOLDERS[provider]}
+                title={f.hint}
+                onChange={e => {
+                  setFeatureModels(prev => ({ ...prev, [f.id]: e.target.value }));
+                  markDirty();
+                }}
+              />
+            </div>
+          ))}
         </div>
 
         <div className="settings-tab__field">

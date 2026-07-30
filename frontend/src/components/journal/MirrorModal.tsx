@@ -77,6 +77,7 @@ export default function MirrorModal({ entryId, entryTitle, open, onClose }: Mirr
         const markdown = await getEntryLlmMarkdown(entryId);
         const first: LlmMessage = { role: 'user', content: KICKOFF + markdown };
         const { text } = await llmChat({
+          feature: 'mirror',
           messages: [first],
           system: MIRROR_SYSTEM,
           max_tokens: 2000,
@@ -102,6 +103,7 @@ export default function MirrorModal({ entryId, entryTitle, open, onClose }: Mirr
     try {
       const history: LlmMessage[] = [...messages, { role: 'user', content: text }];
       const { text: reply } = await llmChat({
+        feature: 'mirror',
         messages: history,
         system: MIRROR_SYSTEM,
         max_tokens: 2000,
