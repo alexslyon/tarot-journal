@@ -145,6 +145,12 @@ def test_apply_writes(client, db):
     kw = [f for f in fields if f['field_name'].lower() == 'keywords']
     assert len(kw) == 1 and kw[0]['field_value'] == 'gamma'
 
+    # A new imported field name creates a deck-level definition too,
+    # so it shows in the deck editor and on every card of the deck.
+    deck_fields = client.get(f"/api/decks/{deck['id']}/custom-fields").get_json()
+    assert any(f['field_name'].lower() == 'keywords' for f in deck_fields)
+    assert sum(1 for f in deck_fields if f['field_name'].lower() == 'keywords') == 1
+
     entries = client.get(f"/api/archetypes/{arch_id}/source-entries").get_json()
     assert any(e.get('content') == 'A meaning.' for e in entries)
 

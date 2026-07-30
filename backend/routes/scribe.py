@@ -80,6 +80,7 @@ def _upsert_card_field(db, card_id: int, field_name: str, content: str):
     if not field_name or not field_name.strip():
         raise ValueError('field_name is required')
     field_name = field_name.strip()
+    _ensure_deck_field_definition(db, card_id, field_name)
     existing = db.get_card_custom_fields(card_id)
     match = next(
         (dict(f) for f in existing
@@ -91,3 +92,20 @@ def _upsert_card_field(db, card_id: int, field_name: str, content: str):
     else:
         db.add_card_custom_field(card_id, field_name=field_name,
                                  field_type='text', field_value=content)
+
+
+def _ensure_deck_field_definition(db, card_id: int, field_name: str):
+    """A brand-new imported field name gets a deck-level definition, so
+    it shows up in the deck editor's Custom Fields list and on every
+    card — not just the ones the import happened to write."""
+    card = db.get_card(card_id)
+    card = dict(card) if card else None
+    if not card or not card.get('deck_id'):
+        return
+    deck_id = card['deck_id']
+    defs = db.get_deck_custom_fields(deck_id)
+    if any((d['field_name'] or '').strip().lower() == field_name.lower()
+           for d in defs):
+        return
+    db.add_deck_custom_field(deck_id, field_name=field_name,
+                             field_type='text', field_order=len(defs))

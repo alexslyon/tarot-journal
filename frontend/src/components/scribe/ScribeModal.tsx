@@ -239,6 +239,16 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
   const selectedFields = fields.filter(f => selectedFieldIds.includes(f.id));
   const totalChars = materials.reduce((n, m) => n + (m.charCount || 0), 0);
 
+  // What kinds of writes this session can actually perform. A row is
+  // only truly "matched" if it can reach at least one write target —
+  // e.g. in a deck-only import, matching an archetype that has no card
+  // in the deck still means nothing can be written.
+  const hasArchetypeTargets = !!source && selectedFields.length > 0;
+  const hasCardTargets = deckId !== '' && cardFieldNames.length > 0;
+  const isWritable = (p: Proposal) =>
+    (p.archetypeId != null && hasArchetypeTargets) ||
+    (p.cardId != null && hasCardTargets);
+
   // Existing archetype content, for overwrite badges: "archetypeId:fieldId"
   const existingKeys = useMemo(() => {
     const set = new Set<string>();
@@ -368,9 +378,10 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
           if (parsed) {
             const merged = updateProposals(current =>
               mergeProposals(current, parsed, archetypes, deckCards, true));
+            const summary = `${parsed.length} card${parsed.length === 1 ? '' : 's'} (${merged.length} total): ${summarizeCards(parsed)}`;
             setDisplayMessages(prev => [...prev, {
               role: 'assistant',
-              text: `[${unit.label}] ${trimProse(visible) || `${parsed.length} card${parsed.length === 1 ? '' : 's'} extracted (${merged.length} total).`}`,
+              text: `[${unit.label}] ${trimProse(visible) ? `${trimProse(visible)}\n— ${summary}` : summary}`,
             }]);
           } else {
             setDisplayMessages(prev => [...prev, {
@@ -519,9 +530,10 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
       if (parsed) {
         const merged = updateProposals(current =>
           mergeProposals(current, parsed, archetypes, deckCards));
+        const summary = `Updated ${parsed.length} card${parsed.length === 1 ? '' : 's'} (${merged.length} total): ${summarizeCards(parsed)}`;
         setDisplayMessages(prev => [...prev, {
           role: 'assistant',
-          text: visible || `Updated ${parsed.length} card${parsed.length === 1 ? '' : 's'} (${merged.length} total) — review on the right.`,
+          text: visible ? `${visible}\n— ${summary}` : summary,
         }]);
       } else {
         setDisplayMessages(prev => [...prev, { role: 'assistant', text: visible || reply }]);
@@ -554,7 +566,9 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
   };
 
   // ── Apply ──────────────────────────────────────────────────
-  const checkedProposals = proposals.filter(p => p.checked);
+  // Only writable rows count — a checked row with no reachable target
+  // must not inflate the Apply button's promise.
+  const checkedProposals = proposals.filter(p => p.checked && isWritable(p));
   const fieldByName = useMemo(() => {
     const map = new Map<string, SourceField>();
     for (const f of selectedFields) map.set(f.name.toLowerCase(), f);
@@ -563,12 +577,14 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
 
   const handleApply = async () => {
     const writes: ScribeWrite[] = [];
-    // Field labels that matched nothing — surfaced, never silent.
-    const skippedLabels = new Set<string>();
+    // Everything skipped is surfaced with its actual reason — never silent.
+    const unknownLabels = new Set<string>();
+    const cardsWithoutDeckCard = new Set<string>();
     for (const p of checkedProposals) {
       for (const [label, content] of Object.entries(p.fields)) {
         if (!content?.trim()) continue;
         const sourceField = fieldByName.get(label.toLowerCase());
+        const isCardField = cardFieldNames.some(n => n.toLowerCase() === label.toLowerCase());
         if (sourceField && p.archetypeId) {
           writes.push({
             target: 'archetype',
@@ -576,23 +592,31 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
             field_id: sourceField.id,
             content,
           });
-        } else if (p.cardId && cardFieldNames.some(n => n.toLowerCase() === label.toLowerCase())) {
+        } else if (isCardField && p.cardId) {
           writes.push({
             target: 'card',
             card_id: p.cardId,
             field_name: label,
             content,
           });
-        } else {
-          skippedLabels.add(label);
+        } else if (isCardField && !p.cardId) {
+          cardsWithoutDeckCard.add(p.card);
+        } else if (!sourceField) {
+          unknownLabels.add(label);
         }
       }
     }
-    if (skippedLabels.size) {
+    if (unknownLabels.size) {
       showToast(
-        `Heads up: ${[...skippedLabels].map(l => `"${l}"`).join(', ')} ` +
-        `${skippedLabels.size === 1 ? 'is' : 'are'} not among your target fields and won't be written. ` +
+        `Heads up: ${[...unknownLabels].map(l => `"${l}"`).join(', ')} ` +
+        `${unknownLabels.size === 1 ? 'is' : 'are'} not among your target fields and won't be written. ` +
         'Ask the model to move that content into a target field, or add it as a field first.',
+      );
+    }
+    if (cardsWithoutDeckCard.size) {
+      showToast(
+        `${[...cardsWithoutDeckCard].join(', ')}: no matching card in the deck, so their ` +
+        'card fields can\'t be written. Use "Assign to card…" on those rows first.',
       );
     }
     if (!writes.length) {
@@ -605,6 +629,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
       queryClient.invalidateQueries({ queryKey: ['archetype-source-entries'] });
       queryClient.invalidateQueries({ queryKey: ['source-entries'] });
       queryClient.invalidateQueries({ queryKey: ['cards'] });
+      queryClient.invalidateQueries({ queryKey: ['deck-custom-fields'] });
       if (result.errors.length) {
         showToast(`Applied ${result.applied} of ${writes.length} — ${result.errors.length} failed.`);
       } else {
@@ -840,18 +865,35 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
                   selectedFields={selectedFields}
                   cardFieldNames={deckId !== '' ? cardFieldNames : []}
                   existingKeys={existingKeys}
-                  archetypes={archetypes}
-                  resolvedName={archetypes.find(a => a.id === p.archetypeId)?.name}
+                  writable={isWritable(p)}
+                  // Assigning goes through whatever this session can
+                  // write to: archetypes when reference fields are
+                  // targeted, otherwise the deck's actual cards.
+                  assignOptions={hasArchetypeTargets
+                    ? archetypes.map(a => ({ id: a.id, label: a.name }))
+                    : deckCards.map(c => ({ id: c.id, label: c.name }))}
+                  resolvedName={
+                    archetypes.find(a => a.id === p.archetypeId)?.name
+                    ?? deckCards.find(c => c.id === p.cardId)?.name}
                   onToggle={() => updateProposals(prev =>
                     prev.map((x, j) => j === i ? { ...x, checked: !x.checked } : x))}
-                  onAssign={(archetypeId) => {
-                    const arch = archetypes.find(a => a.id === archetypeId);
-                    const key = (arch?.name || '').toLowerCase();
-                    const card = deckCards.find(c =>
-                      (c.archetype || '').toLowerCase() === key || c.name.toLowerCase() === key);
-                    updateProposals(prev => prev.map((x, j) => j === i
-                      ? { ...x, archetypeId, cardId: card?.id ?? x.cardId, checked: true }
-                      : x));
+                  onAssign={(id) => {
+                    if (hasArchetypeTargets) {
+                      const arch = archetypes.find(a => a.id === id);
+                      const key = (arch?.name || '').toLowerCase();
+                      const card = deckCards.find(c =>
+                        (c.archetype || '').toLowerCase() === key || c.name.toLowerCase() === key);
+                      updateProposals(prev => prev.map((x, j) => j === i
+                        ? { ...x, archetypeId: id, cardId: card?.id ?? x.cardId, checked: true }
+                        : x));
+                    } else {
+                      const card = deckCards.find(c => c.id === id);
+                      const key = (card?.archetype || card?.name || '').toLowerCase();
+                      const archetypeId = archetypes.find(a => a.name.toLowerCase() === key)?.id;
+                      updateProposals(prev => prev.map((x, j) => j === i
+                        ? { ...x, cardId: id, archetypeId: archetypeId ?? x.archetypeId, checked: true }
+                        : x));
+                    }
                   }}
                   onEditField={(label, value) => updateProposals(prev =>
                     prev.map((x, j) => j === i
@@ -881,26 +923,30 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
 // ── One proposal row ─────────────────────────────────────────
 
 function ProposalRow({
-  proposal, selectedFields, cardFieldNames, existingKeys, archetypes,
-  resolvedName, onToggle, onAssign, onEditField,
+  proposal, selectedFields, cardFieldNames, existingKeys, writable,
+  assignOptions, resolvedName, onToggle, onAssign, onEditField,
 }: {
   proposal: Proposal;
   selectedFields: SourceField[];
   cardFieldNames: string[];
   existingKeys: Set<string>;
-  archetypes: Archetype[];
-  /** The app archetype this row resolved to, when it differs from the
-   *  name the book used. */
+  /** Whether this row can reach at least one write target as-is. */
+  writable: boolean;
+  /** What "Assign to card…" offers: archetypes when reference fields
+   *  are targeted, the deck's cards in a deck-only import. */
+  assignOptions: { id: number; label: string }[];
+  /** The app card/archetype this row resolved to, when it differs
+   *  from the name the book used. */
   resolvedName?: string;
   onToggle: () => void;
-  onAssign: (archetypeId: number) => void;
+  onAssign: (id: number) => void;
   onEditField: (label: string, value: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const p = proposal;
-  const unmatched = !p.archetypeId && !p.cardId;
+  const unmatched = !writable;
 
   const overwrites = selectedFields.some(f =>
     p.archetypeId &&
@@ -919,7 +965,9 @@ function ProposalRow({
         )}
         {unmatched && (
           <>
-            <span className="scribe__badge scribe__badge--warn">no matching card</span>
+            <span className="scribe__badge scribe__badge--warn">
+              {p.archetypeId || p.cardId ? 'no card on this deck' : 'no matching card'}
+            </span>
             <select
               className="scribe__assign"
               value=""
@@ -927,8 +975,8 @@ function ProposalRow({
               title="Pick which of the app's cards this proposal belongs to"
             >
               <option value="">Assign to card…</option>
-              {archetypes.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
+              {assignOptions.map(o => (
+                <option key={o.id} value={o.id}>{o.label}</option>
               ))}
             </select>
           </>
@@ -1036,6 +1084,14 @@ function trimProse(text: string, max = 700): string {
   if (text.length <= max) return text;
   return text.slice(0, max).trimEnd() +
     `\n\n[…trimmed ${text.length - max} characters of extra prose. Extracted card content lives in the review panel on the right — if something you saw here is missing from a card there, ask the model to re-send that card.]`;
+}
+
+/** "The Fool, The Magician, … (+12 more)" — every chat round names the
+ *  cards it touched, so anything odd is traceable to specific rows. */
+function summarizeCards(cards: { card: string }[], max = 12): string {
+  const names = cards.map(c => c.card);
+  if (names.length <= max) return names.join(', ');
+  return `${names.slice(0, max).join(', ')} (+${names.length - max} more)`;
 }
 
 /** Split a model reply into visible prose and the parsed proposals.
@@ -1156,15 +1212,23 @@ function mergeProposals(
     if (existingIdx != null) {
       const existing = result[existingIdx];
       const mergedFields = { ...existing.fields };
+      let accepted = 0;
       for (const [k, v] of Object.entries(fields)) {
         const current = mergedFields[k];
         if (preferLonger && typeof current === 'string' && current.length > v.length) continue;
         mergedFields[k] = v;
+        accepted++;
       }
+      // Flags follow the content decision. When this round's version
+      // of the card won (or it's a refinement), its flags replace the
+      // old ones — including replacing them with nothing, so a card
+      // completed by a later part sheds its stale "cut off" flag. A
+      // losing fragment's flags never overwrite the winner's.
+      const nextFlags = (!preferLonger || accepted > 0) ? flags : existing.flags;
       result[existingIdx] = {
         ...existing,
         fields: mergedFields,
-        flags: flags ?? existing.flags,
+        flags: nextFlags?.length ? nextFlags : undefined,
         archetypeId: existing.archetypeId ?? archetypeId,
         cardId: existing.cardId ?? card?.id,
       };
