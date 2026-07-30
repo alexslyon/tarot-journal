@@ -334,3 +334,19 @@
   display: flex;
   gap: 8px;
 }
+
+.scribe__coverage {
+  font-size: var(--font-size-small);
+  color: var(--warning);
+}
+
+.scribe__coverage--full {
+  color: var(--text-dim);
+}
+
+.scribe__gaps-btn {
+  align-self: flex-start;
+  font-size: var(--font-size-small);
+  padding: 2px 10px;
+  margin-top: 2px;
+}

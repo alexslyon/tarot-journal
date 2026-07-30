@@ -207,6 +207,22 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
     return set;
   }, [existingEntries]);
 
+  // Per-field coverage: how many of this type's archetypes already
+  // have content, straight from the data behind the overwrite badges.
+  // Drives the "(12 of 78 filled)" hints and the gaps-only shortcut.
+  const fieldCoverage = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const f of fields) {
+      map.set(f.id, new Set(
+        existingEntries.filter(e => e.field_id === f.id).map(e => e.archetype_id),
+      ).size);
+    }
+    return map;
+  }, [fields, existingEntries]);
+
+  const fieldsWithGaps = fields.filter(f =>
+    (fieldCoverage.get(f.id) ?? 0) < archetypes.length);
+
   // ── File intake ────────────────────────────────────────────
   const handleAddFiles = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -580,17 +596,34 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
                 field list first, or target only deck card fields below.
               </p>
             )}
-            {fields.map(f => (
-              <label key={f.id} className="scribe__check">
-                <input
-                  type="checkbox"
-                  checked={selectedFieldIds.includes(f.id)}
-                  onChange={e => setSelectedFieldIds(prev =>
-                    e.target.checked ? [...prev, f.id] : prev.filter(id => id !== f.id))}
-                />
-                {f.name}
-              </label>
-            ))}
+            {fields.map(f => {
+              const filled = fieldCoverage.get(f.id) ?? 0;
+              const total = archetypes.length;
+              return (
+                <label key={f.id} className="scribe__check">
+                  <input
+                    type="checkbox"
+                    checked={selectedFieldIds.includes(f.id)}
+                    onChange={e => setSelectedFieldIds(prev =>
+                      e.target.checked ? [...prev, f.id] : prev.filter(id => id !== f.id))}
+                  />
+                  {f.name}
+                  <span className={`scribe__coverage ${filled >= total && total > 0 ? 'scribe__coverage--full' : ''}`}>
+                    {total > 0
+                      ? filled === 0 ? '(empty)' : `(${filled} of ${total} filled)`
+                      : ''}
+                  </span>
+                </label>
+              );
+            })}
+            {fields.length > 1 && fieldsWithGaps.length > 0 && fieldsWithGaps.length < fields.length && (
+              <button
+                className="scribe__gaps-btn"
+                onClick={() => setSelectedFieldIds(fieldsWithGaps.map(f => f.id))}
+              >
+                Select only fields with gaps ({fieldsWithGaps.length})
+              </button>
+            )}
           </div>
 
           <div className="scribe__field">
