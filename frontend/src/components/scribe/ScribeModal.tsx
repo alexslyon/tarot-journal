@@ -370,12 +370,12 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
               mergeProposals(current, parsed, archetypes, deckCards, true));
             setDisplayMessages(prev => [...prev, {
               role: 'assistant',
-              text: `[${unit.label}] ${visible || `${parsed.length} card${parsed.length === 1 ? '' : 's'} extracted (${merged.length} total).`}`,
+              text: `[${unit.label}] ${trimProse(visible) || `${parsed.length} card${parsed.length === 1 ? '' : 's'} extracted (${merged.length} total).`}`,
             }]);
           } else {
             setDisplayMessages(prev => [...prev, {
               role: 'assistant',
-              text: `[${unit.label}] ${visible || reply}`,
+              text: `[${unit.label}] ${trimProse(visible || reply)}`,
             }]);
           }
           if (truncated) {
@@ -1022,11 +1022,21 @@ How to respond — these rules are strict, the app parses your output:
 - Parts overlap, so a card whose text is cut off at the end of one part usually appears complete in another; always extract the complete version you can see. If a card's text still looks cut off, extract what's there and add a flag containing the words "cut off" — the app uses that flag to request completion automatically.
 - Field content must be faithful to the source text — do not summarize, paraphrase, or embellish. Light cleanup is encouraged: fix obvious OCR artifacts (garbled characters, broken headers, stray symbols like ¥), merge hyphenated line breaks, and remove accidentally duplicated passages, but note significant repairs in flags.
 - If a part contains no card content (front matter, essays, spreads), say so in one sentence — no JSON block needed.
-- Outside the JSON block, reply conversationally and briefly: what you found, what's uncertain or missing, answers to the user's questions.
+- Outside the JSON block, reply conversationally and BRIEFLY — a few short sentences at most: what you found, what's uncertain or missing, answers to the user's questions. NEVER quote card text or extended source passages in prose; that content belongs only in the JSON block, and prose is never saved anywhere.
 - When the user requests changes, emit only the affected cards (each with all of its fields, not just the changed one) in the JSON block.`;
 }
 
 type RawProposal = { card: string; fields: Record<string, string>; flags?: string[] };
+
+/** Extraction-phase prose should be a short status note. When the
+ *  model rambles (or quotes book text despite instructions), trim the
+ *  chat display — the content that matters is in the review panel,
+ *  and nothing in the chat is ever written to the database. */
+function trimProse(text: string, max = 700): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max).trimEnd() +
+    `\n\n[…trimmed ${text.length - max} characters of extra prose. Extracted card content lives in the review panel on the right — if something you saw here is missing from a card there, ask the model to re-send that card.]`;
+}
 
 /** Split a model reply into visible prose and the parsed proposals.
  *
