@@ -354,27 +354,30 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
       }]);
     }
     setBusy(false);
-    // With every part in, boundary-straddling cards can be completed
-    // automatically: the stitched conversation contains all parts, so
-    // one repair request can see across the cut. (After a Resume run
-    // finishes the missing parts, this fires then instead.)
+    // With every part in, run the automatic follow-ups: complete
+    // boundary-straddling cards, then audit field coverage. Both ride
+    // the stitched conversation — the only place all parts are visible
+    // at once. (After a Resume run finishes the missing parts, these
+    // fire then instead.)
     if (!failedUnits.length) {
-      await completeFlaggedCards(history);
+      const afterRepair = await completeFlaggedCards(history);
+      await auditFieldCoverage(afterRepair ?? history);
     }
   };
 
   /** One-shot follow-up: re-request full content for any card the
-   *  model flagged as cut off at a part boundary. */
-  const completeFlaggedCards = async (history: LlmMessage[]) => {
+   *  model flagged as cut off at a part boundary. Returns the extended
+   *  history, or null if there was nothing to repair. */
+  const completeFlaggedCards = async (history: LlmMessage[]): Promise<LlmMessage[] | null> => {
     const flagged = proposalsRef.current.filter(p =>
       p.flags?.some(f => INCOMPLETE_FLAG.test(f)));
-    if (!flagged.length) return;
+    if (!flagged.length) return null;
     const names = flagged.map(p => p.card).join(', ');
     setDisplayMessages(prev => [...prev, {
       role: 'user',
       text: `Auto-completing ${flagged.length} card${flagged.length === 1 ? '' : 's'} flagged as cut off: ${names}`,
     }]);
-    await callModel([...history, {
+    return callModel([...history, {
       role: 'user',
       content:
         `These cards were flagged as incomplete or cut off at a part boundary: ${names}. ` +
@@ -383,6 +386,43 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
         'these cards with its complete field content assembled from all relevant parts. ' +
         'For every card you resolve, include "flags": [] (or a flag stating what is genuinely ' +
         'missing from the source, if the text truly ends mid-sentence in the book itself).',
+    }]);
+  };
+
+  /** One-shot follow-up: when some target fields were filled for far
+   *  fewer cards than others, ask the model to re-scan for them — the
+   *  usual cause is the model economizing on dense parts, or a book
+   *  keeping a field's content in its own section (all keywords in an
+   *  appendix, say) that got extracted under the wrong name. */
+  const auditFieldCoverage = async (history: LlmMessage[]) => {
+    const props = proposalsRef.current;
+    if (props.length < 5 || targetLabels.length < 2) return;
+    const counts = targetLabels.map(label => ({
+      label,
+      count: props.filter(p =>
+        Object.entries(p.fields).some(([k, v]) =>
+          k.toLowerCase() === label.toLowerCase() && v?.trim())).length,
+    }));
+    const maxCount = Math.max(...counts.map(c => c.count));
+    if (maxCount === 0) return;
+    const sparse = counts.filter(c => c.count < maxCount * 0.5);
+    if (!sparse.length) return;
+    const description = sparse
+      .map(c => `"${c.label}" (${c.count} of ${props.length} cards)`)
+      .join(', ');
+    setDisplayMessages(prev => [...prev, {
+      role: 'user',
+      text: `Auto-check: some target fields were rarely filled — ${description}. Asking the model to re-scan the source…`,
+    }]);
+    await callModel([...history, {
+      role: 'user',
+      content:
+        `Field-coverage check: these target fields were filled for few or no cards: ${description}. ` +
+        'Re-scan the source parts above for content belonging to these fields — it may sit in its own ' +
+        'section (an appendix of keywords, a separate reversed-meanings chapter) or have been extracted ' +
+        'under a different field name. If the source has the content, re-send the affected cards with ' +
+        'those fields added, using the exact target field names (only changed cards, as usual). ' +
+        'If the source genuinely does not provide this information, say so briefly — never invent content.',
     }]);
   };
 
@@ -449,6 +489,8 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
 
   const handleApply = async () => {
     const writes: ScribeWrite[] = [];
+    // Field labels that matched nothing — surfaced, never silent.
+    const skippedLabels = new Set<string>();
     for (const p of checkedProposals) {
       for (const [label, content] of Object.entries(p.fields)) {
         if (!content?.trim()) continue;
@@ -467,8 +509,17 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
             field_name: label,
             content,
           });
+        } else {
+          skippedLabels.add(label);
         }
       }
+    }
+    if (skippedLabels.size) {
+      showToast(
+        `Heads up: ${[...skippedLabels].map(l => `"${l}"`).join(', ')} ` +
+        `${skippedLabels.size === 1 ? 'is' : 'are'} not among your target fields and won't be written. ` +
+        'Ask the model to move that content into a target field, or add it as a field first.',
+      );
     }
     if (!writes.length) {
       showToast('Nothing to apply — the checked cards have no writable fields.');
@@ -782,6 +833,12 @@ function ProposalRow({
               <span className="scribe__proposal-field-name">
                 {label}
                 {cardFieldNames.some(n => n.toLowerCase() === label.toLowerCase()) && ' (card field)'}
+                {!selectedFields.some(f => f.name.toLowerCase() === label.toLowerCase()) &&
+                  !cardFieldNames.some(n => n.toLowerCase() === label.toLowerCase()) && (
+                  <span className="scribe__badge scribe__badge--warn">
+                    not a target field — won't be applied
+                  </span>
+                )}
                 {editingField !== label && (
                   <button
                     className="scribe__field-edit-btn"
@@ -836,6 +893,7 @@ Source being imported: ${sourceName}
 The app's ${ctype} card archetypes are: ${names}
 
 Target fields to fill for each card: ${targetLabels.map(l => `"${l}"`).join(', ')}
+Use these field names exactly, character for character — the app matches them literally and silently discards anything else.
 
 How to respond — these rules are strict, the app parses your output:
 - Extracted card content goes ONLY inside a fenced code block tagged json. NEVER put card meanings, keywords, or field content in the prose part of your reply — the app cannot read prose, and content outside the JSON block is lost.
@@ -845,6 +903,7 @@ How to respond — these rules are strict, the app parses your output:
 {"proposals": [{"card": "<archetype name>", "fields": {"<field name>": "<content>"}, "flags": ["<optional short notes>"]}]}
 \`\`\`
 - Use the app's archetype names exactly as listed above whenever you are confident of the match (books often use variant names or other languages). If you cannot match a card confidently, keep the source's name and add a flag explaining the uncertainty.
+- For every card, fill EVERY target field the source provides content for — never skip secondary fields (keywords, reversed meanings, correspondences) to save space, even in dense parts. If the source truly has no content for a field on a card, simply omit that field; never invent content to fill one.
 - Parts overlap, so a card whose text is cut off at the end of one part usually appears complete in another; always extract the complete version you can see. If a card's text still looks cut off, extract what's there and add a flag containing the words "cut off" — the app uses that flag to request completion automatically.
 - Field content must be faithful to the source text — do not summarize, paraphrase, or embellish. Light cleanup is encouraged: fix obvious OCR artifacts (garbled characters, broken headers, stray symbols like ¥), merge hyphenated line breaks, and remove accidentally duplicated passages, but note significant repairs in flags.
 - If a part contains no card content (front matter, essays, spreads), say so in one sentence — no JSON block needed.
