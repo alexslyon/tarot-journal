@@ -22,15 +22,20 @@ import Modal, { ModalCancelButton } from '../common/Modal';
 import { useToast } from '../../context/ToastContext';
 import { getSourceFields, getSourceEntries } from '../../api/referenceSources';
 import { getArchetypes, type Archetype } from '../../api/correspondences';
-import { getDecks } from '../../api/decks';
+import { getDecks, getDeckCustomFields } from '../../api/decks';
 import { getCards } from '../../api/cards';
 import { extractSourceText, applyScribeWrites, type ScribeWrite } from '../../api/scribe';
 import { llmChat, getLlmConfig, type LlmMessage, type LlmMessagePart } from '../../api/llm';
-import type { ReferenceSource, SourceField, Card, Deck } from '../../types';
+import type { ReferenceSource, SourceField, Card, Deck, DeckCustomField } from '../../types';
 import './ScribeModal.css';
 
+/** Launched from a reference source (fills its archetype-note fields,
+ *  optionally card fields on a deck too) or directly from a deck
+ *  (fills that deck's card custom fields only). Exactly one of
+ *  source/deck must be provided. */
 interface ScribeModalProps {
-  source: ReferenceSource;
+  source?: ReferenceSource;
+  deck?: Deck;
   open: boolean;
   onClose: () => void;
 }
@@ -98,14 +103,25 @@ const IMAGE_MAX_EDGE = 2000;
 
 let materialIdCounter = 1;
 
-export default function ScribeModal({ source, open, onClose }: ScribeModalProps) {
+export default function ScribeModal({ source, deck, open, onClose }: ScribeModalProps) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
+  // Which cartomancy types this import can cover, and what to call it
+  const availableTypes = useMemo(
+    () => source
+      ? source.cartomancy_types
+      : (deck?.cartomancy_types || []).map(t => t.name),
+    [source, deck],
+  );
+  const displayName = source?.name ?? deck?.name ?? '';
+
   // ── Setup state ────────────────────────────────────────────
-  const [ctype, setCtype] = useState(source.cartomancy_types[0] || 'Tarot');
+  const [ctype, setCtype] = useState(availableTypes[0] || 'Tarot');
   const [selectedFieldIds, setSelectedFieldIds] = useState<number[]>([]);
-  const [deckId, setDeckId] = useState<number | ''>('');
+  const [deckId, setDeckId] = useState<number | ''>(deck?.id ?? '');
+  // Card fields: definitions ticked from the deck + free-typed extras
+  const [selectedCardFields, setSelectedCardFields] = useState<string[]>([]);
   const [cardFieldsText, setCardFieldsText] = useState('');
   const [materials, setMaterials] = useState<Material[]>([]);
   const [extracting, setExtracting] = useState(false);
@@ -138,9 +154,9 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
 
   const { data: llmConfig } = useQuery({ queryKey: ['llm-config'], queryFn: getLlmConfig, enabled: open });
   const { data: fields = [] } = useQuery<SourceField[]>({
-    queryKey: ['source-fields', source.id, ctype],
-    queryFn: () => getSourceFields(source.id, ctype),
-    enabled: open,
+    queryKey: ['source-fields', source?.id, ctype],
+    queryFn: () => getSourceFields(source!.id, ctype),
+    enabled: open && !!source,
   });
   const { data: archetypes = [] } = useQuery<Archetype[]>({
     queryKey: ['archetypes', ctype],
@@ -158,15 +174,25 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
     enabled: open && deckId !== '',
   });
   const { data: existingEntries = [] } = useQuery({
-    queryKey: ['source-entries', source.id, ctype],
-    queryFn: () => getSourceEntries(source.id, ctype),
-    enabled: open,
+    queryKey: ['source-entries', source?.id, ctype],
+    queryFn: () => getSourceEntries(source!.id, ctype),
+    enabled: open && !!source,
+  });
+  const { data: deckFieldDefs = [] } = useQuery<DeckCustomField[]>({
+    queryKey: ['deck-custom-fields', deckId],
+    queryFn: () => getDeckCustomFields(deckId as number),
+    enabled: open && deckId !== '',
   });
 
   // Default: all source fields selected
   useEffect(() => {
     setSelectedFieldIds(fields.map(f => f.id));
   }, [fields]);
+
+  // Deck mode: preselect the deck's existing field definitions
+  useEffect(() => {
+    if (deck) setSelectedCardFields(deckFieldDefs.map(f => f.field_name));
+  }, [deck, deckFieldDefs]);
 
   // Reset everything when the modal opens fresh
   useEffect(() => {
@@ -178,10 +204,11 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
     updateProposals(() => []);
     setPendingUnits([]);
     setChatInput('');
-    setCtype(source.cartomancy_types[0] || 'Tarot');
-    setDeckId('');
+    setCtype(availableTypes[0] || 'Tarot');
+    setDeckId(deck?.id ?? '');
+    setSelectedCardFields([]);
     setCardFieldsText('');
-  }, [open, source.id, source.cartomancy_types]);
+  }, [open, source?.id, deck?.id, availableTypes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -192,10 +219,18 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
     [decks, ctype],
   );
 
-  const cardFieldNames = useMemo(
-    () => cardFieldsText.split(/[,;\n]/).map(s => s.trim()).filter(Boolean),
-    [cardFieldsText],
-  );
+  const cardFieldNames = useMemo(() => {
+    const typed = cardFieldsText.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+    const all = [...selectedCardFields, ...typed];
+    // De-dupe case-insensitively, first occurrence wins
+    const seen = new Set<string>();
+    return all.filter(n => {
+      const k = n.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }, [selectedCardFields, cardFieldsText]);
 
   const selectedFields = fields.filter(f => selectedFieldIds.includes(f.id));
   const totalChars = materials.reduce((n, m) => n + (m.charCount || 0), 0);
@@ -260,7 +295,7 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
   const canStart = materials.length > 0 && targetLabels.length > 0 && !extracting;
 
   const handleStart = async () => {
-    systemPromptRef.current = buildSystemPrompt(ctype, archetypes, targetLabels, source.name);
+    systemPromptRef.current = buildSystemPrompt(ctype, archetypes, targetLabels, displayName);
 
     const totalText = materials.reduce((n, m) => n + (m.text?.length || 0), 0);
     if (totalText > MAX_SOURCE_CHARS) {
@@ -550,7 +585,7 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
       if (result.errors.length) {
         showToast(`Applied ${result.applied} of ${writes.length} — ${result.errors.length} failed.`);
       } else {
-        showToast(`Imported ${result.applied} entries from ${source.name}.`, 'success');
+        showToast(`Imported ${result.applied} entries from ${displayName}.`, 'success');
         onClose();
       }
     } catch {
@@ -566,7 +601,7 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
     <Modal
       open={open}
       onClose={onClose}
-      title={`Import with AI — ${source.name}`}
+      title={`Import with AI — ${displayName}`}
       width={stage === 'chat' ? 1100 : 640}
       isDirty={dirty}
       confirmMessage="Close the import? Unapplied proposals will be lost."
@@ -579,15 +614,16 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
 
       {stage === 'setup' && (
         <div className="scribe__setup">
-          {source.cartomancy_types.length > 1 && (
+          {availableTypes.length > 1 && (
             <div className="scribe__field">
               <label>Cartomancy type</label>
               <select value={ctype} onChange={e => setCtype(e.target.value)}>
-                {source.cartomancy_types.map(t => <option key={t} value={t}>{t}</option>)}
+                {availableTypes.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
           )}
 
+          {source && (
           <div className="scribe__field">
             <label>Fill these {source.name} fields ({ctype})</label>
             {fields.length === 0 && (
@@ -625,27 +661,50 @@ export default function ScribeModal({ source, open, onClose }: ScribeModalProps)
               </button>
             )}
           </div>
+          )}
 
           <div className="scribe__field">
-            <label>Also fill card fields on a deck (optional)</label>
-            <select
-              value={deckId}
-              onChange={e => setDeckId(e.target.value ? Number(e.target.value) : '')}
-            >
-              <option value="">No deck — reference fields only</option>
-              {decksForType.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
+            {deck ? (
+              <label>Fill card fields on {deck.name} ({ctype})</label>
+            ) : (
+              <>
+                <label>Also fill card fields on a deck (optional)</label>
+                <select
+                  value={deckId}
+                  onChange={e => setDeckId(e.target.value ? Number(e.target.value) : '')}
+                >
+                  <option value="">No deck — reference fields only</option>
+                  {decksForType.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </>
+            )}
             {deckId !== '' && (
               <>
+                {deckFieldDefs.map(f => (
+                  <label key={f.id} className="scribe__check">
+                    <input
+                      type="checkbox"
+                      checked={selectedCardFields.some(n => n.toLowerCase() === f.field_name.toLowerCase())}
+                      onChange={e => setSelectedCardFields(prev =>
+                        e.target.checked
+                          ? [...prev, f.field_name]
+                          : prev.filter(n => n.toLowerCase() !== f.field_name.toLowerCase()))}
+                    />
+                    {f.field_name}
+                  </label>
+                ))}
                 <input
                   type="text"
-                  placeholder="Card field names, comma-separated (e.g. Keywords, Book Meaning)"
+                  placeholder={deckFieldDefs.length
+                    ? 'Additional new field names, comma-separated'
+                    : 'Card field names, comma-separated (e.g. Keywords, Book Meaning)'}
                   value={cardFieldsText}
                   onChange={e => setCardFieldsText(e.target.value)}
                 />
                 <p className="scribe__hint">
                   These become custom fields on each card of the deck,
                   matched to cards through their archetypes.
+                  {deck && !cardFieldNames.length && ' Pick at least one field (or type a new one) to import into.'}
                 </p>
               </>
             )}

@@ -18,6 +18,7 @@ import { useToast } from '../../context/ToastContext';
 import Modal, { ModalCancelButton } from '../common/Modal';
 import RichTextEditor from '../common/RichTextEditor';
 import AnkiExportModal from './AnkiExportModal';
+import ScribeModal from '../scribe/ScribeModal';
 import './DeckEditModal.css';
 import { confirmDialog } from '../common/ConfirmDialog';
 
@@ -207,6 +208,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showAnkiExport, setShowAnkiExport] = useState(false);
+  const [showScribe, setShowScribe] = useState(false);
 
   // Track initial form state for dirty checking
   const initialStateRef = useRef<InitialDeckFormState | null>(null);
@@ -1032,6 +1034,14 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
                 Export for Anki
               </button>
               <button
+                className="deck-edit__export-link"
+                onClick={() => setShowScribe(true)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                title="Import book content into this deck's card fields with the AI assistant"
+              >
+                Import with AI
+              </button>
+              <button
                 className="deck-edit__delete-trigger"
                 onClick={() => setConfirmingDelete(true)}
               >
@@ -1056,6 +1066,14 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
           deckId={deckId}
           deckName={deck.name}
           onClose={() => setShowAnkiExport(false)}
+        />
+      )}
+
+      {deck && (
+        <ScribeModal
+          deck={deck}
+          open={showScribe}
+          onClose={() => setShowScribe(false)}
         />
       )}
     </Modal>
