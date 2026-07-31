@@ -41,6 +41,16 @@ export async function setDeckTags(deckId: number, tagIds: number[]) {
 
 // ── Deck Custom Fields ──
 
+/** Batch-rename cards within one deck (card names from language).
+ *  Per-row failures are reported, not fatal. */
+export async function renameDeckCards(
+  deckId: number,
+  renames: { card_id: number; name: string }[],
+): Promise<{ applied: number; errors: { index: number; error: string }[] }> {
+  const res = await api.post(`/api/decks/${deckId}/rename-cards`, { renames });
+  return res.data;
+}
+
 export async function getDeckCustomFields(deckId: number): Promise<DeckCustomField[]> {
   const res = await api.get(`/api/decks/${deckId}/custom-fields`);
   return res.data;

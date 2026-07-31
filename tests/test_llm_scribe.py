@@ -313,3 +313,26 @@ def test_feature_model_overrides(client):
         # unknown feature name → default, no crash
         client.post('/api/llm/chat', json={'messages': msgs, 'feature': 'bogus'})
         assert captured['model'] == 'claude-sonnet-5'
+
+
+def test_batch_rename_cards(client):
+    """Deck-scoped batch rename: applies valid rows, rejects foreign cards."""
+    types = client.get('/api/types').get_json()
+    deck = client.post('/api/decks', json={'name': 'Rename Deck', 'type_ids': [types[0]['id']]}).get_json()
+    other = client.post('/api/decks', json={'name': 'Other Deck', 'type_ids': [types[0]['id']]}).get_json()
+    c1 = client.post('/api/cards', json={'deck_id': deck['id'], 'name': 'The Fool'}).get_json()
+    c2 = client.post('/api/cards', json={'deck_id': other['id'], 'name': 'Foreign'}).get_json()
+
+    r = client.post(f"/api/decks/{deck['id']}/rename-cards", json={'renames': [
+        {'card_id': c1['id'], 'name': 'El Loco'},
+        {'card_id': c2['id'], 'name': 'Nope'},      # wrong deck
+        {'card_id': c1['id'], 'name': '  '},        # blank
+    ]})
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data['applied'] == 1 and len(data['errors']) == 2
+
+    card = client.get(f"/api/cards/{c1['id']}").get_json()
+    assert card['name'] == 'El Loco'
+    foreign = client.get(f"/api/cards/{c2['id']}").get_json()
+    assert foreign['name'] == 'Foreign'

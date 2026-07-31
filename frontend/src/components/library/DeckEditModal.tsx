@@ -19,6 +19,7 @@ import Modal, { ModalCancelButton } from '../common/Modal';
 import RichTextEditor from '../common/RichTextEditor';
 import AnkiExportModal from './AnkiExportModal';
 import ScribeModal from '../scribe/ScribeModal';
+import ApplyLanguageNamesModal from './ApplyLanguageNamesModal';
 import './DeckEditModal.css';
 import { confirmDialog } from '../common/ConfirmDialog';
 
@@ -209,6 +210,7 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
   const [deleting, setDeleting] = useState(false);
   const [showAnkiExport, setShowAnkiExport] = useState(false);
   const [showScribe, setShowScribe] = useState(false);
+  const [showLanguageNames, setShowLanguageNames] = useState(false);
 
   // Track initial form state for dirty checking
   const initialStateRef = useRef<InitialDeckFormState | null>(null);
@@ -1042,6 +1044,14 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
                 Import with AI
               </button>
               <button
+                className="deck-edit__export-link"
+                onClick={() => setShowLanguageNames(true)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                title="Rename all cards using a language's names from Archetype Languages"
+              >
+                Card Names…
+              </button>
+              <button
                 className="deck-edit__delete-trigger"
                 onClick={() => setConfirmingDelete(true)}
               >
@@ -1074,6 +1084,14 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
           deck={deck}
           open={showScribe}
           onClose={() => setShowScribe(false)}
+        />
+      )}
+
+      {deck && showLanguageNames && (
+        <ApplyLanguageNamesModal
+          deck={deck}
+          open={showLanguageNames}
+          onClose={() => setShowLanguageNames(false)}
         />
       )}
     </Modal>

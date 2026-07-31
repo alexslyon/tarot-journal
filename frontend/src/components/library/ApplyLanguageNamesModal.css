@@ -1,0 +1,73 @@
+/* Card Names from Language modal */
+
+.lang-names__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 70vh;
+}
+
+.lang-names__picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lang-names__picker label {
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+}
+
+.lang-names__summary {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.lang-names__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--bg-secondary);
+}
+
+.lang-names__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-body);
+}
+
+.lang-names__current {
+  flex: 0 0 40%;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lang-names__arrow {
+  color: var(--text-dim);
+}
+
+.lang-names__keep {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  font-style: italic;
+}
+
+.lang-names__row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.lang-names__actions {
+  display: flex;
+  gap: 10px;
+}

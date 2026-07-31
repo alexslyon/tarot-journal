@@ -176,6 +176,38 @@ def set_deck_tag_assignments(deck_id, data):
     return jsonify({'ok': True})
 
 
+@decks_bp.route('/api/decks/<int:deck_id>/rename-cards', methods=['POST'])
+@require_json
+def rename_deck_cards(deck_id, data):
+    """Batch-rename cards within one deck (the "card names from
+    language" feature). Body: {"renames": [{"card_id": 1, "name": "El
+    Loco"}, ...]}. Only cards belonging to the deck are touched;
+    per-row failures are reported, not fatal."""
+    db = current_app.config['DB']
+    renames = data.get('renames') or []
+    if not renames:
+        return jsonify({'error': 'renames is required'}), 400
+    deck_card_ids = {r['id'] for r in (dict(x) for x in db.get_cards(deck_id))}
+    applied = 0
+    errors = []
+    for i, r in enumerate(renames):
+        try:
+            card_id = int(r['card_id'])
+            name = (r.get('name') or '').strip()
+            if not name:
+                raise ValueError('name is required')
+            if card_id not in deck_card_ids:
+                raise ValueError(f'card {card_id} is not in deck {deck_id}')
+            err = validate_length(name, field_name='name')
+            if err:
+                raise ValueError(err)
+            db.update_card(card_id, name=name)
+            applied += 1
+        except Exception as e:
+            errors.append({'index': i, 'error': str(e)})
+    return jsonify({'applied': applied, 'errors': errors})
+
+
 # ── Deck Custom Fields ────────────────────────────────────────
 
 @decks_bp.route('/api/decks/<int:deck_id>/custom-fields')
