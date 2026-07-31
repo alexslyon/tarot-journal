@@ -9,7 +9,7 @@
   background: var(--tj-tint-neutral);
   color: var(--text-primary);
   padding: 8px 12px;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   margin-bottom: 12px;
   font-size: var(--font-size-small);
 }
@@ -51,7 +51,7 @@
   background: var(--bg-tertiary);
   color: var(--text-primary);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -64,7 +64,7 @@
 .import-deck__section {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   padding: 12px;
   margin-top: 4px;
 }

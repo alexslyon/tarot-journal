@@ -4,48 +4,51 @@
 }
 
 .settings-tab__scroll {
-  max-width: 700px;
+  max-width: var(--tj-measure);
   margin: 0 auto;
   padding: 24px 20px;
 }
 
 .settings-tab__title {
-  font-size: var(--font-size-title);
-  color: var(--text-primary);
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-display-weight);
+  font-size: clamp(26px, 3vw, 38px);
+  color: var(--tj-text);
   margin: 0 0 20px;
 }
 
 .settings-tab__message {
   padding: 10px 14px;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   margin-bottom: 16px;
   font-size: var(--font-size-body);
 }
 
 .settings-tab__message--success {
-  background: color-mix(in srgb, var(--success) 20%, transparent);
-  color: var(--success);
-  border: 1px solid var(--success);
+  background: rgb(var(--tj-ink-rgb) / 6%);
+  color: var(--tj-text-2);
+  border: 1px solid var(--tj-hairline-strong);
 }
 
 .settings-tab__message--error {
-  background: color-mix(in srgb, var(--danger) 20%, transparent);
-  color: var(--danger);
-  border: 1px solid var(--danger);
+  background: rgb(var(--tj-accent-rgb) / 10%);
+  color: var(--tj-text-accent-2);
+  border: 1px solid rgb(var(--tj-accent-rgb) / 30%);
 }
 
 /* Sections */
 .settings-tab__section {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 16px;
+  background: var(--tj-panel);
+  border-radius: var(--tj-radius-panel);
+  padding: var(--tj-panel-pad);
   margin-bottom: 16px;
 }
 
 .settings-tab__section-title {
-  font-size: var(--font-size-heading);
-  color: var(--accent);
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-heading-weight);
+  font-size: var(--tj-size-title);
+  color: var(--tj-text-2);
   margin: 0 0 12px;
 }
 
@@ -69,7 +72,7 @@
   display: inline-block;
   width: 14px;
   height: 14px;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   border: 1px solid var(--border);
 }
 
@@ -173,7 +176,7 @@
   height: 26px;
   padding: 1px;
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
   background: transparent;
 }
@@ -261,7 +264,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 8px 10px;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   background: var(--bg-primary);
 }
 
@@ -287,8 +290,8 @@
 .settings-tab__import-preset-badge {
   font-size: 10px;
   padding: 1px 5px;
-  border-radius: 3px;
-  background: var(--accent-dim);
+  border-radius: var(--tj-radius-row);
+  background: var(--tj-tint);
   color: var(--accent);
 }
 

@@ -10,7 +10,7 @@
   background: var(--bg-input);
   color: var(--text-primary);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   padding: 4px 22px 4px 8px;
   font-size: var(--font-size-body);
 }
@@ -56,13 +56,13 @@
   list-style: none;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .search-combobox__option {
   padding: 4px 8px;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
   color: var(--text-primary);
   font-size: var(--font-size-body);

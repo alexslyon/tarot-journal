@@ -17,7 +17,7 @@
   justify-content: center;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   padding: 8px;
   min-height: 320px;
   overflow: hidden;
@@ -40,7 +40,7 @@
   font-size: 1.4em;
   line-height: 1;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   user-select: none;
 }
 
@@ -58,7 +58,7 @@
   right: 8px;
   padding: 1px 6px;
   background: rgba(0, 0, 0, 0.55);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   color: var(--text-primary);
   font-size: var(--font-size-small);
   font-variant-numeric: tabular-nums;
@@ -89,6 +89,6 @@
   padding: 12px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   margin: 0;
 }

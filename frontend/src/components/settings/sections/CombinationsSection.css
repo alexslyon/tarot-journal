@@ -15,7 +15,7 @@
   gap: 6px;
   padding: 4px 8px;
   background: var(--bg-primary);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
 }
 
 .combinations__source-name {
@@ -58,7 +58,7 @@
   color: var(--warning);
   background: color-mix(in srgb, var(--warning) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   padding: 8px 10px;
   margin: 0 0 12px;
 }
@@ -78,7 +78,7 @@
 .combinations__dialog {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   padding: 16px;
   max-width: 480px;
   width: 90%;
@@ -135,7 +135,7 @@
   align-items: center;
   justify-content: center;
   background: var(--bg-primary);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   border: 1px solid var(--border);
   min-height: 180px;
   overflow: hidden;
@@ -176,7 +176,7 @@
   padding: 8px;
   background: var(--bg-primary);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   cursor: grab;
 }
 

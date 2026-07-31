@@ -505,21 +505,19 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
   return (
     <Modal open={true} onClose={onClose} width={800} isDirty={isDirty}>
       <div className="entry-editor">
-        <h2 className="entry-editor__title">
-          {isEditing ? 'Edit Entry' : 'New Journal Entry'}
-        </h2>
+        <div className="tj-kicker entry-editor__kicker">
+          {isEditing ? 'Edit entry' : 'New entry · draft'}
+        </div>
 
         <div className="entry-editor__form">
-          {/* Title */}
-          <div className="entry-editor__field">
-            <label className="entry-editor__label">Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Entry title (optional)"
-            />
-          </div>
+          {/* Title — a borderless serif input; the entry IS the title */}
+          <input
+            type="text"
+            className="entry-editor__title-input"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Untitled entry"
+          />
 
           {/* Date/Time */}
           <div className="entry-editor__field">

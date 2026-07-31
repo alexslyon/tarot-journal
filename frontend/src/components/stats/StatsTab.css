@@ -10,8 +10,10 @@
 }
 
 .stats-tab__title {
-  font-size: var(--font-size-title);
-  color: var(--text-primary);
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-display-weight);
+  font-size: var(--tj-size-display-sm);
+  color: var(--tj-text);
   margin: 0 0 20px;
 }
 
@@ -26,24 +28,26 @@
   color: var(--danger);
   border: 1px solid var(--danger);
   padding: 10px 14px;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   margin-bottom: 16px;
   font-size: var(--font-size-body);
 }
 
 /* Sections */
 .stats-tab__section {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 16px;
+  background: var(--tj-panel);
+  border-radius: var(--tj-radius-panel);
+  padding: 20px 22px;
   margin-bottom: 16px;
 }
 
 .stats-tab__section-title {
-  font-size: var(--font-size-heading);
-  color: var(--accent);
-  margin: 0 0 12px;
+  font-size: var(--tj-size-kicker);
+  letter-spacing: var(--tj-kicker-tracking);
+  text-transform: uppercase;
+  font-weight: var(--tj-ui-weight-strong);
+  color: var(--tj-text-kicker);
+  margin: 0 0 14px;
 }
 
 /* Overview metrics grid */
@@ -54,22 +58,27 @@
 }
 
 .stats-tab__metric {
-  background: var(--bg-tertiary);
-  border-radius: 4px;
-  padding: 14px 12px;
+  background: var(--tj-panel-quiet);
+  border-radius: var(--tj-radius-row);
+  padding: 16px 14px;
   text-align: center;
 }
 
 .stats-tab__metric-value {
-  font-size: var(--font-size-title);
-  color: var(--accent);
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-display-weight);
+  font-size: 38px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tj-text);
   display: block;
   margin-bottom: 4px;
 }
 
 .stats-tab__metric-label {
-  font-size: var(--font-size-small);
-  color: var(--text-secondary);
+  font-size: var(--tj-size-kicker);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tj-text-muted);
 }
 
 /* Chart container */

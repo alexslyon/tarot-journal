@@ -29,7 +29,7 @@
   align-items: center;
   gap: 8px;
   padding: 4px 8px;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
   font-size: var(--font-size-body);
   color: var(--text-primary);
@@ -40,7 +40,7 @@
 }
 
 .pos-legend__item--selected {
-  background: var(--accent-dim);
+  background: var(--tj-tint);
 }
 
 .pos-legend__key {

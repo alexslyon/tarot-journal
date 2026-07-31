@@ -15,7 +15,7 @@
   font-size: var(--font-size-body);
   padding: 8px 12px;
   background: var(--danger-tint);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
 }
 
 .add-cards__folder-row {
@@ -36,7 +36,7 @@
   max-height: 300px;
   overflow-y: auto;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   font-size: var(--font-size-body);
 }
 

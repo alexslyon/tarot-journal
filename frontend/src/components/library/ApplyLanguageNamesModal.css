@@ -32,7 +32,7 @@
   flex-direction: column;
   gap: 4px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   padding: 8px;
   background: var(--bg-secondary);
 }

@@ -57,7 +57,7 @@
 }
 
 .profiles-tab__row--selected {
-  background: var(--accent-dim);
+  background: var(--tj-tint);
 }
 
 .profiles-tab__row-name {
@@ -101,7 +101,7 @@
   padding: 8px 12px;
   background-color: var(--danger-tint);
   border: 1px solid var(--danger);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   margin-bottom: 16px;
 }
 

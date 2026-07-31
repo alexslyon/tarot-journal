@@ -27,7 +27,7 @@
   max-height: 350px;
   overflow-y: auto;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   background: var(--bg-primary);
 }
 
@@ -105,7 +105,7 @@
 .mappings-editor__add-form {
   padding: 10px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   margin-top: 8px;
   background: var(--bg-primary);
 }

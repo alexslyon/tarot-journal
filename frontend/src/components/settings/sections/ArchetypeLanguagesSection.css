@@ -36,7 +36,7 @@
   padding: 4px 8px;
   background: var(--bg-primary);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   cursor: grab;
 }
 .archetype-langs-edit__lang-row:active { cursor: grabbing; }
@@ -92,7 +92,7 @@
 .archetype-langs-edit__lang-group {
   background: var(--bg-primary);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   padding: 8px 12px;
 }
 
@@ -120,7 +120,7 @@
   padding: 4px 6px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   cursor: grab;
 }
 .archetype-langs-edit__name-row:active { cursor: grabbing; }

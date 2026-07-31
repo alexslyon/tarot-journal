@@ -3,7 +3,7 @@
   color: var(--warning);
   background: color-mix(in srgb, var(--warning) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   padding: 8px 10px;
   margin: 0 0 12px;
 }
@@ -39,7 +39,7 @@
   align-items: center;
   justify-content: center;
   background: var(--bg-primary);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   border: 1px solid var(--border);
   min-height: 220px;
   overflow: hidden;
@@ -62,7 +62,7 @@
   padding: 16px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   text-align: center;
 }
 
@@ -76,7 +76,7 @@
   color: var(--accent) !important;
   border: 1px solid var(--accent) !important;
   padding: 6px 12px !important;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
 }
 
@@ -93,7 +93,7 @@
 .combinations-view__group {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   padding: 12px 16px;
 }
 

@@ -119,7 +119,7 @@
 .pdf-export-modal__cancel,
 .pdf-export-modal__generate {
   padding: 8px 16px;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   border: 1px solid var(--border);
   font-size: 0.95em;
   cursor: pointer;

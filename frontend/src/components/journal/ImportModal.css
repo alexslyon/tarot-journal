@@ -61,7 +61,7 @@
   padding: 12px;
   background-color: var(--bg-primary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
 }
 
 .import-modal__result-row {

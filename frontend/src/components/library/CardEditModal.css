@@ -17,7 +17,7 @@
   width: 120px;
   height: 180px;
   object-fit: contain;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   background: var(--card-slot);
 }
 
@@ -98,7 +98,7 @@
 .card-edit__tag-badge {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--tj-radius-row);
   color: #fff;
   font-size: var(--font-size-small);
 }
@@ -106,7 +106,7 @@
 .card-edit__group-badge {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   border: 2px solid;
   color: var(--text-primary);
   font-size: var(--font-size-small);
@@ -145,7 +145,7 @@
   padding: 10px 12px;
   background: var(--danger-tint);
   border: 1px solid var(--danger);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   color: var(--danger);
   font-size: var(--font-size-body);
 }
@@ -183,12 +183,12 @@
   color: var(--accent);
   background: transparent;
   border: 1px solid var(--accent);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
 }
 
 .card-edit__add-btn:hover {
-  background: var(--accent-dim);
+  background: var(--tj-tint);
 }
 
 .card-edit__empty-hint {
@@ -205,7 +205,7 @@
   padding: 12px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
 }
 
 .card-edit__cf-header {
@@ -233,7 +233,7 @@
   color: var(--text-dim);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
 }
 
@@ -248,7 +248,7 @@
   font-size: var(--font-size-body);
   background: var(--bg-input);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   color: var(--text-primary);
   cursor: pointer;
 }

@@ -6,7 +6,7 @@
   flex: 1;
   min-height: 0;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   background: var(--bg-secondary);
 }
 
@@ -27,7 +27,7 @@
 
 .chat-panel__msg {
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--tj-radius-row);
   font-size: var(--font-size-body);
   line-height: 1.45;
   white-space: pre-wrap;

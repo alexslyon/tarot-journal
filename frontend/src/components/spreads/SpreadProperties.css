@@ -89,7 +89,7 @@
   color: var(--text-dim);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
   flex-shrink: 0;
 }

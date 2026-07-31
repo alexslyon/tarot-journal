@@ -63,7 +63,7 @@
 .batch-edit__tag-badge {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--tj-radius-row);
   color: #fff;
   font-size: var(--font-size-small);
 }
@@ -71,7 +71,7 @@
 .batch-edit__group-badge {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   border: 2px solid;
   color: var(--text-primary);
   font-size: var(--font-size-small);
@@ -108,7 +108,7 @@
   padding: 10px 12px;
   background: var(--danger-tint);
   border: 1px solid var(--danger);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   color: var(--danger);
   font-size: var(--font-size-body);
 }

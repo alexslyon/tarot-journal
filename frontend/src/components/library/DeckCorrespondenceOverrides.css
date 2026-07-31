@@ -26,7 +26,7 @@
   gap: 6px;
   padding: 4px 6px;
   background: var(--bg-primary);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
 }
 
 .deck-corr-overrides__archetype {
@@ -63,7 +63,7 @@
 .deck-corr-overrides__add-form {
   padding: 8px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   background: var(--bg-primary);
   margin-top: 4px;
 }

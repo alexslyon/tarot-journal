@@ -3,6 +3,8 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  background: var(--tj-panel);
+  border-radius: var(--tj-radius-panel);
 }
 
 .deck-list__header {
@@ -15,9 +17,10 @@
 }
 
 .deck-list__title {
-  font-size: var(--font-size-heading);
-  font-weight: 600;
-  color: var(--text-primary);
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-heading-weight);
+  font-size: var(--tj-size-title);
+  color: var(--tj-text-2);
   margin-right: 12px;
 }
 
@@ -48,8 +51,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 12px;
-  border-bottom: 1px solid var(--border);
+  padding: 4px 12px 8px;
+  background: var(--tj-rule-h) no-repeat bottom / 100% 1px;
   flex-shrink: 0;
 }
 
@@ -66,7 +69,7 @@
   border: none;
   padding: 2px 6px;
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
 }
 
 .deck-list__sort-btn:hover {
@@ -96,27 +99,26 @@
 .deck-list__rows {
   flex: 1;
   overflow-y: auto;
+  padding: 4px 8px 8px;
 }
 
 .deck-list__row {
   display: flex;
   align-items: center;
-  padding: 6px 12px;
+  padding: 8px 12px;
   cursor: pointer;
-  border-bottom: 1px solid var(--bg-tertiary);
-  transition: background-color 0.1s;
+  border-radius: var(--tj-radius-row);
+  transition: background-color 0.12s, box-shadow 0.12s;
 }
 
 .deck-list__row:hover {
-  background-color: var(--bg-tertiary);
+  background-color: var(--tj-tint-neutral-hover);
 }
 
-.deck-list__row--selected {
-  background-color: var(--accent-dim);
-}
-
+.deck-list__row--selected,
 .deck-list__row--selected:hover {
-  background-color: var(--accent-dim);
+  background-color: var(--tj-tint);
+  box-shadow: inset 0 0 0 1px rgb(var(--tj-accent-rgb) / 35%), var(--tj-glow-soft);
 }
 
 .deck-list__row-content {
@@ -130,7 +132,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-primary);
+  color: var(--tj-text);
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-heading-weight);
+  font-size: 16px;
 }
 
 .deck-list__subtitle {
@@ -165,7 +170,7 @@
   color: var(--text-dim);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.1s;

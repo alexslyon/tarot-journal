@@ -13,7 +13,7 @@
   width: 100%;
   max-height: 420px;
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   background-color: var(--card-slot);
 }
 
@@ -24,7 +24,7 @@
   align-items: center;
   justify-content: center;
   background-color: var(--card-slot);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   color: var(--text-dim);
   font-size: var(--font-size-heading);
 }
@@ -136,7 +136,7 @@
   padding: 10px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
 }
 
 .card-view__cf-label {

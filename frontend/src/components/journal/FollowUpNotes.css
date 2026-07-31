@@ -29,7 +29,7 @@
   padding: 6px 10px;
   background-color: var(--danger-tint);
   border: 1px solid var(--danger);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   margin-bottom: 8px;
 }
 
@@ -57,7 +57,7 @@
   padding: 10px 12px;
   background-color: var(--bg-primary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   margin-bottom: 8px;
 }
 
@@ -87,7 +87,7 @@
   color: var(--text-dim);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
 }
 

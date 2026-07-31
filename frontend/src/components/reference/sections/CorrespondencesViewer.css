@@ -18,7 +18,7 @@
 }
 
 .corr-viewer__edit-btn:hover {
-  background: var(--accent-dim) !important;
+  background: var(--tj-tint) !important;
 }
 
 .corr-viewer__mode-tabs {
@@ -68,7 +68,7 @@
   max-height: 600px;
   overflow-y: auto;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
 }
 
 .corr-viewer__table {
@@ -155,7 +155,7 @@
 .corr-viewer__group-summary {
   background: var(--bg-primary);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   padding: 12px 16px;
   margin-bottom: 12px;
 }
@@ -196,7 +196,7 @@
   line-height: 1.6;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   padding: 3px 8px;
   direction: ltr;
 }

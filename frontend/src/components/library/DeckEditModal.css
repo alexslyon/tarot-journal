@@ -12,7 +12,7 @@
   padding: 8px 12px;
   background-color: var(--danger-tint);
   border: 1px solid var(--danger);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   margin-bottom: 12px;
 }
 
@@ -27,7 +27,7 @@
   width: 60px;
   height: 90px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   background: var(--card-slot);
 }
 
@@ -136,7 +136,7 @@
   color: var(--accent);
   border: 1px dashed var(--accent);
   padding: 4px 10px;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   font-size: var(--font-size-small);
   cursor: pointer;
 }
@@ -152,7 +152,7 @@
   padding: 6px;
   background: var(--bg-primary);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
 }
 
 .deck-edit__add-tag-name {
@@ -165,7 +165,7 @@
   height: 28px;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   background: transparent;
   cursor: pointer;
 }
@@ -173,7 +173,7 @@
 .deck-edit__tag-badge {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--tj-radius-row);
   color: #fff;
   font-size: var(--font-size-small);
 }
@@ -343,7 +343,7 @@
   height: 28px;
   padding: 1px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   background: var(--bg-input);
   cursor: pointer;
   flex-shrink: 0;
@@ -358,7 +358,7 @@
   color: var(--text-dim);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -394,7 +394,7 @@
   font-size: var(--font-size-small);
   background: var(--bg-input);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   color: var(--text-primary);
   resize: vertical;
   min-height: 60px;
@@ -415,7 +415,7 @@
   padding: 12px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
 }
 
 .deck-edit__init-hint {
@@ -447,7 +447,7 @@
 .deck-edit__variant-group {
   background: var(--bg-primary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   padding: 8px 10px;
 }
 
@@ -474,7 +474,7 @@
   gap: 10px;
   padding: 4px 6px;
   background: var(--bg-secondary);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
 }
 
 .deck-edit__variant-index {
@@ -487,7 +487,7 @@
   width: 32px;
   height: 48px;
   object-fit: cover;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   background: var(--bg-input);
   border: 1px solid var(--border);
 }
@@ -527,7 +527,7 @@
   background: var(--bg-input);
   border: 1px solid var(--border);
   color: var(--text-primary);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
   font-size: var(--font-size-small);
 }

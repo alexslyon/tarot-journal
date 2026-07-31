@@ -1,7 +1,7 @@
 .reading-breakdown {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   margin: 16px 0;
   overflow: visible;
 }
@@ -63,7 +63,7 @@
   padding: 4px 10px;
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   color: var(--text-secondary);
   cursor: pointer;
   font-size: var(--font-size-small);
@@ -87,7 +87,7 @@
   min-width: 1.4em;
   padding: 0 4px;
   background: var(--bg-input);
-  border-radius: 8px;
+  border-radius: var(--tj-radius-row);
   font-size: 0.85em;
   color: var(--text-dim);
 }
@@ -108,7 +108,7 @@
   border: 1px solid var(--border);
   color: var(--text-secondary);
   padding: 4px 10px;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
   font-size: var(--font-size-small);
 }
@@ -125,7 +125,7 @@
   min-width: 200px;
   background: var(--bg-primary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   padding: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   z-index: 10;
@@ -145,7 +145,7 @@
   border: 1px solid var(--border);
   color: var(--text-primary);
   padding: 3px 8px;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
   font-size: var(--font-size-small);
 }
@@ -177,7 +177,7 @@
 
 .reading-breakdown__filter-item label:hover {
   background: var(--bg-secondary);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
 }
 
 /* Table */
@@ -222,7 +222,7 @@
   padding: 3px 8px;
   background: var(--bg-primary);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   color: var(--text-primary);
   font-size: var(--font-size-small);
 }

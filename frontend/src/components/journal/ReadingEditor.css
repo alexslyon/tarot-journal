@@ -1,6 +1,6 @@
 .reading-editor {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   padding: 12px;
   margin-bottom: 10px;
   background-color: var(--bg-primary);
@@ -28,7 +28,7 @@
   color: var(--text-dim);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
 }
 
@@ -90,9 +90,9 @@
 .reading-editor__type-badge {
   font-size: 9px;
   padding: 1px 4px;
-  background: var(--accent-dim);
+  background: var(--tj-tint);
   color: var(--accent);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   flex-shrink: 0;
 }
 
@@ -126,7 +126,7 @@
   color: var(--text-dim);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -154,13 +154,13 @@
 .reading-editor__canvas {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   overflow: hidden;
 }
 
 .reading-editor__visual-slot {
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   background-color: var(--card-slot);
   border: 1px solid var(--border);
 }
@@ -257,7 +257,7 @@
   padding: 8px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   margin-bottom: 10px;
 }
 
@@ -296,9 +296,9 @@
 .reading-editor__slot-badge {
   font-size: 9px;
   padding: 1px 4px;
-  background: var(--accent-dim);
+  background: var(--tj-tint);
   color: var(--accent);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   margin-left: 4px;
   font-weight: 700;
 }

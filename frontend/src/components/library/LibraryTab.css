@@ -1,6 +1,7 @@
 .library-tab {
   position: absolute;
   inset: 0;
+  padding: 0 var(--tj-gutter) var(--tj-gutter);
 }
 
 .library-tab__right-panel {
@@ -8,12 +9,13 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  padding-left: var(--tj-gap);
 }
 
 /* Shared resize handle style */
 .resize-handle {
   width: 4px;
-  background-color: var(--border);
+  background-color: transparent;
   transition: background-color 0.15s;
 }
 

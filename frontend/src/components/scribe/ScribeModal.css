@@ -51,7 +51,7 @@
   flex-wrap: wrap;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   padding: 6px 8px;
   font-size: var(--font-size-body);
 }
@@ -83,7 +83,7 @@
   align-self: flex-start;
   background: var(--bg-secondary);
   border: 1px dashed var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   padding: 6px 12px;
   color: var(--text-secondary);
   font-size: var(--font-size-body);
@@ -116,7 +116,7 @@
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   background: var(--bg-secondary);
 }
 
@@ -131,7 +131,7 @@
 
 .scribe__msg {
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--tj-radius-row);
   font-size: var(--font-size-body);
   line-height: 1.45;
   white-space: pre-wrap;
@@ -205,7 +205,7 @@
   flex-direction: column;
   gap: 6px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   padding: 8px;
   background: var(--bg-secondary);
 }
@@ -242,7 +242,7 @@
   font-size: var(--font-size-small);
   color: var(--warning);
   border: 1px solid var(--warning);
-  border-radius: 10px;
+  border-radius: var(--tj-radius-row);
   padding: 0 8px;
 }
 
@@ -281,7 +281,7 @@
   color: var(--text-primary);
   white-space: pre-wrap;
   background: var(--bg-secondary);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   padding: 6px 8px;
   max-height: 220px;
   overflow-y: auto;
@@ -293,7 +293,7 @@
   border: 1px solid var(--accent);
   color: var(--accent);
   background: var(--bg-primary);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   padding: 6px 14px;
   cursor: pointer;
 }

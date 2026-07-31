@@ -48,7 +48,7 @@
 }
 
 .spread-list__row--selected {
-  background: var(--accent-dim);
+  background: var(--tj-tint);
 }
 
 .spread-list__name {

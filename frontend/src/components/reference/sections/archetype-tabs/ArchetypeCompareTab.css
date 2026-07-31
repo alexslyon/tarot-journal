@@ -17,7 +17,7 @@
   gap: 12px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   padding: 12px;
   min-width: 0;
 }
@@ -38,7 +38,7 @@
   align-items: center;
   justify-content: center;
   background: var(--bg-primary);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   min-height: 240px;
   padding: 8px;
   overflow: hidden;
@@ -61,7 +61,7 @@
   font-size: 1.4em;
   line-height: 1;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   user-select: none;
 }
 
@@ -79,7 +79,7 @@
   right: 8px;
   padding: 1px 6px;
   background: rgba(0, 0, 0, 0.55);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   color: var(--text-primary);
   font-size: var(--font-size-small);
   font-variant-numeric: tabular-nums;
@@ -105,7 +105,7 @@
   margin: 0;
   padding: 8px 12px;
   background: var(--bg-primary);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   font-size: var(--font-size-small);
 }
 
@@ -138,7 +138,7 @@
 
 .archetype-compare__custom-field {
   background: var(--bg-primary);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   padding: 8px 12px;
 }
 
@@ -158,7 +158,7 @@
 
 .archetype-compare__note-field {
   background: var(--bg-primary);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   padding: 8px 12px;
 }
 

@@ -34,10 +34,9 @@
 }
 
 .designer__canvas-wrapper {
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-panel);
   overflow: hidden;
-  background: var(--bg-primary);
+  background: var(--tj-panel-quiet);
   width: 100%;
 }
 
@@ -48,21 +47,20 @@
 }
 
 .designer__bg {
-  fill: var(--bg-tertiary);
+  fill: transparent;
 }
 
 .designer__grid-line {
-  stroke: var(--border);
+  stroke: rgb(var(--tj-ink-rgb) / 7%);
   stroke-width: 0.5;
-  opacity: 0.4;
 }
 
 .designer__position {
-  fill: var(--accent-dim);
-  stroke: var(--accent);
-  stroke-width: 1.5;
-  rx: 3;
-  ry: 3;
+  fill: var(--tj-card);
+  stroke: var(--tj-edge-card);
+  stroke-width: 1;
+  rx: 6;
+  ry: 6;
 }
 
 .designer__position:hover {
@@ -70,9 +68,9 @@
 }
 
 .designer__position--selected {
-  stroke: var(--text-primary);
-  stroke-width: 2;
-  stroke-dasharray: 4 2;
+  fill: var(--tj-card-selected);
+  stroke: var(--tj-edge-accent-lit);
+  stroke-width: 1.5;
 }
 
 .designer__key-bg {
@@ -143,7 +141,7 @@ g:hover > .designer__resize-handle {
   z-index: 1000;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   min-width: 140px;
   padding: 4px 0;
@@ -162,7 +160,7 @@ g:hover > .designer__resize-handle {
 }
 
 .designer__context-menu button:hover {
-  background: var(--accent-dim);
+  background: var(--tj-tint);
 }
 
 .designer__menu-separator {
@@ -226,7 +224,7 @@ g:hover > .designer__resize-handle {
   padding: 8px 10px;
   font-size: var(--font-size-body);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   background: var(--bg-input);
   color: var(--text-primary);
   width: 100%;
@@ -249,7 +247,7 @@ g:hover > .designer__resize-handle {
   padding: 5px 10px;
   font-size: var(--font-size-small);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
 }
 
@@ -292,7 +290,7 @@ g:hover > .designer__resize-handle {
   margin-bottom: 6px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
 }
 
 .designer__inspector-name {

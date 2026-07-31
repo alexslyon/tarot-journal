@@ -1,6 +1,7 @@
 .spreads-tab {
   position: absolute;
   inset: 0;
+  padding: 0 var(--tj-gutter) var(--tj-gutter);
 }
 
 /* ── Shared ── */
@@ -12,7 +13,7 @@
   margin: 12px 20px 0;
   background-color: var(--danger-tint);
   border: 1px solid var(--danger);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
 }
 
 .spreads-tab__footer {
@@ -20,13 +21,15 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 20px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-primary);
+  background: var(--tj-rule-h) no-repeat top / 100% 1px;
 }
 
 .spreads-tab__section-title {
-  font-size: var(--font-size-heading);
-  color: var(--accent);
+  font-size: var(--tj-size-kicker);
+  letter-spacing: var(--tj-kicker-tracking);
+  text-transform: uppercase;
+  color: var(--tj-text-kicker);
+  font-weight: var(--tj-ui-weight-strong);
   margin: 0 0 10px;
 }
 
@@ -54,9 +57,10 @@
 }
 
 .spreads-tab__viewer-name {
-  font-size: 1.4em;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-display-weight);
+  font-size: clamp(24px, 2.6vw, 34px);
+  color: var(--tj-text);
   margin: 0 0 8px;
 }
 

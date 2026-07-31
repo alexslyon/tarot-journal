@@ -24,7 +24,7 @@
 .chart-modal__svg {
   background: var(--bg-primary);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   padding: 8px;
   display: flex;
   align-items: center;
@@ -66,7 +66,7 @@
   background: var(--bg-primary);
   border-left: 3px solid var(--accent-dim, var(--border));
   padding: 6px 10px;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
 }
 
 .chart-modal__table {

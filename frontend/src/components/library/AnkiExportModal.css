@@ -18,7 +18,7 @@
 
 .anki-export__error {
   padding: 8px 12px;
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   margin-bottom: 12px;
   font-size: var(--font-size-body);
   background: color-mix(in srgb, var(--danger) 20%, transparent);
@@ -36,7 +36,7 @@
   max-height: 400px;
   overflow-y: auto;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   margin-bottom: 16px;
 }
 
@@ -83,7 +83,7 @@
 .anki-export__badge {
   font-size: 9px;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
   background: color-mix(in srgb, var(--success) 20%, transparent);
   color: var(--success);
 }

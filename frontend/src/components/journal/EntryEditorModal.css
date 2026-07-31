@@ -1,8 +1,31 @@
-.entry-editor__title {
-  font-size: var(--font-size-title);
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 16px;
+.entry-editor__kicker {
+  margin-bottom: 6px;
+}
+
+/* The design's signature: the title is written straight onto the
+   page — no box, just a hairline underline that lights on focus. */
+.entry-editor__title-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--tj-hairline-strong);
+  border-radius: 0;
+  padding: 4px 0 10px;
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-display-weight);
+  font-size: clamp(24px, 2.8vw, 34px);
+  line-height: 1.1;
+  color: var(--tj-text);
+  width: 100%;
+  max-width: 560px;
+}
+
+.entry-editor__title-input:focus {
+  border-bottom-color: rgb(var(--tj-accent-rgb) / 45%);
+  outline: none;
+}
+
+.entry-editor__title-input::placeholder {
+  color: var(--tj-text-ghost);
 }
 
 .entry-editor__form {
@@ -120,7 +143,7 @@
 .entry-editor__tag-badge {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--tj-radius-row);
   font-size: var(--font-size-small);
   color: #fff;
   font-weight: 500;
@@ -145,7 +168,7 @@
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-secondary);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
 }
 
@@ -186,7 +209,7 @@
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-dim);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -220,7 +243,7 @@
   padding: 10px 12px;
   background: var(--danger-tint);
   border: 1px solid var(--danger);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   color: var(--danger);
   font-size: var(--font-size-body);
 }

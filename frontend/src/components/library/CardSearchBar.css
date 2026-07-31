@@ -38,7 +38,7 @@
   margin-top: 8px;
   padding: 10px;
   background: var(--bg-secondary);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   display: flex;
   flex-direction: column;
   gap: 8px;

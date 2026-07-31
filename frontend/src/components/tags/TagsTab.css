@@ -24,7 +24,7 @@
 
 .tags-tab__column {
   background: var(--bg-secondary);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   padding: 16px;
   border: 1px solid var(--border);
 }
@@ -32,7 +32,7 @@
 /* Statistics */
 .tags-tab__stats {
   background: var(--bg-secondary);
-  border-radius: 6px;
+  border-radius: var(--tj-radius-row);
   padding: 16px;
   border: 1px solid var(--border);
 }
@@ -56,7 +56,7 @@
   gap: 2px;
   padding: 8px 16px;
   background: var(--bg-primary);
-  border-radius: 4px;
+  border-radius: var(--tj-radius-row);
   min-width: 80px;
 }
 
@@ -91,7 +91,7 @@
   display: flex;
   justify-content: space-between;
   padding: 4px 8px;
-  border-radius: 3px;
+  border-radius: var(--tj-radius-row);
 }
 
 .tags-tab__stats-row:hover {
