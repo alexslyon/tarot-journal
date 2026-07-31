@@ -148,7 +148,7 @@
 .multi-select__done-btn {
   font-size: var(--font-size-small) !important;
   padding: 3px 8px !important;
-  background: var(--accent) !important;
+  background: var(--tj-tint-strong) !important;
   color: var(--text-primary) !important;
   border-color: var(--accent) !important;
 }

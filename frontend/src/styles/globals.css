@@ -28,9 +28,10 @@
   --text-secondary: var(--tj-text-3);
   --text-dim: var(--tj-text-faint);
   --border: var(--tj-hairline);
-  /* The design has no red or green: the accent carries warnings, and
-     risk is expressed through copy and confirmation patterns. */
-  --success: var(--tj-text-accent);
+  /* The design has no red or green: success reads as quiet neutral
+     confirmation, warnings carry the accent's text step, and risk is
+     expressed through copy and confirmation patterns. */
+  --success: var(--tj-text-2);
   --warning: var(--tj-text-accent-2);
   --danger: var(--tj-text-accent-2);
   --danger-tint: rgb(var(--tj-accent-rgb) / 10%);

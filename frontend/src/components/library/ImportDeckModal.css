@@ -6,7 +6,7 @@
 }
 
 .import-deck__error {
-  background: var(--danger);
+  background: var(--tj-tint-neutral);
   color: var(--text-primary);
   padding: 8px 12px;
   border-radius: 4px;
@@ -170,7 +170,7 @@
 }
 
 .import-deck__primary-btn {
-  background: var(--accent) !important;
+  background: var(--tj-tint-strong) !important;
   color: var(--text-primary) !important;
 }
 

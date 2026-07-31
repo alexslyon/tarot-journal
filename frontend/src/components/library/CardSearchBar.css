@@ -21,7 +21,7 @@
 }
 
 .card-search__btn--clear {
-  background: var(--danger);
+  background: var(--tj-tint-neutral);
   color: var(--text-primary);
 }
 
@@ -30,7 +30,7 @@
 }
 
 .card-search__btn--toggle.active {
-  background: var(--accent);
+  background: var(--tj-tint-strong);
   color: var(--text-primary);
 }
 

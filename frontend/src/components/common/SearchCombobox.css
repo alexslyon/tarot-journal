@@ -72,7 +72,7 @@
 }
 
 .search-combobox__option--active {
-  background: var(--accent);
+  background: var(--tj-tint-strong);
   color: var(--bg-primary);
 }
 

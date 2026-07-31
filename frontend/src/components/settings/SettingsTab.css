@@ -191,7 +191,7 @@
 }
 
 .settings-tab__save-btn {
-  background: var(--accent) !important;
+  background: var(--tj-tint-strong) !important;
   color: var(--text-primary) !important;
 }
 
@@ -322,7 +322,7 @@
 }
 
 .settings-tab__import-preset-btn--danger:hover {
-  background: var(--danger) !important;
+  background: var(--tj-tint-neutral) !important;
   color: var(--bg-primary) !important;
 }
 
@@ -401,7 +401,7 @@
 }
 
 .settings-tab__backup-btn {
-  background: var(--accent) !important;
+  background: var(--tj-tint-strong) !important;
   color: var(--text-primary) !important;
 }
 
@@ -416,7 +416,7 @@
 }
 
 .settings-tab__restore-btn:hover {
-  background: var(--warning) !important;
+  background: var(--tj-tint-strong) !important;
   color: var(--bg-primary) !important;
 }
 

@@ -45,7 +45,7 @@
 }
 
 .card-grid__add-btn:hover {
-  background: var(--accent);
+  background: var(--tj-tint-strong);
   color: var(--text-primary);
 }
 
@@ -62,7 +62,7 @@
 }
 
 .card-grid__sel-btn--edit {
-  background: var(--accent) !important;
+  background: var(--tj-tint-strong) !important;
   color: var(--text-primary) !important;
 }
 

@@ -272,7 +272,7 @@
 }
 
 .corr-bulk__clear-btn:hover:not(:disabled) {
-  background: var(--danger) !important;
+  background: var(--tj-tint-neutral) !important;
   color: var(--bg-primary) !important;
 }
 

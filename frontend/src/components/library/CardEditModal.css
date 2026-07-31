@@ -151,7 +151,7 @@
 }
 
 .card-edit__save-btn {
-  background: var(--accent) !important;
+  background: var(--tj-tint-strong) !important;
   color: var(--text-primary) !important;
 }
 

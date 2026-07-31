@@ -19,5 +19,5 @@
 
 .resize-handle:hover,
 .resize-handle[data-resize-handle-active] {
-  background-color: var(--accent);
+  background-color: var(--tj-tint-strong);
 }

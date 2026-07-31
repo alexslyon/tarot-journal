@@ -136,7 +136,7 @@
 }
 
 .pdf-export-modal__generate {
-  background: var(--accent);
+  background: var(--tj-tint-strong);
   color: var(--bg-primary);
   border-color: var(--accent);
 }

@@ -176,7 +176,7 @@ g:hover > .designer__resize-handle {
 }
 
 .designer__menu-danger:hover {
-  background: var(--danger) !important;
+  background: var(--tj-tint-neutral) !important;
   color: #fff !important;
 }
 
@@ -254,7 +254,7 @@ g:hover > .designer__resize-handle {
 }
 
 .designer__edit-buttons button:first-child {
-  background: var(--accent);
+  background: var(--tj-tint-strong);
   border-color: var(--accent);
   color: var(--text-primary);
 }

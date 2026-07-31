@@ -93,7 +93,7 @@
 }
 
 .reading-breakdown__tab--active .reading-breakdown__tab-count {
-  background: var(--accent);
+  background: var(--tj-tint-strong);
   color: var(--bg-primary);
 }
 

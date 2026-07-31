@@ -59,7 +59,7 @@
 .spread-props__slot-key {
   width: 22px;
   height: 22px;
-  background: var(--accent);
+  background: var(--tj-tint-strong);
   border-radius: 50%;
   font-size: 12px;
   font-weight: 700;
