@@ -14,9 +14,10 @@
 }
 
 .spread-display__name {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: var(--font-size-body);
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-heading-weight);
+  color: var(--tj-text-2);
+  font-size: var(--tj-size-title-sm);
   margin-bottom: 8px;
 }
 
@@ -28,9 +29,8 @@
 /* ── Positioned canvas ── */
 
 .spread-display__canvas {
-  background-color: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  background-color: var(--tj-panel-quiet);
+  border-radius: var(--tj-radius-panel);
   overflow: hidden;
 }
 
@@ -48,7 +48,7 @@
 
 .spread-display__slot {
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: 8px;
   border: 2px solid transparent;
 }
 
@@ -62,11 +62,11 @@
   left: 2px;
   width: 18px;
   height: 18px;
-  background: var(--accent);
+  background: var(--color-accent-800);
   border-radius: 50%;
   font-size: 10px;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-weight: 600;
+  color: var(--tj-text-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -79,14 +79,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--card-slot);
-  border: 1px dashed var(--border);
-  border-radius: 4px;
+  background-color: var(--tj-card-empty);
+  box-shadow: inset 0 0 0 1px rgb(var(--tj-ink-rgb) / 12%);
+  border-radius: 8px;
 }
 
 .spread-display__slot-label {
+  font-family: var(--tj-font-display);
   font-size: var(--font-size-small);
-  color: var(--text-dim);
+  color: var(--tj-text-faint);
 }
 
 /* ── Simple card row ── */
@@ -119,20 +120,21 @@
 .spread-display__card-img {
   width: 100%;
   object-fit: contain;
-  border-radius: 3px;
+  border-radius: 6px;
 }
 
 .spread-display__card-placeholder {
   width: 100%;
   height: 100px;
-  background-color: var(--card-slot);
-  border: 1px solid var(--border);
-  border-radius: 3px;
+  background-color: var(--tj-card);
+  box-shadow: inset 0 0 0 1px var(--tj-edge-card);
+  border-radius: 6px;
 }
 
 .spread-display__card-name {
+  font-family: var(--tj-font-display);
   font-size: var(--font-size-small);
-  color: var(--text-secondary);
+  color: var(--tj-text-muted);
   text-align: center;
   margin-top: 3px;
   overflow: hidden;
@@ -188,11 +190,11 @@
 .spread-display__legend-key {
   width: 20px;
   height: 20px;
-  background: var(--accent);
+  background: var(--color-accent-800);
   border-radius: 50%;
   font-size: 11px;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-weight: 600;
+  color: var(--tj-text-accent);
   display: flex;
   align-items: center;
   justify-content: center;

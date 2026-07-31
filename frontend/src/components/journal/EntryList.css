@@ -1,3 +1,7 @@
+/* Entry list — the journal's left panel (Nocturne 3a).
+   A --tj-panel surface with serif entry rows; selection is tint +
+   ring + soft glow, never a bolder weight. */
+
 .entry-list {
   display: flex;
   flex-direction: column;
@@ -5,57 +9,63 @@
   min-width: 0;
   height: 100%;
   overflow: hidden;
+  background: var(--tj-panel);
+  border-radius: var(--tj-radius-panel);
 }
 
 .entry-list__header {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
-  padding: 12px;
+  padding: var(--tj-panel-pad) var(--tj-panel-pad) 10px;
   flex-shrink: 0;
 }
 
 .entry-list__title {
-  font-size: var(--font-size-heading);
-  font-weight: 600;
-  color: var(--text-primary);
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-heading-weight);
+  font-size: var(--tj-size-title);
+  color: var(--tj-text-2);
 }
 
 .entry-list__btn {
-  padding: 4px 10px;
-  font-size: var(--font-size-small);
+  padding: 5px 12px;
+  font-size: var(--tj-size-small);
 }
 
 .entry-list__btn--sm {
-  padding: 3px 8px;
+  padding: 4px 10px;
 }
 
 .entry-list__btn--clear {
-  color: var(--text-dim);
+  color: var(--tj-text-faint);
+  border-color: transparent;
 }
 
 /* ── Search ── */
 
 .entry-list__search {
   display: flex;
-  gap: 4px;
-  padding: 0 12px 8px;
+  gap: 6px;
+  padding: 0 var(--tj-panel-pad) 8px;
   flex-shrink: 0;
 }
 
 .entry-list__search-input {
-  width: 275px;
+  flex: 1;
+  min-width: 0;
 }
 
 /* ── Filters ── */
 
 .entry-list__filters {
-  padding: 0 12px 8px;
+  padding: 0 var(--tj-panel-pad) 8px;
   flex-shrink: 0;
 }
 
 .entry-list__tag-filter {
-  width: 345px;
+  width: 100%;
 }
 
 /* ── Rows ── */
@@ -63,45 +73,54 @@
 .entry-list__rows {
   flex: 1;
   overflow-y: auto;
-  border-top: 1px solid var(--border);
+  padding: 4px 10px 10px;
 }
 
 .entry-list__row {
-  padding: 10px 12px;
+  padding: 12px 14px;
   cursor: pointer;
-  border-bottom: 1px solid var(--bg-tertiary);
-  transition: background-color 0.1s;
+  border-radius: var(--tj-radius-panel);
+  transition: background-color 0.12s, box-shadow 0.12s;
 }
 
 .entry-list__row:hover {
-  background-color: var(--bg-tertiary);
+  background-color: var(--tj-tint-neutral-hover);
 }
 
-.entry-list__row--selected {
-  background-color: var(--accent-dim);
-}
-
+.entry-list__row--selected,
 .entry-list__row--selected:hover {
-  background-color: var(--accent-dim);
+  background-color: var(--tj-tint);
+  box-shadow: inset 0 0 0 1px rgb(var(--tj-accent-rgb) / 35%), var(--tj-glow-soft);
 }
 
-.entry-list__row-date {
-  font-size: var(--font-size-small);
-  color: var(--text-dim);
-  margin-bottom: 2px;
+.entry-list__row-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
 }
 
 .entry-list__row-title {
-  color: var(--text-primary);
-  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-heading-weight);
+  font-size: 17px;
+  line-height: 1.25;
+  color: var(--tj-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.entry-list__row-date {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--tj-text-faint);
+}
+
 .entry-list__row-location {
-  font-size: var(--font-size-small);
-  color: var(--text-secondary);
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-muted);
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -113,32 +132,31 @@
 .entry-list__footer {
   display: flex;
   gap: 6px;
-  padding: 8px 12px;
-  border-top: 1px solid var(--border);
+  padding: 10px var(--tj-panel-pad);
   flex-shrink: 0;
+  background: var(--tj-rule-h) no-repeat top / 100% 1px;
 }
 
 /* ── Empty / Loading ── */
 
 .entry-list__loading,
 .entry-list__empty {
-  padding: 20px;
+  padding: 24px;
   text-align: center;
-  color: var(--text-dim);
+  color: var(--tj-text-faint);
 }
 
 .entry-list__load-older {
   display: block;
-  width: calc(100% - 16px);
-  margin: 8px;
+  width: calc(100% - 20px);
+  margin: 8px 10px;
   padding: 6px;
-  font-size: var(--font-size-body);
-  color: var(--text-secondary);
-  background: var(--bg-secondary);
+  font-size: var(--tj-size-ui);
+  color: var(--tj-text-muted);
 }
 
 .entry-list__load-older:hover:not(:disabled) {
-  color: var(--text-primary);
+  color: var(--tj-text);
 }
 
 .entry-list__filters--dates {
@@ -150,50 +168,49 @@
 .entry-list__date-filter {
   flex: 1;
   min-width: 0;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 3px 6px;
-  font-size: var(--font-size-small);
+  padding: 4px 10px;
+  font-size: var(--tj-size-small);
   color-scheme: dark;
 }
 
 .entry-list__date-sep {
-  color: var(--text-dim);
-  font-size: var(--font-size-small);
+  color: var(--tj-text-faint);
+  font-size: var(--tj-size-small);
 }
 
 .entry-list__card-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 4px 2px 8px;
-  background: var(--accent-dim);
-  color: var(--text-primary);
-  border-radius: 10px;
-  font-size: var(--font-size-small);
+  padding: var(--tj-chip-pad);
+  background: var(--tj-tint-strong);
+  color: var(--tj-text-accent);
+  border-radius: var(--tj-radius-pill);
+  font-size: var(--tj-size-kicker);
 }
 
 .entry-list__card-chip-clear {
   background: none;
   border: none;
-  color: var(--text-primary);
+  color: var(--tj-text-accent);
   cursor: pointer;
-  padding: 0 4px;
-  font-size: var(--font-size-body);
+  padding: 0 2px;
+  font-size: var(--tj-size-ui);
   line-height: 1;
 }
 
 .entry-list__group-header {
-  padding: 8px 12px 3px;
-  font-size: var(--font-size-small);
-  font-weight: 600;
+  padding: 10px 14px 4px;
+  font-size: var(--tj-size-kicker);
+  font-weight: var(--tj-ui-weight-strong);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-dim);
+  letter-spacing: var(--tj-kicker-tracking);
+  color: var(--tj-text-kicker);
   position: sticky;
   top: 0;
-  background: var(--bg-primary);
   z-index: 1;
+  /* Solid enough to read over rows scrolling beneath it */
+  background: rgb(29 31 46 / 92%);
+  backdrop-filter: blur(6px);
+  border-radius: var(--tj-radius-row);
 }

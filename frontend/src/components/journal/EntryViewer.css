@@ -1,3 +1,8 @@
+/* Entry viewer — the journal's reading pane (Nocturne 3a).
+   The entry is a written document: its title is display serif, its
+   sections separate with fading rules, and the reading itself sits
+   on a quiet panel surface. */
+
 .entry-viewer {
   height: 100%;
   display: flex;
@@ -8,7 +13,7 @@
 .entry-viewer__scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: 10px 6px 24px 2px;
 }
 
 /* ── Header ── */
@@ -17,27 +22,33 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 16px;
+  margin-bottom: 14px;
 }
 
 .entry-viewer__title {
-  font-size: var(--font-size-title);
-  font-weight: 600;
-  color: var(--text-primary);
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-display-weight);
+  font-size: clamp(26px, 3.2vw, var(--tj-size-display-sm));
+  line-height: var(--tj-leading-display);
+  letter-spacing: var(--tj-display-tracking);
+  color: var(--tj-text);
   flex: 1;
   min-width: 0;
 }
 
 .entry-viewer__actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
   flex-shrink: 0;
+  padding-top: 8px;
 }
 
 .entry-viewer__actions button {
-  padding: 4px 12px;
-  font-size: var(--font-size-small);
+  padding: 5px 12px;
+  font-size: var(--tj-size-small);
 }
 
 /* ── Metadata ── */
@@ -45,22 +56,23 @@
 .entry-viewer__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 12px;
+  gap: 8px 22px;
+  margin-bottom: 14px;
 }
 
 .entry-viewer__meta-item {
   display: flex;
   align-items: baseline;
-  gap: 6px;
-  font-size: var(--font-size-body);
+  gap: 7px;
+  font-size: var(--tj-size-ui);
+  color: var(--tj-text);
 }
 
 .entry-viewer__meta-label {
-  font-size: var(--font-size-small);
-  color: var(--text-dim);
+  font-size: var(--tj-size-kicker);
+  color: var(--tj-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.08em;
 }
 
 /* ── Tags ── */
@@ -68,34 +80,35 @@
 .entry-viewer__tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 5px;
   margin-bottom: 16px;
 }
 
 .entry-viewer__tag {
   display: inline-block;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: var(--font-size-small);
+  padding: var(--tj-chip-pad);
+  border-radius: var(--tj-radius-pill);
+  font-size: var(--tj-size-kicker);
   color: #fff;
-  font-weight: 500;
+  font-weight: var(--tj-ui-weight-strong);
 }
 
 /* ── Sections ── */
 
 .entry-viewer__section {
-  margin-bottom: 20px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  margin-bottom: 22px;
+  padding-top: 16px;
+  background: var(--tj-rule-h) no-repeat top / 100% 1px;
 }
 
 .entry-viewer__section-title {
-  font-size: var(--font-size-heading);
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 10px;
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-heading-weight);
+  font-size: var(--tj-size-title);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--tj-text-2);
+  margin-bottom: 12px;
 }
 
 /* ── Loading / Error ── */
@@ -106,8 +119,9 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--text-dim);
-  font-size: var(--font-size-heading);
+  color: var(--tj-text-faint);
+  font-family: var(--tj-font-display);
+  font-size: var(--tj-size-title);
 }
 
 .entry-viewer__nav {

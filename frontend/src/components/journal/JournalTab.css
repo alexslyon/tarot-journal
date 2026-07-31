@@ -1,6 +1,7 @@
 .journal-tab {
   position: absolute;
   inset: 0;
+  padding: 0 var(--tj-gutter) var(--tj-gutter);
 }
 
 .journal-tab__content {
@@ -8,6 +9,7 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  padding-left: var(--tj-gap);
 }
 
 .journal-tab__placeholder {
@@ -15,6 +17,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--text-dim);
-  font-size: var(--font-size-heading);
+  color: var(--tj-text-faint);
+  font-family: var(--tj-font-display);
+  font-size: var(--tj-size-title);
 }

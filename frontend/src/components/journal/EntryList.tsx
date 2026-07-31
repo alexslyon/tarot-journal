@@ -284,9 +284,11 @@ export default function EntryList({
                   }
                 }}
               >
-                <div className="entry-list__row-date">{rowDate}</div>
-                <div className="entry-list__row-title">
-                  {entry.title || 'Untitled Entry'}
+                <div className="entry-list__row-head">
+                  <div className="entry-list__row-title">
+                    {entry.title || 'Untitled Entry'}
+                  </div>
+                  <span className="entry-list__row-date">{rowDate}</span>
                 </div>
                 {entry.location_name && (
                   <div className="entry-list__row-location">{entry.location_name}</div>
