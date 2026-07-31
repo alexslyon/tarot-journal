@@ -96,13 +96,16 @@ function stopFlask() {
 }
 
 function createWindow() {
+  // The Nocturne design is drawn at 1440×940 with no narrow layout;
+  // the floor stays a bit below that for small displays, accepting
+  // some squeeze rather than blocking them entirely.
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 800,
-    minHeight: 600,
+    width: 1440,
+    height: 940,
+    minWidth: 1100,
+    minHeight: 720,
     title: 'Tarot Journal',
-    backgroundColor: '#1e2024',
+    backgroundColor: '#161826',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

@@ -1,9 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../../context/ThemeContext';
 import {
-  getThemePresets,
-  applyThemePreset,
   updateTheme,
   getDefaults,
   updateDefaults,
@@ -11,46 +9,15 @@ import {
 } from '../../../api/settings';
 import { getProfiles } from '../../../api/profiles';
 import { getCartomancyTypes, getDecks } from '../../../api/decks';
-import type { ThemeColors, Profile, Deck, CartomancyType } from '../../../types';
+import type { Profile, Deck, CartomancyType } from '../../../types';
 import '../SettingsTab.css';
 
 const BASE_SIZES = { size_title: 22, size_heading: 14, size_body: 13, size_small: 11 };
 
-const COLOR_LABELS: Record<string, string> = {
-  bg_primary: 'Background',
-  bg_secondary: 'Panels',
-  bg_tertiary: 'Hover',
-  bg_input: 'Inputs',
-  accent: 'Accent',
-  accent_hover: 'Accent Hover',
-  accent_dim: 'Accent Dim',
-  text_primary: 'Text',
-  text_secondary: 'Text Secondary',
-  text_dim: 'Text Dim',
-  border: 'Borders',
-  success: 'Success',
-  warning: 'Warning',
-  danger: 'Danger',
-  card_slot: 'Card Slot',
-};
-
 export default function GeneralSection() {
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
-  const [showCustomize, setShowCustomize] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-
-  const [editColors, setEditColors] = useState<ThemeColors>({ ...theme.colors });
-
-  useEffect(() => {
-    setEditColors({ ...theme.colors });
-  }, [theme.colors]);
-
-  const { data: presets } = useQuery({
-    queryKey: ['theme-presets'],
-    queryFn: getThemePresets,
-  });
 
   const { data: defaults } = useQuery({
     queryKey: ['settings-defaults'],
@@ -75,35 +42,6 @@ export default function GeneralSection() {
   const showMsg = (text: string, type: 'success' | 'error') => {
     setMessage({ text, type });
     setTimeout(() => setMessage(null), 4000);
-  };
-
-  const handlePreset = async (name: string) => {
-    try {
-      const result = await applyThemePreset(name);
-      setTheme(result);
-      showMsg(`Applied "${name}" theme`, 'success');
-    } catch {
-      showMsg('Failed to apply preset', 'error');
-    }
-  };
-
-  const handleSaveCustomColors = async () => {
-    setSaving(true);
-    try {
-      const result = await updateTheme({ colors: editColors });
-      setTheme(result);
-      setShowCustomize(false);
-      showMsg('Custom colors saved', 'success');
-    } catch {
-      showMsg('Failed to save colors', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleColorChange = (key: string, value: string) => {
-    setEditColors((prev) => ({ ...prev, [key]: value }));
-    setTheme({ ...theme, colors: { ...theme.colors, [key]: value } });
   };
 
   const textScale = Math.round((theme.fonts.size_body / BASE_SIZES.size_body) * 100);
@@ -177,25 +115,12 @@ export default function GeneralSection() {
         </div>
       )}
 
-      {/* Theme Section */}
+      {/* Appearance — the visual design is the fixed Nocturne system;
+          text size is the one appearance setting. (Color customization
+          was retired with the visual overhaul; if it returns, it will
+          override the design tokens rather than raw colors.) */}
       <section className="settings-tab__section">
-        <h3 className="settings-tab__section-title">Theme</h3>
-
-        <div className="settings-tab__presets">
-          {presets && Object.keys(presets).map((name) => (
-            <button
-              key={name}
-              className="settings-tab__preset-btn"
-              onClick={() => handlePreset(name)}
-            >
-              <span
-                className="settings-tab__preset-swatch"
-                style={{ background: presets[name].colors.accent }}
-              />
-              {name}
-            </button>
-          ))}
-        </div>
+        <h3 className="settings-tab__section-title">Appearance</h3>
 
         <div className="settings-tab__text-size">
           <label className="settings-tab__text-size-label">Text Size</label>
@@ -215,47 +140,6 @@ export default function GeneralSection() {
             <span className="settings-tab__text-size-value">{textScale}%</span>
           </div>
         </div>
-
-        <button
-          className="settings-tab__customize-btn"
-          onClick={() => setShowCustomize(!showCustomize)}
-        >
-          {showCustomize ? 'Hide Custom Colors' : 'Customize Colors...'}
-        </button>
-
-        {showCustomize && (
-          <div className="settings-tab__color-editor">
-            <div className="settings-tab__color-grid">
-              {Object.entries(COLOR_LABELS).map(([key, label]) => (
-                <div key={key} className="settings-tab__color-field">
-                  <label className="settings-tab__color-label">{label}</label>
-                  <div className="settings-tab__color-input-row">
-                    <input
-                      type="color"
-                      value={editColors[key as keyof ThemeColors] || '#000000'}
-                      onChange={(e) => handleColorChange(key, e.target.value)}
-                    />
-                    <span className="settings-tab__color-hex">
-                      {editColors[key as keyof ThemeColors]}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="settings-tab__color-actions">
-              <button onClick={() => { setEditColors({ ...theme.colors }); setShowCustomize(false); }}>
-                Cancel
-              </button>
-              <button
-                className="settings-tab__save-btn"
-                onClick={handleSaveCustomColors}
-                disabled={saving}
-              >
-                {saving ? 'Saving...' : 'Save Colors'}
-              </button>
-            </div>
-          </div>
-        )}
       </section>
 
       {/* Defaults Section */}

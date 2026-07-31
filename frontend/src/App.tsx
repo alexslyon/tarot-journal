@@ -12,6 +12,11 @@ import SpreadsTab from './components/spreads/SpreadsTab';
 import ReferenceTab from './components/reference/ReferenceTab';
 import StatsTab from './components/stats/StatsTab';
 import SettingsTab from './components/settings/SettingsTab';
+/* Style stack, in load order: Nocturne ramps → tj application tokens →
+   bundled fonts → base styles (compat layer + primitives). */
+import './styles/nocturne.css';
+import './styles/tokens.css';
+import './styles/fonts.css';
 import './styles/globals.css';
 
 const queryClient = new QueryClient({

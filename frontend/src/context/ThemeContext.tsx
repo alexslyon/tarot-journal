@@ -47,15 +47,15 @@ const ThemeContext = createContext<ThemeContextValue>({
   setTheme: () => {},
 });
 
-/** Injects theme colors as CSS variables on <html> */
+/** Injects the user's TEXT SIZES as CSS variables on <html>.
+ *
+ * Colors and font families are no longer injected: the app's look is
+ * the Nocturne token system (styles/nocturne.css + tokens.css), a
+ *  fixed design. The saved color/font-family theme data is ignored —
+ * if user theming ever returns, it should override the --tj-* tokens
+ * rather than the legacy variables. Text size remains a real setting. */
 function applyThemeToDom(theme: Theme) {
   const root = document.documentElement;
-  for (const [key, value] of Object.entries(theme.colors)) {
-    root.style.setProperty(`--${key.replace(/_/g, '-')}`, value);
-  }
-  root.style.setProperty('--font-display', `'${theme.fonts.family_display}', -apple-system, sans-serif`);
-  root.style.setProperty('--font-text', `'${theme.fonts.family_text}', -apple-system, sans-serif`);
-  root.style.setProperty('--font-mono', `'${theme.fonts.family_mono}', monospace`);
   root.style.setProperty('--font-size-title', `${theme.fonts.size_title}px`);
   root.style.setProperty('--font-size-heading', `${theme.fonts.size_heading}px`);
   root.style.setProperty('--font-size-body', `${theme.fonts.size_body}px`);

@@ -1,0 +1,140 @@
+/* ============================================================
+   Tarot Journal — application token layer
+   Built on the Nocturne design system's ramps. Load Nocturne's
+   styles.css FIRST; this sheet only names app-level roles and
+   the few values the app adds on top of the system.
+
+   Rule for the build: components reference the --tj-* tokens
+   below, never a hex and never a raw rgba(). Every --tj-* value
+   resolves to a Nocturne ramp step unless a "deviation" note
+   says otherwise.
+   ============================================================ */
+
+:root {
+  /* --- Channel tokens ------------------------------------------------
+     The interface composites the accent and the ink over dark grounds
+     at many alphas (hairlines, tints, glows). Channels let those be
+     written as rgb(var(--tj-accent-rgb) / 20%) instead of a new hex. */
+  --tj-accent-rgb: 145 132 217;   /* = --color-accent  #9184d9 */
+  --tj-ink-rgb:    233 233 237;   /* = --color-text    #e9e9ed */
+  --tj-void-rgb:    22  24  38;   /* = --color-bg      #161826 */
+
+  /* --- Grounds ------------------------------------------------------ */
+  --tj-canvas:        var(--color-bg);                    /* #161826 */
+  --tj-canvas-lift:   #232544;                            /* deviation: indigo
+      lift for the window's top radial gradient. Nocturne's --color-section
+      (#262a60) is a deck/page-scale field; this is the same move held two
+      steps quieter so it never reads as a fill. */
+  --tj-canvas-gradient: radial-gradient(120% 80% at 50% -10%, var(--tj-canvas-lift) 0%, var(--tj-canvas) 60%);
+
+  --tj-panel:  rgb(29 31 46 / 66%);   /* sidebars, cards, inspectors */
+  --tj-panel-quiet: rgb(29 31 46 / 50%);  /* reading surfaces — one step back */
+  --tj-chrome: color-mix(in srgb, var(--color-surface) 80%, transparent); /* nav + toolbar pills */
+  --tj-well:   rgb(var(--tj-void-rgb) / 70%); /* inputs, note fields, segmented tracks */
+  --tj-scrim:  rgb(11 12 20 / 72%);           /* behind a modal editor */
+
+  /* --- Card faces ---------------------------------------------------
+     A tarot card is the app's primary object; it gets its own surface
+     so it never collides with panel fills. */
+  --tj-card:          #242737;              /* deviation: one notch bluer and
+      darker than --color-surface so a card reads as an object on a panel */
+  --tj-card-empty:    rgb(var(--tj-void-rgb) / 55%);  /* unfilled spread slot */
+  --tj-card-selected: var(--color-accent-900);        /* #2b2741 */
+
+  /* --- Line and edge ------------------------------------------------ */
+  --tj-hairline:        rgb(var(--tj-ink-rgb) / 10%);
+  --tj-hairline-strong: rgb(var(--tj-ink-rgb) / 14%);
+  --tj-edge-card:       rgb(var(--tj-ink-rgb) / 12%);
+  --tj-edge-accent:     rgb(var(--tj-accent-rgb) / 45%);
+  --tj-edge-accent-lit: rgb(var(--tj-accent-rgb) / 60%);
+  /* Nocturne fades rules out over 48px a side rather than stopping. */
+  --tj-rule-h: linear-gradient(to right, transparent, var(--tj-hairline) 48px, var(--tj-hairline) calc(100% - 48px), transparent);
+  --tj-rule-v: linear-gradient(to bottom, transparent, var(--tj-hairline) 48px, var(--tj-hairline) calc(100% - 48px), transparent);
+
+  /* --- Accent tints ------------------------------------------------- */
+  --tj-tint:          rgb(var(--tj-accent-rgb) / 14%);  /* selected row */
+  --tj-tint-strong:   rgb(var(--tj-accent-rgb) / 20%);  /* primary button, active nav */
+  --tj-tint-hover:    rgb(var(--tj-accent-rgb) / 32%);
+  --tj-tint-neutral:  rgb(var(--tj-ink-rgb) / 7%);      /* inactive chip */
+  --tj-tint-neutral-hover: rgb(var(--tj-ink-rgb) / 5%); /* row hover on a panel */
+
+  /* --- Glow: the accent as light, never as flood -------------------- */
+  --tj-glow-soft:  0 0 18px rgb(var(--tj-accent-rgb) / 25%);
+  --tj-glow:       0 0 22px rgb(var(--tj-accent-rgb) / 30%);
+  --tj-glow-card:  0 0 20px rgb(var(--tj-accent-rgb) / 26%);
+  --tj-glow-line:  0 0 14px rgb(var(--tj-accent-rgb) / 50%);  /* data bars */
+  --tj-shadow-window: 0 24px 60px rgb(0 0 0 / 50%);
+  --tj-shadow-modal:  0 30px 70px rgb(0 0 0 / 60%);
+
+  /* --- Text roles --------------------------------------------------- */
+  --tj-text:         var(--color-text);         /* #e9e9ed */
+  --tj-text-2:       var(--color-neutral-300);  /* #cfd3e5 headings on panels */
+  --tj-text-3:       var(--color-neutral-400);  /* #b2b6ca secondary prose */
+  --tj-text-muted:   var(--color-neutral-500);  /* #9397ab labels */
+  --tj-text-faint:   var(--color-neutral-600);  /* #75798c hints, counts */
+  --tj-text-ghost:   var(--color-neutral-700);  /* #595d6c disabled, axis ticks */
+  --tj-text-kicker:  var(--color-accent-500);   /* #968ae0 uppercase kickers */
+  --tj-text-accent:  var(--color-accent-300);   /* #d2cefd on accent tints */
+  --tj-text-accent-2: var(--color-accent-400);  /* #b5abfc inline emphasis */
+  --tj-text-on-tint: var(--color-accent-200);   /* #e7e5fe button labels */
+
+  /* --- Type ---------------------------------------------------------
+     Deviation from Nocturne (Inter throughout): titles set in a light
+     Newsreader. Rationale — a journal's entries are written objects,
+     and the serif carries to print unchanged. Inter keeps every
+     interface role. */
+  --tj-font-display: 'Newsreader', Georgia, serif;
+  --tj-font-ui: var(--font-body);              /* Inter */
+  --tj-font-mono: ui-monospace, Menlo, monospace; /* card codes only */
+
+  --tj-display-weight: 300;   /* never heavier — hierarchy is size and space */
+  --tj-heading-weight: 400;
+  --tj-ui-weight-strong: 500;
+
+  --tj-size-display: 46px;    /* screen title */
+  --tj-size-display-sm: 42px; /* secondary screen title */
+  --tj-size-title: 20px;      /* panel title, serif */
+  --tj-size-title-sm: 18px;
+  --tj-size-body: 14px;
+  --tj-size-ui: 13px;         /* controls, rows */
+  --tj-size-small: 12px;
+  --tj-size-kicker: 11px;     /* also tag text */
+  --tj-size-mono: 10px;
+
+  --tj-kicker-tracking: .16em;
+  --tj-display-tracking: -.005em;
+  --tj-leading-ui: 1.6;
+  --tj-leading-display: 1.04;
+
+  /* --- Radius -------------------------------------------------------
+     Deviation: Nocturne's --radius-md is 8px. Panels and cards here run
+     14px — a tarot card is a physical object with a rounded corner, and
+     panels match it so nothing looks cut from a different sheet.
+     Controls are fully round. */
+  --tj-radius-panel: 14px;
+  --tj-radius-card: 14px;
+  --tj-radius-row: 10px;
+  --tj-radius-pill: 999px;
+
+  /* --- Metrics ------------------------------------------------------ */
+  --tj-card-ratio: 2 / 3;
+  --tj-gutter: 18px;          /* window padding */
+  --tj-gap: 20px;             /* between columns */
+  --tj-panel-pad: 18px;
+  --tj-control-pad: 10px 18px;
+  --tj-chip-pad: 4px 11px;
+  --tj-measure: 660px;        /* settings and prose column */
+
+  /* --- Print ---------------------------------------------------------
+     The paper counterpart inverts to the light end of the same ramps —
+     one ink, ink-economical, no floods. */
+  --tj-paper:        var(--color-neutral-100);  /* #f3f5fe */
+  --tj-paper-card:   var(--color-neutral-200);  /* #e4e7f5 */
+  --tj-paper-accent: var(--color-accent-200);   /* #e7e5fe selected card face */
+  --tj-paper-ink:    var(--color-neutral-900);  /* #292b31 */
+  --tj-paper-ink-2:  var(--color-neutral-800);  /* #3f424d body */
+  --tj-paper-muted:  var(--color-neutral-700);  /* #595d6c metadata */
+  --tj-paper-faint:  var(--color-neutral-600);  /* #75798c folio */
+  --tj-paper-mark:   var(--color-accent-700);   /* #5d5294 the one accent in ink */
+  --tj-paper-rule:   rgb(41 43 49 / 20%);
+}
