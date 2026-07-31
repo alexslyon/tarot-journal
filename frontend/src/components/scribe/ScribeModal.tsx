@@ -156,6 +156,17 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     return next;
   };
 
+  // Mirrors for async code (same rationale as proposalsRef): user
+  // events and worker loops need current values, not render-time ones.
+  const busyRef = useRef(false);
+  const messagesRef = useRef<LlmMessage[]>([]);
+  // Messages typed while the model is working: they steer the parts
+  // not yet sent, then get a real reply once the workers go quiet.
+  const steeringNotesRef = useRef<string[]>([]);
+
+  const setBusyTracked = (b: boolean) => { busyRef.current = b; setBusy(b); };
+  const setMessagesTracked = (m: LlmMessage[]) => { messagesRef.current = m; setMessages(m); };
+
   const { data: llmConfig } = useQuery({ queryKey: ['llm-config'], queryFn: getLlmConfig, enabled: open });
   const { data: fields = [] } = useQuery<SourceField[]>({
     queryKey: ['source-fields', source?.id, ctype],
@@ -203,10 +214,11 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     if (!open) return;
     setStage('setup');
     setMaterials([]);
-    setMessages([]);
+    setMessagesTracked([]);
     setDisplayMessages([]);
     updateProposals(() => []);
     setPendingUnits([]);
+    steeringNotesRef.current = [];
     setChatInput('');
     setCtype(availableTypes[0] || 'Tarot');
     setDeckId(deck?.id ?? '');
@@ -318,7 +330,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     const units = buildUnits(materials);
     if (!units.length) return;
 
-    setMessages([]);
+    setMessagesTracked([]);
     updateProposals(() => []);
     setDisplayMessages([]);
     setStage('chat');
@@ -332,7 +344,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
    *  conversation in book order so refinement chat has full context.
    *  Failed parts are collected for the Resume button. */
   const runExtraction = async (units: ExtractionUnit[], startHistory: LlmMessage[]) => {
-    setBusy(true);
+    setBusyTracked(true);
     // Local copy — split-on-overflow appends sub-units while workers
     // are still draining the queue.
     const queue = [...units];
@@ -345,10 +357,23 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     // One request with automatic retry: transient failures (an empty
     // reply, a momentary overload, a rate-limit blip) get a second
     // attempt after a pause before the part is declared failed.
-    const requestUnit = async (unit: ExtractionUnit, userMsg: LlmMessage) => {
+    // Returns the userMsg actually sent — mid-import guidance from the
+    // user is attached to parts not yet dispatched, and the stitched
+    // history must reflect what the model really saw.
+    const requestUnit = async (unit: ExtractionUnit) => {
       for (let attempt = 1; ; attempt++) {
+        const notes = steeringNotesRef.current;
+        const userMsg: LlmMessage = {
+          role: 'user',
+          content: notes.length
+            ? [...unit.parts, {
+                type: 'text' as const,
+                text: `Guidance the user sent while this import is running — apply it to this part's extraction:\n- ${notes.join('\n- ')}`,
+              }]
+            : unit.parts,
+        };
         try {
-          return await llmChat({
+          const result = await llmChat({
             feature: 'scribe',
             messages: [...startHistory, userMsg],
             system: systemPromptRef.current,
@@ -359,6 +384,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
             // cached — that's where re-reading happens.)
             cache: false,
           });
+          return { ...result, userMsg };
         } catch (err: unknown) {
           if (attempt >= UNIT_ATTEMPTS) throw err;
           const e = err as { response?: { data?: { error?: string } } };
@@ -376,9 +402,8 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
         const i = nextIdx++;
         const unit = queue[i];
         setDisplayMessages(prev => [...prev, { role: 'user', text: `Reading ${unit.label}…` }]);
-        const userMsg: LlmMessage = { role: 'user', content: unit.parts };
         try {
-          const { text: reply, truncated } = await requestUnit(unit, userMsg);
+          const { text: reply, truncated, userMsg } = await requestUnit(unit);
           const { visible, parsed } = splitReply(reply);
           if (parsed) {
             const merged = updateProposals(current =>
@@ -435,7 +460,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
       if (r) history = [...history, r.userMsg, { role: 'assistant', content: r.reply }];
       else failedUnits.push(unit);
     });
-    setMessages(history);
+    setMessagesTracked(history);
     setPendingUnits(failedUnits);
     if (failedUnits.length) {
       setDisplayMessages(prev => [...prev, {
@@ -443,7 +468,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
         text: `${failedUnits.length} part${failedUnits.length === 1 ? '' : 's'} failed — cards already extracted are safe. "Resume extraction" retries just the failed parts.`,
       }]);
     }
-    setBusy(false);
+    setBusyTracked(false);
     // With every part in, run the automatic follow-ups: complete
     // boundary-straddling cards, then audit field coverage. Both ride
     // the stitched conversation — the only place all parts are visible
@@ -452,6 +477,35 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     if (!failedUnits.length) {
       const afterRepair = await completeFlaggedCards(history);
       await auditFieldCoverage(afterRepair ?? history);
+      // Notes typed during the run steered the remaining parts as they
+      // went out; now that the full material is stitched, give them a
+      // proper full-context turn. (With failed parts pending, notes
+      // stay queued so they also steer the Resume run.)
+      await flushQueuedNotes();
+    }
+  };
+
+  /** Deliver mid-run messages as a real conversation turn once the
+   *  workers are quiet. Loops because the user may keep typing while
+   *  the flush turn itself is generating. */
+  const flushQueuedNotes = async () => {
+    while (steeringNotesRef.current.length && !busyRef.current) {
+      const notes = steeringNotesRef.current;
+      steeringNotesRef.current = [];
+      const combined = notes.length === 1
+        ? notes[0]
+        : `While the import ran, I sent these notes:\n- ${notes.join('\n- ')}`;
+      setDisplayMessages(prev => [...prev, {
+        role: 'user',
+        text: `Following up on the note${notes.length === 1 ? '' : 's'} sent during extraction…`,
+      }]);
+      await callModel([...messagesRef.current, {
+        role: 'user',
+        content:
+          `${combined}\n\n(Sent while extraction was still running — later parts already saw it as guidance. ` +
+          'Now that all material is above, apply anything still needed to the proposals — re-send only ' +
+          'changed cards — and answer any questions.)',
+      }]);
     }
   };
 
@@ -521,7 +575,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
   /** One model round-trip: send history, show the reply, merge any
    *  proposals. Returns the new history, or null on failure. */
   const callModel = async (history: LlmMessage[]): Promise<LlmMessage[] | null> => {
-    setBusy(true);
+    setBusyTracked(true);
     try {
       const { text: reply, truncated } = await llmChat({
         feature: 'scribe',
@@ -531,7 +585,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
       });
       const { visible, parsed } = splitReply(reply);
       const newHistory: LlmMessage[] = [...history, { role: 'assistant', content: reply }];
-      setMessages(newHistory);
+      setMessagesTracked(newHistory);
       if (parsed) {
         const merged = updateProposals(current =>
           mergeProposals(current, parsed, archetypes, deckCards));
@@ -558,16 +612,28 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
       }]);
       return null;
     } finally {
-      setBusy(false);
+      setBusyTracked(false);
     }
   };
 
   const handleSend = async () => {
     const text = chatInput.trim();
-    if (!text || busy) return;
+    if (!text) return;
     setChatInput('');
+    if (busyRef.current) {
+      // Model's mid-work: queue it. It steers parts not yet sent and
+      // gets a full-context reply when the current work finishes.
+      steeringNotesRef.current = [...steeringNotesRef.current, text];
+      setDisplayMessages(prev => [...prev,
+        { role: 'user', text },
+        { role: 'note', text: 'Noted — this will guide the remaining parts and get a reply when the current work finishes.' },
+      ]);
+      return;
+    }
     setDisplayMessages(prev => [...prev, { role: 'user', text }]);
-    await callModel([...messages, { role: 'user', content: text }]);
+    await callModel([...messagesRef.current, { role: 'user', content: text }]);
+    // Anything typed while that reply generated gets its turn now.
+    await flushQueuedNotes();
   };
 
   // ── Apply ──────────────────────────────────────────────────
@@ -835,15 +901,16 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
             <div className="scribe__chat-input">
               <textarea
                 value={chatInput}
-                placeholder="Ask for corrections or changes… (Enter to send, Shift+Enter for a new line)"
+                placeholder={busy
+                  ? 'Still working — messages sent now will guide the remaining parts…'
+                  : 'Ask for corrections or changes… (Enter to send, Shift+Enter for a new line)'}
                 onChange={e => setChatInput(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
                 }}
                 rows={2}
-                disabled={busy}
               />
-              <button onClick={handleSend} disabled={busy || !chatInput.trim()}>Send</button>
+              <button onClick={handleSend} disabled={!chatInput.trim()}>Send</button>
             </div>
           </div>
 
