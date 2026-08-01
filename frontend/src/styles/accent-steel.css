@@ -1,0 +1,28 @@
+/* Accent override: STEEL — Nocturne's original accent direction
+   (L per step matches the blurple ramp; chroma at the pre-round-7
+   steel level, hue 250). Loaded after nocturne.css + tokens.css;
+   delete this file (and its import) to return to blurple. */
+
+:root {
+  --color-accent: #8594a4;
+  --color-accent-2: #a0abb6;
+  --color-accent-100: #f4f6f8;
+  --color-accent-2-100: #f4f6f8;
+  --color-accent-200: #e4e9ed;
+  --color-accent-2-200: #e4e9ed;
+  --color-accent-300: #cdd5de;
+  --color-accent-2-300: #cdd5de;
+  --color-accent-400: #abb9c9;
+  --color-accent-2-400: #abb9c9;
+  --color-accent-500: #8a9aaa;
+  --color-accent-2-500: #8a9aaa;
+  --color-accent-600: #6d7c8c;
+  --color-accent-2-600: #6d7c8c;
+  --color-accent-700: #535f6c;
+  --color-accent-2-700: #535f6c;
+  --color-accent-800: #3b434d;
+  --color-accent-2-800: #3b434d;
+  --color-accent-900: #272c31;
+  --color-accent-2-900: #272c31;
+  --tj-accent-rgb: 133 148 164;
+}

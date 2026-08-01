@@ -22,7 +22,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 10px 16px;
   margin-bottom: 14px;
 }
 
@@ -33,7 +34,9 @@
   line-height: var(--tj-leading-display);
   letter-spacing: var(--tj-display-tracking);
   color: var(--tj-text);
-  flex: 1;
+  /* The title never squeezes below a readable measure — the action
+     row wraps beneath it instead. */
+  flex: 1 1 420px;
   min-width: 0;
 }
 

@@ -16,6 +16,7 @@ import SettingsTab from './components/settings/SettingsTab';
    bundled fonts → base styles (compat layer + primitives). */
 import './styles/nocturne.css';
 import './styles/tokens.css';
+import './styles/accent-steel.css';
 import './styles/fonts.css';
 import './styles/globals.css';
 
