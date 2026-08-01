@@ -274,10 +274,13 @@
         {% for card in group.cards %}
           <article class="card-detail">
             {% if card.image_uri %}
-              <img class="card-detail__img {% if card.reversed %}card-detail__img--reversed{% endif %}"
-                   src="{{ card.image_uri }}"
-                   alt="{{ card.name|e }}" />
+              <div class="card-detail__img-col">
+                <img class="card-detail__img {% if card.reversed %}card-detail__img--reversed{% endif %}"
+                     src="{{ card.image_uri }}"
+                     alt="{{ card.name|e }}" />
+              </div>
             {% endif %}
+            <div class="card-detail__body">
             <h4 class="card-detail__name">
               {{ card.name }}{% if card.reversed %} <em>(reversed)</em>{% endif %}
             </h4>
@@ -315,6 +318,7 @@
                 {% endfor %}
               </div>
             {% endif %}
+            </div>
           </article>
         {% endfor %}
       {% endfor %}

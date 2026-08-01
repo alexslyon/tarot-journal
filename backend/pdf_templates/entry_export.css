@@ -493,8 +493,12 @@ html, body {
   margin-top: 10pt;
   padding-top: 8pt;
   border-top: 0.5pt solid rgba(41, 43, 49, 0.2);
-  /* Float-cleared so the image and text both flow within. */
-  overflow: hidden;
+  /* Two columns: image | text. The text keeps a single left edge for
+     its full height instead of reclaiming the image's width once past
+     it (the old float-wrap behavior). */
+  display: flex;
+  align-items: flex-start;
+  gap: 14pt;
 }
 
 .card-detail:first-of-type {
@@ -502,14 +506,22 @@ html, body {
   padding-top: 0;
 }
 
+.card-detail__img-col {
+  flex: 0 0 90pt;
+}
+
 .card-detail__img {
-  float: left;
   width: 90pt;
   height: 135pt;
   object-fit: contain;
   border-radius: 3pt;
   border: 0.5pt solid rgba(41, 43, 49, 0.2);
-  margin: 0 14pt 6pt 0;
+  margin: 0;
+}
+
+.card-detail__body {
+  flex: 1;
+  min-width: 0;
 }
 
 .card-detail__img--reversed {
