@@ -242,3 +242,16 @@ select:not([multiple]):not([size]) {
   background-position: right 15px center;
   background-size: 13px;
 }
+
+/* Date inputs: tighter padding so mm/dd/yyyy fits beside the calendar
+   icon in narrow rows; the icon gets breathing room and dark-theme ink. */
+input[type="date"] {
+  padding-left: 12px;
+  padding-right: 8px;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.62);
+  margin-left: 4px;
+  cursor: pointer;
+}
