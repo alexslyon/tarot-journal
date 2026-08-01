@@ -9,7 +9,7 @@
 }
 
 .settings-layout__sidebar {
-  width: 220px;
+  width: 236px;
   flex-shrink: 0;
   background: var(--tj-panel);
   border-radius: var(--tj-radius-panel);
@@ -24,6 +24,10 @@
   display: block;
   width: 100%;
   text-align: left;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding: 8px 14px;
   border: none;
   border-radius: var(--tj-radius-pill);
