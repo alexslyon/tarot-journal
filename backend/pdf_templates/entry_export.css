@@ -1,15 +1,53 @@
-/* Print-friendly stylesheet for the journal entry PDF export.
-   A4 portrait, generous margins, dark text on white. The typography
-   scale + page-break rules here are tuned for the formatting
-   refinements specified in PDF_EXPORT_FORMATTING.md.
+/* Print stylesheet for the journal entry PDF export — the Nocturne
+   design's paper counterpart. A4 portrait; layout and page-break
+   rules are unchanged from the tuned original (see
+   PDF_EXPORT_FORMATTING.md); only the skin follows the design's
+   --tj-paper-* tokens, adjusted for the steel accent:
 
-   Colour palette:
-     #222  primary body text
-     #666  metadata labels / field labels / muted text
-     #999  very muted (deck name, dates)
-     #ddd  hairline rules
-     #f7f7f7  alternating row stripe / spread frame background
-*/
+     #f3f5fe  paper ground            (--tj-paper / neutral-100)
+     #e4e7f5  card faces, frames      (--tj-paper-card / neutral-200)
+     #292b31  titles, strong ink      (--tj-paper-ink / neutral-900)
+     #3f424d  body ink                (--tj-paper-ink-2 / neutral-800)
+     #595d6c  metadata, muted         (--tj-paper-muted / neutral-700)
+     #75798c  folio, faint            (--tj-paper-faint / neutral-600)
+     #535f6c  the one accent in ink   (--tj-paper-mark / steel-700)
+     rgba(41,43,49,0.2)  hairline rules
+
+   Newsreader carries everything written (titles, headings, card
+   names); Inter is the instrument. Bundled woff2s load from the
+   frontend's font directory. */
+
+@font-face {
+  font-family: 'Newsreader';
+  font-weight: 300;
+  src: url('../../frontend/src/assets/fonts/Newsreader-normal-300-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Newsreader';
+  font-weight: 400;
+  src: url('../../frontend/src/assets/fonts/Newsreader-normal-400-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Newsreader';
+  font-weight: 300;
+  font-style: italic;
+  src: url('../../frontend/src/assets/fonts/Newsreader-italic-300-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-weight: 400;
+  src: url('../../frontend/src/assets/fonts/Inter-normal-400-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-weight: 500;
+  src: url('../../frontend/src/assets/fonts/Inter-normal-500-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-weight: 600;
+  src: url('../../frontend/src/assets/fonts/Inter-normal-600-latin.woff2') format('woff2');
+}
 
 @page {
   size: A4 portrait;
@@ -19,18 +57,18 @@
      number — no "X of Y" per the spec. */
   @bottom-center {
     content: counter(page);
-    font-family: 'Helvetica', 'Arial', sans-serif;
+    font-family: 'Inter', 'Helvetica', sans-serif;
     font-size: 8pt;
-    color: #888;
+    color: #75798c;
   }
 }
 
 html, body {
-  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-family: 'Inter', 'Helvetica', sans-serif;
   font-size: 10pt;
-  line-height: 1.45;
-  color: #222;
-  background: #ffffff;
+  line-height: 1.5;
+  color: #3f424d;
+  background: #f3f5fe;
 }
 
 /* === Page-break strategy ===
@@ -60,7 +98,7 @@ html, body {
    page above the first reading; never gets its own page. */
 
 .entry-header {
-  border-bottom: 0.5pt solid #ddd;
+  border-bottom: 0.5pt solid rgba(41, 43, 49, 0.2);
   padding-bottom: 10pt;
   margin-bottom: 12pt;
   /* Glue the header to the first reading so it never lives on its
@@ -72,11 +110,13 @@ html, body {
 }
 
 .entry-title {
-  font-size: 24pt;
-  line-height: 1.1;
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 30pt;
+  line-height: 1.05;
   margin: 0 0 10pt;
-  font-weight: 700;
-  color: #1a1a1a;
+  font-weight: 300;
+  letter-spacing: -0.005em;
+  color: #292b31;
 }
 
 /* Two-column meta grid: pairs of (label, value) flow into a 2x2 grid
@@ -98,7 +138,7 @@ html, body {
 }
 
 .entry-meta__label {
-  color: #666;
+  color: #535f6c;
   text-transform: uppercase;
   font-size: 8pt;
   letter-spacing: 0.6pt;
@@ -108,7 +148,7 @@ html, body {
 }
 
 .entry-meta__value {
-  color: #222;
+  color: #3f424d;
   align-self: center;
 }
 
@@ -132,16 +172,17 @@ html, body {
 }
 
 .reading__title {
-  font-size: 18pt;
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 16pt;
   margin: 0 0 8pt;
-  font-weight: 700;
-  color: #1a1a1a;
+  font-weight: 400;
+  color: #292b31;
 }
 
 .reading__deck {
   font-weight: 400;
   font-size: 11pt;
-  color: #666;
+  color: #595d6c;
 }
 
 /* === Spread layout ===
@@ -156,7 +197,7 @@ html, body {
    padding) that grounds the cards. */
 
 .spread__frame {
-  background: #fafafa;
+  background: #e4e7f5;
   padding: 10pt;
   border-radius: 4pt;
   margin: 0 0 10pt;
@@ -193,13 +234,13 @@ html, body {
 .spread__placeholder {
   width: 100%;
   height: 100%;
-  background: #eee;
-  border: 1px dashed #aaa;
+  background: #e4e7f5;
+  border: 0.5pt dashed #75798c;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 8pt;
-  color: #666;
+  color: #595d6c;
 }
 
 .spread__label {
@@ -207,10 +248,10 @@ html, body {
   left: 2pt;
   top: 2pt;
   font-size: 7pt;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(243, 245, 254, 0.92);
   padding: 1pt 4pt;
   border-radius: 2pt;
-  color: #222;
+  color: #3f424d;
   font-weight: 600;
 }
 
@@ -242,14 +283,14 @@ html, body {
 .card-row__placeholder {
   width: 80pt;
   height: 120pt;
-  background: #eee;
-  border: 1px dashed #aaa;
+  background: #e4e7f5;
+  border: 0.5pt dashed #75798c;
 }
 
 .card-row__label {
   margin-top: 4pt;
   font-size: 8pt;
-  color: #444;
+  color: #3f424d;
 }
 
 /* === Position key table === */
@@ -268,40 +309,40 @@ html, body {
 .position-key th,
 .position-key td {
   padding: 4pt 8pt;
-  border-bottom: 0.5pt solid #ececec;
+  border-bottom: 0.5pt solid rgba(41, 43, 49, 0.12);
 }
 
 .position-key th {
-  background: #f4f4f4;
+  background: #e9ecf6;
   font-weight: 600;
   font-size: 8.5pt;
   text-transform: uppercase;
   letter-spacing: 0.4pt;
-  color: #555;
+  color: #595d6c;
   text-align: left;
 }
 
 .position-key tbody tr:nth-child(even) {
-  background: #f7f7f7;
+  background: #eef0f8;
 }
 
 .position-key__key {
   width: 8%;
   text-align: center;
-  color: #666;
+  color: #595d6c;
   font-variant-numeric: tabular-nums;
 }
 
 .position-key__pos {
   width: 38%;
   text-align: left;
-  color: #444;
+  color: #3f424d;
 }
 
 .position-key__card {
   text-align: left;
   font-weight: 600;
-  color: #222;
+  color: #3f424d;
 }
 
 /* === Correspondence breakdown ===
@@ -315,12 +356,13 @@ html, body {
 }
 
 .breakdown__title {
-  font-size: 14pt;
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 15pt;
   margin: 0 0 8pt;
-  font-weight: 700;
-  border-bottom: 0.5pt solid #ddd;
+  font-weight: 400;
+  border-bottom: 0.5pt solid rgba(41, 43, 49, 0.2);
   padding-bottom: 4pt;
-  color: #1a1a1a;
+  color: #292b31;
 }
 
 .breakdown__tab {
@@ -332,7 +374,7 @@ html, body {
 
 .breakdown__tab + .breakdown__tab {
   /* Visible divider between readings. */
-  border-top: 0.5pt solid #ddd;
+  border-top: 0.5pt solid rgba(41, 43, 49, 0.2);
 }
 
 .breakdown__tab:first-of-type {
@@ -343,14 +385,14 @@ html, body {
   margin: 0 0 6pt;
   font-size: 11pt;
   font-weight: 600;
-  color: #222;
+  color: #3f424d;
 }
 
 .breakdown__tab-count {
   margin-left: 6pt;
   font-weight: 400;
   font-size: 9pt;
-  color: #888;
+  color: #75798c;
 }
 
 .breakdown__rows {
@@ -368,15 +410,15 @@ html, body {
   width: 22%;
   vertical-align: top;
   padding: 6pt 10pt 6pt 0;
-  color: #666;
+  color: #595d6c;
   font-weight: 600;
   font-size: 9.5pt;
-  border-bottom: 0.5pt solid #ececec;
+  border-bottom: 0.5pt solid rgba(41, 43, 49, 0.12);
 }
 
 .breakdown__row-chips {
   padding: 5pt 0;
-  border-bottom: 0.5pt solid #ececec;
+  border-bottom: 0.5pt solid rgba(41, 43, 49, 0.12);
   /* Force consistent flex-wrap rendering — addresses the bug where
      some exports showed values + counts as inline plaintext. */
   display: block;
@@ -384,8 +426,8 @@ html, body {
 
 .breakdown__chip {
   display: inline-block;
-  background: #f3f3f5;
-  border: 0.5pt solid #e0e0e3;
+  background: #eef0f8;
+  border: 0.5pt solid rgba(41, 43, 49, 0.15);
   border-radius: 8pt;
   padding: 1.5pt 9pt;
   margin: 0 5pt 4pt 0;
@@ -395,12 +437,12 @@ html, body {
 }
 
 .breakdown__chip-value {
-  color: #222;
+  color: #3f424d;
 }
 
 .breakdown__chip-count {
   margin-left: 5pt;
-  color: #999;
+  color: #75798c;
   font-size: 8.5pt;
   font-variant-numeric: tabular-nums;
 }
@@ -416,12 +458,13 @@ html, body {
 }
 
 .card-details__title {
-  font-size: 14pt;
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 15pt;
   margin: 0 0 6pt;
-  font-weight: 700;
-  border-bottom: 0.5pt solid #ddd;
+  font-weight: 400;
+  border-bottom: 0.5pt solid rgba(41, 43, 49, 0.2);
   padding-bottom: 4pt;
-  color: #1a1a1a;
+  color: #292b31;
   /* Keep the header with at least the first card. */
   break-after: avoid;
   page-break-after: avoid;
@@ -430,7 +473,7 @@ html, body {
 .card-details__reading {
   font-size: 11pt;
   margin: 12pt 0 6pt;
-  color: #666;
+  color: #535f6c;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.4pt;
@@ -444,7 +487,7 @@ html, body {
   page-break-inside: avoid;
   margin-top: 10pt;
   padding-top: 8pt;
-  border-top: 0.5pt solid #ddd;
+  border-top: 0.5pt solid rgba(41, 43, 49, 0.2);
   /* Float-cleared so the image and text both flow within. */
   overflow: hidden;
 }
@@ -460,7 +503,7 @@ html, body {
   height: 135pt;
   object-fit: contain;
   border-radius: 3pt;
-  border: 0.5pt solid #ddd;
+  border: 0.5pt solid rgba(41, 43, 49, 0.2);
   margin: 0 14pt 6pt 0;
 }
 
@@ -469,15 +512,16 @@ html, body {
 }
 
 .card-detail__name {
+  font-family: 'Newsreader', Georgia, serif;
   margin: 0 0 2pt;
   font-size: 13pt;
-  font-weight: 700;
-  color: #1a1a1a;
+  font-weight: 400;
+  color: #292b31;
 }
 
 .card-detail__deck {
   font-size: 9pt;
-  color: #888;
+  color: #75798c;
   margin-bottom: 6pt;
 }
 
@@ -490,7 +534,7 @@ html, body {
   font-size: 8pt;
   text-transform: uppercase;
   letter-spacing: 0.5pt;
-  color: #888;
+  color: #75798c;
   font-weight: 600;
 }
 
@@ -499,9 +543,10 @@ html, body {
 }
 
 .card-detail__source-name {
-  font-size: 10pt;
-  font-weight: 700;
-  color: #1a1a1a;
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 11pt;
+  font-weight: 400;
+  color: #292b31;
   margin-bottom: 3pt;
 }
 
@@ -519,7 +564,7 @@ html, body {
 .card-detail__field-name {
   display: inline;
   font-weight: 400;
-  color: #666;
+  color: #595d6c;
 }
 
 .card-detail__field-name::after {
@@ -528,7 +573,7 @@ html, body {
 
 .card-detail__field-value {
   display: inline;
-  color: #222;
+  color: #3f424d;
 }
 
 .card-detail__field-value p {
@@ -556,17 +601,18 @@ html, body {
 
 .notes__title,
 .follow-ups__title {
-  font-size: 14pt;
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 15pt;
   margin: 0 0 8pt;
-  font-weight: 700;
-  border-bottom: 0.5pt solid #ddd;
+  font-weight: 400;
+  border-bottom: 0.5pt solid rgba(41, 43, 49, 0.2);
   padding-bottom: 4pt;
-  color: #1a1a1a;
+  color: #292b31;
 }
 
 .notes__body {
   font-size: 10pt;
-  color: #222;
+  color: #3f424d;
 }
 
 .follow-up {
@@ -577,7 +623,7 @@ html, body {
 
 .follow-up__date {
   font-size: 8pt;
-  color: #888;
+  color: #535f6c;
   text-transform: uppercase;
   letter-spacing: 0.5pt;
   font-weight: 600;
@@ -598,16 +644,16 @@ html, body {
   font-size: 14pt;
   margin: 0 0 4pt;
   font-weight: 700;
-  border-bottom: 0.5pt solid #ddd;
+  border-bottom: 0.5pt solid rgba(41, 43, 49, 0.2);
   padding-bottom: 4pt;
-  color: #1a1a1a;
+  color: #292b31;
 }
 
 .chart__meta {
   display: flex;
   gap: 12pt;
   font-size: 9pt;
-  color: #888;
+  color: #75798c;
   margin-bottom: 10pt;
 }
 
@@ -636,20 +682,20 @@ html, body {
 .chart__table td {
   text-align: left;
   padding: 4pt 8pt;
-  border-bottom: 0.5pt solid #ececec;
+  border-bottom: 0.5pt solid rgba(41, 43, 49, 0.12);
 }
 
 .chart__table tbody tr:nth-child(even) {
-  background: #f7f7f7;
+  background: #eef0f8;
 }
 
 .chart__table th {
-  background: #f4f4f4;
+  background: #e9ecf6;
   font-weight: 600;
   font-size: 8.5pt;
   text-transform: uppercase;
   letter-spacing: 0.3pt;
-  color: #555;
+  color: #595d6c;
 }
 
 .chart__table-num {
@@ -668,7 +714,7 @@ html, body {
 .rich-text h3 {
   margin: 12pt 0 4pt;
   font-weight: 700;
-  color: #1a1a1a;
+  color: #292b31;
 }
 
 .rich-text h1 { font-size: 13pt; }
@@ -689,15 +735,15 @@ html, body {
 .rich-text em { font-style: italic; }
 
 .rich-text a {
-  color: #222;
+  color: #3f424d;
   text-decoration: underline;
 }
 
 .rich-text blockquote {
   margin: 6pt 0;
   padding-left: 8pt;
-  border-left: 2pt solid #ccc;
-  color: #555;
+  border-left: 2pt solid rgba(41, 43, 49, 0.25);
+  color: #595d6c;
 }
 
 /* Extra cards (clarifiers) strip beneath the spread layout */
@@ -711,6 +757,6 @@ html, body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #666;
+  color: #595d6c;
   margin-bottom: 1.5mm;
 }
