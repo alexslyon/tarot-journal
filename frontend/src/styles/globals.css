@@ -40,12 +40,13 @@
   --font-display: var(--tj-font-display);
   --font-text: var(--tj-font-ui);
   --font-mono: var(--tj-font-mono);
-  /* Sizes stay as variables — ThemeContext scales them (text size
-     setting). Defaults follow the handoff's type scale. */
-  --font-size-title: 20px;
-  --font-size-heading: 14px;
-  --font-size-body: 13px;
-  --font-size-small: 12px;
+  /* Legacy sizes resolve to the scaled tokens, so old and new styles
+     always share ONE type scale — mixed scales caused overlapping
+     titles and clipped panels when Text Size wasn't 100%. */
+  --font-size-title: var(--tj-size-title);
+  --font-size-heading: var(--tj-size-body);
+  --font-size-body: var(--tj-size-ui);
+  --font-size-small: var(--tj-size-small);
 }
 
 html, body, #root {
@@ -219,4 +220,12 @@ button.danger:hover:not(:disabled) {
 [role="button"]:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/* react-resizable-panels: the Panel's inner flex-grow wrapper has no
+   min-width, so nowrap content (list rows) balloons it past the panel
+   instead of ellipsizing. Pin it down globally. */
+[data-panel] > div {
+  min-width: 0;
+  min-height: 0;
 }

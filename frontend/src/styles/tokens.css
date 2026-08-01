@@ -91,15 +91,20 @@
   --tj-heading-weight: 400;
   --tj-ui-weight-strong: 500;
 
-  --tj-size-display: 46px;    /* screen title */
-  --tj-size-display-sm: 42px; /* secondary screen title */
-  --tj-size-title: 20px;      /* panel title, serif */
-  --tj-size-title-sm: 18px;
-  --tj-size-body: 14px;
-  --tj-size-ui: 13px;         /* controls, rows */
-  --tj-size-small: 12px;
-  --tj-size-kicker: 11px;     /* also tag text */
-  --tj-size-mono: 10px;
+  /* App deviation: every type size multiplies --tj-scale, the user's
+     Text Size setting (Settings → General; 1 = the design's 100%).
+     The design's values are the 1.0 case. Injected at runtime by
+     ThemeContext; without it everything renders at spec size. */
+  --tj-scale: 1;
+  --tj-size-display: calc(46px * var(--tj-scale));    /* screen title */
+  --tj-size-display-sm: calc(42px * var(--tj-scale)); /* secondary screen title */
+  --tj-size-title: calc(20px * var(--tj-scale));      /* panel title, serif */
+  --tj-size-title-sm: calc(18px * var(--tj-scale));
+  --tj-size-body: calc(14px * var(--tj-scale));
+  --tj-size-ui: calc(13px * var(--tj-scale));         /* controls, rows */
+  --tj-size-small: calc(12px * var(--tj-scale));
+  --tj-size-kicker: calc(11px * var(--tj-scale));     /* also tag text */
+  --tj-size-mono: calc(10px * var(--tj-scale));
 
   --tj-kicker-tracking: .16em;
   --tj-display-tracking: -.005em;

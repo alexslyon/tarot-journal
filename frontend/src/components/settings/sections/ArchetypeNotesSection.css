@@ -77,7 +77,13 @@
 }
 
 .archetype-notes-edit__source-name {
-  font-weight: 500;
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-heading-weight);
+  font-size: calc(16px * var(--tj-scale));
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .archetype-notes-edit__source-authors {

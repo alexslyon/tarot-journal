@@ -11,8 +11,10 @@
 }
 
 .tag-section__title {
-  font-size: var(--font-size-heading);
-  color: var(--accent);
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-heading-weight);
+  font-size: var(--tj-size-title-sm);
+  color: var(--tj-text-2);
   margin: 0;
 }
 

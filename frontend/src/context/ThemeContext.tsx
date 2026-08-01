@@ -47,19 +47,17 @@ const ThemeContext = createContext<ThemeContextValue>({
   setTheme: () => {},
 });
 
-/** Injects the user's TEXT SIZES as CSS variables on <html>.
+/** Injects the user's TEXT SIZE as one scale factor on <html>.
  *
  * Colors and font families are no longer injected: the app's look is
  * the Nocturne token system (styles/nocturne.css + tokens.css), a
- *  fixed design. The saved color/font-family theme data is ignored —
- * if user theming ever returns, it should override the --tj-* tokens
- * rather than the legacy variables. Text size remains a real setting. */
+ * fixed design. Every type token multiplies --tj-scale, so the Text
+ * Size setting scales the whole interface uniformly — injecting
+ * per-role pixel sizes (the old way) put ported and legacy styles on
+ * two different scales and broke layouts. size_body 13 = 100%. */
 function applyThemeToDom(theme: Theme) {
   const root = document.documentElement;
-  root.style.setProperty('--font-size-title', `${theme.fonts.size_title}px`);
-  root.style.setProperty('--font-size-heading', `${theme.fonts.size_heading}px`);
-  root.style.setProperty('--font-size-body', `${theme.fonts.size_body}px`);
-  root.style.setProperty('--font-size-small', `${theme.fonts.size_small}px`);
+  root.style.setProperty('--tj-scale', String(theme.fonts.size_body / 13));
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

@@ -38,13 +38,13 @@
 }
 
 .deck-list__search {
-  width: 275px;
-  padding: 5px 8px;
+  width: 100%;
+  padding: 5px 12px;
   font-size: var(--font-size-body);
 }
 
 .deck-list__filter {
-  width: 345px;
+  width: 100%;
 }
 
 .deck-list__sort-bar {

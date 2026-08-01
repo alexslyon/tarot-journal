@@ -18,14 +18,18 @@
 .reference-sources__row-head {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 6px 10px;
 }
 
 .reference-sources__row-toggle {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  row-gap: 2px;
   gap: 8px;
   background: transparent;
   border: none;
@@ -48,8 +52,17 @@
 }
 
 .reference-sources__name {
-  color: var(--text-primary);
-  font-weight: 600;
+  color: var(--tj-text);
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-heading-weight);
+  font-size: calc(17px * var(--tj-scale));
+  /* Own line beside the chevron; authors/badge wrap beneath. The
+     name is the row's identity — it never yields space to metadata. */
+  flex: 0 0 calc(100% - 1em - 8px);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .reference-sources__authors {
@@ -58,7 +71,10 @@
 }
 
 .reference-sources__type-badge {
-  margin-left: auto;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--font-size-small);
   color: var(--text-dim);
   background: var(--bg-secondary);
