@@ -64,6 +64,11 @@
 }
 
 html, body {
+  /* WeasyPrint gives body a default margin; without this reset the
+     frame is ~5mm narrower than the printable area and the spread
+     (sized to that area) overflows it to the right. */
+  margin: 0;
+  padding: 0;
   font-family: 'Inter', 'Helvetica', sans-serif;
   font-size: 10pt;
   line-height: 1.5;
