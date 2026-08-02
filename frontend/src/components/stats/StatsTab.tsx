@@ -1,71 +1,37 @@
 import { useQuery } from '@tanstack/react-query';
-import {
-  getExtendedStats,
-  getCardFrequency,
-  getTimeline,
-  getTagTrends,
-  getUsageStats,
-} from '../../api/stats';
-import type {
-  ExtendedStats,
-  CardFrequency,
-  TimelinePeriod,
-  TagTrend,
-  UsageStats,
-} from '../../api/stats';
-import OverviewSection from './OverviewSection';
-import TimelineSection from './TimelineSection';
-import CardFrequencySection from './CardFrequencySection';
+import { getTagTrends, getUsageStats } from '../../api/stats';
+import type { TagTrend, UsageStats } from '../../api/stats';
+import InsightsHero from './InsightsHero';
 import TagTrendsSection from './TagTrendsSection';
 import UsageSection from './UsageSection';
 import CorrespondenceStatsSection from './CorrespondenceStatsSection';
 import './StatsTab.css';
 
+/**
+ * Insights: the Nocturne dashboard hero (stat cards, card frequency,
+ * cadence, suits + reversals — filterable) followed by the deeper
+ * sections the hero doesn't cover: tag trends, correspondence stats,
+ * and usage. The hero supersedes the old overview/timeline/frequency
+ * sections, which duplicated it less beautifully.
+ */
 export default function StatsTab() {
-  const { data: stats, isLoading: statsLoading } = useQuery<ExtendedStats>({
-    queryKey: ['extended-stats'],
-    queryFn: getExtendedStats,
-  });
-
-  const { data: timeline, isLoading: timelineLoading } = useQuery<TimelinePeriod[]>({
-    queryKey: ['timeline'],
-    queryFn: () => getTimeline(12),
-  });
-
-  const { data: cardFrequency, isLoading: freqLoading } = useQuery<CardFrequency[]>({
-    queryKey: ['card-frequency'],
-    queryFn: () => getCardFrequency(20),
-  });
-
-  const { data: tagTrends, isLoading: tagsLoading } = useQuery<TagTrend[]>({
+  const { data: tagTrends } = useQuery<TagTrend[]>({
     queryKey: ['tag-trends'],
     queryFn: () => getTagTrends(15),
   });
 
-  const { data: usage, isLoading: usageLoading } = useQuery<UsageStats>({
+  const { data: usage } = useQuery<UsageStats>({
     queryKey: ['usage-stats'],
     queryFn: () => getUsageStats(10),
   });
 
-  const isLoading = statsLoading || timelineLoading || freqLoading || tagsLoading || usageLoading;
-
   return (
     <div className="stats-tab">
       <div className="stats-tab__scroll">
-        <h2 className="stats-tab__title">Insights</h2>
-
-        {isLoading ? (
-          <div className="stats-tab__loading">Loading statistics...</div>
-        ) : (
-          <>
-            <OverviewSection stats={stats} />
-            <TimelineSection data={timeline || []} />
-            <CardFrequencySection data={cardFrequency || []} />
-            <TagTrendsSection data={tagTrends || []} />
-            <CorrespondenceStatsSection />
-            {usage && <UsageSection data={usage} />}
-          </>
-        )}
+        <InsightsHero />
+        <TagTrendsSection data={tagTrends || []} />
+        <CorrespondenceStatsSection />
+        {usage && <UsageSection data={usage} />}
       </div>
     </div>
   );

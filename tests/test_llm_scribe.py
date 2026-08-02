@@ -336,3 +336,35 @@ def test_batch_rename_cards(client):
     assert card['name'] == 'El Loco'
     foreign = client.get(f"/api/cards/{c2['id']}").get_json()
     assert foreign['name'] == 'Foreign'
+
+
+def test_insights_endpoint(client):
+    """Aggregates: counts, cadence shape, reversal rate, suit rollup."""
+    types = client.get('/api/types').get_json()
+    tarot = next(t for t in types if t['name'] == 'Tarot')
+    deck = client.post('/api/decks', json={'name': 'Ins Deck', 'type_ids': [tarot['id']]}).get_json()
+    from datetime import datetime
+    now = datetime.now().strftime('%Y-%m-%d 12:00')
+    e = client.post('/api/entries', json={'title': 'I1', 'reading_datetime': now}).get_json()
+    client.post(f"/api/entries/{e['id']}/readings", json={
+        'deck_id': deck['id'],
+        'cards_used': [
+            {'name': 'Ace of Wands', 'reversed': True, 'position_index': 0},
+            {'name': 'The Fool', 'reversed': False, 'position_index': 1},
+        ],
+    })
+    r = client.get('/api/stats/insights')
+    assert r.status_code == 200
+    d = r.get_json()
+    assert d['entries'] == 1
+    assert d['cards_drawn'] == 2 and d['reversed_count'] == 1
+    assert d['reversal_rate'] == 50.0
+    assert len(d['cadence']) == 14 and d['cadence'][-1]['current'] is True
+    assert d['cadence'][-1]['count'] == 1
+    assert d['entries_this_month'] == 1
+    names = {c['name'] for c in d['top_cards']}
+    assert {'Ace of Wands', 'The Fool'} <= names
+    assert any(s['suit'] == 'Wands' for s in d['suits'])
+    # days filter excludes nothing here; a tiny window excludes all
+    d2 = client.get('/api/stats/insights?days=100000').get_json()
+    assert d2['entries'] == 1

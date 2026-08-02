@@ -4,9 +4,9 @@
 }
 
 .stats-tab__scroll {
-  max-width: 900px;
+  max-width: 1080px;
   margin: 0 auto;
-  padding: 24px 20px;
+  padding: 24px 42px;
 }
 
 .stats-tab__title {

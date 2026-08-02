@@ -1,0 +1,283 @@
+/* Insights hero — Nocturne 5b */
+
+.insights-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.insights-hero__loading {
+  color: var(--tj-text-faint);
+  padding: 24px 0;
+}
+
+.insights-hero__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.insights-hero__title {
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-display-weight);
+  font-size: var(--tj-size-display-sm);
+  line-height: 1.05;
+  color: var(--tj-text);
+  margin-top: 2px;
+}
+
+.insights-hero__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+}
+
+.insights-hero__segment {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: var(--tj-radius-pill);
+  background: var(--tj-well);
+  box-shadow: inset 0 0 0 1px var(--tj-hairline);
+}
+
+.insights-hero__segment button {
+  border: none;
+  background: transparent;
+  padding: 5px 12px;
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-muted);
+  border-radius: var(--tj-radius-pill);
+}
+
+.insights-hero__segment button:hover {
+  color: var(--tj-text);
+  background: transparent;
+}
+
+.insights-hero__segment-opt--active,
+.insights-hero__segment .insights-hero__segment-opt--active {
+  background: rgb(var(--tj-accent-rgb) / 22%) !important;
+  color: var(--tj-text-on-tint) !important;
+  font-weight: var(--tj-ui-weight-strong);
+}
+
+/* ── Stat row ── */
+
+.insights-hero__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.insights-hero__stat {
+  background: var(--tj-panel);
+  border-radius: var(--tj-radius-panel);
+  padding: 20px 22px;
+}
+
+.insights-hero__stat-kicker,
+.insights-hero__panel-kicker {
+  font-size: var(--tj-size-kicker);
+  letter-spacing: var(--tj-kicker-tracking);
+  text-transform: uppercase;
+  font-weight: var(--tj-ui-weight-strong);
+  color: var(--tj-text-kicker);
+  margin: 0 0 8px;
+}
+
+.insights-hero__figure {
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-display-weight);
+  font-size: calc(44px * var(--tj-scale));
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--tj-text);
+}
+
+.insights-hero__figure--large {
+  font-size: calc(52px * var(--tj-scale));
+}
+
+.insights-hero__figure-unit {
+  font-size: 0.5em;
+  color: var(--tj-text-muted);
+  margin-left: 2px;
+}
+
+.insights-hero__stat-note {
+  margin-top: 8px;
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-faint);
+}
+
+/* ── Body grid ── */
+
+.insights-hero__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 14px;
+}
+
+.insights-hero__panel {
+  background: var(--tj-panel);
+  border-radius: var(--tj-radius-panel);
+  padding: 20px 22px;
+}
+
+.insights-hero__panel--cards {
+  grid-row: span 2;
+}
+
+.insights-hero__empty {
+  color: var(--tj-text-faint);
+  font-size: var(--tj-size-small);
+}
+
+/* Cards that keep coming */
+
+.insights-hero__card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.insights-hero__card-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.insights-hero__card-name {
+  font-family: var(--tj-font-display);
+  font-weight: var(--tj-heading-weight);
+  font-size: calc(16px * var(--tj-scale));
+  color: var(--tj-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insights-hero__card-count {
+  font-size: var(--tj-size-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--tj-text-muted);
+  flex-shrink: 0;
+}
+
+.insights-hero__track {
+  height: 3px;
+  border-radius: 999px;
+  background: rgb(var(--tj-ink-rgb) / 8%);
+  overflow: visible;
+}
+
+.insights-hero__bar {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-accent);
+  box-shadow: var(--tj-glow-line);
+  min-width: 3px;
+}
+
+/* Cadence */
+
+.insights-hero__cadence {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 130px;
+}
+
+.insights-hero__cadence-col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.insights-hero__cadence-bar {
+  width: 100%;
+  max-width: 22px;
+  border-radius: 6px;
+  background: rgb(var(--tj-accent-rgb) / 28%);
+}
+
+.insights-hero__cadence-bar--current {
+  background: var(--color-accent);
+  box-shadow: 0 0 18px rgb(var(--tj-accent-rgb) / 40%);
+}
+
+.insights-hero__cadence-label {
+  font-size: 10px;
+  color: var(--tj-text-ghost);
+}
+
+/* Suits + reversals */
+
+.insights-hero__panel--split {
+  display: flex;
+  gap: 20px;
+  align-items: stretch;
+}
+
+.insights-hero__suits {
+  flex: 1.4;
+  min-width: 0;
+}
+
+.insights-hero__suit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.insights-hero__suit-name {
+  flex: 0 0 108px;
+  font-size: var(--tj-size-ui);
+  color: var(--tj-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insights-hero__suit-row .insights-hero__track {
+  flex: 1;
+}
+
+.insights-hero__suit-count {
+  flex: 0 0 32px;
+  text-align: right;
+  font-size: var(--tj-size-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--tj-text-muted);
+}
+
+.insights-hero__vrule {
+  width: 1px;
+  background: var(--tj-rule-v);
+}
+
+.insights-hero__reversals {
+  flex: 1;
+  min-width: 0;
+}
+
+.insights-hero__reversal-note {
+  margin-top: 10px;
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-accent-2);
+}
