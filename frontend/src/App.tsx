@@ -7,6 +7,7 @@ import { installQuitGuard, hasDirtyEditors } from './utils/dirtyGuard';
 import { confirmDialog } from './components/common/ConfirmDialog';
 import TabNav, { type TabId } from './components/layout/TabNav';
 import CommandPalette, { type PaletteAction } from './components/common/CommandPalette';
+import ShortcutsOverlay from './components/common/ShortcutsOverlay';
 import LibraryTab from './components/library/LibraryTab';
 import JournalTab from './components/journal/JournalTab';
 import SpreadsTab from './components/spreads/SpreadsTab';
@@ -51,6 +52,7 @@ export default function App() {
   // ⌘K command palette + the deep-links it sets: each tab consumes
   // its pending id in an effect, then clears it via the callback.
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [pendingDeckId, setPendingDeckId] = useState<number | null>(null);
   const [pendingSpreadId, setPendingSpreadId] = useState<number | null>(null);
   const [pendingEntryId, setPendingEntryId] = useState<number | null>(null);
@@ -90,6 +92,23 @@ export default function App() {
   // stack on top of one in progress (Cmd+K closes its own palette).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // "?" (no modifiers beyond Shift) shows the shortcuts cheat
+      // sheet — unless focus is in a text field, where ? is just typing.
+      if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const target = e.target as HTMLElement | null;
+        if (target && (
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable
+        )) return;
+        e.preventDefault();
+        setShortcutsOpen(open => {
+          if (open) return false;
+          return !document.querySelector('.modal-overlay, .confirm-dialog__overlay');
+        });
+        return;
+      }
       if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
       const key = e.key.toLowerCase();
       if (key === 'k') {
@@ -122,6 +141,9 @@ export default function App() {
         break;
       case 'new-entry':
         if (await guardedSwitchTab('journal')) setPendingNewEntry(true);
+        break;
+      case 'shortcuts':
+        setShortcutsOpen(true);
         break;
       case 'deck':
         if (await guardedSwitchTab('library')) setPendingDeckId(action.id);
@@ -206,6 +228,10 @@ export default function App() {
             open={paletteOpen}
             onClose={() => setPaletteOpen(false)}
             onAction={handlePaletteAction}
+          />
+          <ShortcutsOverlay
+            open={shortcutsOpen}
+            onClose={() => setShortcutsOpen(false)}
           />
           <ConfirmDialogHost />
         </ToastProvider>

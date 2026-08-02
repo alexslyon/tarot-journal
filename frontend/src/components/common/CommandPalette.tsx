@@ -21,6 +21,7 @@ export type PaletteAction =
   | { type: 'tab'; tab: TabId }
   | { type: 'settings'; section: string }
   | { type: 'new-entry' }
+  | { type: 'shortcuts' }
   | { type: 'deck'; id: number }
   | { type: 'spread'; id: number }
   | { type: 'entry'; id: number };
@@ -81,6 +82,13 @@ const ACTION_ITEMS: PaletteItem[] = [
     label: 'New journal entry',
     hint: '⌘N',
     action: { type: 'new-entry' },
+  },
+  {
+    key: 'action-shortcuts',
+    group: 'Actions',
+    label: 'Keyboard shortcuts',
+    hint: '?',
+    action: { type: 'shortcuts' },
   },
 ];
 
