@@ -4,7 +4,7 @@ import { getSpreadTags } from '../../api/tags';
 import type { Tag } from '../../types';
 import { useDirtyGuard } from '../../utils/dirtyGuard';
 import { Panel, Group, Separator } from 'react-resizable-panels';
-import { createSpread, updateSpread, deleteSpread, cloneSpread, setSpreadTags } from '../../api/spreads';
+import { createSpread, updateSpread, deleteSpread, cloneSpread, setSpreadTags, getSpreads } from '../../api/spreads';
 import { useToast } from '../../context/ToastContext';
 import SpreadList from './SpreadList';
 import SpreadDesigner from './SpreadDesigner';
@@ -24,7 +24,16 @@ import { ensureHtml } from '../../utils/formatting';
 import './SpreadsTab.css';
 import { confirmDialog } from '../common/ConfirmDialog';
 
-export default function SpreadsTab() {
+interface SpreadsTabProps {
+  /** Spread to select on mount (set by the command palette) */
+  pendingSpreadId?: number | null;
+  onPendingSpreadHandled?: () => void;
+}
+
+export default function SpreadsTab({
+  pendingSpreadId,
+  onPendingSpreadHandled,
+}: SpreadsTabProps) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [selectedSpread, setSelectedSpread] = useState<Spread | null>(null);
@@ -120,6 +129,23 @@ export default function SpreadsTab() {
     setIsNew(false);
     setEditing(false);
   };
+
+  // Command-palette deep link: select the requested spread once the
+  // list is available (reuses the cached ['spreads'] query).
+  useEffect(() => {
+    if (pendingSpreadId == null) return;
+    let cancelled = false;
+    queryClient.fetchQuery({ queryKey: ['spreads'], queryFn: getSpreads })
+      .then((spreads) => {
+        if (cancelled) return;
+        const spread = (spreads as Spread[]).find(s => s.id === pendingSpreadId);
+        if (spread) handleSelect(spread);
+      })
+      .catch(() => {})
+      .finally(() => onPendingSpreadHandled?.());
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSpreadId]);
 
   const handleNew = () => {
     setSelectedSpread(null);

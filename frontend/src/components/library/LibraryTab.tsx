@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import DeckList from './DeckList';
@@ -18,10 +18,28 @@ import './LibraryTab.css';
 interface LibraryTabProps {
   /** Jump to the Journal tab filtered to entries containing a card */
   onFindCardInJournal?: (cardName: string) => void;
+  /** Deck to select on mount (set by the command palette) */
+  pendingDeckId?: number | null;
+  onPendingDeckHandled?: () => void;
 }
 
-export default function LibraryTab({ onFindCardInJournal }: LibraryTabProps) {
+export default function LibraryTab({
+  onFindCardInJournal,
+  pendingDeckId,
+  onPendingDeckHandled,
+}: LibraryTabProps) {
   const [selectedDeck, setSelectedDeck] = useState<Deck | null>(null);
+
+  // Command-palette deep link: select the requested deck once loaded.
+  useEffect(() => {
+    if (pendingDeckId == null) return;
+    let cancelled = false;
+    getDeck(pendingDeckId)
+      .then(deck => { if (!cancelled) setSelectedDeck(deck); })
+      .catch(() => {})
+      .finally(() => onPendingDeckHandled?.());
+    return () => { cancelled = true; };
+  }, [pendingDeckId, onPendingDeckHandled]);
   const [viewingCardId, setViewingCardId] = useState<number | null>(null);
   const [editingCardId, setEditingCardId] = useState<number | null>(null);
   const [editingDeckId, setEditingDeckId] = useState<number | null>(null);

@@ -1,0 +1,84 @@
+/* Command palette (⌘K) — a top-anchored quick-jump box inside the
+   shared Modal shell. The :has() override lifts the modal toward the
+   top of the window so results grow downward, launcher-style. */
+
+.modal-overlay:has(.command-palette) {
+  align-items: flex-start;
+  padding-top: 12vh;
+}
+
+.command-palette {
+  display: flex;
+  flex-direction: column;
+  /* Fixed height so the box doesn't jump around as results change */
+  height: min(420px, 70vh);
+}
+
+.command-palette__input {
+  width: 100%;
+  font-size: calc(15px * var(--tj-scale));
+  padding: 10px 12px;
+  flex-shrink: 0;
+}
+
+.command-palette__list {
+  flex: 1;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+
+.command-palette__group {
+  padding: 10px 10px 4px;
+  font-size: var(--tj-size-kicker);
+  font-weight: var(--tj-ui-weight-strong);
+  text-transform: uppercase;
+  letter-spacing: var(--tj-kicker-tracking);
+  color: var(--tj-text-kicker);
+}
+
+.command-palette__item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--tj-radius-row);
+  cursor: pointer;
+}
+
+.command-palette__item--active {
+  background-color: var(--tj-tint);
+  box-shadow: inset 0 0 0 1px rgb(var(--tj-accent-rgb) / 35%);
+}
+
+.command-palette__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--tj-text);
+  font-size: var(--tj-size-ui);
+}
+
+.command-palette__hint {
+  flex-shrink: 0;
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-faint);
+}
+
+.command-palette__empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--tj-text-faint);
+}
+
+.command-palette__footer {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+  padding: 8px 10px 0;
+  flex-shrink: 0;
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-faint);
+  background: var(--tj-rule-h) no-repeat top / 100% 1px;
+}

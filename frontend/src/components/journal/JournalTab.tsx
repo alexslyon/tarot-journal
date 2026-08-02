@@ -17,6 +17,9 @@ interface JournalTabProps {
   cardFilter?: string | null;
   onClearCardFilter?: () => void;
   onFindCardInJournal?: (cardName: string) => void;
+  /** Entry to select on mount (set by the command palette) */
+  pendingEntryId?: number | null;
+  onPendingEntryHandled?: () => void;
 }
 
 export default function JournalTab({
@@ -25,6 +28,8 @@ export default function JournalTab({
   cardFilter,
   onClearCardFilter,
   onFindCardInJournal,
+  pendingEntryId,
+  onPendingEntryHandled,
 }: JournalTabProps) {
   const [selectedEntryId, setSelectedEntryId] = useState<number | null>(null);
   // Ids of entries currently visible in the list (list order: newest
@@ -56,6 +61,14 @@ export default function JournalTab({
       onNewEntryHandled?.();
     }
   }, [pendingNewEntry, onNewEntryHandled]);
+
+  // Command-palette deep link: open the requested entry (the viewer
+  // fetches it by id, so it needn't be in the visible list page).
+  useEffect(() => {
+    if (pendingEntryId == null) return;
+    setSelectedEntryId(pendingEntryId);
+    onPendingEntryHandled?.();
+  }, [pendingEntryId, onPendingEntryHandled]);
 
   const handleEdit = (entryId: number) => {
     setEditingEntryId(entryId);

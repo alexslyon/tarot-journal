@@ -6,6 +6,7 @@ import { ConfirmDialogHost } from './components/common/ConfirmDialog';
 import { installQuitGuard, hasDirtyEditors } from './utils/dirtyGuard';
 import { confirmDialog } from './components/common/ConfirmDialog';
 import TabNav, { type TabId } from './components/layout/TabNav';
+import CommandPalette, { type PaletteAction } from './components/common/CommandPalette';
 import LibraryTab from './components/library/LibraryTab';
 import JournalTab from './components/journal/JournalTab';
 import SpreadsTab from './components/spreads/SpreadsTab';
@@ -47,6 +48,12 @@ export default function App() {
   // filtered to entries containing a card. Lives here because it's
   // set from the Library tab and consumed by the Journal tab.
   const [journalCardFilter, setJournalCardFilter] = useState<string | null>(null);
+  // ⌘K command palette + the deep-links it sets: each tab consumes
+  // its pending id in an effect, then clears it via the callback.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [pendingDeckId, setPendingDeckId] = useState<number | null>(null);
+  const [pendingSpreadId, setPendingSpreadId] = useState<number | null>(null);
+  const [pendingEntryId, setPendingEntryId] = useState<number | null>(null);
 
   // Switching top-level tabs unmounts the current tab's editors, so a
   // dirty non-modal editor (e.g. a half-designed spread) would lose
@@ -78,11 +85,21 @@ export default function App() {
   }, []);
 
   // Cmd+N (Ctrl+N elsewhere) starts a new journal entry from any tab —
-  // the app's single most common action. Ignored while any dialog is
-  // open so it can't stack a second editor on top of one in progress.
+  // the app's single most common action. Cmd+K opens the command
+  // palette. Both are ignored while any dialog is open so they can't
+  // stack on top of one in progress (Cmd+K closes its own palette).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === 'n' && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if (key === 'k') {
+        e.preventDefault();
+        setPaletteOpen(open => {
+          if (open) return false;
+          // Don't open over another dialog.
+          return !document.querySelector('.modal-overlay, .confirm-dialog__overlay');
+        });
+      } else if (key === 'n') {
         if (document.querySelector('.modal-overlay, .confirm-dialog__overlay')) return;
         e.preventDefault();
         guardedSwitchTab('journal').then((switched) => {
@@ -92,6 +109,30 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [guardedSwitchTab]);
+
+  // Command palette selections land here.
+  const handlePaletteAction = useCallback(async (action: PaletteAction) => {
+    switch (action.type) {
+      case 'tab':
+        await guardedSwitchTab(action.tab);
+        break;
+      case 'settings':
+        if (await guardedSwitchTab('settings')) setSettingsSection(action.section);
+        break;
+      case 'new-entry':
+        if (await guardedSwitchTab('journal')) setPendingNewEntry(true);
+        break;
+      case 'deck':
+        if (await guardedSwitchTab('library')) setPendingDeckId(action.id);
+        break;
+      case 'spread':
+        if (await guardedSwitchTab('spreads')) setPendingSpreadId(action.id);
+        break;
+      case 'entry':
+        if (await guardedSwitchTab('journal')) setPendingEntryId(action.id);
+        break;
+    }
   }, [guardedSwitchTab]);
 
   const handleNewEntryHandled = useCallback(() => setPendingNewEntry(false), []);
@@ -124,9 +165,18 @@ export default function App() {
             <TabNav activeTab={activeTab} onTabChange={handleTabChange} />
             <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
               {activeTab === 'library' && (
-                <LibraryTab onFindCardInJournal={handleFindCardInJournal} />
+                <LibraryTab
+                  onFindCardInJournal={handleFindCardInJournal}
+                  pendingDeckId={pendingDeckId}
+                  onPendingDeckHandled={() => setPendingDeckId(null)}
+                />
               )}
-              {activeTab === 'spreads' && <SpreadsTab />}
+              {activeTab === 'spreads' && (
+                <SpreadsTab
+                  pendingSpreadId={pendingSpreadId}
+                  onPendingSpreadHandled={() => setPendingSpreadId(null)}
+                />
+              )}
               {activeTab === 'journal' && (
                 <JournalTab
                   pendingNewEntry={pendingNewEntry}
@@ -134,6 +184,8 @@ export default function App() {
                   cardFilter={journalCardFilter}
                   onClearCardFilter={handleClearCardFilter}
                   onFindCardInJournal={handleFindCardInJournal}
+                  pendingEntryId={pendingEntryId}
+                  onPendingEntryHandled={() => setPendingEntryId(null)}
                 />
               )}
               {activeTab === 'reference' && (
@@ -150,6 +202,11 @@ export default function App() {
               )}
             </div>
           </div>
+          <CommandPalette
+            open={paletteOpen}
+            onClose={() => setPaletteOpen(false)}
+            onAction={handlePaletteAction}
+          />
           <ConfirmDialogHost />
         </ToastProvider>
       </ThemeProvider>
