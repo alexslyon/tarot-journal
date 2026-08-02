@@ -3,6 +3,8 @@ Deck endpoints -- CRUD for card decks.
 """
 
 import json
+import os
+from collections import Counter
 from flask import Blueprint, jsonify, request, current_app
 from backend.utils import row_to_dict, sort_types, require_json, validate_length
 
@@ -107,6 +109,29 @@ def delete_deck(deck_id):
         return jsonify({'error': 'Deck not found'}), 404
     db.delete_deck(deck_id)
     return jsonify({'ok': True})
+
+
+@decks_bp.route('/api/decks/<int:deck_id>/image-health')
+def deck_image_health(deck_id):
+    """Report how many of a deck's card image files are actually on
+    disk, so the UI can warn when a deck folder has moved instead of
+    silently showing blanks."""
+    db = current_app.config['DB']
+    cards = [row_to_dict(c) for c in db.get_cards(deck_id)]
+    with_path = [c for c in cards if c.get('image_path')]
+    missing = [c for c in with_path if not os.path.exists(c['image_path'])]
+    # The folder the missing files were last known to live in — usually
+    # one directory, so report the most common parent.
+    missing_dir = None
+    if missing:
+        dirs = Counter(os.path.dirname(c['image_path']) for c in missing)
+        missing_dir = dirs.most_common(1)[0][0]
+    return jsonify({
+        'total': len(cards),
+        'with_images': len(with_path),
+        'missing_count': len(missing),
+        'missing_dir': missing_dir,
+    })
 
 
 @decks_bp.route('/api/decks/<int:deck_id>/types')

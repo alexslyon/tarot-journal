@@ -184,3 +184,25 @@
   height: 100%;
   color: var(--text-dim);
 }
+
+/* ── Missing-images notice ── */
+
+.card-grid__missing-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 var(--tj-panel-pad) 10px;
+  padding: 10px 14px;
+  background: var(--tj-tint);
+  border-radius: var(--tj-radius-row);
+  box-shadow: inset 0 0 0 1px rgb(var(--tj-accent-rgb) / 35%);
+  color: var(--tj-text);
+  font-size: var(--tj-size-ui);
+  flex-shrink: 0;
+}
+
+.card-grid__missing-dir {
+  color: var(--tj-text-muted);
+  font-size: var(--tj-size-small);
+  overflow-wrap: anywhere;
+}

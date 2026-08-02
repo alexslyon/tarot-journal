@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getCards } from '../../api/cards';
+import { getDeckImageHealth, type DeckImageHealth } from '../../api/decks';
 import { cardThumbnailUrl } from '../../api/images';
 import type { Card } from '../../types';
 import './CardGrid.css';
@@ -28,6 +30,21 @@ export default function CardGrid({ deckId, deckName, onCardClick, searchResults,
   const isSearchMode = searchResults !== undefined && searchResults !== null;
   const cards = isSearchMode ? searchResults : deckCards;
   const isLoading = isSearchMode ? !!searchLoading : deckLoading;
+
+  // Are this deck's image files still where the database says they
+  // are? Missing files otherwise render as silent blanks.
+  const { data: imageHealth } = useQuery<DeckImageHealth>({
+    queryKey: ['deck-image-health', deckId],
+    queryFn: () => getDeckImageHealth(deckId!),
+    enabled: deckId !== null && !isSearchMode,
+  });
+
+  // Cards whose thumbnail failed to load — shown as named placeholders
+  // instead of broken empties.
+  const [failedIds, setFailedIds] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    setFailedIds(new Set());
+  }, [deckId]);
 
   if (!isSearchMode && !deckId) {
     return (
@@ -85,6 +102,22 @@ export default function CardGrid({ deckId, deckName, onCardClick, searchResults,
         )}
       </div>
 
+      {!isSearchMode && (imageHealth?.missing_count ?? 0) > 0 && (
+        <div className="card-grid__missing-notice">
+          <strong>
+            {imageHealth!.missing_count === imageHealth!.with_images
+              ? 'None of this deck’s card images can be found on disk.'
+              : `${imageHealth!.missing_count} of ${imageHealth!.with_images} card images can’t be found on disk.`}
+          </strong>
+          {imageHealth!.missing_dir && (
+            <span className="card-grid__missing-dir">
+              Last seen in {imageHealth!.missing_dir} — if the folder moved or was renamed,
+              move it back or re-import the deck to fix the paths.
+            </span>
+          )}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="card-grid__loading">Loading cards...</div>
       ) : cards.length === 0 ? (
@@ -117,12 +150,14 @@ export default function CardGrid({ deckId, deckName, onCardClick, searchResults,
                   />
                 </div>
               )}
-              {card.image_path ? (
+              {card.image_path && !failedIds.has(card.id) ? (
                 <img
                   className="card-grid__image"
                   src={cardThumbnailUrl(card.id)}
                   alt={card.name}
                   loading="lazy"
+                  onError={() =>
+                    setFailedIds(prev => new Set(prev).add(card.id))}
                 />
               ) : (
                 <div className="card-grid__placeholder">

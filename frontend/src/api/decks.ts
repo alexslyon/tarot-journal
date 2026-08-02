@@ -30,6 +30,18 @@ export async function updateDeck(
   await api.put(`/api/decks/${deckId}`, data);
 }
 
+export interface DeckImageHealth {
+  total: number;
+  with_images: number;
+  missing_count: number;
+  missing_dir: string | null;
+}
+
+export async function getDeckImageHealth(deckId: number): Promise<DeckImageHealth> {
+  const res = await api.get(`/api/decks/${deckId}/image-health`);
+  return res.data;
+}
+
 export async function getDeckTagAssignments(deckId: number): Promise<import('../types').Tag[]> {
   const res = await api.get(`/api/decks/${deckId}/tags`);
   return res.data;

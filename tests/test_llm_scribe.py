@@ -398,3 +398,19 @@ def test_spread_tags(client):
     listed = client.get('/api/spreads').get_json()
     mine = next(s for s in listed if s['id'] == sp['id'])
     assert [t['name'] for t in mine['tags']] == ['daily']
+
+
+def test_deck_image_health(client, tmp_path):
+    """Image health reports files present vs missing, with the lost folder."""
+    deck = client.post('/api/decks', json={'name': 'Health Deck', 'type_ids': [1]}).get_json()
+    real = tmp_path / 'real.jpg'
+    real.write_bytes(b'x')
+    for name, path in [('Here', str(real)), ('Gone', str(tmp_path / 'lost' / 'gone.jpg'))]:
+        client.post('/api/cards', json={
+            'deck_id': deck['id'], 'name': name, 'image_path': path,
+        })
+    health = client.get(f"/api/decks/{deck['id']}/image-health").get_json()
+    assert health['total'] == 2
+    assert health['with_images'] == 2
+    assert health['missing_count'] == 1
+    assert health['missing_dir'] == str(tmp_path / 'lost')
