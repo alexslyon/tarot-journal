@@ -12,6 +12,7 @@ import ImportDeckModal from './ImportDeckModal';
 import AddCardsModal from './AddCardsModal';
 import { getCards, searchCards } from '../../api/cards';
 import { getDeck } from '../../api/decks';
+import { synonymAlternatives } from '../../utils/cardSynonyms';
 import type { Deck, Card } from '../../types';
 import './LibraryTab.css';
 
@@ -73,8 +74,34 @@ export default function LibraryTab({
     placeholderData: keepPreviousData,
   });
 
+  // Synonym fallback: when the search finds nothing, retry with
+  // card-world equivalents (Coins ↔ Pentacles, Papess ↔ High
+  // Priestess, …) and say so, instead of a bare "no results".
+  const primaryCameUpEmpty =
+    searchParams !== null
+    && searchResults !== undefined
+    && searchResults.length === 0
+    && !!activeSearch?.query?.trim();
+  const { data: synonymHit } = useQuery({
+    queryKey: ['card-search-synonyms', searchParams],
+    queryFn: async () => {
+      for (const alt of synonymAlternatives(activeSearch!.query)) {
+        const cards = await searchCards({
+          ...(searchParams as Record<string, string | number | boolean>),
+          query: alt,
+        });
+        if (cards.length > 0) return { term: alt, cards };
+      }
+      return null;
+    },
+    enabled: primaryCameUpEmpty,
+  });
+
   // Card IDs for modal navigation come from whichever list is active
-  const displayedCards = activeSearch ? (searchResults ?? []) : deckCards;
+  const synonymCards = primaryCameUpEmpty ? synonymHit?.cards : undefined;
+  const displayedCards = activeSearch
+    ? (synonymCards ?? searchResults ?? [])
+    : deckCards;
   const cardIds = displayedCards.map((c: Card) => c.id);
 
   const handleSearch = useCallback((filters: SearchFilters | null) => {
@@ -100,8 +127,13 @@ export default function LibraryTab({
               deckId={deckId}
               deckName={selectedDeck?.name ?? ''}
               onCardClick={(card) => setViewingCardId(card.id)}
-              searchResults={activeSearch ? (searchResults ?? []) : undefined}
+              searchResults={activeSearch ? (synonymCards ?? searchResults ?? []) : undefined}
               searchLoading={searchLoading}
+              searchNote={
+                synonymCards && activeSearch
+                  ? `No matches for “${activeSearch.query}” — showing “${synonymHit!.term}” instead.`
+                  : undefined
+              }
               selectedIds={selectedCardIds}
               onSelectionChange={setSelectedCardIds}
               onBatchEdit={() => setShowBatchEdit(true)}

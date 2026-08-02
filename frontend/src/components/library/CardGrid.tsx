@@ -13,6 +13,8 @@ interface CardGridProps {
   /** When provided, renders these cards instead of fetching by deckId (search mode). */
   searchResults?: Card[] | null;
   searchLoading?: boolean;
+  /** Note above search results, e.g. the synonym-fallback explanation. */
+  searchNote?: string;
   /** Multi-select state managed by parent */
   selectedIds?: Set<number>;
   onSelectionChange?: (ids: Set<number>) => void;
@@ -20,7 +22,7 @@ interface CardGridProps {
   onAddCard?: () => void;
 }
 
-export default function CardGrid({ deckId, deckName, onCardClick, searchResults, searchLoading, selectedIds, onSelectionChange, onBatchEdit, onAddCard }: CardGridProps) {
+export default function CardGrid({ deckId, deckName, onCardClick, searchResults, searchLoading, searchNote, selectedIds, onSelectionChange, onBatchEdit, onAddCard }: CardGridProps) {
   const { data: deckCards = [], isLoading: deckLoading } = useQuery({
     queryKey: ['cards', deckId],
     queryFn: () => getCards(deckId!),
@@ -101,6 +103,10 @@ export default function CardGrid({ deckId, deckName, onCardClick, searchResults,
           </div>
         )}
       </div>
+
+      {isSearchMode && searchNote && (
+        <div className="card-grid__search-note">{searchNote}</div>
+      )}
 
       {!isSearchMode && (imageHealth?.missing_count ?? 0) > 0 && (
         <div className="card-grid__missing-notice">

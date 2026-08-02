@@ -206,3 +206,13 @@
   font-size: var(--tj-size-small);
   overflow-wrap: anywhere;
 }
+
+.card-grid__search-note {
+  margin: 0 var(--tj-panel-pad) 10px;
+  padding: 8px 14px;
+  background: var(--tj-tint);
+  border-radius: var(--tj-radius-row);
+  color: var(--tj-text-muted);
+  font-size: var(--tj-size-ui);
+  flex-shrink: 0;
+}
