@@ -80,3 +80,12 @@ _tag_crud(
     update=lambda db, tid, **kw: db.update_card_tag(tid, **kw),
     delete=lambda db, tid: db.delete_card_tag(tid),
 )
+
+_tag_crud(
+    'spread-tags',
+    get_all=lambda db: db.get_spread_tags(),
+    get_one=lambda db, tid: db.get_spread_tag(tid),
+    add=lambda db, **kw: db.add_spread_tag(**kw),
+    update=lambda db, tid, **kw: db.update_spread_tag(tid, **kw),
+    delete=lambda db, tid: db.delete_spread_tag(tid),
+)

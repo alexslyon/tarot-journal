@@ -172,3 +172,31 @@
 .spread-list__archived .spread-list__row {
   opacity: 0.7;
 }
+
+/* ── Type / tag filters ── */
+
+.spread-list__selects {
+  display: flex;
+  gap: 6px;
+}
+
+.spread-list__filter {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-size-small);
+}
+
+/* ── Tag dots on rows ── */
+
+.spread-list__tag-dots {
+  display: inline-flex;
+  gap: 3px;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.spread-list__tag-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}

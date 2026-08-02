@@ -41,6 +41,26 @@ export async function deleteDeckTag(tagId: number): Promise<void> {
   await api.delete(`/api/deck-tags/${tagId}`);
 }
 
+// ── Spread Tags ─────────────────────────────────────────────
+
+export async function getSpreadTags(): Promise<Tag[]> {
+  const res = await api.get('/api/spread-tags');
+  return res.data;
+}
+
+export async function addSpreadTag(data: { name: string; color?: string }): Promise<{ id: number }> {
+  const res = await api.post('/api/spread-tags', data);
+  return res.data;
+}
+
+export async function updateSpreadTag(tagId: number, data: { name?: string; color?: string }): Promise<void> {
+  await api.put(`/api/spread-tags/${tagId}`, data);
+}
+
+export async function deleteSpreadTag(tagId: number): Promise<void> {
+  await api.delete(`/api/spread-tags/${tagId}`);
+}
+
 // ── Card Tags ───────────────────────────────────────────────
 
 export async function getCardTags(): Promise<Tag[]> {

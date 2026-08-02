@@ -196,3 +196,20 @@
   color: var(--tj-text-accent-2);
   margin: 0 0 8px;
 }
+
+/* ── Viewer tag chips ── */
+
+.spreads-tab__viewer-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 10px;
+}
+
+.spreads-tab__viewer-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--tj-radius-row);
+  color: #fff;
+  font-size: var(--font-size-small);
+}

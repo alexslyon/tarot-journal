@@ -383,3 +383,18 @@ def test_spread_archiving(client):
     # Unarchive round-trip
     client.put(f"/api/spreads/{sp['id']}", json={'archived': False})
     assert client.get(f"/api/spreads/{sp['id']}").get_json()['archived'] == 0
+
+
+def test_spread_tags(client):
+    """Spread tags: CRUD + assignment + tags attached to the list."""
+    tag = client.post('/api/spread-tags', json={'name': 'daily', 'color': '#123456'}).get_json()
+    sp = client.post('/api/spreads', json={
+        'name': 'Tagged Spread', 'positions': [{'x': 0, 'y': 0, 'label': 'One'}],
+    }).get_json()
+    r = client.put(f"/api/spreads/{sp['id']}/tags", json={'tag_ids': [tag['id']]})
+    assert r.status_code == 200
+    assigned = client.get(f"/api/spreads/{sp['id']}/tags").get_json()
+    assert [t['name'] for t in assigned] == ['daily']
+    listed = client.get('/api/spreads').get_json()
+    mine = next(s for s in listed if s['id'] == sp['id'])
+    assert [t['name'] for t in mine['tags']] == ['daily']

@@ -72,6 +72,8 @@ export interface Spread {
    *  the list's Archived group; never deleted (old entries keep
    *  rendering with them). */
   archived?: number;
+  /** Spread tags (own namespace, like deck tags) — attached by the list endpoint. */
+  tags?: Tag[];
   created_at: string;
 }
 

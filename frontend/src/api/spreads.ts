@@ -41,6 +41,15 @@ export async function deleteSpread(spreadId: number): Promise<void> {
   await api.delete(`/api/spreads/${spreadId}`);
 }
 
+export async function getSpreadTagAssignments(spreadId: number): Promise<import('../types').Tag[]> {
+  const res = await api.get(`/api/spreads/${spreadId}/tags`);
+  return res.data;
+}
+
+export async function setSpreadTags(spreadId: number, tagIds: number[]) {
+  await api.put(`/api/spreads/${spreadId}/tags`, { tag_ids: tagIds });
+}
+
 export async function cloneSpread(spreadId: number, name?: string): Promise<{ id: number }> {
   const res = await api.post(`/api/spreads/${spreadId}/clone`, name ? { name } : {});
   return res.data;

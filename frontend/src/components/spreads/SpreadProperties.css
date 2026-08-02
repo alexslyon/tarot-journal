@@ -105,3 +105,75 @@
   font-size: var(--font-size-small);
   margin-top: 4px;
 }
+
+/* ── Tags ── */
+
+.spread-props__checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.spread-props__check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: var(--font-size-small);
+}
+
+.spread-props__check input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+}
+
+.spread-props__tag-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--tj-radius-row);
+  color: #fff;
+  font-size: var(--font-size-small);
+}
+
+.spread-props__add-tag-btn {
+  align-self: flex-start;
+  margin-top: 8px;
+  background: transparent;
+  color: var(--accent);
+  border: 1px dashed var(--accent);
+  padding: 4px 10px;
+  border-radius: var(--tj-radius-row);
+  font-size: var(--font-size-small);
+  cursor: pointer;
+}
+
+.spread-props__add-tag-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.spread-props__add-tag {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--tj-radius-row);
+}
+
+.spread-props__add-tag-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.spread-props__add-tag-color {
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--tj-radius-row);
+  background: transparent;
+  cursor: pointer;
+}

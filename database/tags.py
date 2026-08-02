@@ -169,6 +169,45 @@ class TagsMixin:
     def set_deck_tags(self, deck_id: int, tag_ids: list):
         self._set_tags_for_entity('deck_tag_assignments', 'deck_id', deck_id, tag_ids)
 
+    # ── Spread Tags ────────────────────────────────────────────
+
+    def get_spread_tags(self):
+        return self._get_all_tags('spread_tags')
+
+    def get_spread_tag(self, tag_id: int):
+        return self._get_tag('spread_tags', tag_id)
+
+    def add_spread_tag(self, name: str, color: str = '#6B5B95'):
+        return self._add_tag('spread_tags', name, color)
+
+    def update_spread_tag(self, tag_id: int, name: str = None, color: str = None):
+        self._update_tag('spread_tags', tag_id, name, color)
+
+    def delete_spread_tag(self, tag_id: int):
+        return self._delete_tag('spread_tags', tag_id)
+
+    def get_tags_for_spread(self, spread_id: int):
+        return self._get_tags_for_entity('spread_tags', 'spread_tag_assignments', 'spread_id', spread_id)
+
+    def get_tags_for_spreads(self) -> dict:
+        """All spread-tag assignments in one query: spread_id → tag dicts."""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT sta.spread_id, t.id, t.name, t.color
+            FROM spread_tag_assignments sta
+            JOIN spread_tags t ON sta.tag_id = t.id
+            ORDER BY t.name
+        ''')
+        result = {}
+        for row in cursor.fetchall():
+            result.setdefault(row['spread_id'], []).append({
+                'id': row['id'], 'name': row['name'], 'color': row['color'],
+            })
+        return result
+
+    def set_spread_tags(self, spread_id: int, tag_ids: list):
+        self._set_tags_for_entity('spread_tag_assignments', 'spread_id', spread_id, tag_ids)
+
     # ── Card Tags ──────────────────────────────────────────────
 
     def get_card_tags(self):

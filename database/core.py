@@ -436,6 +436,26 @@ class CoreMixin:
             )
         ''')
 
+        # Spread tags table (separate namespace, like deck tags)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS spread_tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                color TEXT DEFAULT '#6B5B95'
+            )
+        ''')
+
+        # Spread tag assignments junction table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS spread_tag_assignments (
+                spread_id INTEGER NOT NULL,
+                tag_id INTEGER NOT NULL,
+                PRIMARY KEY (spread_id, tag_id),
+                FOREIGN KEY (spread_id) REFERENCES spreads(id) ON DELETE CASCADE,
+                FOREIGN KEY (tag_id) REFERENCES spread_tags(id) ON DELETE CASCADE
+            )
+        ''')
+
         # Card tags table (separate from deck tags)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS card_tags (

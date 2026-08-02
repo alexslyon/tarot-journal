@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getSpreadTags } from '../../api/tags';
+import type { Tag } from '../../types';
 import { useDirtyGuard } from '../../utils/dirtyGuard';
 import { Panel, Group, Separator } from 'react-resizable-panels';
-import { createSpread, updateSpread, deleteSpread, cloneSpread } from '../../api/spreads';
+import { createSpread, updateSpread, deleteSpread, cloneSpread, setSpreadTags } from '../../api/spreads';
 import { useToast } from '../../context/ToastContext';
 import SpreadList from './SpreadList';
 import SpreadDesigner from './SpreadDesigner';
@@ -32,6 +34,13 @@ export default function SpreadsTab() {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState('');
 
+  // All spread tags, for turning selected tag ids back into tag
+  // objects after a save (and keeping the viewer chips fresh).
+  const { data: allSpreadTags = [] } = useQuery<Tag[]>({
+    queryKey: ['spread-tags'],
+    queryFn: getSpreadTags,
+  });
+
   // Local editing state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -39,6 +48,7 @@ export default function SpreadsTab() {
   const [allowedDeckTypes, setAllowedDeckTypes] = useState<string[]>([]);
   const [defaultDeckId, setDefaultDeckId] = useState<number | null>(null);
   const [deckSlots, setDeckSlots] = useState<DeckSlot[]>([]);
+  const [tagIds, setTagIds] = useState<number[]>([]);
   const [descOpen, setDescOpen] = useState(false);
   const [viewerShowLabels, setViewerShowLabels] = useState(false);
 
@@ -66,8 +76,11 @@ export default function SpreadsTab() {
       try { baseSlots = JSON.parse(rawSlots); } catch { baseSlots = []; }
     }
     if (JSON.stringify(deckSlots) !== JSON.stringify(baseSlots)) return true;
+    const baseTagIds = (selectedSpread.tags ?? []).map(t => t.id);
+    if (tagIds.length !== baseTagIds.length) return true;
+    if (!tagIds.every(id => baseTagIds.includes(id))) return true;
     return false;
-  }, [isNew, editing, selectedSpread, name, description, positions, allowedDeckTypes, defaultDeckId, deckSlots]);
+  }, [isNew, editing, selectedSpread, name, description, positions, allowedDeckTypes, defaultDeckId, deckSlots, tagIds]);
   useDirtyGuard(isDirty);
 
   // Populate form when a spread is selected
@@ -97,6 +110,7 @@ export default function SpreadsTab() {
       } else {
         setDeckSlots([]);
       }
+      setTagIds((selectedSpread.tags ?? []).map(t => t.id));
       setSelectedIndex(null);
     }
   }, [selectedSpread, isNew]);
@@ -118,6 +132,7 @@ export default function SpreadsTab() {
     setDefaultDeckId(null);
     // Default to one deck slot with Tarot type
     setDeckSlots([{ key: 'A', cartomancy_type: 'Tarot', label: 'Main Deck' }]);
+    setTagIds([]);
     setSelectedIndex(null);
   };
 
@@ -162,6 +177,9 @@ export default function SpreadsTab() {
     if (!name.trim()) return;
     setSaving(true);
     setError('');
+    // Tag objects matching the current selection, for the locally
+    // rebuilt spread below (the server stores only the ids).
+    const savedTags = allSpreadTags.filter(t => tagIds.includes(t.id));
     try {
       if (isNew) {
         const result = await createSpread({
@@ -172,6 +190,7 @@ export default function SpreadsTab() {
           default_deck_id: defaultDeckId,
           deck_slots: deckSlots.length > 0 ? deckSlots : undefined,
         });
+        if (tagIds.length > 0) await setSpreadTags(result.id, tagIds);
         setIsNew(false);
         // Re-select the newly created spread
         const newSpread: Spread = {
@@ -183,6 +202,7 @@ export default function SpreadsTab() {
           allowed_deck_types: allowedDeckTypes,
           default_deck_id: defaultDeckId,
           deck_slots: deckSlots,
+          tags: savedTags,
           created_at: new Date().toISOString(),
         };
         setSelectedSpread(newSpread);
@@ -196,6 +216,7 @@ export default function SpreadsTab() {
           clear_default_deck: defaultDeckId === null && selectedSpread.default_deck_id !== null,
           deck_slots: deckSlots.length > 0 ? deckSlots : null,
         });
+        await setSpreadTags(selectedSpread.id, tagIds);
         setSelectedSpread({
           ...selectedSpread,
           name: name.trim(),
@@ -204,6 +225,7 @@ export default function SpreadsTab() {
           allowed_deck_types: allowedDeckTypes,
           default_deck_id: defaultDeckId,
           deck_slots: deckSlots,
+          tags: savedTags,
         });
       }
       queryClient.invalidateQueries({ queryKey: ['spreads'] });
@@ -230,6 +252,7 @@ export default function SpreadsTab() {
       setPositions(
         Array.isArray(selectedSpread.positions) ? selectedSpread.positions : [],
       );
+      setTagIds((selectedSpread.tags ?? []).map(t => t.id));
     }
     setEditing(false);
   };
@@ -244,6 +267,19 @@ export default function SpreadsTab() {
         {error && <div className="spreads-tab__error">{error}</div>}
         <div className="spreads-tab__viewer-scroll">
           <h2 className="spreads-tab__viewer-name">{selectedSpread.name}</h2>
+          {(selectedSpread.tags ?? []).length > 0 && (
+            <div className="spreads-tab__viewer-tags">
+              {selectedSpread.tags!.map(tag => (
+                <span
+                  key={tag.id}
+                  className="spreads-tab__viewer-tag"
+                  style={{ backgroundColor: tag.color }}
+                >
+                  {tag.name}
+                </span>
+              ))}
+            </div>
+          )}
           {selectedSpread.archived ? (
             <p className="spreads-tab__archived-note">
               Archived — hidden from pickers; existing entries still use it.
@@ -319,9 +355,11 @@ export default function SpreadsTab() {
             name={name}
             description={description}
             deckSlots={deckSlots}
+            tagIds={tagIds}
             onNameChange={setName}
             onDescriptionChange={setDescription}
             onDeckSlotsChange={setDeckSlots}
+            onTagIdsChange={setTagIds}
           />
         </div>
 

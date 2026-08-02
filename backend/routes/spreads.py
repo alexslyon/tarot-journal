@@ -33,7 +33,28 @@ def _parse_spread(d):
 def get_spreads():
     db = current_app.config['DB']
     rows = db.get_spreads()
-    return jsonify([_parse_spread(row_to_dict(r)) for r in rows])
+    tags_by_spread = db.get_tags_for_spreads()
+    out = []
+    for r in rows:
+        spread = _parse_spread(row_to_dict(r))
+        spread['tags'] = tags_by_spread.get(spread['id'], [])
+        out.append(spread)
+    return jsonify(out)
+
+
+@spreads_bp.route('/api/spreads/<int:spread_id>/tags')
+def get_spread_tag_assignments(spread_id):
+    db = current_app.config['DB']
+    rows = db.get_tags_for_spread(spread_id)
+    return jsonify([row_to_dict(r) for r in rows])
+
+
+@spreads_bp.route('/api/spreads/<int:spread_id>/tags', methods=['PUT'])
+@require_json
+def set_spread_tag_assignments(spread_id, data):
+    db = current_app.config['DB']
+    db.set_spread_tags(spread_id, data.get('tag_ids', []))
+    return jsonify({'ok': True})
 
 
 @spreads_bp.route('/api/spreads/<int:spread_id>')

@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getSpreads, updateSpread } from '../../api/spreads';
+import { getCartomancyTypes } from '../../api/decks';
+import { getSpreadTags } from '../../api/tags';
 import { useToast } from '../../context/ToastContext';
-import type { Spread } from '../../types';
+import type { Spread, Tag } from '../../types';
 import QueryError from '../common/QueryError';
 import './SpreadList.css';
 
@@ -20,6 +22,29 @@ function positionCount(spread: Spread): number {
   return Array.isArray(spread.positions) ? spread.positions.length : 0;
 }
 
+/** The deck types a spread declares — from its deck slots plus the
+ *  older allowed-types / single-type fields. Empty means the spread
+ *  works with any deck. */
+function spreadDeckTypes(spread: Spread): string[] {
+  const types = new Set<string>();
+  let slots = spread.deck_slots;
+  if (typeof slots === 'string') {
+    try { slots = JSON.parse(slots); } catch { slots = []; }
+  }
+  if (Array.isArray(slots)) {
+    for (const slot of slots) {
+      if (slot.cartomancy_type && slot.cartomancy_type !== 'Any') types.add(slot.cartomancy_type);
+    }
+  }
+  let allowed = spread.allowed_deck_types;
+  if (typeof allowed === 'string') {
+    try { allowed = JSON.parse(allowed); } catch { allowed = []; }
+  }
+  if (Array.isArray(allowed)) allowed.forEach(t => types.add(t));
+  if (spread.cartomancy_type) types.add(spread.cartomancy_type);
+  return [...types];
+}
+
 export default function SpreadList({
   selectedSpreadId,
   onSelect,
@@ -34,15 +59,36 @@ export default function SpreadList({
     queryFn: getSpreads,
   });
 
+  const { data: types = [] } = useQuery({
+    queryKey: ['cartomancy-types'],
+    queryFn: getCartomancyTypes,
+  });
+  const { data: allTags = [] } = useQuery<Tag[]>({
+    queryKey: ['spread-tags'],
+    queryFn: getSpreadTags,
+  });
+
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [showArchived, setShowArchived] = useState(false);
+  const [filterType, setFilterType] = useState('');
+  const [filterTagId, setFilterTagId] = useState<number | ''>('');
 
   const selected = spreads.find(s => s.id === selectedSpreadId) ?? null;
 
   const { active, archived } = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const matches = (s: Spread) => !q || s.name.toLowerCase().includes(q);
+    const matches = (s: Spread) => {
+      if (q && !s.name.toLowerCase().includes(q)) return false;
+      if (filterType) {
+        // Spreads with no declared type work with any deck, so they
+        // stay visible under every type filter.
+        const declared = spreadDeckTypes(s);
+        if (declared.length > 0 && !declared.includes(filterType)) return false;
+      }
+      if (filterTagId !== '' && !(s.tags ?? []).some(t => t.id === filterTagId)) return false;
+      return true;
+    };
     const sorted = [...spreads].sort((a, b) =>
       sortKey === 'positions'
         ? positionCount(a) - positionCount(b) || a.name.localeCompare(b.name)
@@ -51,7 +97,7 @@ export default function SpreadList({
       active: sorted.filter(s => !s.archived && matches(s)),
       archived: sorted.filter(s => !!s.archived && matches(s)),
     };
-  }, [spreads, search, sortKey]);
+  }, [spreads, search, sortKey, filterType, filterTagId]);
 
   const handleArchiveToggle = async () => {
     if (!selected) return;
@@ -86,6 +132,18 @@ export default function SpreadList({
       }}
     >
       <span className="spread-list__name">{spread.name}</span>
+      {(spread.tags ?? []).length > 0 && (
+        <span className="spread-list__tag-dots">
+          {spread.tags!.map(tag => (
+            <span
+              key={tag.id}
+              className="spread-list__tag-dot"
+              style={{ backgroundColor: tag.color }}
+              title={tag.name}
+            />
+          ))}
+        </span>
+      )}
       <span className="spread-list__count">{positionCount(spread)} pos</span>
     </div>
   );
@@ -118,6 +176,32 @@ export default function SpreadList({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <div className="spread-list__selects">
+          <select
+            className="spread-list__filter"
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            title="Filter by deck type"
+          >
+            <option value="">All Types</option>
+            {types.map((t) => (
+              <option key={t.id} value={t.name}>{t.name}</option>
+            ))}
+          </select>
+          {allTags.length > 0 && (
+            <select
+              className="spread-list__filter"
+              value={filterTagId}
+              onChange={(e) => setFilterTagId(e.target.value ? Number(e.target.value) : '')}
+              title="Filter by tag"
+            >
+              <option value="">All Tags</option>
+              {allTags.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
         <div className="spread-list__sort-bar">
           <span className="spread-list__sort-label">Sort:</span>
           <button

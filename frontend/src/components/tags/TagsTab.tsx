@@ -3,6 +3,7 @@ import {
   getEntryTags, addEntryTag, updateEntryTag, deleteEntryTag,
   getDeckTags, addDeckTag, updateDeckTag, deleteDeckTag,
   getCardTags, addCardTag, updateCardTag, deleteCardTag,
+  getSpreadTags, addSpreadTag, updateSpreadTag, deleteSpreadTag,
 } from '../../api/tags';
 import TagSection from './TagSection';
 import type { Tag } from '../../types';
@@ -24,6 +25,11 @@ export default function TagsTab() {
   const { data: cardTags = [], isLoading: cardLoading } = useQuery<Tag[]>({
     queryKey: ['card-tags'],
     queryFn: getCardTags,
+  });
+
+  const { data: spreadTags = [], isLoading: spreadLoading } = useQuery<Tag[]>({
+    queryKey: ['spread-tags'],
+    queryFn: getSpreadTags,
   });
 
   const invalidate = (key: string) => {
@@ -90,6 +96,26 @@ export default function TagsTab() {
               onDelete={async (tagId) => {
                 await deleteCardTag(tagId);
                 invalidate('card-tags');
+              }}
+            />
+          </div>
+
+          <div className="tags-tab__column">
+            <TagSection
+              title="Spread Tags"
+              tags={spreadTags}
+              loading={spreadLoading}
+              onAdd={async (name, color) => {
+                await addSpreadTag({ name, color });
+                invalidate('spread-tags');
+              }}
+              onUpdate={async (tagId, name, color) => {
+                await updateSpreadTag(tagId, { name, color });
+                invalidate('spread-tags');
+              }}
+              onDelete={async (tagId) => {
+                await deleteSpreadTag(tagId);
+                invalidate('spread-tags');
               }}
             />
           </div>
