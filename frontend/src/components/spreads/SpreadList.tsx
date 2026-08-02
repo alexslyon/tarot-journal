@@ -22,20 +22,26 @@ function positionCount(spread: Spread): number {
   return Array.isArray(spread.positions) ? spread.positions.length : 0;
 }
 
-/** The deck types a spread declares — from its deck slots plus the
- *  older allowed-types / single-type fields. Empty means the spread
- *  works with any deck. */
+/** The deck types a spread declares. Deck slots are the current
+ *  system and the only thing visible in the editor, so when a spread
+ *  has slots they alone decide — many spreads still carry stale
+ *  values in the older allowed-types / single-type fields, which
+ *  would wrongly hide an "Any" spread under specific filters. Those
+ *  legacy fields are consulted only for spreads with no slots.
+ *  Empty means the spread works with any deck. */
 function spreadDeckTypes(spread: Spread): string[] {
-  const types = new Set<string>();
   let slots = spread.deck_slots;
   if (typeof slots === 'string') {
     try { slots = JSON.parse(slots); } catch { slots = []; }
   }
-  if (Array.isArray(slots)) {
+  if (Array.isArray(slots) && slots.length > 0) {
+    const types = new Set<string>();
     for (const slot of slots) {
       if (slot.cartomancy_type && slot.cartomancy_type !== 'Any') types.add(slot.cartomancy_type);
     }
+    return [...types];
   }
+  const types = new Set<string>();
   let allowed = spread.allowed_deck_types;
   if (typeof allowed === 'string') {
     try { allowed = JSON.parse(allowed); } catch { allowed = []; }
