@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { setEntryBreakdownSettings } from '../../api/entries';
 import { useEntryBreakdown, renderBreakdownValue } from '../../utils/readingBreakdown';
+import { loadSuitViewMode, saveSuitViewMode, type SuitViewMode } from '../../utils/suitPairing';
 import type { JournalEntryFull, BreakdownSettings } from '../../types';
 import './ReadingBreakdown.css';
 
@@ -41,8 +42,17 @@ export default function ReadingBreakdown({ entry }: Props) {
   const [lastTab, setLastTab] = useState<'all' | number>(initial.last_tab);
   const [visible, setVisible] = useState<Record<string, boolean>>(initial.visible);
   const [filterOpen, setFilterOpen] = useState(false);
+  // Suit display (Separate / Paired) — one preference shared with the
+  // Insights page via localStorage.
+  const [suitMode, setSuitMode] = useState<SuitViewMode>(loadSuitViewMode);
 
-  const data = useEntryBreakdown(entry);
+  const toggleSuitMode = () => {
+    const next: SuitViewMode = suitMode === 'paired' ? 'separate' : 'paired';
+    setSuitMode(next);
+    saveSuitViewMode(next);
+  };
+
+  const data = useEntryBreakdown(entry, suitMode);
 
   // Resolve the active tab against the entry's current tabs — the saved
   // last_tab might point at a reading that's since been deleted.
@@ -150,6 +160,16 @@ export default function ReadingBreakdown({ entry }: Props) {
             </nav>
           )}
 
+          <div className="reading-breakdown__controls">
+          {/* Suit display: separate traditions or Latin/French paired */}
+          <button
+            className="reading-breakdown__filter-trigger"
+            onClick={toggleSuitMode}
+            title="Toggle between separate suits and Latin/French pairs (Cups / Hearts…)"
+          >
+            Suits: {suitMode === 'paired' ? 'Paired' : 'Separate'}
+          </button>
+
           {/* Filter popover trigger */}
           {hasFilterableFields && (
             <div className="reading-breakdown__filter" ref={filterRef}>
@@ -193,6 +213,7 @@ export default function ReadingBreakdown({ entry }: Props) {
               )}
             </div>
           )}
+          </div>
 
           {/* Table */}
           {data.isLoading && (

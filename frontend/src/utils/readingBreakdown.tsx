@@ -9,6 +9,7 @@
 import { useQueries } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { getCardCorrespondences } from '../api/correspondences';
+import { pairedSuitLabel, type SuitViewMode } from './suitPairing';
 import {
   CORRESPONDENCE_FIELDS,
   CORRESPONDENCE_FIELD_LABELS,
@@ -124,6 +125,7 @@ export function buildBreakdownTab(
   id: 'all' | number,
   label: string,
   cards: CardWithCorrespondences[],
+  suitMode: SuitViewMode = 'separate',
 ): BreakdownTab {
   const suitTally = new Map<string, number>();
   const rankTally = new Map<string, number>();
@@ -132,7 +134,12 @@ export function buildBreakdownTab(
 
   for (const { card, correspondences } of cards) {
     const { rank, suit } = getCardCategories(card);
-    if (suit) suitTally.set(suit, (suitTally.get(suit) || 0) + 1);
+    if (suit) {
+      // Paired mode merges Latin/French suit equivalents into one row
+      // ("Cups / Hearts"); Major Arcana and unpaired names pass through.
+      const key = suitMode === 'paired' ? pairedSuitLabel(suit) : suit;
+      suitTally.set(key, (suitTally.get(key) || 0) + 1);
+    }
     if (rank) rankTally.set(rank, (rankTally.get(rank) || 0) + 1);
 
     for (const c of correspondences) {
@@ -194,7 +201,7 @@ export function renderBreakdownValue(
 // Hook — fetches each unique card's correspondences and assembles tabs
 // ───────────────────────────────────────────────────────────────────────
 
-export function useEntryBreakdown(entry: JournalEntryFull | undefined): BreakdownData {
+export function useEntryBreakdown(entry: JournalEntryFull | undefined, suitMode: SuitViewMode = 'separate'): BreakdownData {
   // Collect every unique card_id across all readings — react-query dedupes
   // per id so a card appearing in multiple readings only fetches once.
   const uniqueCardIds = (() => {
@@ -231,6 +238,7 @@ export function useEntryBreakdown(entry: JournalEntryFull | undefined): Breakdow
       reading.id,
       reading.spread_name || 'Reading',
       readingCards(reading, corrByCardId),
+      suitMode,
     ),
   );
 
@@ -240,7 +248,7 @@ export function useEntryBreakdown(entry: JournalEntryFull | undefined): Breakdow
   for (const r of entry.readings) {
     for (const cwc of readingCards(r, corrByCardId)) allCards.push(cwc);
   }
-  const aggregate = buildBreakdownTab('all', 'All Readings', allCards);
+  const aggregate = buildBreakdownTab('all', 'All Readings', allCards, suitMode);
 
   // Tabs: per-reading first, aggregate last. If only one reading, the
   // aggregate is identical — UI hides tabs in that case.

@@ -8,6 +8,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/client';
+import {
+  loadSuitViewMode,
+  saveSuitViewMode,
+  pairSuitCounts,
+  type SuitViewMode,
+} from '../../utils/suitPairing';
 import { getDecks } from '../../api/decks';
 import { getProfiles } from '../../api/profiles';
 import QueryError from '../common/QueryError';
@@ -61,6 +67,12 @@ export default function InsightsHero() {
   const [timeframe, setTimeframe] = useState<(typeof TIMEFRAMES)[number]['label']>('All');
   const [deckId, setDeckId] = useState<number | ''>('');
   const [querentId, setQuerentId] = useState<number | ''>('');
+  const [suitMode, setSuitMode] = useState<SuitViewMode>(loadSuitViewMode);
+
+  const changeSuitMode = (m: SuitViewMode) => {
+    setSuitMode(m);
+    saveSuitViewMode(m);
+  };
 
   const days = TIMEFRAMES.find(t => t.label === timeframe)?.days;
 
@@ -80,7 +92,8 @@ export default function InsightsHero() {
 
   const maxCard = Math.max(1, ...data.top_cards.map(c => c.count));
   const maxMonth = Math.max(1, ...data.cadence.map(m => m.count));
-  const maxSuit = Math.max(1, ...data.suits.map(s => s.count));
+  const suits = suitMode === 'paired' ? pairSuitCounts(data.suits) : data.suits;
+  const maxSuit = Math.max(1, ...suits.map(s => s.count));
   const monthDelta = data.entries_this_month - data.entries_prev_month;
 
   return (
@@ -200,11 +213,27 @@ export default function InsightsHero() {
 
         <section className="insights-hero__panel insights-hero__panel--split">
           <div className="insights-hero__suits">
-            <h3 className="insights-hero__panel-kicker">Suits drawn</h3>
-            {data.suits.length === 0 ? (
+            <div className="insights-hero__suits-head">
+              <h3 className="insights-hero__panel-kicker">Suits drawn</h3>
+              <div className="insights-hero__suit-mode" role="group" aria-label="Suit display">
+                <button
+                  className={suitMode === 'separate' ? 'insights-hero__segment-opt--active' : ''}
+                  onClick={() => changeSuitMode('separate')}
+                >
+                  Separate
+                </button>
+                <button
+                  className={suitMode === 'paired' ? 'insights-hero__segment-opt--active' : ''}
+                  onClick={() => changeSuitMode('paired')}
+                >
+                  Paired
+                </button>
+              </div>
+            </div>
+            {suits.length === 0 ? (
               <p className="insights-hero__empty">No suited cards in this range.</p>
             ) : (
-              data.suits.map(s => (
+              suits.map(s => (
                 <div key={s.suit} className="insights-hero__suit-row">
                   <span className="insights-hero__suit-name">{s.suit}</span>
                   <div className="insights-hero__track">

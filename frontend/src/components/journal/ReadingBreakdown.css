@@ -245,3 +245,15 @@
   font-style: italic;
   padding: 8px 0;
 }
+
+/* Right-aligned controls row: suit display toggle + filter */
+.reading-breakdown__controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.reading-breakdown__controls .reading-breakdown__filter {
+  align-self: auto;
+}
