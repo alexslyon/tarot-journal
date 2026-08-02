@@ -21,7 +21,6 @@ import './EntryEditorModal.css';
 
 interface InitialFormState {
   title: string;
-  dateMode: 'now' | 'custom';
   readingDatetime: string;
   locationName: string;
   locationLat: number | null;
@@ -129,7 +128,9 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
 
   // Form state
   const [title, setTitle] = useState('');
-  const [dateMode, setDateMode] = useState<'now' | 'custom'>('now');
+  // Pre-filled with the moment the editor opened (the closest thing
+  // to when the reading happened); always visible and editable, with
+  // a "Now" button to re-stamp. Never silently changes on save.
   const [readingDatetime, setReadingDatetime] = useState(nowLocalISO());
   const [locationName, setLocationName] = useState('');
   const [locationLat, setLocationLat] = useState<number | null>(null);
@@ -150,7 +151,6 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
   useEffect(() => {
     if (isEditing && existingEntry && !initialized) {
       const titleVal = existingEntry.title || '';
-      const dateModeVal: 'now' | 'custom' = existingEntry.reading_datetime ? 'custom' : 'now';
       const datetimeVal = existingEntry.reading_datetime
         ? storedToLocalInput(existingEntry.reading_datetime)
         : nowLocalISO();
@@ -185,7 +185,6 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
       }));
 
       setTitle(titleVal);
-      setDateMode(dateModeVal);
       setReadingDatetime(datetimeVal);
       setLocationName(locationVal);
       setLocationLat(locationLatVal);
@@ -199,7 +198,6 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
       // Store initial state for dirty checking
       initialStateRef.current = {
         title: titleVal,
-        dateMode: dateModeVal,
         readingDatetime: datetimeVal,
         locationName: locationVal,
         locationLat: locationLatVal,
@@ -267,7 +265,6 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
       }
 
       setTitle(titleVal);
-      setDateMode('now');
       setReadingDatetime(datetimeVal);
       setLocationName('');
       setLocationLat(null);
@@ -283,7 +280,6 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
       // Store initial state for dirty checking
       initialStateRef.current = {
         title: titleVal,
-        dateMode: 'now',
         readingDatetime: datetimeVal,
         locationName: '',
         locationLat: null,
@@ -334,7 +330,7 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
   const handleSave = async () => {
     setSaving(true);
     try {
-      const datetime = dateMode === 'now' ? nowLocalISO() : readingDatetime;
+      const datetime = readingDatetime;
       // Filter out any unselected querents (value 0)
       const validQuerentIds = querentIds.filter(id => id > 0);
 
@@ -478,8 +474,7 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
 
     // Compare simple fields
     if (title !== initial.title) return true;
-    if (dateMode !== initial.dateMode) return true;
-    if (dateMode === 'custom' && readingDatetime !== initial.readingDatetime) return true;
+    if (readingDatetime !== initial.readingDatetime) return true;
     if (locationName !== initial.locationName) return true;
     if (locationLat !== initial.locationLat) return true;
     if (locationLon !== initial.locationLon) return true;
@@ -498,7 +493,7 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
     if (JSON.stringify(readings) !== JSON.stringify(initial.readings)) return true;
 
     return false;
-  }, [title, dateMode, readingDatetime, locationName, locationLat, locationLon, querentIds, readerId, content, selectedTagIds, readings]);
+  }, [title, readingDatetime, locationName, locationLat, locationLon, querentIds, readerId, content, selectedTagIds, readings]);
 
   if (!open) return null;
 
@@ -523,32 +518,20 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
           <div className="entry-editor__field">
             <label className="entry-editor__label">Date &amp; Time</label>
             <div className="entry-editor__date-row">
-              <label className="entry-editor__radio">
-                <input
-                  type="radio"
-                  name="dateMode"
-                  checked={dateMode === 'now'}
-                  onChange={() => setDateMode('now')}
-                />
-                <span>Now</span>
-              </label>
-              <label className="entry-editor__radio">
-                <input
-                  type="radio"
-                  name="dateMode"
-                  checked={dateMode === 'custom'}
-                  onChange={() => setDateMode('custom')}
-                />
-                <span>Custom</span>
-              </label>
-              {dateMode === 'custom' && (
-                <input
-                  type="datetime-local"
-                  value={readingDatetime}
-                  onChange={(e) => setReadingDatetime(e.target.value)}
-                  className="entry-editor__datetime-input"
-                />
-              )}
+              <input
+                type="datetime-local"
+                value={readingDatetime}
+                onChange={(e) => setReadingDatetime(e.target.value)}
+                className="entry-editor__datetime-input"
+              />
+              <button
+                type="button"
+                className="entry-editor__now-btn"
+                onClick={() => setReadingDatetime(nowLocalISO())}
+                title="Set to the current time"
+              >
+                Now
+              </button>
             </div>
           </div>
 

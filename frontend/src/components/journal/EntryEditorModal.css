@@ -72,15 +72,6 @@
   gap: 12px;
 }
 
-.entry-editor__radio {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  font-size: var(--font-size-body);
-  color: var(--text-primary);
-}
-
 .entry-editor__datetime-input {
   flex: 1;
   max-width: 250px;
@@ -264,4 +255,9 @@
   color: var(--text-dim);
   font-size: var(--font-size-small);
   font-variant-numeric: tabular-nums;
+}
+
+.entry-editor__now-btn {
+  padding: 4px 12px;
+  font-size: var(--tj-size-small);
 }
