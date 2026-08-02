@@ -402,15 +402,48 @@ function CompareColumn({
       {sourceEntries.length > 0 && (
         <div className="archetype-compare__notes">
           {sourceEntries.map(e => (
-            <section key={e.entry_id} className="archetype-compare__note-field">
-              <h5>
-                {e.source_name} <span style={{ opacity: 0.7 }}>· {e.field_name}</span>
-              </h5>
-              <RichTextViewer content={e.content} />
-            </section>
+            <CompareNoteField key={e.entry_id} entry={e} />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+/** One source-note block in a compare column. Fields marked
+ *  collapsible start closed behind a disclosure; the rest render
+ *  open as before. */
+function CompareNoteField({ entry }: { entry: ArchetypeSourceEntry }) {
+  const [open, setOpen] = useState(false);
+  if (!entry.field_collapsible) {
+    return (
+      <section className="archetype-compare__note-field">
+        <h5>
+          {entry.source_name} <span style={{ opacity: 0.7 }}>· {entry.field_name}</span>
+        </h5>
+        <RichTextViewer content={entry.content} />
+      </section>
+    );
+  }
+  return (
+    <section className="archetype-compare__note-field">
+      <button
+        type="button"
+        className="archetype-compare__note-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+      >
+        <span
+          className={`archetype-compare__chevron ${open ? 'archetype-compare__chevron--open' : ''}`}
+          aria-hidden="true"
+        >
+          ▸
+        </span>
+        <h5>
+          {entry.source_name} <span style={{ opacity: 0.7 }}>· {entry.field_name}</span>
+        </h5>
+      </button>
+      {open && <RichTextViewer content={entry.content} />}
+    </section>
   );
 }

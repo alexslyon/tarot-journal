@@ -158,6 +158,7 @@ class ArchetypeSourceEntriesMixin:
                 f.name AS field_name,
                 f.sort_order AS field_sort_order,
                 f.cartomancy_type AS field_cartomancy_type,
+                f.collapsible AS field_collapsible,
                 s.id AS source_id,
                 s.name AS source_name
             FROM archetype_source_entries e

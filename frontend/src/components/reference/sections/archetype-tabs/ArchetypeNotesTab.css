@@ -143,3 +143,36 @@
 .archetype-notes__entry {
   color: var(--text-primary);
 }
+
+/* Field-level disclosure for fields marked collapsible */
+.archetype-notes__field-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding: 2px 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.archetype-notes__field-toggle:hover {
+  background: transparent;
+}
+
+.archetype-notes__field-toggle:hover .archetype-notes__field-name--toggle {
+  color: var(--tj-text);
+}
+
+.archetype-notes__field-name--toggle {
+  margin: 0;
+}
+
+.archetype-notes__field-content--collapsible {
+  margin-top: 4px;
+  padding-left: 18px;
+}

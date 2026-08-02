@@ -64,6 +64,20 @@ export default function ArchetypeNotesTab({
     });
   };
 
+  // Fields marked collapsible get their own disclosure, collapsed by
+  // default. Keyed by field_id so — like source expansion — it
+  // persists while flipping through cards.
+  const [openFields, setOpenFields] = useState<Set<number>>(new Set());
+
+  const toggleField = (fieldId: number) => {
+    setOpenFields(prev => {
+      const next = new Set(prev);
+      if (next.has(fieldId)) next.delete(fieldId);
+      else next.add(fieldId);
+      return next;
+    });
+  };
+
   return (
     <div className="archetype-notes">
       <div className="archetype-notes__header">
@@ -119,14 +133,46 @@ export default function ArchetypeNotesTab({
                   </button>
                   {open && (
                     <div className="archetype-notes__source-body">
-                      {group.fields.map(e => (
-                        <div key={e.entry_id} className="archetype-notes__field">
-                          <h5 className="archetype-notes__field-name">{e.field_name}</h5>
-                          <div className="archetype-notes__field-content">
-                            <RichTextViewer content={e.content} />
+                      {group.fields.map(e => {
+                        if (!e.field_collapsible) {
+                          return (
+                            <div key={e.entry_id} className="archetype-notes__field">
+                              <h5 className="archetype-notes__field-name">{e.field_name}</h5>
+                              <div className="archetype-notes__field-content">
+                                <RichTextViewer content={e.content} />
+                              </div>
+                            </div>
+                          );
+                        }
+                        const fieldOpen = openFields.has(e.field_id);
+                        return (
+                          <div key={e.entry_id} className="archetype-notes__field">
+                            <button
+                              type="button"
+                              className="archetype-notes__field-toggle"
+                              aria-expanded={fieldOpen}
+                              onClick={() => toggleField(e.field_id)}
+                            >
+                              <span
+                                className={`archetype-notes__chevron ${
+                                  fieldOpen ? 'archetype-notes__chevron--open' : ''
+                                }`}
+                                aria-hidden="true"
+                              >
+                                ▸
+                              </span>
+                              <span className="archetype-notes__field-name archetype-notes__field-name--toggle">
+                                {e.field_name}
+                              </span>
+                            </button>
+                            {fieldOpen && (
+                              <div className="archetype-notes__field-content archetype-notes__field-content--collapsible">
+                                <RichTextViewer content={e.content} />
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </section>

@@ -315,6 +315,9 @@ export interface ArchetypeSourceEntry {
   field_name: string;
   field_sort_order: number;
   field_cartomancy_type: string;
+  /** 0/1 — fields marked collapsible render behind a disclosure,
+   *  collapsed by default, so long-form fields don't fill the page. */
+  field_collapsible?: number;
   source_id: number;
   source_name: string;
 }
