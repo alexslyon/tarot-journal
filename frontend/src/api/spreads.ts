@@ -32,6 +32,7 @@ export async function updateSpread(spreadId: number, data: {
   default_deck_id?: number | null;
   clear_default_deck?: boolean;
   deck_slots?: DeckSlot[] | null;
+  archived?: boolean;
 }): Promise<void> {
   await api.put(`/api/spreads/${spreadId}`, data);
 }

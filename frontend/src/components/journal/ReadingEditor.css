@@ -347,3 +347,45 @@
   max-width: 190px;
   font-size: var(--font-size-small);
 }
+
+/* Collapsible spread instructions (description) while entering a reading */
+.reading-editor__instructions {
+  margin: 6px 0 2px;
+}
+
+.reading-editor__instructions-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 2px 0;
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-muted);
+}
+
+.reading-editor__instructions-toggle:hover {
+  background: transparent;
+  color: var(--tj-text);
+}
+
+.reading-editor__instructions-chevron {
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.reading-editor__instructions-chevron--open {
+  transform: rotate(90deg);
+}
+
+.reading-editor__instructions-body {
+  margin-top: 6px;
+  padding: 10px 14px;
+  background: var(--tj-panel-quiet);
+  border-radius: var(--tj-radius-row);
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-3);
+  max-height: 260px;
+  overflow-y: auto;
+}

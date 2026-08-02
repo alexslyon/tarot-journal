@@ -9,6 +9,9 @@ interface PositionLegendProps {
   /** When provided, positions can be reordered: drag a row to a new
    *  spot, or use the up/down buttons (keyboard-friendly). */
   onReorder?: (fromIndex: number, toIndex: number) => void;
+  /** When provided, the key and label become click-to-edit inline —
+   *  no need to select the position on the canvas first. */
+  onUpdatePosition?: (index: number, updates: Partial<SpreadPosition>) => void;
 }
 
 export default function PositionLegend({
@@ -16,7 +19,23 @@ export default function PositionLegend({
   selectedIndex,
   onSelectIndex,
   onReorder,
+  onUpdatePosition,
 }: PositionLegendProps) {
+  // Inline editing: which cell is being edited and its draft value.
+  const [editing, setEditing] = useState<{ idx: number; field: 'key' | 'label' } | null>(null);
+  const [draft, setDraft] = useState('');
+
+  const startEdit = (idx: number, field: 'key' | 'label', current: string) => {
+    if (!onUpdatePosition) return;
+    setEditing({ idx, field });
+    setDraft(current);
+  };
+
+  const commitEdit = () => {
+    if (!editing || !onUpdatePosition) return;
+    onUpdatePosition(editing.idx, { [editing.field]: draft.trim() });
+    setEditing(null);
+  };
   // Drag-and-drop reordering (same HTML5 DnD pattern as the Reference
   // Sources field list). Index-based since legend rows have no ids.
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
@@ -81,8 +100,58 @@ export default function PositionLegend({
                 ⋮⋮
               </span>
             )}
-            <span className="pos-legend__key">{pos.key || idx + 1}</span>
-            <span className="pos-legend__label">{pos.label}</span>
+            {editing?.idx === idx && editing.field === 'key' ? (
+              <input
+                className="pos-legend__edit pos-legend__edit--key"
+                value={draft}
+                autoFocus
+                onChange={(e) => setDraft(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                onBlur={commitEdit}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitEdit();
+                  if (e.key === 'Escape') setEditing(null);
+                }}
+              />
+            ) : (
+              <span
+                className={`pos-legend__key ${onUpdatePosition ? 'pos-legend__cell--editable' : ''}`}
+                title={onUpdatePosition ? 'Click to edit the key' : undefined}
+                onClick={(e) => {
+                  if (!onUpdatePosition) return;
+                  e.stopPropagation();
+                  startEdit(idx, 'key', String(pos.key ?? idx + 1));
+                }}
+              >
+                {pos.key || idx + 1}
+              </span>
+            )}
+            {editing?.idx === idx && editing.field === 'label' ? (
+              <input
+                className="pos-legend__edit"
+                value={draft}
+                autoFocus
+                onChange={(e) => setDraft(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                onBlur={commitEdit}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitEdit();
+                  if (e.key === 'Escape') setEditing(null);
+                }}
+              />
+            ) : (
+              <span
+                className={`pos-legend__label ${onUpdatePosition ? 'pos-legend__cell--editable' : ''}`}
+                title={onUpdatePosition ? 'Click to edit the name' : undefined}
+                onClick={(e) => {
+                  if (!onUpdatePosition) return;
+                  e.stopPropagation();
+                  startEdit(idx, 'label', pos.label || '');
+                }}
+              >
+                {pos.label}
+              </span>
+            )}
             {pos.rotated && <span className="pos-legend__rotated" title="Rotated">↺</span>}
             {onReorder && (
               <span className="pos-legend__reorder">

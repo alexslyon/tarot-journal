@@ -336,6 +336,12 @@ class CoreMixin:
         if 'default_deck_id' not in columns:
             cursor.execute('ALTER TABLE spreads ADD COLUMN default_deck_id INTEGER REFERENCES decks(id)')
 
+        # Migration: archive flag — archived spreads are hidden from
+        # the pickers and (by default) the spreads list, but never
+        # deleted, so older entries that used them keep working.
+        if 'archived' not in columns:
+            cursor.execute('ALTER TABLE spreads ADD COLUMN archived INTEGER NOT NULL DEFAULT 0')
+
         # Migration: add deck_slots column for multi-deck spreads
         if 'deck_slots' not in columns:
             cursor.execute('ALTER TABLE spreads ADD COLUMN deck_slots TEXT')

@@ -159,3 +159,40 @@
   padding: 6px 20px;
   font-size: var(--font-size-body);
 }
+
+/* Viewer: collapsible description + archived note */
+.spreads-tab__desc {
+  margin-bottom: 10px;
+}
+
+.spreads-tab__desc-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 2px 0;
+  font-size: var(--tj-size-ui);
+  color: var(--tj-text-muted);
+}
+
+.spreads-tab__desc-toggle:hover {
+  background: transparent;
+  color: var(--tj-text);
+}
+
+.spreads-tab__desc-chevron {
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.spreads-tab__desc-chevron--open {
+  transform: rotate(90deg);
+}
+
+.spreads-tab__archived-note {
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-accent-2);
+  margin: 0 0 8px;
+}

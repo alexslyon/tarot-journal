@@ -368,3 +368,18 @@ def test_insights_endpoint(client):
     # days filter excludes nothing here; a tiny window excludes all
     d2 = client.get('/api/stats/insights?days=100000').get_json()
     assert d2['entries'] == 1
+
+
+def test_spread_archiving(client):
+    """Archived spreads keep existing (old entries stay intact) but
+    carry the flag so pickers can hide them."""
+    sp = client.post('/api/spreads', json={
+        'name': 'Old Faithful', 'positions': [{'x': 0, 'y': 0, 'label': 'One'}],
+    }).get_json()
+    r = client.put(f"/api/spreads/{sp['id']}", json={'archived': True})
+    assert r.status_code == 200
+    got = client.get(f"/api/spreads/{sp['id']}").get_json()
+    assert got['archived'] == 1
+    # Unarchive round-trip
+    client.put(f"/api/spreads/{sp['id']}", json={'archived': False})
+    assert client.get(f"/api/spreads/{sp['id']}").get_json()['archived'] == 0

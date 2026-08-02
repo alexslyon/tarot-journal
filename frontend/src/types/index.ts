@@ -68,6 +68,10 @@ export interface Spread {
   default_deck_id: number | null;
   /** Deck slots for multi-deck spreads */
   deck_slots?: DeckSlot[] | string;
+  /** 0/1 — archived spreads are hidden from pickers and tucked into
+   *  the list's Archived group; never deleted (old entries keep
+   *  rendering with them). */
+  archived?: number;
   created_at: string;
 }
 

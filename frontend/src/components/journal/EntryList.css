@@ -104,7 +104,7 @@
   min-width: 0;
   font-family: var(--tj-font-display);
   font-weight: var(--tj-heading-weight);
-  font-size: 17px;
+  font-size: calc(16px * var(--tj-scale));
   line-height: 1.25;
   color: var(--tj-text);
   overflow: hidden;

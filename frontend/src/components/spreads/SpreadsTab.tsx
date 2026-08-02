@@ -39,6 +39,7 @@ export default function SpreadsTab() {
   const [allowedDeckTypes, setAllowedDeckTypes] = useState<string[]>([]);
   const [defaultDeckId, setDefaultDeckId] = useState<number | null>(null);
   const [deckSlots, setDeckSlots] = useState<DeckSlot[]>([]);
+  const [descOpen, setDescOpen] = useState(false);
   const [viewerShowLabels, setViewerShowLabels] = useState(false);
 
   // Unsaved-changes detection: the form state diverging from the
@@ -243,8 +244,26 @@ export default function SpreadsTab() {
         {error && <div className="spreads-tab__error">{error}</div>}
         <div className="spreads-tab__viewer-scroll">
           <h2 className="spreads-tab__viewer-name">{selectedSpread.name}</h2>
+          {selectedSpread.archived ? (
+            <p className="spreads-tab__archived-note">
+              Archived — hidden from pickers; existing entries still use it.
+            </p>
+          ) : null}
           {hasDescriptionContent(selectedSpread.description) ? (
-            <RichTextViewer content={ensureHtml(selectedSpread.description!)} className="spreads-tab__viewer-description" />
+            <div className="spreads-tab__desc">
+              <button
+                type="button"
+                className="spreads-tab__desc-toggle"
+                aria-expanded={descOpen}
+                onClick={() => setDescOpen(o => !o)}
+              >
+                <span className={`spreads-tab__desc-chevron ${descOpen ? 'spreads-tab__desc-chevron--open' : ''}`} aria-hidden="true">▸</span>
+                Description &amp; instructions
+              </button>
+              {descOpen && (
+                <RichTextViewer content={ensureHtml(selectedSpread.description!)} className="spreads-tab__viewer-description" />
+              )}
+            </div>
           ) : (
             <p className="spreads-tab__viewer-description spreads-tab__viewer-description--empty">No description</p>
           )}
@@ -322,6 +341,8 @@ export default function SpreadsTab() {
             positions={positions}
             selectedIndex={selectedIndex}
             onSelectIndex={setSelectedIndex}
+            onUpdatePosition={(idx, updates) =>
+              setPositions(prev => prev.map((p, i) => (i === idx ? { ...p, ...updates } : p)))}
             onReorder={(from, to) => {
               setPositions(prev => {
                 const next = [...prev];

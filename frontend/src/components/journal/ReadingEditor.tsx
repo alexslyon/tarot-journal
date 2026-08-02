@@ -4,7 +4,8 @@ import { getDecks } from '../../api/decks';
 import { getCards } from '../../api/cards';
 import { getSpreads, getSpread } from '../../api/spreads';
 import { cardThumbnailUrl } from '../../api/images';
-import { deckMatchesType } from '../../utils/formatting';
+import { deckMatchesType, ensureHtml } from '../../utils/formatting';
+import RichTextViewer from '../common/RichTextViewer';
 import SearchCombobox, { type SearchComboboxHandle } from '../common/SearchCombobox';
 import type { Card, Deck, Spread, SpreadPosition, DeckSlot } from '../../types';
 import './ReadingEditor.css';
@@ -93,6 +94,7 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
   // Track deck assignments for each slot (derive from cards or use local state)
   const [slotDecks, setSlotDecks] = useState<SlotDeckMap>({});
   const [useAnyDeck, setUseAnyDeck] = useState(false);
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
 
   // When spread changes, reset slot deck assignments and apply defaults.
   // NOTE: We intentionally use `decks.length` instead of `decks` in the dependency array.
@@ -369,7 +371,9 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
         <div className="reading-editor__field">
           <label className="reading-editor__field-label">Spread</label>
           <SearchCombobox
-            options={spreads.map((s) => ({ id: s.id, label: s.name }))}
+            options={spreads
+              .filter((s) => !s.archived || s.id === value.spread_id)
+              .map((s) => ({ id: s.id, label: s.name }))}
             value={value.spread_id ?? undefined}
             placeholder="No spread — type to search…"
             onSelect={(opt) => handleSpreadChange(opt ? opt.id : null)}
@@ -400,6 +404,25 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
           </div>
         )}
       </div>
+
+      {value.spread_id && spread?.description ? (
+        <div className="reading-editor__instructions">
+          <button
+            type="button"
+            className="reading-editor__instructions-toggle"
+            aria-expanded={instructionsOpen}
+            onClick={() => setInstructionsOpen(o => !o)}
+          >
+            <span className={`reading-editor__instructions-chevron ${instructionsOpen ? 'reading-editor__instructions-chevron--open' : ''}`} aria-hidden="true">▸</span>
+            Spread instructions
+          </button>
+          {instructionsOpen && (
+            <div className="reading-editor__instructions-body">
+              <RichTextViewer content={ensureHtml(spread.description)} />
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {value.spread_id && (
         <label className="reading-editor__any-deck">

@@ -120,3 +120,25 @@
 .pos-legend__item--drag-over {
   box-shadow: 0 -2px 0 0 var(--accent);
 }
+
+/* Inline editing (editor mode) */
+.pos-legend__cell--editable {
+  cursor: text;
+  border-bottom: 1px dashed transparent;
+}
+
+.pos-legend__cell--editable:hover {
+  border-bottom-color: rgb(var(--tj-accent-rgb) / 45%);
+}
+
+.pos-legend__edit {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 8px;
+  font-size: var(--tj-size-ui);
+  border-radius: var(--tj-radius-row);
+}
+
+.pos-legend__edit--key {
+  flex: 0 0 52px;
+}

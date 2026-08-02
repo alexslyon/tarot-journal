@@ -44,7 +44,7 @@ class EntriesMixin:
     def update_spread(self, spread_id: int, name: str = None, positions: list = None,
                       description: str = None, allowed_deck_types: list = None,
                       default_deck_id: int = None, clear_default_deck: bool = False,
-                      deck_slots: list = None):
+                      deck_slots: list = None, archived: bool = None):
         cursor = self.conn.cursor()
         if name:
             cursor.execute('UPDATE spreads SET name = ? WHERE id = ?', (name, spread_id))
@@ -61,6 +61,9 @@ class EntriesMixin:
         if deck_slots is not None:
             cursor.execute('UPDATE spreads SET deck_slots = ? WHERE id = ?',
                           (json.dumps(deck_slots) if deck_slots else None, spread_id))
+        if archived is not None:
+            cursor.execute('UPDATE spreads SET archived = ? WHERE id = ?',
+                          (1 if archived else 0, spread_id))
         self._commit()
 
     def delete_spread(self, spread_id: int):

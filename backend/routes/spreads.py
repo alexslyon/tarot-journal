@@ -81,6 +81,7 @@ def update_spread(spread_id, data):
         default_deck_id=data.get('default_deck_id'),
         clear_default_deck=data.get('clear_default_deck', False),
         deck_slots=data.get('deck_slots'),
+        archived=data.get('archived'),
     )
     return jsonify({'ok': True})
 
