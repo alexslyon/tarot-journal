@@ -22,7 +22,7 @@ import Modal, { ModalCancelButton } from '../common/Modal';
 import { useToast } from '../../context/ToastContext';
 import { getSourceFields, getSourceEntries } from '../../api/referenceSources';
 import { getArchetypes, type Archetype } from '../../api/correspondences';
-import { getDecks, getDeckCustomFields } from '../../api/decks';
+import { getDecks, getDeckCustomFields, getDeckFieldCoverage, type DeckFieldCoverage } from '../../api/decks';
 import { getCards } from '../../api/cards';
 import { extractSourceText, applyScribeWrites, type ScribeWrite } from '../../api/scribe';
 import { llmChat, getLlmConfig, type LlmMessage, type LlmMessagePart } from '../../api/llm';
@@ -198,16 +198,29 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     queryFn: () => getDeckCustomFields(deckId as number),
     enabled: open && deckId !== '',
   });
+  // Deck-mode coverage: how many cards already have content per
+  // field, mirroring the archetype-side "(n of N filled)" hints.
+  const { data: deckCoverage } = useQuery<DeckFieldCoverage>({
+    queryKey: ['deck-field-coverage', deckId],
+    queryFn: () => getDeckFieldCoverage(deckId as number),
+    enabled: open && deckId !== '',
+  });
+  const cardFieldFilled = (fieldName: string): number => {
+    if (!deckCoverage) return 0;
+    const k = fieldName.trim().toLowerCase();
+    for (const [name, n] of Object.entries(deckCoverage.fields)) {
+      if (name.trim().toLowerCase() === k) return n;
+    }
+    return 0;
+  };
+  const cardFieldsWithGaps = deckFieldDefs.filter(f =>
+    cardFieldFilled(f.field_name) < (deckCoverage?.card_count ?? 0));
 
   // Default: all source fields selected
   useEffect(() => {
     setSelectedFieldIds(fields.map(f => f.id));
   }, [fields]);
 
-  // Deck mode: preselect the deck's existing field definitions
-  useEffect(() => {
-    if (deck) setSelectedCardFields(deckFieldDefs.map(f => f.field_name));
-  }, [deck, deckFieldDefs]);
 
   // Reset everything when the modal opens fresh
   useEffect(() => {
@@ -225,6 +238,15 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     setSelectedCardFields([]);
     setCardFieldsText('');
   }, [open, source?.id, deck?.id, availableTypes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Deck mode: preselect the deck's existing field definitions.
+  // Defined AFTER the reset effect (effects run in order) and keyed
+  // on `open`, so opening the modal can't clear the preselection —
+  // with cached defs the array identity never changes, so this
+  // wouldn't re-fire on its own.
+  useEffect(() => {
+    if (open && deck) setSelectedCardFields(deckFieldDefs.map(f => f.field_name));
+  }, [open, deck, deckFieldDefs]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -799,19 +821,37 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
             )}
             {deckId !== '' && (
               <>
-                {deckFieldDefs.map(f => (
-                  <label key={f.id} className="scribe__check">
-                    <input
-                      type="checkbox"
-                      checked={selectedCardFields.some(n => n.toLowerCase() === f.field_name.toLowerCase())}
-                      onChange={e => setSelectedCardFields(prev =>
-                        e.target.checked
-                          ? [...prev, f.field_name]
-                          : prev.filter(n => n.toLowerCase() !== f.field_name.toLowerCase()))}
-                    />
-                    {f.field_name}
-                  </label>
-                ))}
+                {deckFieldDefs.map(f => {
+                  const filled = cardFieldFilled(f.field_name);
+                  const total = deckCoverage?.card_count ?? 0;
+                  return (
+                    <label key={f.id} className="scribe__check">
+                      <input
+                        type="checkbox"
+                        checked={selectedCardFields.some(n => n.toLowerCase() === f.field_name.toLowerCase())}
+                        onChange={e => setSelectedCardFields(prev =>
+                          e.target.checked
+                            ? [...prev, f.field_name]
+                            : prev.filter(n => n.toLowerCase() !== f.field_name.toLowerCase()))}
+                      />
+                      {f.field_name}
+                      <span className={`scribe__coverage ${filled >= total && total > 0 ? 'scribe__coverage--full' : ''}`}>
+                        {total > 0
+                          ? filled === 0 ? '(empty)' : `(${filled} of ${total} filled)`
+                          : ''}
+                      </span>
+                    </label>
+                  );
+                })}
+                {deckFieldDefs.length > 1 && cardFieldsWithGaps.length > 0
+                  && cardFieldsWithGaps.length < deckFieldDefs.length && (
+                  <button
+                    className="scribe__gaps-btn"
+                    onClick={() => setSelectedCardFields(cardFieldsWithGaps.map(f => f.field_name))}
+                  >
+                    Select only fields with gaps ({cardFieldsWithGaps.length})
+                  </button>
+                )}
                 <input
                   type="text"
                   placeholder={deckFieldDefs.length

@@ -312,6 +312,24 @@ class DecksMixin:
         ''')
         return {row['deck_id']: row['card_count'] for row in cursor.fetchall()}
 
+    def get_deck_field_coverage(self, deck_id: int) -> dict:
+        """How many of a deck's cards have content for each custom
+        field name — drives the Scribe's "(n of N filled)" hints."""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM cards WHERE deck_id = ?', (deck_id,))
+        card_count = cursor.fetchone()[0]
+        cursor.execute('''
+            SELECT ccf.field_name, COUNT(DISTINCT ccf.card_id) AS filled
+            FROM card_custom_fields ccf
+            JOIN cards c ON c.id = ccf.card_id
+            WHERE c.deck_id = ?
+              AND ccf.field_value IS NOT NULL
+              AND TRIM(ccf.field_value) != ''
+            GROUP BY LOWER(ccf.field_name)
+        ''', (deck_id,))
+        fields = {row['field_name']: row['filled'] for row in cursor.fetchall()}
+        return {'card_count': card_count, 'fields': fields}
+
     def get_types_for_decks(self) -> dict:
         """Get all cartomancy types for all decks in a single query.
 

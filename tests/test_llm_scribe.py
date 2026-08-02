@@ -414,3 +414,24 @@ def test_deck_image_health(client, tmp_path):
     assert health['with_images'] == 2
     assert health['missing_count'] == 1
     assert health['missing_dir'] == str(tmp_path / 'lost')
+
+
+def test_deck_field_coverage(client):
+    """Field coverage counts cards with non-empty content per field."""
+    deck = client.post('/api/decks', json={'name': 'Coverage Deck', 'type_ids': [1]}).get_json()
+    card_ids = []
+    for name in ['One', 'Two', 'Three']:
+        r = client.post('/api/cards', json={'deck_id': deck['id'], 'name': name})
+        card_ids.append(r.get_json()['id'])
+    # Keywords on two cards; Book Meaning on one; empty content ignored
+    client.post('/api/scribe/apply', json={'writes': [
+        {'target': 'card', 'card_id': card_ids[0], 'field_name': 'Keywords', 'content': 'sun'},
+        {'target': 'card', 'card_id': card_ids[1], 'field_name': 'keywords', 'content': 'moon'},
+        {'target': 'card', 'card_id': card_ids[2], 'field_name': 'Keywords', 'content': '   '},
+        {'target': 'card', 'card_id': card_ids[0], 'field_name': 'Book Meaning', 'content': 'text'},
+    ]})
+    cov = client.get(f"/api/decks/{deck['id']}/field-coverage").get_json()
+    assert cov['card_count'] == 3
+    filled = {k.lower(): v for k, v in cov['fields'].items()}
+    assert filled['keywords'] == 2
+    assert filled['book meaning'] == 1

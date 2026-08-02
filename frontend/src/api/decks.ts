@@ -42,6 +42,17 @@ export async function getDeckImageHealth(deckId: number): Promise<DeckImageHealt
   return res.data;
 }
 
+export interface DeckFieldCoverage {
+  card_count: number;
+  /** field name → number of cards with non-empty content */
+  fields: Record<string, number>;
+}
+
+export async function getDeckFieldCoverage(deckId: number): Promise<DeckFieldCoverage> {
+  const res = await api.get(`/api/decks/${deckId}/field-coverage`);
+  return res.data;
+}
+
 export async function getDeckTagAssignments(deckId: number): Promise<import('../types').Tag[]> {
   const res = await api.get(`/api/decks/${deckId}/tags`);
   return res.data;

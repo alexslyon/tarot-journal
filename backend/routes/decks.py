@@ -134,6 +134,13 @@ def deck_image_health(deck_id):
     })
 
 
+@decks_bp.route('/api/decks/<int:deck_id>/field-coverage')
+def deck_field_coverage(deck_id):
+    """Per-field fill counts for the deck's card custom fields."""
+    db = current_app.config['DB']
+    return jsonify(db.get_deck_field_coverage(deck_id))
+
+
 @decks_bp.route('/api/decks/<int:deck_id>/types')
 def get_deck_types(deck_id):
     db = current_app.config['DB']
