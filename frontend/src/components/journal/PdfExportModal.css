@@ -145,3 +145,12 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.pdf-export-modal__suit-view {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 4px 24px;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+}

@@ -16,6 +16,9 @@ export interface PdfExportOptions {
   archetype_fields?: number[];
   /** Reserved for phase 4. */
   include_chart?: boolean;
+  /** Suit row display in the breakdown: each tradition's names, or
+   *  Latin/French equivalents merged ("Cups / Hearts"). */
+  suit_view?: 'separate' | 'paired';
 }
 
 export interface ArchetypeFieldOption {

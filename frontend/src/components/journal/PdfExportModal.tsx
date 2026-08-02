@@ -10,6 +10,7 @@ import Modal, { ModalCancelButton } from '../common/Modal';
 import { useEntryBreakdown } from '../../utils/readingBreakdown';
 import { CORRESPONDENCE_FIELD_LABELS } from '../../types';
 import type { JournalEntryFull, BreakdownSettings } from '../../types';
+import { loadSuitViewMode, type SuitViewMode } from '../../utils/suitPairing';
 import './PdfExportModal.css';
 
 interface Props {
@@ -78,6 +79,9 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
 
   // Correspondence breakdown state (phase 2).
   const [includeCorrespondences, setIncludeCorrespondences] = useState(false);
+  // Defaults to the app-wide suit display preference (Insights /
+  // Reading Breakdown share it via localStorage).
+  const [suitView, setSuitView] = useState<SuitViewMode>(loadSuitViewMode);
   const [enabledFields, setEnabledFields] = useState<Set<string>>(new Set());
 
   // Phase 3 state.
@@ -232,6 +236,7 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
       await exportEntryPdf(entry.id, {
         readings: [...selectedReadings],
         include_correspondences: includeCorrespondences && hasFilterableBreakdown,
+        suit_view: suitView,
         correspondence_types:
           includeCorrespondences && hasFilterableBreakdown
             ? [...enabledFields]
@@ -320,6 +325,18 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
                   ? 'Loading card correspondences…'
                   : 'No correspondences resolved for this entry — nothing to break down.'}
               </p>
+            )}
+            {includeCorrespondences && hasFilterableBreakdown && enabledFields.has('suit') && (
+              <label className="pdf-export-modal__suit-view">
+                Suit display
+                <select
+                  value={suitView}
+                  onChange={e => setSuitView(e.target.value as SuitViewMode)}
+                >
+                  <option value="separate">Separate (Cups, Hearts, …)</option>
+                  <option value="paired">Paired (Cups / Hearts, …)</option>
+                </select>
+              </label>
             )}
             {includeCorrespondences && hasFilterableBreakdown && (
               <ul className="pdf-export-modal__list pdf-export-modal__list--nested">

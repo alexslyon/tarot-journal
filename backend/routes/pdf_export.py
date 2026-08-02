@@ -571,6 +571,24 @@ def _card_categories(card: dict) -> tuple[str | None, str | None]:
     return card.get('rank') or None, card.get('suit') or None
 
 
+# Latin/French suit equivalents — mirror of frontend utils/suitPairing.ts.
+_SUIT_PAIRS = {
+    'Cups / Hearts': ['cups', 'hearts', 'copas', 'coupes', 'chalices', 'cœurs', 'coeurs'],
+    'Swords / Spades': ['swords', 'spades', 'espadas', 'épées', 'epees', 'piques'],
+    'Pentacles / Diamonds': ['pentacles', 'diamonds', 'oros', 'coins', 'disks', 'discs', 'deniers', 'carreaux'],
+    'Wands / Clubs': ['wands', 'clubs', 'bastos', 'batons', 'bâtons', 'staves', 'trèfles', 'trefles'],
+}
+_SUIT_PAIR_LOOKUP = {
+    name: label for label, names in _SUIT_PAIRS.items() for name in names
+}
+
+
+def _paired_suit_label(suit: str) -> str:
+    """The merged Latin/French label for a suit, or the suit itself
+    when unpaired (Major Arcana, oracle groupings…)."""
+    return _SUIT_PAIR_LOOKUP.get(suit.strip().lower(), suit)
+
+
 def _tally_to_columns(tally: dict) -> list:
     """Sort the (value → count) tally by count desc then alphabetical
     tiebreak, matching the in-app Reading Breakdown ordering."""
@@ -585,6 +603,7 @@ def _build_breakdown_tab(
     cards: list[dict],
     correspondences_by_id: dict,
     enabled_fields: set,
+    pair_suits: bool = False,
 ) -> dict:
     """Build a single tab (one reading or the aggregate) given the
     cards and the resolved correspondences keyed by card_id.
@@ -601,7 +620,8 @@ def _build_breakdown_tab(
     for c in cards:
         rank, suit = _card_categories(c)
         if suit and 'suit' in enabled_fields:
-            suit_tally[suit] = suit_tally.get(suit, 0) + 1
+            key = _paired_suit_label(suit) if pair_suits else suit
+            suit_tally[key] = suit_tally.get(key, 0) + 1
         if rank and 'rank' in enabled_fields:
             rank_tally[rank] = rank_tally.get(rank, 0) + 1
 
@@ -638,7 +658,8 @@ def _build_breakdown_tab(
     return {'label': label, 'card_count': len(cards), 'rows': rows}
 
 
-def _build_correspondence_breakdown(db, entry: dict, enabled_fields: set) -> list:
+def _build_correspondence_breakdown(db, entry: dict, enabled_fields: set,
+                                    pair_suits: bool = False) -> list:
     """Returns a list of tab dicts: one per reading + an aggregate
     when there are multiple readings. Each tab has a label,
     card_count, and rows (each row = {key, label, columns}).
@@ -673,6 +694,7 @@ def _build_correspondence_breakdown(db, entry: dict, enabled_fields: set) -> lis
             cards,
             corr_by_id,
             enabled_fields,
+            pair_suits=pair_suits,
         ))
 
     if len(tabs) > 1:
@@ -683,6 +705,7 @@ def _build_correspondence_breakdown(db, entry: dict, enabled_fields: set) -> lis
         ]
         tabs.append(_build_breakdown_tab(
             'All Readings', all_cards, corr_by_id, enabled_fields,
+            pair_suits=pair_suits,
         ))
     # Strip tabs that ended up with no rows (all fields the user
     # selected happened to have zero data for that reading).
@@ -855,7 +878,10 @@ def export_pdf(entry_id):
             enabled = set(CORRESPONDENCE_FIELDS) | {'suit', 'rank'}
         else:
             enabled = {str(k) for k in requested}
-        breakdown_tabs = _build_correspondence_breakdown(db, entry, enabled)
+        breakdown_tabs = _build_correspondence_breakdown(
+            db, entry, enabled,
+            pair_suits=body.get('suit_view') == 'paired',
+        )
 
     # Card detail section (phase 3). Independent toggles for custom
     # fields and archetype reference info, each with its own
