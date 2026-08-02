@@ -540,3 +540,8 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+.deck-edit__delete-confirm-input {
+  width: 100%;
+  margin-bottom: 10px;
+}

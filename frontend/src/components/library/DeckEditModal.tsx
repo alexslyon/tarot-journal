@@ -207,6 +207,9 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // Typed confirmation: deleting a whole deck requires typing its
+  // name, so a stray click can never wipe one out.
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [showAnkiExport, setShowAnkiExport] = useState(false);
   const [showScribe, setShowScribe] = useState(false);
@@ -1004,16 +1007,33 @@ export default function DeckEditModal({ deckId, onClose, onSaved, onDeleted }: D
               </p>
               <p className="deck-edit__delete-warning-detail">
                 This will permanently delete the deck, all its cards, custom fields, and tags.
-                This action cannot be undone.
+                This action cannot be undone. Type the deck's name to confirm.
               </p>
+              <input
+                type="text"
+                className="deck-edit__delete-confirm-input"
+                placeholder={name || 'Deck name'}
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                autoFocus
+              />
               <div className="deck-edit__delete-confirm-actions">
-                <button onClick={() => setConfirmingDelete(false)} disabled={deleting}>
+                <button
+                  onClick={() => {
+                    setConfirmingDelete(false);
+                    setDeleteConfirmText('');
+                  }}
+                  disabled={deleting}
+                >
                   Cancel
                 </button>
                 <button
                   className="deck-edit__delete-btn"
                   onClick={handleDelete}
-                  disabled={deleting}
+                  disabled={
+                    deleting
+                    || deleteConfirmText.trim().toLowerCase() !== (name || '').trim().toLowerCase()
+                  }
                 >
                   {deleting ? 'Deleting...' : 'Yes, delete permanently'}
                 </button>
