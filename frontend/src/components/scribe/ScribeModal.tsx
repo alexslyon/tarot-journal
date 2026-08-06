@@ -24,7 +24,7 @@ import { getSourceFields, getSourceEntries } from '../../api/referenceSources';
 import { getArchetypes, type Archetype } from '../../api/correspondences';
 import { getDecks, getDeckCustomFields, getDeckFieldCoverage, type DeckFieldCoverage } from '../../api/decks';
 import { getCards } from '../../api/cards';
-import { extractSourceText, applyScribeWrites, type ScribeWrite } from '../../api/scribe';
+import { extractSourceText, convertSourceImage, applyScribeWrites, type ScribeWrite } from '../../api/scribe';
 import { llmChat, getLlmConfig, type LlmMessage, type LlmMessagePart } from '../../api/llm';
 import type { ReferenceSource, SourceField, Card, Deck, DeckCustomField } from '../../types';
 import './ScribeModal.css';
@@ -312,8 +312,23 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     setExtracting(true);
     for (const file of Array.from(files)) {
       try {
-        if (file.type.startsWith('image/')) {
-          const { data, mediaType } = await readImageDownscaled(file);
+        // HEIC/HEIF (iPhone photos) sometimes arrive with no MIME
+        // type at all — catch them by extension so they take the
+        // image path rather than the ebook-text one.
+        const isImage = file.type.startsWith('image/')
+          || /\.(heic|heif)$/i.test(file.name);
+        if (isImage) {
+          let data: string, mediaType: string;
+          try {
+            // Fast path: decode in the browser (JPEG, PNG, WebP…).
+            ({ data, mediaType } = await readImageDownscaled(file));
+          } catch {
+            // Chromium can't decode this format (HEIC, mainly) —
+            // the backend converts it via Pillow or macOS sips.
+            const converted = await convertSourceImage(file);
+            data = converted.data;
+            mediaType = converted.media_type;
+          }
           setMaterials(prev => [...prev, {
             id: materialIdCounter++, filename: file.name, kind: 'image',
             data, mediaType,
@@ -896,7 +911,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
               <input
                 type="file"
                 multiple
-                accept=".epub,.pdf,.mobi,.azw,.azw3,.txt,.md,.html,.htm,image/*"
+                accept=".epub,.pdf,.mobi,.azw,.azw3,.txt,.md,.html,.htm,.heic,.heif,image/*"
                 onChange={e => { handleAddFiles(e.target.files); e.target.value = ''; }}
                 disabled={extracting}
                 hidden

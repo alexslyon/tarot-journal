@@ -1,14 +1,23 @@
 """
 Scribe routes — importing external sources into reference data.
 
-Two halves:
-  - POST /api/scribe/extract-text  — turn an uploaded ebook/text file
-    into plain text (images are handled entirely in the frontend)
-  - POST /api/scribe/apply         — write reviewed proposals in one
+Three halves:
+  - POST /api/scribe/extract-text   — turn an uploaded ebook/text file
+    into plain text (browser-readable images are handled entirely in
+    the frontend)
+  - POST /api/scribe/convert-image  — decode formats the browser can't
+    (HEIC from iPhones, mainly) into downscaled JPEG
+  - POST /api/scribe/apply          — write reviewed proposals in one
     batch: archetype source entries and/or card custom fields
 """
 
 from __future__ import annotations
+
+import base64
+import io
+import os
+import subprocess
+import tempfile
 
 from flask import Blueprint, current_app, jsonify, request
 
@@ -36,6 +45,75 @@ def extract_text():
         'text': result['text'],
         'char_count': len(result['text']),
         'warning': result['warning'],
+    })
+
+
+# Matches IMAGE_MAX_EDGE in the frontend's ScribeModal.
+_IMAGE_MAX_EDGE = 2000
+
+
+@scribe_bp.route('/api/scribe/convert-image', methods=['POST'])
+def convert_image():
+    """Decode an image the browser couldn't (HEIC etc.) to JPEG.
+
+    Tries Pillow first; if Pillow doesn't know the format, falls back
+    to macOS's built-in `sips` converter, which handles HEIC natively.
+    Returns the image downscaled to the Scribe's max edge as base64
+    JPEG, ready to attach to the conversation.
+    """
+    from PIL import Image, ImageOps
+
+    file = request.files.get('file')
+    if not file or not file.filename:
+        return jsonify({'error': 'file is required'}), 400
+    raw = file.read()
+    if len(raw) > MAX_UPLOAD_BYTES:
+        return jsonify({'error': 'file too large'}), 413
+
+    img = None
+    try:
+        img = Image.open(io.BytesIO(raw))
+        img.load()
+    except Exception:
+        img = None
+
+    if img is None:
+        # Pillow can't read it — hand it to sips (macOS ships HEIC
+        # support there). Round-trip through temp files.
+        suffix = os.path.splitext(file.filename)[1] or '.img'
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                src = os.path.join(tmp, 'in' + suffix)
+                dst = os.path.join(tmp, 'out.jpg')
+                with open(src, 'wb') as f:
+                    f.write(raw)
+                subprocess.run(
+                    ['sips', '-s', 'format', 'jpeg', src, '--out', dst],
+                    check=True, capture_output=True, timeout=60,
+                )
+                img = Image.open(dst)
+                img.load()
+        except Exception:
+            return jsonify({
+                'error': f"Couldn't decode {file.filename} — not a readable image format.",
+            }), 422
+
+    img = ImageOps.exif_transpose(img)
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+    longest = max(img.size)
+    if longest > _IMAGE_MAX_EDGE:
+        scale = _IMAGE_MAX_EDGE / longest
+        img = img.resize(
+            (round(img.width * scale), round(img.height * scale)),
+            Image.LANCZOS,
+        )
+    out = io.BytesIO()
+    img.save(out, format='JPEG', quality=85)
+    return jsonify({
+        'data': base64.b64encode(out.getvalue()).decode('ascii'),
+        'media_type': 'image/jpeg',
+        'filename': file.filename,
     })
 
 

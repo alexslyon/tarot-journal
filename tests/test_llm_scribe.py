@@ -435,3 +435,34 @@ def test_deck_field_coverage(client):
     filled = {k.lower(): v for k, v in cov['fields'].items()}
     assert filled['keywords'] == 2
     assert filled['book meaning'] == 1
+
+
+def test_convert_image_heic(client, tmp_path):
+    """HEIC uploads come back as downscaled base64 JPEG (via sips)."""
+    import base64
+    import io as _io
+    import shutil
+    import subprocess
+    import pytest
+    from PIL import Image
+    if not shutil.which('sips'):
+        pytest.skip('sips not available (macOS-only)')
+    png = tmp_path / 'src.png'
+    Image.new('RGB', (2400, 1200), (120, 40, 200)).save(png)
+    heic = tmp_path / 'photo.heic'
+    subprocess.run(['sips', '-s', 'format', 'heic', str(png), '--out', str(heic)],
+                   check=True, capture_output=True)
+    r = client.post('/api/scribe/convert-image',
+                    data={'file': (open(heic, 'rb'), 'photo.heic')},
+                    content_type='multipart/form-data')
+    assert r.status_code == 200, r.get_json()
+    body = r.get_json()
+    assert body['media_type'] == 'image/jpeg'
+    img = Image.open(_io.BytesIO(base64.b64decode(body['data'])))
+    assert img.format == 'JPEG'
+    assert max(img.size) == 2000  # downscaled from 2400
+
+    r = client.post('/api/scribe/convert-image',
+                    data={'file': (_io.BytesIO(b'not an image'), 'junk.heic')},
+                    content_type='multipart/form-data')
+    assert r.status_code == 422
