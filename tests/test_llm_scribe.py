@@ -520,3 +520,21 @@ def test_per_feature_providers_and_deepseek(client):
     assert r.status_code == 502
     assert "can't read images" in r.get_json()['error']
 
+
+
+def test_backup_saves_server_side(client, tmp_path):
+    """POST /api/backup writes the zip to disk and returns its path —
+    no multi-GB blob ever travels to the frontend."""
+    import os
+    import zipfile as _zip
+    r = client.post('/api/backup', json={'dest_dir': str(tmp_path)})
+    assert r.status_code == 200, r.get_json()
+    body = r.get_json()
+    assert body['path'].startswith(str(tmp_path))
+    assert body['path'].endswith('.zip')
+    assert os.path.getsize(body['path']) == body['bytes'] > 0
+    names = _zip.ZipFile(body['path']).namelist()
+    assert any(n.endswith('.db') or n.endswith('.json') for n in names)
+    # Bookkeeping: the status endpoint now knows about this backup.
+    status = client.get('/api/backup/status').get_json()
+    assert status['last_backup_time'] is not None

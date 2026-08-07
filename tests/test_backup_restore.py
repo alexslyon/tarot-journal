@@ -96,16 +96,21 @@ def test_restore_survives_concurrent_readers(db, tmp_path):
 
 
 def test_backup_endpoint_leaves_no_temp_files(client, tmp_path):
-    """The /api/backup route must clean up its temp zip after the
-    download completes (regression test for the temp-file leak)."""
+    """The /api/backup route writes straight to the destination folder
+    and must leave nothing behind in the system temp dir (regression
+    test for the old streaming flow's temp-zip leak)."""
     import glob
     import os
     import tempfile
 
     before = set(glob.glob(os.path.join(tempfile.gettempdir(), "tarot_backup_*")))
-    resp = client.post("/api/backup", json={"include_images": False})
+    resp = client.post("/api/backup", json={
+        "include_images": False,
+        "dest_dir": str(tmp_path),
+    })
     assert resp.status_code == 200
-    assert len(resp.data) > 1000
-    resp.close()
+    body = resp.get_json()
+    assert os.path.dirname(body["path"]) == str(tmp_path)
+    assert body["bytes"] > 1000
     after = set(glob.glob(os.path.join(tempfile.gettempdir(), "tarot_backup_*")))
     assert after - before == set()

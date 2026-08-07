@@ -48,24 +48,18 @@ export default function BackupSection() {
   // external backups), so nudge when that copy is aging.
   const imagesBackupStale = status ? daysSince(status.last_backup_with_images_time) > 30 : false;
 
-  const showMsg = (text: string, type: 'success' | 'error') => {
+  const showMsg = (text: string, type: 'success' | 'error', ms = 4000) => {
     setMessage({ text, type });
-    setTimeout(() => setMessage(null), 4000);
+    setTimeout(() => setMessage(null), ms);
   };
 
   const handleBackup = async () => {
     setBackingUp(true);
     try {
-      const blob = await createBackup(includeImages);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `tarot_backup_${new Date().toISOString().slice(0, 10)}.zip`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const { path } = await createBackup(includeImages);
       queryClient.invalidateQueries({ queryKey: ['settings-defaults'] });
       queryClient.invalidateQueries({ queryKey: ['backup-status'] });
-      showMsg('Backup created successfully', 'success');
+      showMsg(`Backup saved to ${path}`, 'success', 10000);
     } catch (err) {
       console.error('Backup failed:', err);
       const detail = err instanceof Error ? err.message : String(err);

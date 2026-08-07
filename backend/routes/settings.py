@@ -4,7 +4,7 @@ Settings endpoints: theme, defaults, backup/restore, cache management.
 
 import os
 import tempfile
-from flask import Blueprint, jsonify, request, current_app, send_file
+from flask import Blueprint, jsonify, request, current_app
 from theme_config import get_theme, PRESET_THEMES
 
 settings_bp = Blueprint('settings', __name__)
@@ -141,34 +141,28 @@ def backup_status():
 
 @settings_bp.route('/api/backup', methods=['POST'])
 def create_backup():
+    """Write a backup zip directly to the user's Downloads folder and
+    return its path. The bytes never travel over HTTP: a with-images
+    backup can be several GB, and routing that through the renderer as
+    a Blob (the old flow) ran the window out of memory and crashed it.
+    """
+    from datetime import datetime
+
     db = current_app.config['DB']
     data = request.get_json() or {}
     include_images = data.get('include_images', False)
 
-    # Create backup in temp directory
-    suffix = '_with_images.zip' if include_images else '.zip'
-    fd, filepath = tempfile.mkstemp(prefix='tarot_backup_', suffix=suffix)
-    os.close(fd)
+    # Destination: Downloads (a dest_dir override exists for tests).
+    dest_dir = data.get('dest_dir') or os.path.join(os.path.expanduser('~'), 'Downloads')
+    if not os.path.isdir(dest_dir):
+        dest_dir = os.path.expanduser('~')
+    stamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+    suffix = '_with_images' if include_images else ''
+    filepath = os.path.join(dest_dir, f'tarot_backup_{stamp}{suffix}.zip')
 
     try:
         db.create_full_backup(filepath, include_images=include_images)
-
-        # Serve the zip from an already-deleted file: open a handle,
-        # unlink the path, and stream from the handle. The OS keeps
-        # the data alive until the handle closes, then reclaims the
-        # space automatically — even if the app crashes mid-download.
-        # (Response.call_on_close does NOT work here: werkzeug skips
-        # close callbacks for direct_passthrough file responses, which
-        # is how the old code leaked one temp zip — potentially many
-        # GB with images — per backup.)
-        fh = open(filepath, 'rb')
-        os.remove(filepath)
-        return send_file(
-            fh,
-            as_attachment=True,
-            download_name=os.path.basename(filepath),
-            mimetype='application/zip',
-        )
+        return jsonify({'path': filepath, 'bytes': os.path.getsize(filepath)})
     except Exception as e:
         if os.path.exists(filepath):
             os.remove(filepath)

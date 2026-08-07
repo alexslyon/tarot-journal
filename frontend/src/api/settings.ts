@@ -74,9 +74,13 @@ export async function getBackupStatus(): Promise<BackupStatus> {
   return res.data;
 }
 
-export async function createBackup(includeImages: boolean): Promise<Blob> {
+/** The backend writes the zip straight to ~/Downloads and returns its
+ *  path — the bytes never pass through the app window (a with-images
+ *  backup is several GB; buffering it as a Blob crashed the window).
+ *  Long timeout: zipping ten thousand images takes a while. */
+export async function createBackup(includeImages: boolean): Promise<{ path: string; bytes: number }> {
   const res = await api.post('/api/backup', { include_images: includeImages }, {
-    responseType: 'blob',
+    timeout: 1_800_000,
   });
   return res.data;
 }
