@@ -294,3 +294,20 @@
 .reference-sources__field-row--drag-over {
   box-shadow: 0 -2px 0 0 var(--accent);
 }
+
+/* Freshly added source: brief glow so the alphabetical landing spot
+   is unmissable after the add form collapses. */
+.reference-sources__row--flash {
+  animation: ref-source-flash 2.4s ease-out;
+}
+
+@keyframes ref-source-flash {
+  0%, 45% {
+    background-color: var(--tj-tint-strong);
+    box-shadow: inset 0 0 0 1px rgb(var(--tj-accent-rgb) / 45%);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}

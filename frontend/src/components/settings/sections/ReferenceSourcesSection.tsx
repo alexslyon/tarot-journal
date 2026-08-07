@@ -72,18 +72,25 @@ export default function ReferenceSourcesSection() {
     }
     const authors = newAuthors.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
     try {
-      await createReferenceSource({ name, cartomancy_types: newTypes, authors });
+      const { id } = await createReferenceSource({ name, cartomancy_types: newTypes, authors });
       setNewName('');
       setNewAuthors('');
       setNewTypes(['Tarot']);
       setAdding(false);
       invalidateAll();
+      // The list is alphabetical, so the new row usually lands far
+      // from the add form at the bottom — scroll to it and flash it,
+      // expanded and ready for field setup, so it's unmissable.
+      setExpandedId(id);
+      setJustAddedId(id);
+      window.setTimeout(() => setJustAddedId(null), 2500);
     } catch {
       showToast('Could not add source (name may already exist).');
     }
   };
 
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [justAddedId, setJustAddedId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ReferenceSource | null>(null);
   const [scribeTarget, setScribeTarget] = useState<ReferenceSource | null>(null);
 
@@ -108,6 +115,7 @@ export default function ReferenceSourcesSection() {
             <SourceRow
               key={s.id}
               source={s}
+              highlight={justAddedId === s.id}
               expanded={expandedId === s.id}
               onToggle={() =>
                 setExpandedId(prev => (prev === s.id ? null : s.id))
@@ -215,6 +223,7 @@ export default function ReferenceSourcesSection() {
 function SourceRow({
   source,
   expanded,
+  highlight = false,
   onToggle,
   onDeleteRequest,
   onScribeRequest,
@@ -222,13 +231,23 @@ function SourceRow({
 }: {
   source: ReferenceSource;
   expanded: boolean;
+  /** Freshly added: scroll into view and flash, so the alphabetical
+   *  landing spot (often far from the add form) is unmissable. */
+  highlight?: boolean;
   onToggle: () => void;
   onDeleteRequest: () => void;
   onScribeRequest: () => void;
   onChanged: () => void;
 }) {
+  const rowRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (highlight) rowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [highlight]);
   return (
-    <li className="reference-sources__row">
+    <li
+      ref={rowRef}
+      className={`reference-sources__row ${highlight ? 'reference-sources__row--flash' : ''}`}
+    >
       <div className="reference-sources__row-head">
         <button
           type="button"
