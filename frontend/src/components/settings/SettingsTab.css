@@ -471,7 +471,8 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  max-width: 460px;
+  /* Wide enough for label + provider select + model + Test per row */
+  max-width: 720px;
 }
 
 .settings-tab__ai-form input[type="text"],
@@ -505,4 +506,30 @@
 
 .settings-tab__feature-model input {
   flex: 1;
+}
+
+/* AI settings: default-assistant row and per-role rows share the
+   provider-select + model-input + test-button layout. */
+.settings-tab__ai-role-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-tab__ai-role-row select,
+.settings-tab__feature-model select {
+  flex: 0 0 190px;
+}
+
+.settings-tab__feature-model input {
+  min-width: 120px;
+}
+
+.settings-tab__ai-role-row input {
+  flex: 1;
+}
+
+/* Keeps rows without a Remove button aligned with rows that have one */
+.settings-tab__key-spacer {
+  flex: 0 0 68px;
 }

@@ -12,23 +12,38 @@ import '../SettingsTab.css';
 const PROVIDER_LABELS: { id: LlmProvider; label: string }[] = [
   { id: 'anthropic', label: 'Anthropic (Claude)' },
   { id: 'openai', label: 'OpenAI (ChatGPT)' },
+  { id: 'deepseek', label: 'DeepSeek' },
   { id: 'openai-compatible', label: 'Local / other (OpenAI-compatible)' },
 ];
 
 const MODEL_PLACEHOLDERS: Record<LlmProvider, string> = {
   anthropic: 'claude-opus-5',
   openai: 'gpt-4o',
+  deepseek: 'deepseek-chat',
   'openai-compatible': 'e.g. llama3, qwen2.5, mistral…',
 };
 
+const KEY_PROVIDERS: { id: LlmProvider; label: string; optional?: boolean }[] = [
+  { id: 'anthropic', label: 'Anthropic' },
+  { id: 'openai', label: 'OpenAI' },
+  { id: 'deepseek', label: 'DeepSeek' },
+  { id: 'openai-compatible', label: 'Local / other', optional: true },
+];
+
 const FEATURE_LABELS: { id: LlmFeature; label: string; hint: string }[] = [
-  { id: 'scribe', label: 'Scribe (book imports)', hint: 'transcription-heavy — a capable model pays off' },
+  { id: 'scribe', label: 'Scribe (book imports)', hint: 'transcription-heavy — a capable model pays off; photo imports need Claude or ChatGPT (DeepSeek is text-only)' },
   { id: 'mirror', label: 'Mirror (reflections)', hint: 'short questions — a fast, cheap model is plenty' },
   { id: 'analyst', label: 'Analyst (journal patterns)', hint: 'reads many entries per question' },
 ];
 
 const EMPTY_FEATURE_MODELS: Record<LlmFeature, string> = {
   scribe: '', mirror: '', analyst: '',
+};
+const EMPTY_FEATURE_PROVIDERS: Record<LlmFeature, LlmProvider | ''> = {
+  scribe: '', mirror: '', analyst: '',
+};
+const EMPTY_KEY_INPUTS: Record<LlmProvider, string> = {
+  anthropic: '', openai: '', deepseek: '', 'openai-compatible': '',
 };
 
 export default function AiSection() {
@@ -41,21 +56,23 @@ export default function AiSection() {
   const [provider, setProvider] = useState<LlmProvider>('anthropic');
   const [model, setModel] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
-  const [apiKey, setApiKey] = useState('');
+  const [keyInputs, setKeyInputs] = useState<Record<LlmProvider, string>>(EMPTY_KEY_INPUTS);
   const [featureModels, setFeatureModels] = useState<Record<LlmFeature, string>>(EMPTY_FEATURE_MODELS);
+  const [featureProviders, setFeatureProviders] = useState<Record<LlmFeature, LlmProvider | ''>>(EMPTY_FEATURE_PROVIDERS);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
+  const [testing, setTesting] = useState<'default' | LlmFeature | null>(null);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  // Load stored config into the form (the key itself never arrives —
-  // the field stays blank and only updates the key when typed into).
+  // Load stored config into the form (keys themselves never arrive —
+  // the fields stay blank and only update a key when typed into).
   useEffect(() => {
     if (!config || dirty) return;
     setProvider(config.provider);
     setModel(config.model);
     setBaseUrl(config.base_url);
     setFeatureModels({ ...EMPTY_FEATURE_MODELS, ...(config.feature_models || {}) });
+    setFeatureProviders({ ...EMPTY_FEATURE_PROVIDERS, ...(config.feature_providers || {}) });
   }, [config, dirty]);
 
   const showMsg = (text: string, type: 'success' | 'error') => {
@@ -75,14 +92,18 @@ export default function AiSection() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const typedKeys = Object.fromEntries(
+        Object.entries(keyInputs).filter(([, v]) => v.trim() !== ''),
+      );
       await updateLlmConfig({
         provider,
         model,
         base_url: baseUrl,
         feature_models: featureModels,
-        ...(apiKey ? { api_key: apiKey } : {}),
+        feature_providers: featureProviders,
+        ...(Object.keys(typedKeys).length ? { api_keys: typedKeys } : {}),
       });
-      setApiKey('');
+      setKeyInputs(EMPTY_KEY_INPUTS);
       setDirty(false);
       queryClient.invalidateQueries({ queryKey: ['llm-config'] });
       showMsg('AI settings saved.', 'success');
@@ -93,9 +114,9 @@ export default function AiSection() {
     }
   };
 
-  const handleClearKey = async () => {
+  const handleClearKey = async (p: LlmProvider) => {
     try {
-      await updateLlmConfig({ api_key: '' });
+      await updateLlmConfig({ api_keys: { [p]: '' } });
       queryClient.invalidateQueries({ queryKey: ['llm-config'] });
       showMsg('API key removed.', 'success');
     } catch {
@@ -103,20 +124,21 @@ export default function AiSection() {
     }
   };
 
-  const handleTest = async () => {
-    setTesting(true);
+  const handleTest = async (target: 'default' | LlmFeature) => {
+    setTesting(target);
     setMessage(null);
-    const result = await testLlmConnection();
-    setTesting(false);
+    const result = await testLlmConnection(target === 'default' ? undefined : target);
+    setTesting(null);
     if (result.ok) {
-      showMsg(`Connected — ${result.model} replied: "${result.reply}"`, 'success');
+      const where = target === 'default' ? '' : ` for the ${target}`;
+      showMsg(`Connected${where} — ${result.model} replied: "${result.reply}"`, 'success');
     } else {
       showMsg(result.error || 'Connection test failed.', 'error');
     }
   };
 
-  const needsBaseUrl = provider === 'openai-compatible';
-  const needsKey = provider !== 'openai-compatible';
+  const needsBaseUrl = provider === 'openai-compatible'
+    || Object.values(featureProviders).includes('openai-compatible');
 
   return (
     <div className="settings-tab__scroll">
@@ -137,20 +159,31 @@ export default function AiSection() {
       <section className="settings-tab__section">
         <div className="settings-tab__ai-form">
         <div className="settings-tab__field">
-          <label className="settings-tab__label">Provider</label>
-          <select
-            value={provider}
-            onChange={(e) => handleProviderChange(e.target.value as LlmProvider)}
-          >
-            {PROVIDER_LABELS.map(p => (
-              <option key={p.id} value={p.id}>{p.label}</option>
-            ))}
-          </select>
+          <label className="settings-tab__label">Default assistant</label>
+          <div className="settings-tab__ai-role-row">
+            <select
+              value={provider}
+              onChange={(e) => handleProviderChange(e.target.value as LlmProvider)}
+            >
+              {PROVIDER_LABELS.map(p => (
+                <option key={p.id} value={p.id}>{p.label}</option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={model}
+              placeholder={MODEL_PLACEHOLDERS[provider]}
+              onChange={(e) => { setModel(e.target.value); markDirty(); }}
+            />
+            <button onClick={() => handleTest('default')} disabled={testing !== null || dirty}>
+              {testing === 'default' ? 'Testing…' : 'Test'}
+            </button>
+          </div>
         </div>
 
         {needsBaseUrl && (
           <div className="settings-tab__field">
-            <label className="settings-tab__label">Server URL</label>
+            <label className="settings-tab__label">Server URL (local / other)</label>
             <input
               type="text"
               value={baseUrl}
@@ -165,66 +198,96 @@ export default function AiSection() {
         )}
 
         <div className="settings-tab__field">
-          <label className="settings-tab__label">Model</label>
-          <input
-            type="text"
-            value={model}
-            placeholder={MODEL_PLACEHOLDERS[provider]}
-            onChange={(e) => { setModel(e.target.value); markDirty(); }}
-          />
+          <label className="settings-tab__label">Per-role assistants (optional)</label>
+          <p className="settings-tab__hint">
+            Each role can use its own provider and model — e.g. DeepSeek
+            for the Mirror, Claude for the Scribe. Leave on "Default
+            assistant" to use the one above; leave the model blank for
+            that provider's standard model.
+          </p>
+          {FEATURE_LABELS.map(f => {
+            const fp = featureProviders[f.id];
+            const effectiveProvider = fp || provider;
+            return (
+              <div key={f.id} className="settings-tab__feature-model">
+                <span className="settings-tab__feature-model-label" title={f.hint}>{f.label}</span>
+                <select
+                  value={fp}
+                  onChange={e => {
+                    const v = e.target.value as LlmProvider | '';
+                    setFeatureProviders(prev => ({ ...prev, [f.id]: v }));
+                    // Provider switch invalidates the old model name.
+                    setFeatureModels(prev => ({ ...prev, [f.id]: '' }));
+                    markDirty();
+                  }}
+                >
+                  <option value="">Default assistant</option>
+                  {PROVIDER_LABELS.map(p => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={featureModels[f.id]}
+                  placeholder={fp
+                    ? MODEL_PLACEHOLDERS[fp] || 'model name'
+                    : model || MODEL_PLACEHOLDERS[effectiveProvider]}
+                  title={f.hint}
+                  onChange={e => {
+                    setFeatureModels(prev => ({ ...prev, [f.id]: e.target.value }));
+                    markDirty();
+                  }}
+                />
+                <button onClick={() => handleTest(f.id)} disabled={testing !== null || dirty}>
+                  {testing === f.id ? 'Testing…' : 'Test'}
+                </button>
+              </div>
+            );
+          })}
         </div>
 
         <div className="settings-tab__field">
-          <label className="settings-tab__label">Per-feature models (optional)</label>
+          <label className="settings-tab__label">API keys</label>
           <p className="settings-tab__hint">
-            Leave blank to use the model above. Set one to give a feature
-            its own model — e.g. a cheaper, faster model for the Mirror.
+            One key per provider — only the providers you use need one.
+            Keys are stored locally on this computer and only ever sent
+            to their own provider.
           </p>
-          {FEATURE_LABELS.map(f => (
-            <div key={f.id} className="settings-tab__feature-model">
-              <span className="settings-tab__feature-model-label">{f.label}</span>
-              <input
-                type="text"
-                value={featureModels[f.id]}
-                placeholder={model || MODEL_PLACEHOLDERS[provider]}
-                title={f.hint}
-                onChange={e => {
-                  setFeatureModels(prev => ({ ...prev, [f.id]: e.target.value }));
-                  markDirty();
-                }}
-              />
-            </div>
-          ))}
-        </div>
-
-        <div className="settings-tab__field">
-          <label className="settings-tab__label">
-            API key
-            {config?.has_api_key && !apiKey && (
-              <span className="settings-tab__hint"> (saved: {config.api_key_hint})</span>
-            )}
-          </label>
-          <input
-            type="password"
-            value={apiKey}
-            placeholder={config?.has_api_key ? 'Leave blank to keep the saved key' : needsKey ? 'Paste your API key' : 'Usually not needed for local servers'}
-            onChange={(e) => { setApiKey(e.target.value); markDirty(); }}
-            autoComplete="off"
-          />
-          <p className="settings-tab__hint">
-            Stored locally on this computer, only ever sent to the provider above.
-            {config?.has_api_key && (
-              <> {' '}<button className="settings-tab__link-btn" onClick={handleClearKey}>Remove saved key</button></>
-            )}
-          </p>
+          {KEY_PROVIDERS.map(kp => {
+            const status = config?.api_keys?.[kp.id];
+            return (
+              <div key={kp.id} className="settings-tab__feature-model">
+                <span className="settings-tab__feature-model-label">
+                  {kp.label}
+                  {status?.has_key && !keyInputs[kp.id] && (
+                    <span className="settings-tab__hint"> (saved: {status.hint})</span>
+                  )}
+                </span>
+                <input
+                  type="password"
+                  value={keyInputs[kp.id]}
+                  placeholder={status?.has_key
+                    ? 'Leave blank to keep the saved key'
+                    : kp.optional ? 'Usually not needed for local servers' : 'Paste your API key'}
+                  onChange={(e) => {
+                    setKeyInputs(prev => ({ ...prev, [kp.id]: e.target.value }));
+                    markDirty();
+                  }}
+                  autoComplete="off"
+                />
+                {status?.has_key ? (
+                  <button onClick={() => handleClearKey(kp.id)} title={`Remove the saved ${kp.label} key`}>
+                    Remove
+                  </button>
+                ) : <span className="settings-tab__key-spacer" />}
+              </div>
+            );
+          })}
         </div>
 
         <div className="settings-tab__ai-actions">
           <button className="primary" onClick={handleSave} disabled={saving || !dirty}>
             {saving ? 'Saving…' : 'Save'}
-          </button>
-          <button onClick={handleTest} disabled={testing || dirty}>
-            {testing ? 'Testing…' : 'Test connection'}
           </button>
           {dirty && (
             <span className="settings-tab__hint">Save before testing.</span>

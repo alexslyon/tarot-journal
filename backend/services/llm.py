@@ -1,11 +1,14 @@
 """
 Multi-provider LLM access layer.
 
-The app talks to exactly one configured "assistant" at a time, chosen in
-Settings → AI. Three provider styles are supported:
+Each assistant feature (Scribe / Mirror / Analyst) can talk to its own
+provider, or fall back to the default assistant chosen in Settings → AI.
+Four provider styles are supported:
 
   - "anthropic"          → Claude, via the official anthropic SDK
   - "openai"             → ChatGPT, via api.openai.com
+  - "deepseek"           → DeepSeek, via api.deepseek.com (OpenAI wire
+                           format; text-only — no image understanding)
   - "openai-compatible"  → anything speaking the OpenAI chat format at a
                            custom URL (Ollama, LM Studio, llama.cpp, etc.)
 
@@ -16,9 +19,12 @@ Scribe / chat features don't care which provider is active:
   part     = {"type": "text", "text": "..."}
            | {"type": "image", "media_type": "image/png", "data": "<b64>"}
 
-Configuration lives in the settings table (llm_provider, llm_api_key,
-llm_base_url, llm_model). The API key is stored in the local database —
-fine for a personal desktop app, but worth knowing.
+Configuration lives in the settings table: llm_provider + llm_model for
+the default assistant, llm_provider_<feature> / llm_model_<feature> for
+per-feature overrides, and one API key per provider
+(llm_api_key_<provider>; the pre-multi-provider llm_api_key is still
+read as the default provider's key). Keys are stored in the local
+database — fine for a personal desktop app, but worth knowing.
 """
 
 from __future__ import annotations
@@ -37,12 +43,15 @@ DEFAULT_MAX_TOKENS = 8192
 DEFAULT_MODELS = {
     'anthropic': 'claude-opus-5',
     'openai': 'gpt-4o',
+    'deepseek': 'deepseek-chat',
     'openai-compatible': '',
 }
 
-PROVIDERS = ('anthropic', 'openai', 'openai-compatible')
+PROVIDERS = ('anthropic', 'openai', 'deepseek', 'openai-compatible')
 
-# Features that may override the default model (Settings → AI).
+DEEPSEEK_BASE_URL = 'https://api.deepseek.com/v1'
+
+# Features that may override the default provider/model (Settings → AI).
 FEATURES = ('scribe', 'mirror', 'analyst')
 
 
@@ -52,25 +61,59 @@ class LLMError(Exception):
 
 # ── Configuration ────────────────────────────────────────────────────
 
+def get_api_key(db, provider: str) -> str:
+    """The stored key for a provider. The pre-multi-provider single key
+    (llm_api_key) still counts, but only for the default provider — it
+    was entered for that one, and must never leak to another service."""
+    key = db.get_setting(f'llm_api_key_{provider}') or ''
+    if not key:
+        default_provider = db.get_setting('llm_provider') or 'anthropic'
+        if provider == default_provider:
+            key = db.get_setting('llm_api_key') or ''
+    return key
+
+
 def get_config(db, feature: str | None = None) -> dict:
-    """The active LLM configuration. When `feature` names one of
-    FEATURES and that feature has a model override set, `model` is the
-    override; otherwise it's the default model."""
-    provider = db.get_setting('llm_provider') or 'anthropic'
-    if provider not in PROVIDERS:
-        provider = 'anthropic'
-    model = db.get_setting('llm_model') or DEFAULT_MODELS.get(provider, '')
+    """The LLM configuration resolved for `feature` (or the default
+    assistant when feature is None / has no overrides).
+
+    Resolution: a feature with its own provider uses that provider and
+    its own model (or the provider's default model — the global model
+    name belongs to the default provider). A feature with only a model
+    override keeps the default provider. The API key always follows the
+    resolved provider."""
+    default_provider = db.get_setting('llm_provider') or 'anthropic'
+    if default_provider not in PROVIDERS:
+        default_provider = 'anthropic'
+    default_model = db.get_setting('llm_model') or DEFAULT_MODELS.get(default_provider, '')
+
     feature_models = {
         f: db.get_setting(f'llm_model_{f}') or '' for f in FEATURES
     }
-    if feature in FEATURES and feature_models[feature]:
-        model = feature_models[feature]
+    feature_providers = {}
+    for f in FEATURES:
+        p = db.get_setting(f'llm_provider_{f}') or ''
+        feature_providers[f] = p if p in PROVIDERS else ''
+
+    provider = default_provider
+    model = default_model
+    if feature in FEATURES:
+        if feature_providers[feature]:
+            provider = feature_providers[feature]
+            if provider == default_provider:
+                model = feature_models[feature] or default_model
+            else:
+                model = feature_models[feature] or DEFAULT_MODELS.get(provider, '')
+        elif feature_models[feature]:
+            model = feature_models[feature]
+
     return {
         'provider': provider,
-        'api_key': db.get_setting('llm_api_key') or '',
+        'api_key': get_api_key(db, provider),
         'base_url': db.get_setting('llm_base_url') or '',
         'model': model,
         'feature_models': feature_models,
+        'feature_providers': feature_providers,
     }
 
 
@@ -81,7 +124,20 @@ def save_config(db, data: dict) -> None:
             raise LLMError(f"Unknown provider: {provider}")
         db.set_setting('llm_provider', provider)
     if 'api_key' in data:
-        db.set_setting('llm_api_key', data['api_key'] or '')
+        # Legacy single-key write: store it as the (possibly just
+        # updated) default provider's key.
+        provider = db.get_setting('llm_provider') or 'anthropic'
+        db.set_setting(f'llm_api_key_{provider}', data['api_key'] or '')
+        db.set_setting('llm_api_key', '')
+    if 'api_keys' in data:
+        for provider, key in (data['api_keys'] or {}).items():
+            if provider not in PROVIDERS:
+                raise LLMError(f"Unknown provider: {provider}")
+            db.set_setting(f'llm_api_key_{provider}', key or '')
+            # A per-provider write supersedes the legacy single key for
+            # that provider; clear it so an emptied key stays empty.
+            if provider == (db.get_setting('llm_provider') or 'anthropic'):
+                db.set_setting('llm_api_key', '')
     if 'base_url' in data:
         db.set_setting('llm_base_url', (data['base_url'] or '').rstrip('/'))
     if 'model' in data:
@@ -91,6 +147,14 @@ def save_config(db, data: dict) -> None:
         for f in FEATURES:
             if f in overrides:
                 db.set_setting(f'llm_model_{f}', (overrides[f] or '').strip())
+    if 'feature_providers' in data:
+        overrides = data['feature_providers'] or {}
+        for f in FEATURES:
+            if f in overrides:
+                p = (overrides[f] or '').strip()
+                if p and p not in PROVIDERS:
+                    raise LLMError(f"Unknown provider: {p}")
+                db.set_setting(f'llm_provider_{f}', p)
 
 
 # ── The one call everything uses ─────────────────────────────────────
@@ -232,6 +296,17 @@ def _chat_openai_style(config, model, messages, system, max_tokens) -> str:
         base_url = 'https://api.openai.com/v1'
         if not config.get('api_key'):
             raise LLMError("No API key set. Add your OpenAI key in Settings → AI.")
+    elif provider == 'deepseek':
+        base_url = DEEPSEEK_BASE_URL
+        if not config.get('api_key'):
+            raise LLMError("No API key set. Add your DeepSeek key in Settings → AI.")
+        if any(p.get('type') == 'image'
+               for m in messages if isinstance(m.get('content'), list)
+               for p in m['content']):
+            raise LLMError(
+                "DeepSeek models can't read images. Use Claude or ChatGPT "
+                "for photo imports, or configure one of those for the Scribe."
+            )
     else:
         base_url = (config.get('base_url') or '').rstrip('/')
         if not base_url:

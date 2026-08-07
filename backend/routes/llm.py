@@ -20,6 +20,13 @@ def get_llm_config():
     db = current_app.config['DB']
     config = llm.get_config(db)
     key = config['api_key']
+    api_keys = {}
+    for provider in llm.PROVIDERS:
+        pkey = llm.get_api_key(db, provider)
+        api_keys[provider] = {
+            'has_key': bool(pkey),
+            'hint': f"…{pkey[-4:]}" if len(pkey) >= 8 else '',
+        }
     return jsonify({
         'provider': config['provider'],
         'model': config['model'],
@@ -27,6 +34,8 @@ def get_llm_config():
         'has_api_key': bool(key),
         'api_key_hint': f"…{key[-4:]}" if len(key) >= 8 else '',
         'feature_models': config['feature_models'],
+        'feature_providers': config['feature_providers'],
+        'api_keys': api_keys,
     })
 
 
@@ -43,14 +52,22 @@ def update_llm_config():
 
 @llm_bp.route('/api/llm/test', methods=['POST'])
 def test_llm():
-    """Round-trip a trivial prompt to verify the configuration works."""
+    """Round-trip a trivial prompt to verify the configuration works.
+    Body may carry {"feature": "scribe"|"mirror"|"analyst"} to test
+    that feature's resolved provider/model instead of the default."""
     db = current_app.config['DB']
-    config = llm.get_config(db)
+    data = request.get_json(silent=True) or {}
+    config = llm.get_config(db, feature=data.get('feature'))
     try:
         reply = llm.test_connection(config)
     except llm.LLMError as e:
         return jsonify({'ok': False, 'error': str(e)}), 502
-    return jsonify({'ok': True, 'model': config['model'], 'reply': reply.strip()[:200]})
+    return jsonify({
+        'ok': True,
+        'provider': config['provider'],
+        'model': config['model'],
+        'reply': reply.strip()[:200],
+    })
 
 
 @llm_bp.route('/api/llm/chat', methods=['POST'])

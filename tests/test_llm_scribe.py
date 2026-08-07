@@ -466,3 +466,57 @@ def test_convert_image_heic(client, tmp_path):
                     data={'file': (_io.BytesIO(b'not an image'), 'junk.heic')},
                     content_type='multipart/form-data')
     assert r.status_code == 422
+
+
+def test_per_feature_providers_and_deepseek(client):
+    """Each role can use its own provider; keys stay per-provider."""
+    # Default: Anthropic with its key. Mirror: DeepSeek with its own.
+    client.put('/api/llm/config', json={
+        'provider': 'anthropic',
+        'model': 'claude-opus-5',
+        'api_keys': {'anthropic': 'sk-ant-aaaa1111', 'deepseek': 'sk-ds-bbbb2222'},
+        'feature_providers': {'mirror': 'deepseek'},
+        'feature_models': {'mirror': ''},
+    })
+    cfg = client.get('/api/llm/config').get_json()
+    assert cfg['provider'] == 'anthropic'
+    assert cfg['feature_providers']['mirror'] == 'deepseek'
+    assert cfg['api_keys']['anthropic']['has_key'] is True
+    assert cfg['api_keys']['anthropic']['hint'] == '…1111'
+    assert cfg['api_keys']['deepseek']['hint'] == '…2222'
+    assert cfg['api_keys']['openai']['has_key'] is False
+    assert 'sk-ds-bbbb2222' not in str(cfg)
+
+    # The mirror resolves to DeepSeek's default model + DeepSeek's key,
+    # and the wire call goes to api.deepseek.com with that key.
+    captured = {}
+    class FakeResp:
+        status_code = 200
+        def json(self):
+            return {'choices': [{'message': {'content': 'hi'}, 'finish_reason': 'stop'}]}
+    def fake_post(url, headers=None, json=None, timeout=None):
+        captured['url'] = url
+        captured['auth'] = headers.get('Authorization')
+        captured['model'] = json['model']
+        return FakeResp()
+    with patch('backend.services.llm.requests.post', side_effect=fake_post):
+        r = client.post('/api/llm/chat', json={
+            'feature': 'mirror',
+            'messages': [{'role': 'user', 'content': 'hello'}],
+        })
+    assert r.status_code == 200
+    assert captured['url'] == 'https://api.deepseek.com/v1/chat/completions'
+    assert captured['auth'] == 'Bearer sk-ds-bbbb2222'
+    assert captured['model'] == 'deepseek-chat'
+
+    # Image content is refused up front for DeepSeek (no vision).
+    client.put('/api/llm/config', json={'feature_providers': {'scribe': 'deepseek'}})
+    r = client.post('/api/llm/chat', json={
+        'feature': 'scribe',
+        'messages': [{'role': 'user', 'content': [
+            {'type': 'image', 'media_type': 'image/png', 'data': 'AAAA'},
+        ]}],
+    })
+    assert r.status_code == 502
+    assert "can't read images" in r.get_json()['error']
+

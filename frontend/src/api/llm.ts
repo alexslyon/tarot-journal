@@ -2,7 +2,7 @@ import api from './client';
 
 // ── AI assistant (multi-provider LLM) ────────────────────────
 
-export type LlmProvider = 'anthropic' | 'openai' | 'openai-compatible';
+export type LlmProvider = 'anthropic' | 'openai' | 'deepseek' | 'openai-compatible';
 
 export type LlmFeature = 'scribe' | 'mirror' | 'analyst';
 
@@ -14,6 +14,10 @@ export interface LlmConfig {
   api_key_hint: string;
   /** Per-feature model overrides; '' means "use the default model". */
   feature_models: Record<LlmFeature, string>;
+  /** Per-feature provider overrides; '' means "use the default assistant". */
+  feature_providers: Record<LlmFeature, LlmProvider | ''>;
+  /** Key status per provider (the keys themselves never arrive). */
+  api_keys: Record<LlmProvider, { has_key: boolean; hint: string }>;
 }
 
 /** One message in the neutral chat shape the backend accepts. */
@@ -38,14 +42,19 @@ export async function updateLlmConfig(data: {
   model?: string;
   base_url?: string;
   api_key?: string;
+  /** Per-provider key writes; '' clears that provider's key. */
+  api_keys?: Partial<Record<LlmProvider, string>>;
   feature_models?: Partial<Record<LlmFeature, string>>;
+  feature_providers?: Partial<Record<LlmFeature, LlmProvider | ''>>;
 }): Promise<void> {
   await api.put('/api/llm/config', data);
 }
 
-export async function testLlmConnection(): Promise<{ ok: boolean; model?: string; reply?: string; error?: string }> {
+export async function testLlmConnection(feature?: LlmFeature): Promise<{
+  ok: boolean; provider?: string; model?: string; reply?: string; error?: string;
+}> {
   try {
-    const res = await api.post('/api/llm/test');
+    const res = await api.post('/api/llm/test', feature ? { feature } : {});
     return res.data;
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } } };
