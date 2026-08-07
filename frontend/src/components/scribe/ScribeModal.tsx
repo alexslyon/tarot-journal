@@ -335,11 +335,26 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
           }]);
         } else {
           const result = await extractSourceText(file);
-          setMaterials(prev => [...prev, {
-            id: materialIdCounter++, filename: result.filename, kind: 'text',
-            text: result.text, charCount: result.char_count,
-            warning: result.warning,
-          }]);
+          if (result.images?.length) {
+            // Scanned PDF: the backend rendered its pages to images —
+            // add one material per page for the vision model to read.
+            setMaterials(prev => [...prev,
+              ...result.images.map((img, i) => ({
+                id: materialIdCounter++,
+                filename: `${result.filename} · p${i + 1}`,
+                kind: 'image' as const,
+                data: img.data,
+                mediaType: img.media_type,
+              })),
+            ]);
+            if (result.warning) showToast(result.warning, 'success');
+          } else {
+            setMaterials(prev => [...prev, {
+              id: materialIdCounter++, filename: result.filename, kind: 'text',
+              text: result.text, charCount: result.char_count,
+              warning: result.warning,
+            }]);
+          }
         }
       } catch (err: unknown) {
         const e = err as { response?: { data?: { error?: string } } };

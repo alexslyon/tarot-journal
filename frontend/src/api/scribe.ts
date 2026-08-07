@@ -7,6 +7,8 @@ export interface ExtractedText {
   text: string;
   char_count: number;
   warning: string | null;
+  /** Scanned PDFs come back as page images (base64 JPEG) instead of text. */
+  images: { data: string; media_type: string }[];
 }
 
 /** Extract plain text from an ebook / text file (EPUB, PDF, MOBI…).

@@ -45,6 +45,8 @@ def extract_text():
         'text': result['text'],
         'char_count': len(result['text']),
         'warning': result['warning'],
+        # Scanned PDFs come back as page images instead of text.
+        'images': result.get('images') or [],
     })
 
 

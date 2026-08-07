@@ -142,17 +142,97 @@ def _extract_pdf(data: bytes) -> dict:
         raise ExtractionError("This PDF couldn't be read — it may be corrupted or encrypted.")
     text = '\n\n'.join(p.strip() for p in pages if p.strip())
     if len(text) < 200:
-        # Nearly-empty text layer → almost certainly a scan
-        raise ExtractionError(
-            "This PDF has no text layer (it's likely scanned images). "
-            "Try photographing or screenshotting the pages and adding "
-            "them as images instead — vision models can read those."
+        # Nearly-empty text layer → almost certainly a scan. Render
+        # the pages to images so the vision model can read them —
+        # exactly what we used to ask the user to do by hand.
+        images = _rasterize_pdf(data, len(reader.pages))
+        page_word = 'page' if len(images) == 1 else 'pages'
+        warning = (
+            f"No text layer (scanned PDF) — converted {len(images)} "
+            f"{page_word} to images for the vision model to read."
         )
+        if len(reader.pages) > MAX_SCAN_PAGES:
+            warning += (
+                f" Only the first {MAX_SCAN_PAGES} of {len(reader.pages)} "
+                "pages were converted — split the PDF for the rest."
+            )
+        return {'text': '', 'images': images, 'warning': warning}
     warning = None
     if len(text) < 100 * len(pages):
         warning = ("This PDF's text layer looks sparse — some pages may be "
                    "scanned images the extraction can't read.")
     return {'text': text, 'warning': warning}
+
+
+# Cap on scanned pages rendered per PDF: keeps a pathological upload
+# from ballooning into gigabytes of page images in one response.
+MAX_SCAN_PAGES = 500
+
+# The Flask process inherits Electron's minimal PATH, which usually
+# lacks Homebrew's bin — check the usual install spots directly.
+_PDFTOPPM_CANDIDATES = (
+    'pdftoppm',
+    '/opt/homebrew/bin/pdftoppm',
+    '/usr/local/bin/pdftoppm',
+)
+
+
+def _find_pdftoppm() -> str | None:
+    import shutil
+    for candidate in _PDFTOPPM_CANDIDATES:
+        found = shutil.which(candidate)
+        if found:
+            return found
+    return None
+
+
+def _rasterize_pdf(data: bytes, page_count: int) -> list:
+    """Render a scanned PDF's pages to JPEGs via poppler's pdftoppm.
+    Returns [{'data': <b64>, 'media_type': 'image/jpeg'}, ...] in page
+    order. Raises ExtractionError (with the manual-workaround advice)
+    when pdftoppm isn't installed or fails."""
+    import base64
+    import glob
+    import subprocess
+    import tempfile
+
+    manual_advice = (
+        "This PDF has no text layer (it's likely scanned images). "
+        "Try photographing or screenshotting the pages and adding "
+        "them as images instead — vision models can read those."
+    )
+    pdftoppm = _find_pdftoppm()
+    if not pdftoppm:
+        raise ExtractionError(manual_advice)
+
+    last_page = min(page_count, MAX_SCAN_PAGES)
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            src = os.path.join(tmp, 'in.pdf')
+            with open(src, 'wb') as f:
+                f.write(data)
+            # 150 dpi puts a letter page at ~1275×1650 px — plenty for
+            # reading text, well under the Scribe's image size cap.
+            subprocess.run(
+                [pdftoppm, '-jpeg', '-r', '150', '-jpegopt', 'quality=80',
+                 '-f', '1', '-l', str(last_page), src,
+                 os.path.join(tmp, 'page')],
+                check=True, capture_output=True, timeout=600,
+            )
+            images = []
+            for path in sorted(glob.glob(os.path.join(tmp, 'page-*.jpg'))):
+                with open(path, 'rb') as f:
+                    images.append({
+                        'data': base64.b64encode(f.read()).decode('ascii'),
+                        'media_type': 'image/jpeg',
+                    })
+    except ExtractionError:
+        raise
+    except Exception:
+        raise ExtractionError(manual_advice)
+    if not images:
+        raise ExtractionError(manual_advice)
+    return images
 
 
 # ── MOBI / AZW ───────────────────────────────────────────────────────

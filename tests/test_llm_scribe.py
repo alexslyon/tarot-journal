@@ -538,3 +538,31 @@ def test_backup_saves_server_side(client, tmp_path):
     # Bookkeeping: the status endpoint now knows about this backup.
     status = client.get('/api/backup/status').get_json()
     assert status['last_backup_time'] is not None
+
+
+def test_scanned_pdf_becomes_page_images(client, tmp_path):
+    """A PDF with no text layer is rasterized to page images."""
+    import base64
+    import shutil
+    import pytest
+    from PIL import Image
+    from backend.services.source_text import _find_pdftoppm
+    if not _find_pdftoppm():
+        pytest.skip('pdftoppm not installed')
+    pdf = tmp_path / 'scan.pdf'
+    page1 = Image.new('RGB', (850, 1100), (250, 248, 240))
+    page2 = Image.new('RGB', (850, 1100), (240, 240, 250))
+    page1.save(pdf, save_all=True, append_images=[page2])
+    r = client.post('/api/scribe/extract-text',
+                    data={'file': (open(pdf, 'rb'), 'scan.pdf')},
+                    content_type='multipart/form-data')
+    assert r.status_code == 200, r.get_json()
+    body = r.get_json()
+    assert body['text'] == ''
+    assert len(body['images']) == 2
+    assert body['images'][0]['media_type'] == 'image/jpeg'
+    assert 'converted 2 pages' in body['warning']
+    # Pages decode to real JPEGs
+    import io as _io
+    img = Image.open(_io.BytesIO(base64.b64decode(body['images'][0]['data'])))
+    assert img.format == 'JPEG' and img.width > 500
