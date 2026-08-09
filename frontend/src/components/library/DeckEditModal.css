@@ -180,6 +180,11 @@
 
 .deck-edit__footer {
   display: flex;
+  /* The footer has grown to seven controls; without wrapping, the
+     leftmost links (Export JSON / Export for Anki) overflow past the
+     modal edge and vanish. */
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
   padding-top: 16px;
