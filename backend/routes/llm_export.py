@@ -73,7 +73,47 @@ def _correspondence_line(db, card: dict) -> str | None:
     return ' · '.join(parts) if parts else None
 
 
-def build_entry_markdown(db, entry: dict) -> str:
+def _reference_sections(entry: dict) -> list[str]:
+    """Reference material for the drawn cards — deck custom fields and
+    archetype source entries (already hydrated onto the cards). Cards
+    are deduped across readings; empty when nothing is authored."""
+    lines: list[str] = []
+    seen_ids: set[int] = set()
+    for rd in entry.get('readings') or []:
+        for c in rd.get('cards_used') or []:
+            cid = c.get('card_id')
+            if not cid or cid in seen_ids:
+                continue
+            seen_ids.add(cid)
+            card_lines: list[str] = []
+            for f in c.get('custom_fields') or []:
+                text = _html_to_text(f.get('field_value') or '')
+                if text:
+                    card_lines.append(f"- Deck field \"{f.get('field_name')}\": {text}")
+            for grp in c.get('archetype_entries') or []:
+                src = grp.get('source_name') or 'Unnamed source'
+                for f in grp.get('fields') or []:
+                    text = _html_to_text(f.get('content') or '')
+                    if text:
+                        card_lines.append(f"- {src} — \"{f.get('field_name')}\": {text}")
+            if card_lines:
+                lines.append(f"### {c.get('name') or 'Card'}")
+                lines.extend(card_lines)
+                lines.append('')
+    if not lines:
+        return []
+    return [
+        '## Reference material for the drawn cards',
+        '',
+        ('_From the user\'s own library (deck card fields and authored '
+         'source notes). Factual lookups only — not interpretations of '
+         'this reading._'),
+        '',
+        *lines,
+    ]
+
+
+def build_entry_markdown(db, entry: dict, include_reference: bool = False) -> str:
     lines: list[str] = []
     title = entry.get('title') or 'Untitled Entry'
     lines.append(f"# Journal Entry — {title}")
@@ -158,6 +198,9 @@ def build_entry_markdown(db, entry: dict) -> str:
             lines.extend(corr_lines)
             lines.append('')
 
+    if include_reference:
+        lines.extend(_reference_sections(entry))
+
     notes = _html_to_text(entry.get('content_html') or '')
     if notes:
         lines.append('## My Notes')
@@ -185,7 +228,9 @@ def llm_export(entry_id):
     entry = _hydrate_entry_for_pdf(db, entry_id)
     if not entry:
         return jsonify({'error': 'Entry not found'}), 404
-    return jsonify({'markdown': build_entry_markdown(db, entry)})
+    include_reference = request.args.get('include_reference') == '1'
+    return jsonify({'markdown': build_entry_markdown(
+        db, entry, include_reference=include_reference)})
 
 
 # ── Bulk export (the Analyst) ────────────────────────────────────────

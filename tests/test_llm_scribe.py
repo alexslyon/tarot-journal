@@ -566,3 +566,39 @@ def test_scanned_pdf_becomes_page_images(client, tmp_path):
     import io as _io
     img = Image.open(_io.BytesIO(base64.b64decode(body['images'][0]['data'])))
     assert img.format == 'JPEG' and img.width > 500
+
+
+def test_llm_export_include_reference(client):
+    """include_reference=1 appends deck fields + archetype notes."""
+    types = client.get('/api/types').get_json()
+    tname = types[0]['name']
+    deck = client.post('/api/decks', json={'name': 'Mirror Deck', 'type_ids': [types[0]['id']]}).get_json()
+    card = client.post('/api/cards', json={'deck_id': deck['id'], 'name': 'The Fool'}).get_json()
+    client.post('/api/scribe/apply', json={'writes': [
+        {'target': 'card', 'card_id': card['id'], 'field_name': 'Keywords',
+         'content': 'leaps of faith, yes-energy'},
+    ]})
+    src = client.post('/api/reference/sources',
+                      json={'name': 'Mirror Book', 'cartomancy_types': [tname]}).get_json()
+    field = client.post(f"/api/reference/sources/{src['id']}/fields",
+                        json={'name': 'Meaning', 'cartomancy_type': tname}).get_json()
+    archetypes = client.get(f'/api/archetypes?cartomancy_type={tname}').get_json()
+    arch = next((a for a in archetypes if a['name'] == 'The Fool'), archetypes[0])
+    client.post('/api/scribe/apply', json={'writes': [
+        {'target': 'archetype', 'archetype_id': arch['id'], 'field_id': field['id'],
+         'content': 'New beginnings and holy folly.'},
+    ]})
+
+    entry = client.post('/api/entries', json={'title': 'Mirror Test'}).get_json()
+    client.post(f"/api/entries/{entry['id']}/readings", json={
+        'deck_id': deck['id'], 'deck_name': 'Mirror Deck',
+        'cartomancy_type': tname,
+        'cards_used': [{'name': 'The Fool', 'card_id': card['id'], 'position_index': 0}],
+    })
+
+    plain = client.get(f"/api/entries/{entry['id']}/llm-export").get_json()['markdown']
+    assert 'yes-energy' not in plain
+    rich = client.get(f"/api/entries/{entry['id']}/llm-export?include_reference=1").get_json()['markdown']
+    assert 'Reference material for the drawn cards' in rich
+    assert 'Deck field "Keywords": leaps of faith, yes-energy' in rich
+    assert 'Mirror Book' in rich and 'holy folly' in rich

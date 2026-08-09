@@ -131,8 +131,15 @@ export async function replaceEntryReadings(entryId: number, readings: Array<{
 
 /** The entry rendered as LLM-ready markdown (the "Librarian" export)
  *  for pasting into any AI chat. */
-export async function getEntryLlmMarkdown(entryId: number): Promise<string> {
-  const res = await api.get(`/api/entries/${entryId}/llm-export`);
+export async function getEntryLlmMarkdown(
+  entryId: number,
+  /** Append the drawn cards' reference material (deck custom fields,
+   *  archetype source notes) — used by the Mirror for factual lookups. */
+  includeReference = false,
+): Promise<string> {
+  const res = await api.get(`/api/entries/${entryId}/llm-export`, {
+    params: includeReference ? { include_reference: '1' } : {},
+  });
   return res.data.markdown;
 }
 
