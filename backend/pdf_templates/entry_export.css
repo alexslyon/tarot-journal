@@ -777,3 +777,32 @@ html, body {
   color: #595d6c;
   margin-bottom: 1.5mm;
 }
+
+/* ── Spread instructions (optional per-reading block) ── */
+
+.spread-instructions {
+  margin-top: 4mm;
+  padding: 3mm 4mm;
+  background: #f3f5fe;
+  border-radius: 2mm;
+  break-inside: auto;
+}
+
+.spread-instructions__title {
+  margin: 0 0 1.5mm;
+  font-size: 8.5pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #75798c;
+}
+
+.spread-instructions__body {
+  font-size: 9.5pt;
+  line-height: 1.45;
+  color: #3f424d;
+}
+
+.spread-instructions__body p {
+  margin: 0 0 1.5mm;
+}

@@ -30,6 +30,7 @@ from flask import Blueprint, current_app, request, send_file, abort, jsonify
 
 from backend.utils import row_to_dict
 from backend.routes.entries import _enrich_cards_with_ids
+from backend.services.richtext import convert_content_to_html
 from database.correspondences import CORRESPONDENCE_FIELDS
 
 
@@ -285,6 +286,12 @@ def _hydrate_entry_for_pdf(db, entry_id: int, cache=None) -> dict | None:
                         except (TypeError, ValueError):
                             positions = []
                     sp['positions'] = positions or []
+                    # The spread's description/instructions as HTML
+                    # (older spreads stored plain text or TipTap XML).
+                    sp['description_html'] = (
+                        convert_content_to_html(sp.get('description'))
+                        if (sp.get('description') or '').strip() else ''
+                    )
                     spread_cache[sid] = sp
             spread = spread_cache.get(sid)
         rd['spread'] = spread
@@ -934,6 +941,7 @@ def export_pdf(entry_id):
         breakdown_tabs=breakdown_tabs,
         card_details=card_details,
         chart_block=chart_block,
+        include_spread_instructions=bool(body.get('include_spread_instructions')),
     )
 
     css_path = _TEMPLATE_DIR / 'entry_export.css'

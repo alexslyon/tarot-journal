@@ -16,6 +16,8 @@ export interface PdfExportOptions {
   archetype_fields?: number[];
   /** Reserved for phase 4. */
   include_chart?: boolean;
+  /** Render each reading's spread description under its layout. */
+  include_spread_instructions?: boolean;
   /** Suit row display in the breakdown: each tradition's names, or
    *  Latin/French equivalents merged ("Cups / Hearts"). */
   suit_view?: 'separate' | 'paired';

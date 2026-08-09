@@ -9,7 +9,8 @@ import { useToast } from '../../context/ToastContext';
 import Modal, { ModalCancelButton } from '../common/Modal';
 import { useEntryBreakdown } from '../../utils/readingBreakdown';
 import { CORRESPONDENCE_FIELD_LABELS } from '../../types';
-import type { JournalEntryFull, BreakdownSettings } from '../../types';
+import type { JournalEntryFull, BreakdownSettings, Spread } from '../../types';
+import { getSpreads } from '../../api/spreads';
 import { loadSuitViewMode, type SuitViewMode } from '../../utils/suitPairing';
 import './PdfExportModal.css';
 
@@ -95,6 +96,24 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
 
   // Phase 4 — astrological event chart.
   const [includeChart, setIncludeChart] = useState(false);
+
+  // Spread instructions under each reading's layout.
+  const [includeSpreadInstructions, setIncludeSpreadInstructions] = useState(false);
+  const { data: allSpreads = [] } = useQuery<Spread[]>({
+    queryKey: ['spreads'],
+    queryFn: getSpreads,
+    enabled: open,
+  });
+  // Only offer the toggle when a selected reading's spread actually
+  // has instructions to print.
+  const spreadInstructionsAvailable = useMemo(() => {
+    if (!entry) return false;
+    const spreadIds = new Set(
+      entry.readings.filter(r => r.spread_id != null).map(r => r.spread_id));
+    return allSpreads.some(s =>
+      spreadIds.has(s.id)
+      && (s.description || '').replace(/<[^>]*>/g, '').trim().length > 0);
+  }, [entry, allSpreads]);
 
   const breakdown = useEntryBreakdown(open ? entry : undefined);
   const presentFilterFields = breakdown.presentFilterFields;
@@ -253,6 +272,8 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
             ? [...enabledArchetypeFieldIds]
             : undefined,
         include_chart: includeChart && chartAvailable,
+        include_spread_instructions:
+          includeSpreadInstructions && spreadInstructionsAvailable,
       });
       showToast('PDF downloaded');
       onClose();
@@ -434,6 +455,24 @@ export default function PdfExportModal({ entry, open, onClose }: Props) {
                   </div>
                 ))}
               </div>
+            )}
+          </section>
+
+          <section className="pdf-export-modal__section">
+            <h3>Spread instructions</h3>
+            <label className="pdf-export-modal__master">
+              <input
+                type="checkbox"
+                checked={includeSpreadInstructions && spreadInstructionsAvailable}
+                onChange={e => setIncludeSpreadInstructions(e.target.checked)}
+                disabled={!spreadInstructionsAvailable}
+              />
+              <span>Include each spread's description &amp; instructions</span>
+            </label>
+            {!spreadInstructionsAvailable && (
+              <p className="pdf-export-modal__hint">
+                None of this entry's spreads have a description.
+              </p>
             )}
           </section>
 

@@ -230,6 +230,15 @@
           </tbody>
         </table>
       {% endif %}
+
+      {% if include_spread_instructions and reading.spread and reading.spread.description_html %}
+        <div class="spread-instructions">
+          <h3 class="spread-instructions__title">Spread instructions</h3>
+          <div class="spread-instructions__body rich-text">
+            {{ reading.spread.description_html|safe }}
+          </div>
+        </div>
+      {% endif %}
     </section>
   {% endfor %}
 
