@@ -11,6 +11,7 @@ import ArchetypeNotesSection from './sections/ArchetypeNotesSection';
 import ArchetypeLanguagesSection from './sections/ArchetypeLanguagesSection';
 import ReferenceSourcesSection from './sections/ReferenceSourcesSection';
 import AiSection from './sections/AiSection';
+import AiPromptsSection from './sections/AiPromptsSection';
 import './SettingsLayout.css';
 
 export type SettingsSectionId =
@@ -25,7 +26,8 @@ export type SettingsSectionId =
   | 'import-presets'
   | 'backup'
   | 'cache'
-  | 'ai';
+  | 'ai'
+  | 'ai-prompts';
 
 // Grouped so the sidebar reads as three ideas instead of a flat
 // 11-item list: app-level settings, the user's people/tags, and the
@@ -39,6 +41,7 @@ const SECTION_GROUPS: {
     sections: [
       { id: 'general', label: 'General' },
       { id: 'ai', label: 'AI Assistant' },
+      { id: 'ai-prompts', label: 'AI Prompts' },
       { id: 'backup', label: 'Backup & Restore' },
       { id: 'cache', label: 'Thumbnail Cache' },
     ],
@@ -134,6 +137,7 @@ export default function SettingsLayout({
         {activeSection === 'backup' && <BackupSection />}
         {activeSection === 'cache' && <CacheSection />}
         {activeSection === 'ai' && <AiSection />}
+        {activeSection === 'ai-prompts' && <AiPromptsSection />}
       </div>
     </div>
   );

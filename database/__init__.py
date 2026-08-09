@@ -19,6 +19,7 @@ from .combinations import CombinationsMixin
 from .archetype_languages import ArchetypeLanguagesMixin
 from .archetype_source_entries import ArchetypeSourceEntriesMixin
 from .charts import ChartsMixin
+from .prompt_presets import PromptPresetsMixin
 
 
 class Database(
@@ -37,6 +38,7 @@ class Database(
     ArchetypeLanguagesMixin,
     ArchetypeSourceEntriesMixin,
     ChartsMixin,
+    PromptPresetsMixin,
 ):
     """
     Main database class combining all functionality.

@@ -602,3 +602,39 @@ def test_llm_export_include_reference(client):
     assert 'Reference material for the drawn cards' in rich
     assert 'Deck field "Keywords": leaps of faith, yes-energy' in rich
     assert 'Mirror Book' in rich and 'holy folly' in rich
+
+
+def test_prompt_presets_crud(client):
+    """Preset CRUD + active switching per assistant."""
+    r = client.get('/api/prompts/mirror').get_json()
+    assert r == {'presets': [], 'active_id': None}
+
+    p1 = client.post('/api/prompts/mirror/presets',
+                     json={'name': 'Gentler', 'content': 'Be very gentle.'}).get_json()
+    client.post('/api/prompts/mirror/presets',
+                json={'name': 'Blunt', 'content': 'Be blunt.'})
+    r = client.get('/api/prompts/mirror').get_json()
+    assert [p['name'] for p in r['presets']] == ['Blunt', 'Gentler']
+    assert r['active_id'] is None
+
+    # Activate, edit, verify
+    assert client.put('/api/prompts/mirror/active',
+                      json={'preset_id': p1['id']}).status_code == 200
+    client.put(f"/api/prompts/presets/{p1['id']}", json={'content': 'Be gentle and slow.'})
+    r = client.get('/api/prompts/mirror').get_json()
+    assert r['active_id'] == p1['id']
+    active = next(p for p in r['presets'] if p['id'] == p1['id'])
+    assert active['content'] == 'Be gentle and slow.'
+
+    # Presets are per-assistant; wrong-feature activation rejected
+    assert client.get('/api/prompts/analyst').get_json()['presets'] == []
+    assert client.put('/api/prompts/analyst/active',
+                      json={'preset_id': p1['id']}).status_code == 404
+
+    # Deleting the active preset falls back to the default
+    client.delete(f"/api/prompts/presets/{p1['id']}")
+    r = client.get('/api/prompts/mirror').get_json()
+    assert r['active_id'] is None
+    assert [p['name'] for p in r['presets']] == ['Blunt']
+
+    assert client.get('/api/prompts/bogus').status_code == 404

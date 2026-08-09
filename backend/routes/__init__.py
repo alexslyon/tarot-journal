@@ -5,6 +5,7 @@ Register all route blueprints with the Flask app.
 
 def register_blueprints(app):
     from backend.routes.health import health_bp
+    from backend.routes.prompts import prompts_bp
     from backend.routes.types import types_bp
     from backend.routes.decks import decks_bp
     from backend.routes.cards import cards_bp
@@ -31,6 +32,7 @@ def register_blueprints(app):
     from backend.routes.geocode import geocode_bp
 
     app.register_blueprint(health_bp)
+    app.register_blueprint(prompts_bp)
     app.register_blueprint(types_bp)
     app.register_blueprint(decks_bp)
     app.register_blueprint(cards_bp)

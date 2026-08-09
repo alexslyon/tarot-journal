@@ -17,6 +17,7 @@ import Modal, { ModalCancelButton } from '../common/Modal';
 import ChatPanel, { type ChatDisplayMessage } from '../common/ChatPanel';
 import { getBulkLlmMarkdown } from '../../api/entries';
 import { llmChat, getLlmConfig, type LlmMessage } from '../../api/llm';
+import { useActivePrompt } from '../../utils/assistantPrompts';
 import './AnalystModal.css';
 
 interface AnalystModalProps {
@@ -29,16 +30,6 @@ interface AnalystModalProps {
 // Beyond this, a question re-reads too much text to be worth it —
 // the user should narrow the list filters instead.
 const MAX_BUNDLE_CHARS = 900_000;
-
-const ANALYST_SYSTEM = `You are the Analyst, a pattern-spotter inside a personal tarot/cartomancy journal. The user has given you an excerpt of their reading journal: several entries, oldest first, prefixed with statistics computed by the app.
-
-Hard rules:
-- You never interpret cards: no card meanings, no divination, no predictions, no advice framed as what the cards indicate. You describe what is in the journal.
-- Ground every claim in the provided entries. Cite entries by date and title when you refer to them. If the excerpt doesn't contain the answer, say so.
-- For counts and frequencies, use the app-computed statistics section — do not recount by hand. For anything the statistics don't cover, count carefully and say the count is approximate.
-- Themes must come from the user's own written notes and questions, quoted or closely paraphrased — not from card symbolism.
-
-Style: clear, concrete, plain language. Prefer short paragraphs; use a short list only when comparing several items. Mention specific dates and entry titles so the user can look things up.`;
 
 const KICKOFF =
   'Here is the journal excerpt. Start with a brief overview (under 200 words) of what stands out: ' +
@@ -57,6 +48,7 @@ export default function AnalystModal({ entryIds, open, onClose }: AnalystModalPr
     queryFn: getLlmConfig,
     enabled: open,
   });
+  const { prompt: analystSystem } = useActivePrompt('analyst', open);
 
   useEffect(() => {
     if (!open) {
@@ -73,7 +65,7 @@ export default function AnalystModal({ entryIds, open, onClose }: AnalystModalPr
       const { text: reply } = await llmChat({
         feature: 'analyst',
         messages: history,
-        system: ANALYST_SYSTEM,
+        system: analystSystem,
         max_tokens: 4000,
       });
       setMessages([...history, { role: 'assistant', content: reply }]);

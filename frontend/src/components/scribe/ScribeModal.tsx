@@ -25,6 +25,7 @@ import { getArchetypes, type Archetype } from '../../api/correspondences';
 import { getDecks, getDeckCustomFields, getDeckFieldCoverage, type DeckFieldCoverage } from '../../api/decks';
 import { getCards } from '../../api/cards';
 import { extractSourceText, convertSourceImage, applyScribeWrites, type ScribeWrite } from '../../api/scribe';
+import { useActivePrompt, renderScribePrompt } from '../../utils/assistantPrompts';
 import { llmChat, getLlmConfig, type LlmMessage, type LlmMessagePart } from '../../api/llm';
 import type { ReferenceSource, SourceField, Card, Deck, DeckCustomField } from '../../types';
 import './ScribeModal.css';
@@ -171,6 +172,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
   const setMessagesTracked = (m: LlmMessage[]) => { messagesRef.current = m; setMessages(m); };
 
   const { data: llmConfig } = useQuery({ queryKey: ['llm-config'], queryFn: getLlmConfig, enabled: open });
+  const { prompt: scribeTemplate, ready: scribePromptReady } = useActivePrompt('scribe', open);
   const { data: fields = [] } = useQuery<SourceField[]>({
     queryKey: ['source-fields', source?.id, ctype],
     queryFn: () => getSourceFields(source!.id, ctype),
@@ -374,11 +376,16 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     ...(deckId !== '' ? cardFieldNames : []),
   ];
 
-  const canStart = materials.length > 0 && targetLabels.length > 0 && !extracting;
+  const canStart = materials.length > 0 && targetLabels.length > 0 && !extracting
+    && scribePromptReady;
 
   const handleStart = async () => {
-    systemPromptRef.current = buildSystemPrompt(
-      ctype, archetypes, targetLabels, displayName, customInstructions);
+    systemPromptRef.current = renderScribePrompt(scribeTemplate, {
+      cartomancyType: ctype,
+      sourceName: displayName,
+      archetypeNames: archetypes.map(a => a.name).join(', '),
+      targetFields: targetLabels.map(l => `"${l}"`).join(', '),
+    }, customInstructions);
 
     const totalText = materials.reduce((n, m) => n + (m.text?.length || 0), 0);
     if (totalText > MAX_SOURCE_CHARS) {
@@ -1200,43 +1207,6 @@ function ProposalRow({
 
 // ── Prompt + parsing helpers ─────────────────────────────────
 
-function buildSystemPrompt(
-  ctype: string,
-  archetypes: Archetype[],
-  targetLabels: string[],
-  sourceName: string,
-  userInstructions = '',
-): string {
-  const names = archetypes.map(a => a.name).join(', ');
-  // Rides the system prompt so it reaches every extraction part AND
-  // the stitched refinement conversation, cached alongside it.
-  const instructionsBlock = userInstructions.trim()
-    ? `\n\nInstructions from the user for THIS import — follow them; where they conflict with the matching or content guidance above, the user's instructions win (the JSON output format is always required):\n${userInstructions.trim()}`
-    : '';
-  return `You are the Scribe, an assistant inside a personal tarot/cartomancy journal app. Your job is to transcribe card meanings and related content from source material (book text or photographed pages) into structured per-card fields. You transcribe and organize — you never invent card meanings.
-
-Cartomancy type: ${ctype}
-Source being imported: ${sourceName}
-The app's ${ctype} card archetypes are: ${names}
-
-Target fields to fill for each card: ${targetLabels.map(l => `"${l}"`).join(', ')}
-Use these field names exactly, character for character — the app matches them literally and silently discards anything else.
-
-How to respond — these rules are strict, the app parses your output:
-- Extracted card content goes ONLY inside a fenced code block tagged json. NEVER put card meanings, keywords, or field content in the prose part of your reply — the app cannot read prose, and content outside the JSON block is lost.
-- The source material arrives in one or more parts, each in its own message. When a part arrives, immediately extract the card content found in THAT part — no confirmation or clarification questions first.
-- The app keeps a running list of proposals and MERGES each JSON block you send into it. So each block contains ONLY the cards you are adding or changing in this reply — never re-send cards that haven't changed. One block per reply, in this exact shape:
-\`\`\`json
-{"proposals": [{"card": "<archetype name>", "fields": {"<field name>": "<content>"}, "flags": ["<optional short notes>"]}]}
-\`\`\`
-- Use the app's archetype names exactly as listed above whenever you are confident of the match (books often use variant names or other languages). If you cannot match a card confidently, keep the source's name and add a flag explaining the uncertainty.
-- For every card, fill EVERY target field the source provides content for — never skip secondary fields (keywords, reversed meanings, correspondences) to save space, even in dense parts. If the source truly has no content for a field on a card, simply omit that field; never invent content to fill one.
-- Parts overlap, so a card whose text is cut off at the end of one part usually appears complete in another; always extract the complete version you can see. If a card's text still looks cut off, extract what's there and add a flag containing the words "cut off" — the app uses that flag to request completion automatically.
-- Field content must be faithful to the source text — do not summarize, paraphrase, or embellish. Light cleanup is encouraged: fix obvious OCR artifacts (garbled characters, broken headers, stray symbols like ¥), merge hyphenated line breaks, and remove accidentally duplicated passages, but note significant repairs in flags.
-- If a part contains no card content (front matter, essays, spreads), say so in one sentence — no JSON block needed.
-- Outside the JSON block, reply conversationally and BRIEFLY — a few short sentences at most: what you found, what's uncertain or missing, answers to the user's questions. NEVER quote card text or extended source passages in prose; that content belongs only in the JSON block, and prose is never saved anywhere.
-- When the user requests changes, emit only the affected cards (each with all of its fields, not just the changed one) in the JSON block.${instructionsBlock}`;
-}
 
 type RawProposal = { card: string; fields: Record<string, string>; flags?: string[] };
 

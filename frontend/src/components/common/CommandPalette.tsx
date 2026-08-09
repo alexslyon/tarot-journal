@@ -58,6 +58,7 @@ const TAB_ITEMS: PaletteItem[] = ([
 const SETTINGS_ITEMS: PaletteItem[] = ([
   ['general', 'General'],
   ['ai', 'AI Assistant'],
+  ['ai-prompts', 'AI Prompts'],
   ['backup', 'Backup & Restore'],
   ['cache', 'Thumbnail Cache'],
   ['profiles', 'Profiles'],

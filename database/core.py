@@ -436,6 +436,19 @@ class CoreMixin:
             )
         ''')
 
+        # Prompt presets: user-authored versions of the AI assistants'
+        # system prompts (active choice lives in settings)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS prompt_presets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                feature TEXT NOT NULL,
+                name TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
         # Spread tags table (separate namespace, like deck tags)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS spread_tags (
