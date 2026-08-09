@@ -127,6 +127,9 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
   // Card fields: definitions ticked from the deck + free-typed extras
   const [selectedCardFields, setSelectedCardFields] = useState<string[]>([]);
   const [cardFieldsText, setCardFieldsText] = useState('');
+  // Free-text guidance typed before starting — appended to the system
+  // prompt so it steers every extraction part and refinement turn.
+  const [customInstructions, setCustomInstructions] = useState('');
   const [materials, setMaterials] = useState<Material[]>([]);
   const [extracting, setExtracting] = useState(false);
   const [stage, setStage] = useState<'setup' | 'chat'>('setup');
@@ -237,6 +240,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     setDeckId(deck?.id ?? '');
     setSelectedCardFields([]);
     setCardFieldsText('');
+    setCustomInstructions('');
   }, [open, source?.id, deck?.id, availableTypes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Deck mode: preselect the deck's existing field definitions.
@@ -373,7 +377,8 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
   const canStart = materials.length > 0 && targetLabels.length > 0 && !extracting;
 
   const handleStart = async () => {
-    systemPromptRef.current = buildSystemPrompt(ctype, archetypes, targetLabels, displayName);
+    systemPromptRef.current = buildSystemPrompt(
+      ctype, archetypes, targetLabels, displayName, customInstructions);
 
     const totalText = materials.reduce((n, m) => n + (m.text?.length || 0), 0);
     if (totalText > MAX_SOURCE_CHARS) {
@@ -939,6 +944,17 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
             </p>
           </div>
 
+          <div className="scribe__field">
+            <label>Instructions for this import (optional)</label>
+            <textarea
+              className="scribe__instructions"
+              value={customInstructions}
+              onChange={e => setCustomInstructions(e.target.value)}
+              rows={3}
+              placeholder={'Anything the Scribe should know before it starts — e.g. "This is a Thoth book, so match the Knight to the King archetype" or "Skip the spreads chapter."'}
+            />
+          </div>
+
           <div className="scribe__actions">
             <button className="primary" onClick={handleStart} disabled={!canStart || !llmConfig?.model}>
               Start extraction
@@ -1189,8 +1205,14 @@ function buildSystemPrompt(
   archetypes: Archetype[],
   targetLabels: string[],
   sourceName: string,
+  userInstructions = '',
 ): string {
   const names = archetypes.map(a => a.name).join(', ');
+  // Rides the system prompt so it reaches every extraction part AND
+  // the stitched refinement conversation, cached alongside it.
+  const instructionsBlock = userInstructions.trim()
+    ? `\n\nInstructions from the user for THIS import — follow them; where they conflict with the matching or content guidance above, the user's instructions win (the JSON output format is always required):\n${userInstructions.trim()}`
+    : '';
   return `You are the Scribe, an assistant inside a personal tarot/cartomancy journal app. Your job is to transcribe card meanings and related content from source material (book text or photographed pages) into structured per-card fields. You transcribe and organize — you never invent card meanings.
 
 Cartomancy type: ${ctype}
@@ -1213,7 +1235,7 @@ How to respond — these rules are strict, the app parses your output:
 - Field content must be faithful to the source text — do not summarize, paraphrase, or embellish. Light cleanup is encouraged: fix obvious OCR artifacts (garbled characters, broken headers, stray symbols like ¥), merge hyphenated line breaks, and remove accidentally duplicated passages, but note significant repairs in flags.
 - If a part contains no card content (front matter, essays, spreads), say so in one sentence — no JSON block needed.
 - Outside the JSON block, reply conversationally and BRIEFLY — a few short sentences at most: what you found, what's uncertain or missing, answers to the user's questions. NEVER quote card text or extended source passages in prose; that content belongs only in the JSON block, and prose is never saved anywhere.
-- When the user requests changes, emit only the affected cards (each with all of its fields, not just the changed one) in the JSON block.`;
+- When the user requests changes, emit only the affected cards (each with all of its fields, not just the changed one) in the JSON block.${instructionsBlock}`;
 }
 
 type RawProposal = { card: string; fields: Record<string, string>; flags?: string[] };

@@ -359,3 +359,11 @@
   background: none;
   padding: 0 10px;
 }
+
+.scribe__instructions {
+  width: 100%;
+  resize: vertical;
+  min-height: 60px;
+  font-family: inherit;
+  font-size: var(--font-size-body);
+}
