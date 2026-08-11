@@ -133,3 +133,17 @@
   flex: 1;
   max-width: 260px;
 }
+
+.combinations-view__reversed-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.combinations-view__picker-image--reversed img {
+  transform: rotate(180deg);
+}

@@ -36,6 +36,8 @@ interface SettingsDeepLinkPayload {
     cartomancy_type: string;
     archetype_1_id: number;
     archetype_2_id: number;
+    archetype_1_reversed?: boolean;
+    archetype_2_reversed?: boolean;
   };
   archetypeId?: number;
 }

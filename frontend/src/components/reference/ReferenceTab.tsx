@@ -24,6 +24,8 @@ interface ReferenceTabProps {
         cartomancy_type: string;
         archetype_1_id: number;
         archetype_2_id: number;
+        archetype_1_reversed?: boolean;
+        archetype_2_reversed?: boolean;
       };
       archetypeId?: number;
       fieldId?: number;
@@ -84,9 +86,13 @@ export default function ReferenceTab({
           <CombinationsViewer
             onEditCombination={
               onNavigateToSettings
-                ? (cartomancy_type, archetype_1_id, archetype_2_id) =>
+                ? (cartomancy_type, archetype_1_id, archetype_2_id,
+                   archetype_1_reversed, archetype_2_reversed) =>
                     onNavigateToSettings('combinations', {
-                      combination: { cartomancy_type, archetype_1_id, archetype_2_id },
+                      combination: {
+                        cartomancy_type, archetype_1_id, archetype_2_id,
+                        archetype_1_reversed, archetype_2_reversed,
+                      },
                     })
                 : undefined
             }

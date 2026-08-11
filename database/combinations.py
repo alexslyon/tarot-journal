@@ -26,19 +26,24 @@ class CombinationsMixin:
         cartomancy_type: str,
         archetype_1_id: int,
         archetype_2_id: int,
+        archetype_1_reversed: bool = False,
+        archetype_2_reversed: bool = False,
     ) -> int:
+        r1, r2 = int(bool(archetype_1_reversed)), int(bool(archetype_2_reversed))
         cursor.execute(
             'SELECT id FROM archetype_combinations '
-            'WHERE cartomancy_type = ? AND archetype_1_id = ? AND archetype_2_id = ?',
-            (cartomancy_type, archetype_1_id, archetype_2_id)
+            'WHERE cartomancy_type = ? AND archetype_1_id = ? AND archetype_2_id = ? '
+            'AND archetype_1_reversed = ? AND archetype_2_reversed = ?',
+            (cartomancy_type, archetype_1_id, archetype_2_id, r1, r2)
         )
         row = cursor.fetchone()
         if row:
             return row[0] if not isinstance(row, dict) else row['id']
         cursor.execute(
             'INSERT INTO archetype_combinations '
-            '(cartomancy_type, archetype_1_id, archetype_2_id) VALUES (?, ?, ?)',
-            (cartomancy_type, archetype_1_id, archetype_2_id)
+            '(cartomancy_type, archetype_1_id, archetype_2_id, '
+            ' archetype_1_reversed, archetype_2_reversed) VALUES (?, ?, ?, ?, ?)',
+            (cartomancy_type, archetype_1_id, archetype_2_id, r1, r2)
         )
         return cursor.lastrowid
 
@@ -49,6 +54,8 @@ class CombinationsMixin:
         cartomancy_type: str,
         archetype_1_id: int,
         archetype_2_id: int,
+        archetype_1_reversed: bool = False,
+        archetype_2_reversed: bool = False,
     ):
         """All meanings for an ordered pair, joined with source name +
         archetype names so the UI can render without follow-up fetches.
@@ -64,6 +71,8 @@ class CombinationsMixin:
                    c.cartomancy_type AS cartomancy_type,
                    c.archetype_1_id AS archetype_1_id,
                    c.archetype_2_id AS archetype_2_id,
+                   c.archetype_1_reversed AS archetype_1_reversed,
+                   c.archetype_2_reversed AS archetype_2_reversed,
                    a1.name AS archetype_1_name,
                    a2.name AS archetype_2_name
             FROM combination_meanings m
@@ -74,9 +83,12 @@ class CombinationsMixin:
             WHERE c.cartomancy_type = ?
               AND c.archetype_1_id = ?
               AND c.archetype_2_id = ?
+              AND c.archetype_1_reversed = ?
+              AND c.archetype_2_reversed = ?
             ORDER BY m.sort_order, m.id
             ''',
-            (cartomancy_type, archetype_1_id, archetype_2_id)
+            (cartomancy_type, archetype_1_id, archetype_2_id,
+             int(bool(archetype_1_reversed)), int(bool(archetype_2_reversed)))
         )
         return cursor.fetchall()
 
@@ -89,6 +101,7 @@ class CombinationsMixin:
             SELECT
                 c.id AS combination_id,
                 c.archetype_1_id, c.archetype_2_id,
+                c.archetype_1_reversed, c.archetype_2_reversed,
                 a1.name AS archetype_1_name, a1.rank AS archetype_1_rank,
                 a2.name AS archetype_2_name, a2.rank AS archetype_2_rank,
                 COUNT(m.id) AS meaning_count
@@ -113,6 +126,8 @@ class CombinationsMixin:
         archetype_2_id: int,
         meaning: str,
         source_id: int = None,
+        archetype_1_reversed: bool = False,
+        archetype_2_reversed: bool = False,
     ) -> int:
         """Create the combination row if needed, then append a new meaning
         at the end of its sort order."""
@@ -122,7 +137,8 @@ class CombinationsMixin:
             raise ValueError('Meaning text is required')
         cursor = self.conn.cursor()
         combination_id = self._get_or_create_combination(
-            cursor, cartomancy_type, archetype_1_id, archetype_2_id
+            cursor, cartomancy_type, archetype_1_id, archetype_2_id,
+            archetype_1_reversed, archetype_2_reversed,
         )
         cursor.execute(
             'SELECT COALESCE(MAX(sort_order), -1) + 1 FROM combination_meanings '

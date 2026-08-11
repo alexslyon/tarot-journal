@@ -4,10 +4,44 @@ the active cartomancy type is required so the picker can list pairs.
 The sources list lives in the shared /api/reference/sources blueprint.
 """
 
+import json
+
 from flask import Blueprint, jsonify, request, current_app
 from backend.utils import row_to_dict, require_json
 
 combinations_bp = Blueprint('combinations', __name__)
+
+
+def _flag(value) -> bool:
+    return str(value).lower() in ('1', 'true', 'yes')
+
+
+# === Per-type reversal support ===
+
+REVERSED_TYPES_KEY = 'combination_reversed_types'
+
+
+@combinations_bp.route('/api/combinations/reversed-types')
+def get_reversed_types():
+    """Cartomancy types where combinations may involve reversed cards."""
+    db = current_app.config['DB']
+    raw = db.get_setting(REVERSED_TYPES_KEY) or '[]'
+    try:
+        types = json.loads(raw)
+    except ValueError:
+        types = []
+    return jsonify({'types': types if isinstance(types, list) else []})
+
+
+@combinations_bp.route('/api/combinations/reversed-types', methods=['PUT'])
+@require_json
+def set_reversed_types(data):
+    db = current_app.config['DB']
+    types = data.get('types')
+    if not isinstance(types, list) or not all(isinstance(t, str) for t in types):
+        return jsonify({'error': 'types must be a list of type names'}), 400
+    db.set_setting(REVERSED_TYPES_KEY, json.dumps(sorted(set(types))))
+    return jsonify({'ok': True})
 
 
 # === Meanings (pair-keyed) ===
@@ -25,7 +59,11 @@ def list_meanings():
         card_2 = int(request.args.get('card_2', ''))
     except (TypeError, ValueError):
         return jsonify({'error': 'card_1 and card_2 are required integers'}), 400
-    rows = db.get_combination_meanings(ctype, card_1, card_2)
+    rows = db.get_combination_meanings(
+        ctype, card_1, card_2,
+        archetype_1_reversed=_flag(request.args.get('card_1_reversed')),
+        archetype_2_reversed=_flag(request.args.get('card_2_reversed')),
+    )
     return jsonify([row_to_dict(r) for r in rows])
 
 
@@ -65,7 +103,11 @@ def create_meaning(data):
         except (TypeError, ValueError):
             return jsonify({'error': 'source_id must be an integer'}), 400
     try:
-        new_id = db.add_combination_meaning(ctype, card_1, card_2, meaning, source_id)
+        new_id = db.add_combination_meaning(
+            ctype, card_1, card_2, meaning, source_id,
+            archetype_1_reversed=_flag(data.get('card_1_reversed')),
+            archetype_2_reversed=_flag(data.get('card_2_reversed')),
+        )
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     return jsonify({'id': new_id})

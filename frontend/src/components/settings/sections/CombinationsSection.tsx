@@ -6,6 +6,8 @@ import {
   updateCombinationMeaning,
   deleteCombinationMeaning,
   reorderCombinationMeanings,
+  getReversedCombinationTypes,
+  setReversedCombinationTypes,
 } from '../../../api/combinations';
 import { getReferenceSources } from '../../../api/referenceSources';
 import { cardPreviewUrl } from '../../../api/images';
@@ -39,6 +41,8 @@ interface CombinationsSectionProps {
     cartomancy_type: string;
     archetype_1_id: number;
     archetype_2_id: number;
+    archetype_1_reversed?: boolean;
+    archetype_2_reversed?: boolean;
   };
   /** Called once after initial selection has been applied. */
   onInitialApplied?: () => void;
@@ -55,12 +59,16 @@ export default function CombinationsSection({
     useState<CombinationCartomancyType>('Lenormand');
   const [card1Id, setCard1Id] = useState<number | null>(null);
   const [card2Id, setCard2Id] = useState<number | null>(null);
+  const [card1Rev, setCard1Rev] = useState(false);
+  const [card2Rev, setCard2Rev] = useState(false);
 
   // Clear the pair whenever the type changes — archetype ids don't
   // carry over across cartomancy types.
   useEffect(() => {
     setCard1Id(null);
     setCard2Id(null);
+    setCard1Rev(false);
+    setCard2Rev(false);
   }, [cartomancyType]);
 
   // Apply deep-link selection once when it arrives.
@@ -69,6 +77,8 @@ export default function CombinationsSection({
       setCartomancyType(initialCombination.cartomancy_type as CombinationCartomancyType);
       setCard1Id(initialCombination.archetype_1_id);
       setCard2Id(initialCombination.archetype_2_id);
+      setCard1Rev(!!initialCombination.archetype_1_reversed);
+      setCard2Rev(!!initialCombination.archetype_2_reversed);
       onInitialApplied?.();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -80,11 +90,36 @@ export default function CombinationsSection({
     queryKey: ['reference-sources'],
     queryFn: () => getReferenceSources(),
   });
+  // Attribution should only offer sources covering this deck type.
+  const typeSources = sources.filter(s => s.cartomancy_types.includes(cartomancyType));
 
-  const meaningsKey = ['combination-meanings', cartomancyType, card1Id, card2Id];
+  // Which types allow reversed cards in combinations (user setting).
+  const { data: reversedTypes = [] } = useQuery<string[]>({
+    queryKey: ['combination-reversed-types'],
+    queryFn: getReversedCombinationTypes,
+  });
+  const reversalsEnabled = reversedTypes.includes(cartomancyType);
+  const toggleReversals = async () => {
+    const next = reversalsEnabled
+      ? reversedTypes.filter(t => t !== cartomancyType)
+      : [...reversedTypes, cartomancyType];
+    try {
+      await setReversedCombinationTypes(next);
+      queryClient.invalidateQueries({ queryKey: ['combination-reversed-types'] });
+      if (reversalsEnabled) {
+        // Turning it off snaps the pickers back to upright.
+        setCard1Rev(false);
+        setCard2Rev(false);
+      }
+    } catch {
+      showToast('Could not update the reversal setting.');
+    }
+  };
+
+  const meaningsKey = ['combination-meanings', cartomancyType, card1Id, card1Rev, card2Id, card2Rev];
   const { data: meanings = [] } = useQuery<CombinationMeaning[]>({
     queryKey: meaningsKey,
-    queryFn: () => getCombinationMeanings(cartomancyType, card1Id!, card2Id!),
+    queryFn: () => getCombinationMeanings(cartomancyType, card1Id!, card2Id!, card1Rev, card2Rev),
     enabled: card1Id != null && card2Id != null && card1Id !== card2Id,
   });
   const invalidateMeanings = () =>
@@ -115,6 +150,14 @@ export default function CombinationsSection({
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
+          <label className="combinations__reversal-toggle" title="When on, combinations for this deck type can involve reversed cards — each is its own combination with its own meanings.">
+            <input
+              type="checkbox"
+              checked={reversalsEnabled}
+              onChange={toggleReversals}
+            />
+            <span>Reversed cards for this type</span>
+          </label>
         </div>
 
         {defaultDeckId == null && (
@@ -132,6 +175,8 @@ export default function CombinationsSection({
             onChange={setCard1Id}
             cardList={cardList}
             excludeId={card2Id}
+            reversed={card1Rev}
+            onReversedChange={reversalsEnabled ? setCard1Rev : undefined}
           />
           <CardPicker
             label="Second card"
@@ -139,6 +184,8 @@ export default function CombinationsSection({
             onChange={setCard2Id}
             cardList={cardList}
             excludeId={card1Id}
+            reversed={card2Rev}
+            onReversedChange={reversalsEnabled ? setCard2Rev : undefined}
           />
         </div>
 
@@ -147,8 +194,10 @@ export default function CombinationsSection({
             cartomancyType={cartomancyType}
             card1Id={card1Id}
             card2Id={card2Id}
+            card1Rev={card1Rev}
+            card2Rev={card2Rev}
             meanings={meanings}
-            sources={sources}
+            sources={typeSources}
             onChanged={invalidateMeanings}
             showToast={showToast}
           />
@@ -168,12 +217,17 @@ function CardPicker({
   onChange,
   cardList,
   excludeId,
+  reversed = false,
+  onReversedChange,
 }: {
   label: string;
   value: number | null;
   onChange: (id: number | null) => void;
   cardList: ArchetypeCardEntry[];
   excludeId: number | null;
+  reversed?: boolean;
+  /** Present only when the type allows reversed combinations. */
+  onReversedChange?: (reversed: boolean) => void;
 }) {
   const selected = value != null ? cardList.find(c => c.archetypeId === value) : null;
   return (
@@ -194,7 +248,17 @@ function CardPicker({
           </option>
         ))}
       </select>
-      <div className="combinations__picker-image">
+      {onReversedChange && (
+        <label className="combinations__reversed-check">
+          <input
+            type="checkbox"
+            checked={reversed}
+            onChange={e => onReversedChange(e.target.checked)}
+          />
+          <span>Reversed</span>
+        </label>
+      )}
+      <div className={`combinations__picker-image ${reversed ? 'combinations__picker-image--reversed' : ''}`}>
         {selected?.cardId ? (
           <img src={cardPreviewUrl(selected.cardId)} alt={selected.name} />
         ) : selected ? (
@@ -215,6 +279,8 @@ function MeaningsEditor({
   cartomancyType,
   card1Id,
   card2Id,
+  card1Rev,
+  card2Rev,
   meanings,
   sources,
   onChanged,
@@ -223,6 +289,8 @@ function MeaningsEditor({
   cartomancyType: string;
   card1Id: number;
   card2Id: number;
+  card1Rev: boolean;
+  card2Rev: boolean;
   meanings: CombinationMeaning[];
   sources: ReferenceSource[];
   onChanged: () => void;
@@ -244,6 +312,8 @@ function MeaningsEditor({
         card2Id,
         draftMeaning,
         draftSourceId === '' ? null : draftSourceId,
+        card1Rev,
+        card2Rev,
       );
       setDraftMeaning('');
       setDraftSourceId('');
@@ -376,6 +446,13 @@ function MeaningRow({
   const [draftSourceId, setDraftSourceId] = useState<number | ''>(
     meaning.source_id ?? '',
   );
+  // The list is filtered to this deck type; if the meaning is already
+  // attributed to a source outside it, keep that source selectable so
+  // editing the text can't silently drop the attribution.
+  const rowSources = meaning.source_id != null
+    && !sources.some(src => src.id === meaning.source_id)
+    ? [{ id: meaning.source_id, name: meaning.source_name || 'Unknown source' } as ReferenceSource, ...sources]
+    : sources;
 
   useEffect(() => {
     if (!editing) {
@@ -441,7 +518,7 @@ function MeaningRow({
             className="combinations__source-select"
           >
             <option value="">— No source —</option>
-            {sources.map(s => (
+            {rowSources.map(s => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>

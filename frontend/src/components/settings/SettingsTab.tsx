@@ -6,6 +6,8 @@ interface SettingsTabProps {
     cartomancy_type: string;
     archetype_1_id: number;
     archetype_2_id: number;
+    archetype_1_reversed?: boolean;
+    archetype_2_reversed?: boolean;
   };
   initialArchetypeId?: number;
   onSectionViewed?: () => void;

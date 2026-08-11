@@ -75,6 +75,8 @@ interface SettingsLayoutProps {
     cartomancy_type: string;
     archetype_1_id: number;
     archetype_2_id: number;
+    archetype_1_reversed?: boolean;
+    archetype_2_reversed?: boolean;
   };
   /** Optional pre-selected archetype id for Archetype Notes / Languages editors. */
   initialArchetypeId?: number;

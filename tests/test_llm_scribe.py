@@ -638,3 +638,36 @@ def test_prompt_presets_crud(client):
     assert [p['name'] for p in r['presets']] == ['Blunt']
 
     assert client.get('/api/prompts/bogus').status_code == 404
+
+
+def test_reversed_combinations(client):
+    """Reversed flags key separate combinations; per-type toggle persists."""
+    types = client.get('/api/types').get_json()
+    tname = types[0]['name']
+    archetypes = client.get(f'/api/archetypes?cartomancy_type={tname}').get_json()
+    a1, a2 = archetypes[0]['id'], archetypes[1]['id']
+
+    # Toggle roundtrip
+    assert client.get('/api/combinations/reversed-types').get_json() == {'types': []}
+    client.put('/api/combinations/reversed-types', json={'types': [tname]})
+    assert client.get('/api/combinations/reversed-types').get_json() == {'types': [tname]}
+
+    # Upright pair and reversed-first pair are distinct combinations
+    client.post('/api/combinations/meanings', json={
+        'cartomancy_type': tname, 'card_1': a1, 'card_2': a2,
+        'meaning': 'Upright pairing.',
+    })
+    client.post('/api/combinations/meanings', json={
+        'cartomancy_type': tname, 'card_1': a1, 'card_2': a2,
+        'card_1_reversed': True, 'meaning': 'First card reversed.',
+    })
+    upright = client.get('/api/combinations/meanings', query_string={
+        'cartomancy_type': tname, 'card_1': a1, 'card_2': a2,
+    }).get_json()
+    reversed_ = client.get('/api/combinations/meanings', query_string={
+        'cartomancy_type': tname, 'card_1': a1, 'card_2': a2, 'card_1_reversed': '1',
+    }).get_json()
+    assert [m['meaning'] for m in upright] == ['Upright pairing.']
+    assert [m['meaning'] for m in reversed_] == ['First card reversed.']
+    assert reversed_[0]['archetype_1_reversed'] == 1
+    assert reversed_[0]['archetype_2_reversed'] == 0

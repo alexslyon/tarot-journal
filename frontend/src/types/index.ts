@@ -359,6 +359,9 @@ export interface CombinationMeaning {
   archetype_2_id?: number;
   archetype_1_name?: string;
   archetype_2_name?: string;
+  /** 0/1 — reversal flags are part of the combination's identity. */
+  archetype_1_reversed?: number;
+  archetype_2_reversed?: number;
 }
 
 /** A pair (across any cartomancy type) that has at least one

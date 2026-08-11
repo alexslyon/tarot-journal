@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getCombinationMeanings } from '../../../api/combinations';
+import { getCombinationMeanings, getReversedCombinationTypes } from '../../../api/combinations';
 import { getReferenceSources } from '../../../api/referenceSources';
 import { cardPreviewUrl } from '../../../api/images';
 import RichTextViewer from '../../common/RichTextViewer';
@@ -17,11 +17,13 @@ import './CombinationsViewer.css';
 
 interface ViewerProps {
   /** Called when the user clicks "Edit this combination" — passes the
-   *  type and both archetype ids. */
+   *  type, both archetype ids, and their reversal flags. */
   onEditCombination?: (
     cartomancyType: string,
     archetype_1_id: number,
     archetype_2_id: number,
+    archetype_1_reversed: boolean,
+    archetype_2_reversed: boolean,
   ) => void;
 }
 
@@ -30,11 +32,21 @@ export default function CombinationsViewer({ onEditCombination }: ViewerProps) {
     useState<CombinationCartomancyType>('Lenormand');
   const [card1Id, setCard1Id] = useState<number | null>(null);
   const [card2Id, setCard2Id] = useState<number | null>(null);
+  const [card1Rev, setCard1Rev] = useState(false);
+  const [card2Rev, setCard2Rev] = useState(false);
 
   useEffect(() => {
     setCard1Id(null);
     setCard2Id(null);
+    setCard1Rev(false);
+    setCard2Rev(false);
   }, [cartomancyType]);
+
+  const { data: reversedTypes = [] } = useQuery<string[]>({
+    queryKey: ['combination-reversed-types'],
+    queryFn: getReversedCombinationTypes,
+  });
+  const reversalsEnabled = reversedTypes.includes(cartomancyType);
 
   const { cardList, defaultDeckId } = useArchetypeCardList(cartomancyType);
 
@@ -44,8 +56,8 @@ export default function CombinationsViewer({ onEditCombination }: ViewerProps) {
   });
 
   const { data: meanings = [] } = useQuery<CombinationMeaning[]>({
-    queryKey: ['combination-meanings', cartomancyType, card1Id, card2Id],
-    queryFn: () => getCombinationMeanings(cartomancyType, card1Id!, card2Id!),
+    queryKey: ['combination-meanings', cartomancyType, card1Id, card1Rev, card2Id, card2Rev],
+    queryFn: () => getCombinationMeanings(cartomancyType, card1Id!, card2Id!, card1Rev, card2Rev),
     enabled: card1Id != null && card2Id != null && card1Id !== card2Id,
   });
 
@@ -106,6 +118,8 @@ export default function CombinationsViewer({ onEditCombination }: ViewerProps) {
           onChange={setCard1Id}
           cardList={cardList}
           excludeId={card2Id}
+          reversed={card1Rev}
+          onReversedChange={reversalsEnabled ? setCard1Rev : undefined}
         />
         <CardPicker
           label="Second card"
@@ -113,6 +127,8 @@ export default function CombinationsViewer({ onEditCombination }: ViewerProps) {
           onChange={setCard2Id}
           cardList={cardList}
           excludeId={card1Id}
+          reversed={card2Rev}
+          onReversedChange={reversalsEnabled ? setCard2Rev : undefined}
         />
       </div>
 
@@ -123,7 +139,7 @@ export default function CombinationsViewer({ onEditCombination }: ViewerProps) {
             <button
               type="button"
               className="combinations-view__edit-link"
-              onClick={() => onEditCombination(cartomancyType, card1Id!, card2Id!)}
+              onClick={() => onEditCombination(cartomancyType, card1Id!, card2Id!, card1Rev, card2Rev)}
             >
               Add meanings in Settings →
             </button>
@@ -149,7 +165,7 @@ export default function CombinationsViewer({ onEditCombination }: ViewerProps) {
             <button
               type="button"
               className="combinations-view__edit-link"
-              onClick={() => onEditCombination(cartomancyType, card1Id!, card2Id!)}
+              onClick={() => onEditCombination(cartomancyType, card1Id!, card2Id!, card1Rev, card2Rev)}
             >
               Edit this combination →
             </button>
@@ -166,12 +182,16 @@ function CardPicker({
   onChange,
   cardList,
   excludeId,
+  reversed = false,
+  onReversedChange,
 }: {
   label: string;
   value: number | null;
   onChange: (id: number | null) => void;
   cardList: ArchetypeCardEntry[];
   excludeId: number | null;
+  reversed?: boolean;
+  onReversedChange?: (reversed: boolean) => void;
 }) {
   const selected = value != null ? cardList.find(c => c.archetypeId === value) : null;
   return (
@@ -192,7 +212,17 @@ function CardPicker({
           </option>
         ))}
       </select>
-      <div className="combinations-view__picker-image">
+      {onReversedChange && (
+        <label className="combinations-view__reversed-check">
+          <input
+            type="checkbox"
+            checked={reversed}
+            onChange={e => onReversedChange(e.target.checked)}
+          />
+          <span>Reversed</span>
+        </label>
+      )}
+      <div className={`combinations-view__picker-image ${reversed ? 'combinations-view__picker-image--reversed' : ''}`}>
         {selected?.cardId ? (
           <img src={cardPreviewUrl(selected.cardId)} alt={selected.name} />
         ) : selected ? (

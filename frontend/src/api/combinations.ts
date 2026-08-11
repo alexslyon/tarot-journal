@@ -10,11 +10,29 @@ export async function getCombinationMeanings(
   cartomancyType: string,
   card1: number,
   card2: number,
+  card1Reversed = false,
+  card2Reversed = false,
 ): Promise<CombinationMeaning[]> {
   const res = await api.get('/api/combinations/meanings', {
-    params: { cartomancy_type: cartomancyType, card_1: card1, card_2: card2 },
+    params: {
+      cartomancy_type: cartomancyType,
+      card_1: card1,
+      card_2: card2,
+      ...(card1Reversed ? { card_1_reversed: '1' } : {}),
+      ...(card2Reversed ? { card_2_reversed: '1' } : {}),
+    },
   });
   return res.data;
+}
+
+/** Cartomancy types whose combinations may involve reversed cards. */
+export async function getReversedCombinationTypes(): Promise<string[]> {
+  const res = await api.get('/api/combinations/reversed-types');
+  return res.data.types;
+}
+
+export async function setReversedCombinationTypes(types: string[]): Promise<void> {
+  await api.put('/api/combinations/reversed-types', { types });
 }
 
 /** Combinations of a type that have at least one meaning authored. */
@@ -33,6 +51,8 @@ export async function createCombinationMeaning(
   card2: number,
   meaning: string,
   sourceId: number | null = null,
+  card1Reversed = false,
+  card2Reversed = false,
 ): Promise<{ id: number }> {
   const res = await api.post('/api/combinations/meanings', {
     cartomancy_type: cartomancyType,
@@ -40,6 +60,8 @@ export async function createCombinationMeaning(
     card_2: card2,
     meaning,
     source_id: sourceId,
+    card_1_reversed: card1Reversed,
+    card_2_reversed: card2Reversed,
   });
   return res.data;
 }

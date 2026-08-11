@@ -1180,9 +1180,12 @@ class CoreMixin:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 cartomancy_type TEXT NOT NULL,
                 archetype_1_id INTEGER NOT NULL,
+                archetype_1_reversed INTEGER NOT NULL DEFAULT 0,
                 archetype_2_id INTEGER NOT NULL,
+                archetype_2_reversed INTEGER NOT NULL DEFAULT 0,
                 CHECK (archetype_1_id != archetype_2_id),
-                UNIQUE (cartomancy_type, archetype_1_id, archetype_2_id),
+                UNIQUE (cartomancy_type, archetype_1_id, archetype_1_reversed,
+                        archetype_2_id, archetype_2_reversed),
                 FOREIGN KEY (archetype_1_id) REFERENCES card_archetypes(id) ON DELETE CASCADE,
                 FOREIGN KEY (archetype_2_id) REFERENCES card_archetypes(id) ON DELETE CASCADE
             )
@@ -1212,6 +1215,54 @@ class CoreMixin:
             'CREATE INDEX IF NOT EXISTS idx_combination_meanings_combination '
             'ON combination_meanings(combination_id, sort_order)'
         )
+
+        # Migration: reversal flags join the combination key (a pair
+        # with a reversed card is a different combination). SQLite
+        # can't widen a UNIQUE constraint in place, so rebuild the
+        # table. FK checks must be off while the old table drops —
+        # combination_meanings cascades on delete, and with FKs on the
+        # drop would take every authored meaning with it.
+        combo_cols = [r[1] for r in cursor.execute(
+            'PRAGMA table_info(archetype_combinations)').fetchall()]
+        if combo_cols and 'archetype_1_reversed' not in combo_cols:
+            cursor.execute('''
+                CREATE TABLE archetype_combinations_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    cartomancy_type TEXT NOT NULL,
+                    archetype_1_id INTEGER NOT NULL,
+                    archetype_1_reversed INTEGER NOT NULL DEFAULT 0,
+                    archetype_2_id INTEGER NOT NULL,
+                    archetype_2_reversed INTEGER NOT NULL DEFAULT 0,
+                    CHECK (archetype_1_id != archetype_2_id),
+                    UNIQUE (cartomancy_type, archetype_1_id, archetype_1_reversed,
+                            archetype_2_id, archetype_2_reversed),
+                    FOREIGN KEY (archetype_1_id) REFERENCES card_archetypes(id) ON DELETE CASCADE,
+                    FOREIGN KEY (archetype_2_id) REFERENCES card_archetypes(id) ON DELETE CASCADE
+                )
+            ''')
+            cursor.execute('''
+                INSERT INTO archetype_combinations_new
+                    (id, cartomancy_type, archetype_1_id, archetype_1_reversed,
+                     archetype_2_id, archetype_2_reversed)
+                SELECT id, cartomancy_type, archetype_1_id, 0, archetype_2_id, 0
+                FROM archetype_combinations
+            ''')
+            # PRAGMA foreign_keys only takes effect outside transactions.
+            self.conn.commit()
+            self.conn.execute('PRAGMA foreign_keys = OFF')
+            cursor.execute('DROP TABLE archetype_combinations')
+            cursor.execute(
+                'ALTER TABLE archetype_combinations_new RENAME TO archetype_combinations')
+            self.conn.commit()
+            self.conn.execute('PRAGMA foreign_keys = ON')
+            cursor.execute(
+                'CREATE INDEX IF NOT EXISTS idx_archetype_combinations_type '
+                'ON archetype_combinations(cartomancy_type)'
+            )
+            cursor.execute(
+                'CREATE INDEX IF NOT EXISTS idx_archetype_combinations_pair '
+                'ON archetype_combinations(archetype_1_id, archetype_2_id)'
+            )
 
         # === Archetypes feature: per-archetype reference content ===
         # User-defined languages list (display order via sort_order).

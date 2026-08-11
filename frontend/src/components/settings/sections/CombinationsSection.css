@@ -271,3 +271,30 @@
   flex: 1;
   max-width: 260px;
 }
+
+/* ── Reversed-card support ── */
+
+.combinations__reversal-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 14px;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.combinations__reversed-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* The thumbnail flips when the card is reversed — instant read. */
+.combinations__picker-image--reversed img {
+  transform: rotate(180deg);
+}
