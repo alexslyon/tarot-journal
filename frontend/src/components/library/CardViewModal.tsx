@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCard, deleteCard } from '../../api/cards';
 import { getCardCorrespondences } from '../../api/correspondences';
+import { getArchetypeSourceEntries } from '../../api/referenceSources';
+import { getArchetypes, type Archetype } from '../../api/correspondences';
 import { cardPreviewUrl } from '../../api/images';
 import { useToast } from '../../context/ToastContext';
-import type { Card, Tag, CardGroup, ResolvedCorrespondence } from '../../types';
+import type { Card, Tag, CardGroup, ResolvedCorrespondence, ArchetypeSourceEntry } from '../../types';
 import { CORRESPONDENCE_FIELDS, CORRESPONDENCE_FIELD_LABELS } from '../../types';
 import Modal from '../common/Modal';
 import RichTextViewer from '../common/RichTextViewer';
@@ -50,6 +52,47 @@ export default function CardViewModal({ cardId, cardIds, onClose, onNavigate, on
     queryFn: () => getCardCorrespondences(cardId!),
     enabled: cardId !== null,
   });
+
+  // Details / Archetype Notes tabs. Back to Details when the card
+  // changes via Prev/Next — the notes tab choice shouldn't stick to a
+  // different card... actually it SHOULD stick: browsing notes across
+  // cards is the whole point of arrow navigation. It resets only when
+  // the modal closes (cardId null unmounts us).
+  const [tab, setTab] = useState<'details' | 'archetype'>('details');
+
+  // Cards store their archetype by NAME; the notes live under the
+  // archetype's id — resolve through the type's archetype list.
+  const { data: archetypes = [] } = useQuery<Archetype[]>({
+    queryKey: ['archetypes', card?.cartomancy_type_name],
+    queryFn: () => getArchetypes(card!.cartomancy_type_name!),
+    enabled: cardId !== null && !!card?.cartomancy_type_name && !!card?.archetype,
+  });
+  const archetypeId = useMemo(() => {
+    const name = card?.archetype?.trim().toLowerCase();
+    if (!name) return null;
+    return archetypes.find(a => a.name.trim().toLowerCase() === name)?.id ?? null;
+  }, [archetypes, card?.archetype]);
+
+  const { data: archetypeEntries = [] } = useQuery<ArchetypeSourceEntry[]>({
+    queryKey: ['archetype-source-entries', archetypeId, card?.cartomancy_type_name],
+    queryFn: () => getArchetypeSourceEntries(archetypeId!, card!.cartomancy_type_name),
+    enabled: cardId !== null && archetypeId != null,
+  });
+
+  // Group notes by source (server order: source name, field order).
+  const noteGroups = useMemo(() => {
+    const bySource = new Map<number, { sourceName: string; fields: ArchetypeSourceEntry[] }>();
+    for (const e of archetypeEntries) {
+      if (!e.content || !e.content.replace(/<[^>]*>/g, '').trim()) continue;
+      let bucket = bySource.get(e.source_id);
+      if (!bucket) {
+        bucket = { sourceName: e.source_name, fields: [] };
+        bySource.set(e.source_id, bucket);
+      }
+      bucket.fields.push(e);
+    }
+    return [...bySource.values()];
+  }, [archetypeEntries]);
 
   // Only show correspondence fields that resolved to a value
   const populatedCorrespondences = CORRESPONDENCE_FIELDS
@@ -151,6 +194,34 @@ export default function CardViewModal({ cardId, cardIds, onClose, onNavigate, on
             <h2 className="card-view__name">{card.name}</h2>
             <p className="card-view__deck">Deck: {card.deck_name}</p>
 
+            {archetypeId != null && (
+              <div className="card-view__tabs" role="tablist">
+                <button
+                  role="tab"
+                  aria-selected={tab === 'details'}
+                  className={`card-view__tab ${tab === 'details' ? 'card-view__tab--active' : ''}`}
+                  onClick={() => setTab('details')}
+                >
+                  Details
+                </button>
+                <button
+                  role="tab"
+                  aria-selected={tab === 'archetype'}
+                  className={`card-view__tab ${tab === 'archetype' ? 'card-view__tab--active' : ''}`}
+                  onClick={() => setTab('archetype')}
+                >
+                  Archetype Notes
+                  {noteGroups.length > 0 && (
+                    <span className="card-view__tab-count">{noteGroups.length}</span>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {tab === 'archetype' && archetypeId != null ? (
+              <ArchetypeNotesPane groups={noteGroups} archetypeName={card.archetype || card.name} />
+            ) : (
+            <>
             <div className="card-view__section">
               <h3 className="card-view__section-title">Classification</h3>
               {card.archetype && (
@@ -240,6 +311,8 @@ export default function CardViewModal({ cardId, cardIds, onClose, onNavigate, on
                 />
               </div>
             )}
+            </>
+            )}
           </div>
         </div>
       ) : null}
@@ -300,6 +373,64 @@ export default function CardViewModal({ cardId, cardIds, onClose, onNavigate, on
         </div>
       </div>
     </Modal>
+  );
+}
+
+/** The card's authored reference notes, grouped by source. Sources
+ *  collapse individually; a single source starts open, several start
+ *  closed (long book imports would otherwise fill the modal). */
+function ArchetypeNotesPane({
+  groups,
+  archetypeName,
+}: {
+  groups: { sourceName: string; fields: ArchetypeSourceEntry[] }[];
+  archetypeName: string;
+}) {
+  const [openSources, setOpenSources] = useState<Set<string>>(
+    () => new Set(groups.length === 1 ? [groups[0].sourceName] : []),
+  );
+  const toggle = (name: string) => {
+    setOpenSources(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  if (groups.length === 0) {
+    return (
+      <p className="card-view__notes-empty">
+        No archetype notes for {archetypeName} yet. Author them in
+        Settings → Archetype Notes, or import a book with the Scribe.
+      </p>
+    );
+  }
+  return (
+    <div className="card-view__archetype-notes">
+      {groups.map(g => {
+        const open = openSources.has(g.sourceName);
+        return (
+          <section key={g.sourceName} className="card-view__note-source">
+            <button
+              className="card-view__note-source-toggle"
+              aria-expanded={open}
+              onClick={() => toggle(g.sourceName)}
+            >
+              <span className={`card-view__note-chevron ${open ? 'card-view__note-chevron--open' : ''}`} aria-hidden="true">▸</span>
+              {g.sourceName}
+              <span className="card-view__note-count">{g.fields.length} field{g.fields.length === 1 ? '' : 's'}</span>
+            </button>
+            {open && g.fields.map(f => (
+              <div key={f.field_id} className="card-view__note-field">
+                <h4 className="card-view__note-field-name">{f.field_name}</h4>
+                <RichTextViewer content={f.content} />
+              </div>
+            ))}
+          </section>
+        );
+      })}
+    </div>
   );
 }
 

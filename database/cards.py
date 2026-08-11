@@ -582,9 +582,13 @@ class CardsMixin:
         """
         cursor = self.conn.cursor()
 
-        # 1. Card + deck name in one query via JOIN
+        # 1. Card + deck name + cartomancy type in one query via JOIN
         cursor.execute('''
-            SELECT c.*, d.name as deck_name
+            SELECT c.*, d.name as deck_name,
+                (SELECT ct.name FROM deck_type_assignments dta
+                 JOIN cartomancy_types ct ON dta.type_id = ct.id
+                 WHERE dta.deck_id = d.id
+                 ORDER BY ct.name LIMIT 1) as cartomancy_type_name
             FROM cards c
             JOIN decks d ON d.id = c.deck_id
             WHERE c.id = ?
