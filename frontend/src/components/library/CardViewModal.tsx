@@ -418,7 +418,7 @@ function ArchetypeNotesPane({
               onClick={() => toggle(g.sourceName)}
             >
               <span className={`card-view__note-chevron ${open ? 'card-view__note-chevron--open' : ''}`} aria-hidden="true">▸</span>
-              {g.sourceName}
+              <span className="card-view__note-source-name">{g.sourceName}</span>
               <span className="card-view__note-count">{g.fields.length} field{g.fields.length === 1 ? '' : 's'}</span>
             </button>
             {open && g.fields.map(f => (
