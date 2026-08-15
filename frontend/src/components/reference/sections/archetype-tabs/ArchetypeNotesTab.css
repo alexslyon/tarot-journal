@@ -176,3 +176,23 @@
   margin-top: 4px;
   padding-left: 18px;
 }
+
+/* ── Inline edit mode ── */
+
+.archetype-notes__field--editing {
+  padding: 8px 0;
+}
+
+.archetype-notes__field-edit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.archetype-notes__field-save {
+  padding: 3px 12px;
+  font-size: var(--font-size-small);
+  flex-shrink: 0;
+}

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCombinationMeanings, getReversedCombinationTypes } from '../../../api/combinations';
+import { MeaningsEditor } from '../../combinations/MeaningsEditor';
+import { useToast } from '../../../context/ToastContext';
 import { getReferenceSources } from '../../../api/referenceSources';
 import { cardPreviewUrl } from '../../../api/images';
 import RichTextViewer from '../../common/RichTextViewer';
@@ -15,19 +17,9 @@ import {
 import type { ReferenceSource, CombinationMeaning } from '../../../types';
 import './CombinationsViewer.css';
 
-interface ViewerProps {
-  /** Called when the user clicks "Edit this combination" — passes the
-   *  type, both archetype ids, and their reversal flags. */
-  onEditCombination?: (
-    cartomancyType: string,
-    archetype_1_id: number,
-    archetype_2_id: number,
-    archetype_1_reversed: boolean,
-    archetype_2_reversed: boolean,
-  ) => void;
-}
-
-export default function CombinationsViewer({ onEditCombination }: ViewerProps) {
+export default function CombinationsViewer() {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [cartomancyType, setCartomancyType] =
     useState<CombinationCartomancyType>('Lenormand');
   const [card1Id, setCard1Id] = useState<number | null>(null);
@@ -55,11 +47,26 @@ export default function CombinationsViewer({ onEditCombination }: ViewerProps) {
     queryFn: () => getReferenceSources(),
   });
 
+  const meaningsKey = ['combination-meanings', cartomancyType, card1Id, card1Rev, card2Id, card2Rev];
   const { data: meanings = [] } = useQuery<CombinationMeaning[]>({
-    queryKey: ['combination-meanings', cartomancyType, card1Id, card1Rev, card2Id, card2Rev],
+    queryKey: meaningsKey,
     queryFn: () => getCombinationMeanings(cartomancyType, card1Id!, card2Id!, card1Rev, card2Rev),
     enabled: card1Id != null && card2Id != null && card1Id !== card2Id,
   });
+  const invalidateMeanings = () =>
+    queryClient.invalidateQueries({ queryKey: meaningsKey });
+
+  // Inline editing — the meat of authoring happens right here, no
+  // Settings round-trip. Editing state resets when the pair changes.
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    setEditing(false);
+  }, [cartomancyType, card1Id, card2Id, card1Rev, card2Rev]);
+  // Attribution only offers sources covering this deck type.
+  const typeSources = useMemo(
+    () => sources.filter(s => s.cartomancy_types.includes(cartomancyType)),
+    [sources, cartomancyType],
+  );
 
   const grouped = useMemo(() => {
     const bySource = new Map<string, CombinationMeaning[]>();
@@ -132,22 +139,41 @@ export default function CombinationsViewer({ onEditCombination }: ViewerProps) {
         />
       </div>
 
-      {bothSelected && meanings.length === 0 && (
-        <div className="combinations-view__empty">
-          <p>No meanings have been entered for this combination yet.</p>
-          {onEditCombination && (
-            <button
-              type="button"
-              className="combinations-view__edit-link"
-              onClick={() => onEditCombination(cartomancyType, card1Id!, card2Id!, card1Rev, card2Rev)}
-            >
-              Add meanings in Settings →
+      {bothSelected && editing && (
+        <div className="combinations-view__results">
+          <div className="combinations-view__edit-bar">
+            <button type="button" onClick={() => setEditing(false)}>
+              Done editing
             </button>
-          )}
+          </div>
+          <MeaningsEditor
+            cartomancyType={cartomancyType}
+            card1Id={card1Id!}
+            card2Id={card2Id!}
+            card1Rev={card1Rev}
+            card2Rev={card2Rev}
+            meanings={meanings}
+            sources={typeSources}
+            onChanged={invalidateMeanings}
+            showToast={showToast}
+          />
         </div>
       )}
 
-      {bothSelected && meanings.length > 0 && (
+      {bothSelected && !editing && meanings.length === 0 && (
+        <div className="combinations-view__empty">
+          <p>No meanings have been entered for this combination yet.</p>
+          <button
+            type="button"
+            className="combinations-view__edit-link"
+            onClick={() => setEditing(true)}
+          >
+            + Add meanings
+          </button>
+        </div>
+      )}
+
+      {bothSelected && !editing && meanings.length > 0 && (
         <div className="combinations-view__results">
           {grouped.map(group => (
             <section key={group.label} className="combinations-view__group">
@@ -161,15 +187,13 @@ export default function CombinationsViewer({ onEditCombination }: ViewerProps) {
               </ul>
             </section>
           ))}
-          {onEditCombination && (
-            <button
-              type="button"
-              className="combinations-view__edit-link"
-              onClick={() => onEditCombination(cartomancyType, card1Id!, card2Id!, card1Rev, card2Rev)}
-            >
-              Edit this combination →
-            </button>
-          )}
+          <button
+            type="button"
+            className="combinations-view__edit-link"
+            onClick={() => setEditing(true)}
+          >
+            Edit
+          </button>
         </div>
       )}
     </div>

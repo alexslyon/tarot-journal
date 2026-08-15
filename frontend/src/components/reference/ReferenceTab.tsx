@@ -83,20 +83,7 @@ export default function ReferenceTab({
           />
         )}
         {activeSection === 'combinations' && (
-          <CombinationsViewer
-            onEditCombination={
-              onNavigateToSettings
-                ? (cartomancy_type, archetype_1_id, archetype_2_id,
-                   archetype_1_reversed, archetype_2_reversed) =>
-                    onNavigateToSettings('combinations', {
-                      combination: {
-                        cartomancy_type, archetype_1_id, archetype_2_id,
-                        archetype_1_reversed, archetype_2_reversed,
-                      },
-                    })
-                : undefined
-            }
-          />
+          <CombinationsViewer />
         )}
       </div>
     </div>

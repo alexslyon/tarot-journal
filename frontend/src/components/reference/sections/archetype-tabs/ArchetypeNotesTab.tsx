@@ -1,10 +1,18 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getArchetypeSourceEntries } from '../../../../api/referenceSources';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  getArchetypeSourceEntries,
+  getReferenceSources,
+  getSourceFields,
+  setArchetypeSourceEntry,
+} from '../../../../api/referenceSources';
 import RichTextViewer from '../../../common/RichTextViewer';
+import RichTextEditor from '../../../common/RichTextEditor';
+import { ensureHtml } from '../../../../utils/formatting';
+import { useToast } from '../../../../context/ToastContext';
 import ArchetypeCardImage from './ArchetypeCardImage';
 import type { Archetype } from '../../../../api/correspondences';
-import type { ArchetypeSourceEntry } from '../../../../types';
+import type { ArchetypeSourceEntry, ReferenceSource, SourceField } from '../../../../types';
 import './ArchetypeNotesTab.css';
 
 interface Props {
@@ -19,17 +27,60 @@ interface Props {
 /**
  * One section per source that has any populated field for this card.
  * Inside each section, one row per non-empty field. Both layers obey
- * the "absent or empty → hidden" rule.
+ * the "absent or empty → hidden" rule — until Edit mode, which shows
+ * EVERY source covering this type and every field (empty included),
+ * so authoring happens right here instead of in Settings.
  */
 export default function ArchetypeNotesTab({
   archetype,
   cartomancyType,
-  onNavigateToSettings,
 }: Props) {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+
   const { data: entries = [] } = useQuery<ArchetypeSourceEntry[]>({
     queryKey: ['archetype-source-entries', archetype.id, cartomancyType],
     queryFn: () => getArchetypeSourceEntries(archetype.id, cartomancyType),
   });
+  const invalidateEntries = () =>
+    queryClient.invalidateQueries({
+      queryKey: ['archetype-source-entries', archetype.id, cartomancyType],
+    });
+
+  // Edit mode persists across card switches — authoring a source card
+  // by card is the natural flow; per-field editors are keyed by
+  // (archetype, field) so drafts never leak between cards.
+  const [editing, setEditing] = useState(false);
+
+  // Every source covering this type (edit mode shows them all, even
+  // ones with nothing authored for this card yet)…
+  const { data: allSources = [] } = useQuery<ReferenceSource[]>({
+    queryKey: ['reference-sources', cartomancyType],
+    queryFn: () => getReferenceSources(cartomancyType),
+    enabled: editing,
+  });
+  // …with each source's field list for this type.
+  const fieldQueries = useQueries({
+    queries: allSources.map(src => ({
+      queryKey: ['source-fields', src.id, cartomancyType],
+      queryFn: () => getSourceFields(src.id, cartomancyType),
+      enabled: editing,
+    })),
+  });
+  const fieldsBySource = useMemo(() => {
+    const map = new Map<number, SourceField[]>();
+    allSources.forEach((src, i) => {
+      map.set(src.id, (fieldQueries[i]?.data as SourceField[] | undefined) ?? []);
+    });
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allSources, ...fieldQueries.map(q => q.data)]);
+
+  const entryByField = useMemo(() => {
+    const map = new Map<number, ArchetypeSourceEntry>();
+    for (const e of entries) map.set(e.field_id, e);
+    return map;
+  }, [entries]);
 
   // Group by source preserving the server's sort (source name asc,
   // field sort_order asc). Each source keeps its own field array.
@@ -82,16 +133,12 @@ export default function ArchetypeNotesTab({
     <div className="archetype-notes">
       <div className="archetype-notes__header">
         <h3 className="archetype-notes__title">{archetype.name} — Notes</h3>
-        {onNavigateToSettings && (
-          <button
-            className="archetype-notes__edit-link"
-            onClick={() =>
-              onNavigateToSettings('archetype-notes', { archetypeId: archetype.id })
-            }
-          >
-            Edit in Settings →
-          </button>
-        )}
+        <button
+          className="archetype-notes__edit-link"
+          onClick={() => setEditing(e => !e)}
+        >
+          {editing ? 'Done editing' : 'Edit'}
+        </button>
       </div>
 
       <div className="archetype-notes__body">
@@ -100,10 +147,61 @@ export default function ArchetypeNotesTab({
           cartomancyType={cartomancyType}
         />
         <div className="archetype-notes__main">
-          {grouped.length === 0 ? (
+          {editing ? (
+            allSources.length === 0 ? (
+              <p className="archetype-notes__empty">
+                No reference sources cover {cartomancyType} yet — create
+                one in Settings → Reference Sources first.
+              </p>
+            ) : (
+              allSources.map(src => {
+                const open = openSources.has(src.id);
+                const fields = fieldsBySource.get(src.id) ?? [];
+                return (
+                  <section key={src.id} className="archetype-notes__source">
+                    <button
+                      type="button"
+                      className="archetype-notes__source-toggle"
+                      aria-expanded={open}
+                      onClick={() => toggleSource(src.id)}
+                    >
+                      <span
+                        className={`archetype-notes__chevron ${open ? 'archetype-notes__chevron--open' : ''}`}
+                        aria-hidden="true"
+                      >
+                        ▸
+                      </span>
+                      <span className="archetype-notes__source-name">{src.name}</span>
+                    </button>
+                    {open && (
+                      <div className="archetype-notes__source-body">
+                        {fields.length === 0 ? (
+                          <p className="archetype-notes__empty">
+                            This source has no {cartomancyType} fields —
+                            define them in Settings → Reference Sources.
+                          </p>
+                        ) : (
+                          fields.map(f => (
+                            <EditableField
+                              key={`${archetype.id}-${f.id}`}
+                              archetypeId={archetype.id}
+                              field={f}
+                              initial={entryByField.get(f.id)?.content ?? ''}
+                              onSaved={invalidateEntries}
+                              showToast={showToast}
+                            />
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </section>
+                );
+              })
+            )
+          ) : grouped.length === 0 ? (
             <p className="archetype-notes__empty">
-              No source notes for {archetype.name} yet.
-              {onNavigateToSettings && ' Click "Edit in Settings" to add some.'}
+              No source notes for {archetype.name} yet. Click "Edit" to
+              add some.
             </p>
           ) : (
             grouped.map(group => {
@@ -181,6 +279,61 @@ export default function ArchetypeNotesTab({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** One field in edit mode: a rich-text editor prefilled with the
+ *  current content (blank when nothing is authored), with a Save
+ *  button that lights up on change. */
+function EditableField({
+  archetypeId,
+  field,
+  initial,
+  onSaved,
+  showToast,
+}: {
+  archetypeId: number;
+  field: SourceField;
+  initial: string;
+  onSaved: () => void;
+  showToast: (msg: string) => void;
+}) {
+  const [draft, setDraft] = useState(() => ensureHtml(initial));
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await setArchetypeSourceEntry(archetypeId, field.id, draft);
+      setDirty(false);
+      onSaved();
+    } catch {
+      showToast('Could not save the note.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="archetype-notes__field archetype-notes__field--editing">
+      <div className="archetype-notes__field-edit-head">
+        <h5 className="archetype-notes__field-name">{field.name}</h5>
+        <button
+          className="archetype-notes__field-save"
+          onClick={handleSave}
+          disabled={!dirty || saving}
+        >
+          {saving ? 'Saving…' : dirty ? 'Save' : 'Saved'}
+        </button>
+      </div>
+      <RichTextEditor
+        content={draft}
+        onChange={(html) => { setDraft(html); setDirty(true); }}
+        placeholder="Nothing authored for this field yet…"
+        minHeight={80}
+      />
     </div>
   );
 }
