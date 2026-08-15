@@ -1,12 +1,18 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getArchetypeNames,
   getArchetypeNamesForType,
+  getArchetypeLanguages,
+  createArchetypeName,
+  updateArchetypeName,
+  deleteArchetypeName,
 } from '../../../../api/archetypeLanguages';
+import { useToast } from '../../../../context/ToastContext';
+import { confirmDialog } from '../../../common/ConfirmDialog';
 import ArchetypeCardImage from './ArchetypeCardImage';
 import type { Archetype } from '../../../../api/correspondences';
-import type { ArchetypeLanguageName } from '../../../../types';
+import type { ArchetypeLanguage, ArchetypeLanguageName } from '../../../../types';
 import './ArchetypeLanguagesTab.css';
 
 interface Props {
@@ -27,12 +33,12 @@ export default function ArchetypeLanguagesTab({
   archetype,
   cartomancyType,
   archetypes,
-  onNavigateToSettings,
 }: Props) {
   const [mode, setMode] = useState<Mode>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved === 'table' ? 'table' : 'card';
   });
+  const [editing, setEditing] = useState(false);
   const switchMode = (m: Mode) => {
     setMode(m);
     localStorage.setItem(STORAGE_KEY, m);
@@ -55,14 +61,12 @@ export default function ArchetypeLanguagesTab({
             Table mode
           </button>
         </div>
-        {onNavigateToSettings && (
+        {mode === 'card' && (
           <button
             className="archetype-langs__edit-link"
-            onClick={() =>
-              onNavigateToSettings('archetype-languages', { archetypeId: archetype.id })
-            }
+            onClick={() => setEditing(e => !e)}
           >
-            Edit in Settings →
+            {editing ? 'Done editing' : 'Edit'}
           </button>
         )}
       </div>
@@ -74,7 +78,9 @@ export default function ArchetypeLanguagesTab({
             cartomancyType={cartomancyType}
           />
           <div className="archetype-langs__main">
-            <CardModeView archetype={archetype} />
+            {editing
+              ? <CardModeEditor archetype={archetype} />
+              : <CardModeView archetype={archetype} />}
           </div>
         </div>
       ) : (
@@ -268,6 +274,166 @@ function TableModeView({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Card-mode editor — every defined language, names editable in place
+// ---------------------------------------------------------------------------
+
+function CardModeEditor({ archetype }: { archetype: Archetype }) {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  const { data: names = [] } = useQuery<ArchetypeLanguageName[]>({
+    queryKey: ['archetype-language-names', archetype.id],
+    queryFn: () => getArchetypeNames(archetype.id),
+  });
+  const { data: languages = [] } = useQuery<ArchetypeLanguage[]>({
+    queryKey: ['archetype-languages'],
+    queryFn: getArchetypeLanguages,
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['archetype-language-names', archetype.id] });
+    queryClient.invalidateQueries({ queryKey: ['archetype-language-names-by-type'] });
+  };
+
+  const byLanguage = useMemo(() => {
+    const m = new Map<number, ArchetypeLanguageName[]>();
+    for (const n of names) {
+      if (!m.has(n.language_id)) m.set(n.language_id, []);
+      m.get(n.language_id)!.push(n);
+    }
+    return m;
+  }, [names]);
+
+  if (languages.length === 0) {
+    return (
+      <p className="archetype-langs__empty">
+        No languages defined yet — add them in Settings → Archetype Languages.
+      </p>
+    );
+  }
+
+  return (
+    <div className="archetype-langs__card-mode">
+      {languages.map(lang => (
+        <section key={lang.id} className="archetype-langs__lang-block">
+          <h4 className="archetype-langs__lang-name">{lang.name}</h4>
+          {(byLanguage.get(lang.id) ?? []).map(n => (
+            <NameEditorRow
+              key={n.id}
+              nameRow={n}
+              onChanged={invalidate}
+              showToast={showToast}
+            />
+          ))}
+          <AddNameRow
+            archetypeId={archetype.id}
+            languageId={lang.id}
+            onChanged={invalidate}
+            showToast={showToast}
+          />
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function NameEditorRow({
+  nameRow,
+  onChanged,
+  showToast,
+}: {
+  nameRow: ArchetypeLanguageName;
+  onChanged: () => void;
+  showToast: (msg: string) => void;
+}) {
+  const [name, setName] = useState(nameRow.name);
+  const [romanization, setRomanization] = useState(nameRow.romanization ?? '');
+  const [ipa, setIpa] = useState(nameRow.ipa ?? '');
+  const dirty = name !== nameRow.name
+    || romanization !== (nameRow.romanization ?? '')
+    || ipa !== (nameRow.ipa ?? '');
+
+  const handleSave = async () => {
+    if (!name.trim()) return;
+    try {
+      await updateArchetypeName(nameRow.id, {
+        name: name.trim(),
+        romanization: romanization.trim() || null,
+        ipa: ipa.trim() || null,
+      });
+      onChanged();
+    } catch {
+      showToast('Could not save the name.');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!(await confirmDialog({
+      message: `Delete "${nameRow.name}"?`,
+      title: 'Delete Name',
+      confirmLabel: 'Delete',
+    }))) return;
+    try {
+      await deleteArchetypeName(nameRow.id);
+      onChanged();
+    } catch {
+      showToast('Could not delete the name.');
+    }
+  };
+
+  return (
+    <div className="archetype-langs__edit-row">
+      <input value={name} onChange={e => setName(e.target.value)} placeholder="Name" />
+      <input value={romanization} onChange={e => setRomanization(e.target.value)} placeholder="Romanization" />
+      <input value={ipa} onChange={e => setIpa(e.target.value)} placeholder="IPA" />
+      <button onClick={handleSave} disabled={!dirty || !name.trim()}>Save</button>
+      <button onClick={handleDelete}>Delete</button>
+    </div>
+  );
+}
+
+function AddNameRow({
+  archetypeId,
+  languageId,
+  onChanged,
+  showToast,
+}: {
+  archetypeId: number;
+  languageId: number;
+  onChanged: () => void;
+  showToast: (msg: string) => void;
+}) {
+  const [name, setName] = useState('');
+  const [romanization, setRomanization] = useState('');
+  const [ipa, setIpa] = useState('');
+
+  const handleAdd = async () => {
+    if (!name.trim()) return;
+    try {
+      await createArchetypeName(
+        archetypeId, languageId, name.trim(),
+        romanization.trim() || null, ipa.trim() || null,
+      );
+      setName('');
+      setRomanization('');
+      setIpa('');
+      onChanged();
+    } catch {
+      showToast('Could not add the name.');
+    }
+  };
+
+  return (
+    <div className="archetype-langs__edit-row archetype-langs__edit-row--add">
+      <input value={name} onChange={e => setName(e.target.value)} placeholder="Add name…" />
+      <input value={romanization} onChange={e => setRomanization(e.target.value)} placeholder="Romanization" />
+      <input value={ipa} onChange={e => setIpa(e.target.value)} placeholder="IPA" />
+      <button onClick={handleAdd} disabled={!name.trim()}>Add</button>
+      <span className="archetype-langs__edit-row-spacer" />
     </div>
   );
 }

@@ -88,3 +88,38 @@
   font-size: var(--font-size-small);
   font-style: italic;
 }
+
+/* ── Inline edit mode ── */
+
+.archetype-corr__editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.archetype-corr__edit-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.archetype-corr__edit-row label {
+  flex: 0 0 130px;
+}
+
+.archetype-corr__edit-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.archetype-corr__edit-row button {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  font-size: var(--font-size-small);
+}
+
+.archetype-corr__hint {
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  margin: 2px 0 0;
+}

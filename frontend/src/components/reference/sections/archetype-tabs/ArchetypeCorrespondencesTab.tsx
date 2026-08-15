@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getCorrespondenceSystems,
   getSystemAssignments,
+  setAssignmentValues,
   type Archetype,
 } from '../../../../api/correspondences';
+import { useToast } from '../../../../context/ToastContext';
 import {
   CORRESPONDENCE_FIELDS,
   CORRESPONDENCE_FIELD_LABELS,
@@ -28,8 +30,10 @@ const STORAGE_KEY = 'archetypes-viewer.correspondences.system';
 export default function ArchetypeCorrespondencesTab({
   archetype,
   cartomancyType,
-  onNavigateToSettings,
 }: Props) {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  const [editing, setEditing] = useState(false);
   const { data: systems = [] } = useQuery<CorrespondenceSystem[]>({
     queryKey: ['correspondence-systems'],
     queryFn: getCorrespondenceSystems,
@@ -60,6 +64,12 @@ export default function ArchetypeCorrespondencesTab({
     queryFn: () => getSystemAssignments(systemId!, archetype.id),
     enabled: systemId != null,
   });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['system-assignments', systemId, archetype.id] });
+    // Cards resolve correspondences through these systems — refresh
+    // any open card views too.
+    queryClient.invalidateQueries({ queryKey: ['card-correspondences'] });
+  };
 
   // Group values by field, dedup, preserve insertion order.
   const valuesByField = useMemo(() => {
@@ -99,14 +109,13 @@ export default function ArchetypeCorrespondencesTab({
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
-        {onNavigateToSettings && (
-          <button
-            className="archetype-corr__edit-link"
-            onClick={() => onNavigateToSettings('correspondences')}
-          >
-            Edit in Settings →
-          </button>
-        )}
+        <button
+          className="archetype-corr__edit-link"
+          onClick={() => setEditing(e => !e)}
+          disabled={systemId == null}
+        >
+          {editing ? 'Done editing' : 'Edit'}
+        </button>
       </div>
 
       <div className="archetype-corr__body">
@@ -115,7 +124,25 @@ export default function ArchetypeCorrespondencesTab({
           cartomancyType={cartomancyType}
         />
         <div className="archetype-corr__main">
-          {populatedFields.length === 0 ? (
+          {editing && systemId != null ? (
+            <div className="archetype-corr__editor">
+              {CORRESPONDENCE_FIELDS.map(f => (
+                <FieldEditorRow
+                  key={`${systemId}-${archetype.id}-${f}`}
+                  systemId={systemId}
+                  archetypeId={archetype.id}
+                  fieldName={f}
+                  label={CORRESPONDENCE_FIELD_LABELS[f] || f}
+                  initial={(valuesByField.get(f) || []).join(', ')}
+                  onSaved={invalidate}
+                  showToast={showToast}
+                />
+              ))}
+              <p className="archetype-corr__hint">
+                Several values? Separate them with commas.
+              </p>
+            </div>
+          ) : populatedFields.length === 0 ? (
             <p className="archetype-corr__empty">
               No correspondence values set for {archetype.name} in this system.
             </p>
@@ -135,6 +162,57 @@ export default function ArchetypeCorrespondencesTab({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** One correspondence field in edit mode: comma-separated values in a
+ *  text input, saved as a value list. */
+function FieldEditorRow({
+  systemId,
+  archetypeId,
+  fieldName,
+  label,
+  initial,
+  onSaved,
+  showToast,
+}: {
+  systemId: number;
+  archetypeId: number;
+  fieldName: string;
+  label: string;
+  initial: string;
+  onSaved: () => void;
+  showToast: (msg: string) => void;
+}) {
+  const [draft, setDraft] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const dirty = draft.trim() !== initial.trim();
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const values = draft.split(',').map(v => v.trim()).filter(Boolean);
+      await setAssignmentValues(systemId, archetypeId, fieldName, values);
+      onSaved();
+    } catch {
+      showToast('Could not save the correspondence.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="archetype-corr__edit-row">
+      <label className="archetype-corr__field">{label}</label>
+      <input
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        placeholder="—"
+      />
+      <button onClick={handleSave} disabled={!dirty || saving}>
+        {saving ? 'Saving…' : 'Save'}
+      </button>
     </div>
   );
 }

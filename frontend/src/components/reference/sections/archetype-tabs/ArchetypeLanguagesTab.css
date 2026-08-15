@@ -204,3 +204,36 @@
   font-size: 0.85em;
   color: var(--text-dim);
 }
+
+/* ── Inline edit mode ── */
+
+.archetype-langs__edit-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.archetype-langs__edit-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.archetype-langs__edit-row input:first-child {
+  flex: 1.4;
+}
+
+.archetype-langs__edit-row button {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: var(--font-size-small);
+}
+
+.archetype-langs__edit-row--add input {
+  opacity: 0.9;
+}
+
+.archetype-langs__edit-row-spacer {
+  /* Aligns the Add row with rows that have two buttons */
+  flex: 0 0 54px;
+}
