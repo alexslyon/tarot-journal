@@ -34,14 +34,24 @@ interface ReferenceTabProps {
   /** External request to open a specific reference section (deep link). */
   initialSection?: ReferenceSectionId;
   onSectionViewed?: () => void;
+  /** Archetype to select on arrival (set by the command palette). */
+  pendingArchetype?: { id: number; cartomancyType: string } | null;
+  onPendingArchetypeHandled?: () => void;
 }
 
 export default function ReferenceTab({
   onNavigateToSettings,
   initialSection,
   onSectionViewed,
+  pendingArchetype,
+  onPendingArchetypeHandled,
 }: ReferenceTabProps) {
   const [activeSection, setActiveSection] = useState<ReferenceSectionId>('archetypes');
+
+  // A pending archetype always lands on the Archetypes section.
+  useEffect(() => {
+    if (pendingArchetype) setActiveSection('archetypes');
+  }, [pendingArchetype]);
 
   useEffect(() => {
     if (initialSection && SECTIONS.some(s => s.id === initialSection)) {
@@ -66,6 +76,8 @@ export default function ReferenceTab({
       <div className="reference-layout__content">
         {activeSection === 'archetypes' && (
           <ArchetypesViewer
+            pendingArchetype={pendingArchetype}
+            onPendingArchetypeHandled={onPendingArchetypeHandled}
             onNavigateToSettings={
               onNavigateToSettings
                 ? (section, payload) => onNavigateToSettings(section, payload)

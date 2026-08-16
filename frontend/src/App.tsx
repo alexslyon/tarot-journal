@@ -58,6 +58,8 @@ export default function App() {
   const [pendingDeckId, setPendingDeckId] = useState<number | null>(null);
   const [pendingSpreadId, setPendingSpreadId] = useState<number | null>(null);
   const [pendingEntryId, setPendingEntryId] = useState<number | null>(null);
+  const [pendingArchetype, setPendingArchetype] =
+    useState<{ id: number; cartomancyType: string } | null>(null);
 
   // Switching top-level tabs unmounts the current tab's editors, so a
   // dirty non-modal editor (e.g. a half-designed spread) would lose
@@ -156,6 +158,11 @@ export default function App() {
       case 'entry':
         if (await guardedSwitchTab('journal')) setPendingEntryId(action.id);
         break;
+      case 'archetype':
+        if (await guardedSwitchTab('reference')) {
+          setPendingArchetype({ id: action.id, cartomancyType: action.cartomancyType });
+        }
+        break;
     }
   }, [guardedSwitchTab]);
 
@@ -213,7 +220,11 @@ export default function App() {
                 />
               )}
               {activeTab === 'reference' && (
-                <ReferenceTab onNavigateToSettings={handleNavigateToSettings} />
+                <ReferenceTab
+                  onNavigateToSettings={handleNavigateToSettings}
+                  pendingArchetype={pendingArchetype}
+                  onPendingArchetypeHandled={() => setPendingArchetype(null)}
+                />
               )}
               {activeTab === 'insights' && <StatsTab />}
               {activeTab === 'settings' && (

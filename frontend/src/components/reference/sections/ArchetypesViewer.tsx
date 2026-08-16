@@ -31,6 +31,9 @@ interface ArchetypesViewerProps {
     section: string,
     payload?: { archetypeId?: number; fieldId?: number },
   ) => void;
+  /** Archetype to select on arrival (set by the command palette). */
+  pendingArchetype?: { id: number; cartomancyType: string } | null;
+  onPendingArchetypeHandled?: () => void;
 }
 
 const STORAGE = {
@@ -39,7 +42,11 @@ const STORAGE = {
   subTab: 'archetypes-viewer.sub-tab',
 };
 
-export default function ArchetypesViewer({ onNavigateToSettings }: ArchetypesViewerProps) {
+export default function ArchetypesViewer({
+  onNavigateToSettings,
+  pendingArchetype,
+  onPendingArchetypeHandled,
+}: ArchetypesViewerProps) {
   // === Cartomancy types ===
   const { data: allTypes = [] } = useQuery<CartomancyType[]>({
     queryKey: ['cartomancy-types'],
@@ -89,6 +96,16 @@ export default function ArchetypesViewer({ onNavigateToSettings }: ArchetypesVie
       setArchetypeId(sortedArchetypes[0].id);
     }
   }, [sortedArchetypes, archetypeId]);
+
+  // Command-palette deep link: jump straight to a card. Type first,
+  // then the id — the invalid-for-type fallback effect leaves a valid
+  // id alone once the new type's archetypes load.
+  useEffect(() => {
+    if (!pendingArchetype) return;
+    setCartomancyType(pendingArchetype.cartomancyType);
+    setArchetypeId(pendingArchetype.id);
+    onPendingArchetypeHandled?.();
+  }, [pendingArchetype, onPendingArchetypeHandled]);
 
   const selectedArchetype = sortedArchetypes.find(a => a.id === archetypeId) || null;
 

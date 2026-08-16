@@ -11,6 +11,7 @@ import Modal from './Modal';
 import { getDecks } from '../../api/decks';
 import { getSpreads } from '../../api/spreads';
 import { getEntries, searchEntries } from '../../api/entries';
+import { getArchetypes, type Archetype } from '../../api/correspondences';
 import type { Deck, Spread, JournalEntry } from '../../types';
 import type { TabId } from '../layout/TabNav';
 import './CommandPalette.css';
@@ -23,6 +24,7 @@ export type PaletteAction =
   | { type: 'new-entry' }
   | { type: 'shortcuts' }
   | { type: 'deck'; id: number }
+  | { type: 'archetype'; id: number; cartomancyType: string }
   | { type: 'spread'; id: number }
   | { type: 'entry'; id: number };
 
@@ -134,6 +136,11 @@ export default function CommandPalette({ open, onClose, onAction }: CommandPalet
     queryFn: () => getEntries(6),
     enabled: open,
   });
+  const { data: archetypes = [] } = useQuery<Archetype[]>({
+    queryKey: ['archetypes', undefined],
+    queryFn: () => getArchetypes(),
+    enabled: open,
+  });
 
   // Debounced full-text entry search once the query is substantial —
   // recent entries alone would miss anything older than the first page.
@@ -172,6 +179,15 @@ export default function CommandPalette({ open, onClose, onAction }: CommandPalet
         label: s.name,
         action: { type: 'spread', id: s.id } as PaletteAction,
       })));
+      result.push(...archetypes.filter(a => matches(a.name)).slice(0, 20).map(a => ({
+        key: `archetype-${a.id}`,
+        group: 'Card Archetypes',
+        label: a.name,
+        hint: a.cartomancy_type,
+        action: {
+          type: 'archetype', id: a.id, cartomancyType: a.cartomancy_type,
+        } as PaletteAction,
+      })));
     }
 
     // Entries: recents when browsing; the server search (title, notes,
@@ -199,7 +215,7 @@ export default function CommandPalette({ open, onClose, onAction }: CommandPalet
     }
     result.push(...entryItems);
     return result;
-  }, [query, debouncedQuery, decks, spreads, recentEntries, searchedEntries]);
+  }, [query, debouncedQuery, decks, spreads, archetypes, recentEntries, searchedEntries]);
 
   // Keep the highlight on a real row as the result set changes.
   useEffect(() => {
