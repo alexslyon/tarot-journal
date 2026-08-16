@@ -127,6 +127,8 @@ export interface EntryReading {
   cartomancy_type: string | null;
   cards_used: string | null;
   position_order: number;
+  /** Per-reading notes — used when an entry holds several readings. */
+  notes: string | null;
 }
 
 /** A card placed in a reading (parsed from cards_used JSON) */
@@ -160,6 +162,7 @@ export interface EntryReadingParsed {
   cartomancy_type: string | null;
   cards_used: CardUsed[];
   position_order: number;
+  notes: string | null;
 }
 
 /** Follow-up note on a journal entry */

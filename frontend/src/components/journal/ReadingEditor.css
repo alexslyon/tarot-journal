@@ -389,3 +389,21 @@
   max-height: 260px;
   overflow-y: auto;
 }
+
+/* ── Per-reading notes (multi-reading entries) ── */
+
+.reading-editor__notes {
+  margin-top: 10px;
+  padding-top: 10px;
+  background: var(--tj-rule-h) no-repeat top / 100% 1px;
+}
+
+.reading-editor__notes-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: var(--tj-size-kicker);
+  font-weight: var(--tj-ui-weight-strong);
+  text-transform: uppercase;
+  letter-spacing: var(--tj-kicker-tracking);
+  color: var(--tj-text-kicker);
+}

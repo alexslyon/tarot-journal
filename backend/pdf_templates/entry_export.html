@@ -231,6 +231,15 @@
         </table>
       {% endif %}
 
+      {% if reading.notes_html %}
+        <div class="reading-notes">
+          <h3 class="reading-notes__title">Notes for this reading</h3>
+          <div class="reading-notes__body rich-text">
+            {{ reading.notes_html|safe }}
+          </div>
+        </div>
+      {% endif %}
+
       {% if include_spread_instructions and reading.spread and reading.spread.description_html %}
         <div class="spread-instructions">
           <h3 class="spread-instructions__title">Spread instructions</h3>

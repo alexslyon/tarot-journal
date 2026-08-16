@@ -198,6 +198,13 @@ def build_entry_markdown(db, entry: dict, include_reference: bool = False) -> st
             lines.extend(corr_lines)
             lines.append('')
 
+        reading_notes = _html_to_text(rd.get('notes') or '')
+        if reading_notes:
+            lines.append('**Notes for this reading:**')
+            lines.append('')
+            lines.append(reading_notes)
+            lines.append('')
+
     if include_reference:
         lines.extend(_reference_sections(entry))
 

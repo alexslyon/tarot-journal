@@ -117,6 +117,7 @@ export async function deleteEntryReadings(entryId: number): Promise<void> {
  *  failure can never leave the entry with its readings half-deleted.
  *  Always prefer this over deleteEntryReadings + addEntryReading loops. */
 export async function replaceEntryReadings(entryId: number, readings: Array<{
+  notes?: string;
   spread_id?: number | null;
   spread_name?: string;
   deck_id?: number | null;

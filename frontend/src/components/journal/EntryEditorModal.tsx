@@ -51,6 +51,7 @@ function emptyReading(): ReadingData {
     deck_id: null,
     deck_name: null,
     cartomancy_type: null,
+    notes: '',
     cards: [],
   };
 }
@@ -173,6 +174,7 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
         deck_id: r.deck_id,
         deck_name: r.deck_name,
         cartomancy_type: r.cartomancy_type,
+        notes: r.notes ?? '',
         cards: (r.cards_used || []).map((c, idx) => ({
           name: c.name,
           reversed: c.reversed || false,
@@ -254,6 +256,7 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
           deck_id: r.deck_id,
           deck_name: r.deck_name,
           cartomancy_type: r.cartomancy_type,
+          notes: '',
           cards: (r.cards_used || []).map((c, idx) => ({
             name: '',
             reversed: false,
@@ -372,6 +375,7 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
         await replaceEntryReadings(savedEntryId, meaningfulReadings.map((r, i) => ({
           spread_id: r.spread_id,
           spread_name: r.spread_name || undefined,
+          notes: (r.notes || '').replace(/<[^>]*>/g, '').trim() ? r.notes : undefined,
           deck_id: r.deck_id,
           deck_name: r.deck_name || undefined,
           cartomancy_type: r.cartomancy_type || undefined,
@@ -642,6 +646,8 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
                 key={reading._key ?? `reading-${idx}`}
                 index={idx}
                 value={reading}
+                showNotes={readings.length > 1
+                  || !!(reading.notes || '').replace(/<[^>]*>/g, '').trim()}
                 onChange={(data) => updateReading(idx, data)}
                 onRemove={() => removeReading(idx)}
                 defaultDecks={defaults?.default_decks}

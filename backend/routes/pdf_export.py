@@ -295,6 +295,10 @@ def _hydrate_entry_for_pdf(db, entry_id: int, cache=None) -> dict | None:
                     spread_cache[sid] = sp
             spread = spread_cache.get(sid)
         rd['spread'] = spread
+        rd['notes_html'] = (
+            convert_content_to_html(rd.get('notes'))
+            if (rd.get('notes') or '').strip() else ''
+        )
 
         # Extra cards (clarifiers / additional pulls beyond the
         # spread's positions), labelled for the template. Identified

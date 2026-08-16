@@ -6,6 +6,7 @@ import { getSpreads, getSpread } from '../../api/spreads';
 import { cardThumbnailUrl } from '../../api/images';
 import { deckMatchesType, ensureHtml } from '../../utils/formatting';
 import RichTextViewer from '../common/RichTextViewer';
+import RichTextEditor from '../common/RichTextEditor';
 import SearchCombobox, { type SearchComboboxHandle } from '../common/SearchCombobox';
 import type { Card, Deck, Spread, SpreadPosition, DeckSlot } from '../../types';
 import './ReadingEditor.css';
@@ -20,6 +21,9 @@ export interface ReadingData {
   deck_id: number | null;
   deck_name: string | null;
   cartomancy_type: string | null;
+  /** Per-reading notes; only surfaced when the entry has several
+   *  readings (single-reading entries use the entry-level notes). */
+  notes?: string;
   cards: Array<{
     name: string;
     reversed: boolean;
@@ -49,9 +53,12 @@ interface ReadingEditorProps {
   /** Reorder this reading within the entry (undefined = can't move) */
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  /** Show this reading's own notes field — on for multi-reading
+   *  entries (single-reading entries use the entry-level notes). */
+  showNotes?: boolean;
 }
 
-export default function ReadingEditor({ value, onChange, onRemove, index, defaultDecks, onMoveUp, onMoveDown }: ReadingEditorProps) {
+export default function ReadingEditor({ value, onChange, onRemove, index, defaultDecks, onMoveUp, onMoveDown, showNotes }: ReadingEditorProps) {
   const { data: decks = [] } = useQuery({
     queryKey: ['decks'],
     queryFn: () => getDecks(),
@@ -606,6 +613,20 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
           </>
         )}
       </div>
+
+      {showNotes && (
+        <div className="reading-editor__notes">
+          <label className="reading-editor__notes-label">
+            Notes for this reading
+          </label>
+          <RichTextEditor
+            content={ensureHtml(value.notes || '')}
+            onChange={(html) => onChange({ ...value, notes: html })}
+            placeholder="Impressions specific to this spread…"
+            minHeight={70}
+          />
+        </div>
+      )}
     </div>
   );
 }

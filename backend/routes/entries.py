@@ -287,6 +287,7 @@ def add_entry_reading(entry_id, data):
         cartomancy_type=data.get('cartomancy_type'),
         cards_used=data.get('cards_used'),
         position_order=data.get('position_order', 0),
+        notes=data.get('notes'),
     )
     return jsonify({'id': reading_id}), 201
 

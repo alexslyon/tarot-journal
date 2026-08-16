@@ -254,14 +254,14 @@ class EntriesMixin:
     def add_entry_reading(self, entry_id: int, spread_id: int = None, spread_name: str = None,
                          deck_id: int = None, deck_name: str = None,
                          cartomancy_type: str = None, cards_used: list = None,
-                         position_order: int = 0):
+                         position_order: int = 0, notes: str = None):
         cursor = self.conn.cursor()
         cursor.execute('''
             INSERT INTO entry_readings
-            (entry_id, spread_id, spread_name, deck_id, deck_name, cartomancy_type, cards_used, position_order)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (entry_id, spread_id, spread_name, deck_id, deck_name, cartomancy_type, cards_used, position_order, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (entry_id, spread_id, spread_name, deck_id, deck_name,
-              cartomancy_type, json.dumps(cards_used) if cards_used else None, position_order))
+              cartomancy_type, json.dumps(cards_used) if cards_used else None, position_order, notes))
         self._commit()
         return cursor.lastrowid
 
@@ -289,12 +289,12 @@ class EntriesMixin:
                 cards_used = r.get('cards_used')
                 cursor.execute('''
                     INSERT INTO entry_readings
-                    (entry_id, spread_id, spread_name, deck_id, deck_name, cartomancy_type, cards_used, position_order)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (entry_id, spread_id, spread_name, deck_id, deck_name, cartomancy_type, cards_used, position_order, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (entry_id, r.get('spread_id'), r.get('spread_name'),
                       r.get('deck_id'), r.get('deck_name'), r.get('cartomancy_type'),
                       json.dumps(cards_used) if cards_used else None,
-                      r.get('position_order', i)))
+                      r.get('position_order', i), r.get('notes')))
                 new_ids.append(cursor.lastrowid)
         return new_ids
 

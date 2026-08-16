@@ -236,11 +236,17 @@ export default function EntryViewer({ entryId, onEdit, onNewFromEntry, onFindCar
           <div className="entry-viewer__section">
             <h3 className="entry-viewer__section-title">Readings</h3>
             {entry.readings.map((reading) => (
-              <SpreadDisplay
-                key={reading.id}
-                reading={reading}
-                onCardDoubleClick={setViewingCardId}
-              />
+              <div key={reading.id} className="entry-viewer__reading">
+                <SpreadDisplay
+                  reading={reading}
+                  onCardDoubleClick={setViewingCardId}
+                />
+                {(reading.notes || '').replace(/<[^>]*>/g, '').trim() && (
+                  <div className="entry-viewer__reading-notes">
+                    <RichTextViewer content={reading.notes!} />
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}

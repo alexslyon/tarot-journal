@@ -132,3 +132,11 @@
   gap: 4px;
   margin-right: 8px;
 }
+
+/* Per-reading notes shown under a spread's layout */
+.entry-viewer__reading-notes {
+  margin: 8px 0 16px;
+  padding: 10px 14px;
+  background: var(--tj-tint-neutral-hover);
+  border-radius: var(--tj-radius-row);
+}

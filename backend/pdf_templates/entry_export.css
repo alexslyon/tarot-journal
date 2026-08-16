@@ -806,3 +806,24 @@ html, body {
 .spread-instructions__body p {
   margin: 0 0 1.5mm;
 }
+
+/* ── Per-reading notes ── */
+
+.reading-notes {
+  margin-top: 4mm;
+}
+
+.reading-notes__title {
+  margin: 0 0 1.5mm;
+  font-size: 8.5pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #75798c;
+}
+
+.reading-notes__body {
+  font-size: 9.5pt;
+  line-height: 1.45;
+  color: #3f424d;
+}

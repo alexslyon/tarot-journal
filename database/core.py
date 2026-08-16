@@ -390,6 +390,7 @@ class CoreMixin:
                 cartomancy_type TEXT,
                 cards_used JSON,
                 position_order INTEGER DEFAULT 0,
+                notes TEXT,
                 FOREIGN KEY (entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE,
                 FOREIGN KEY (spread_id) REFERENCES spreads(id),
                 FOREIGN KEY (deck_id) REFERENCES decks(id)
@@ -1346,6 +1347,13 @@ class CoreMixin:
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_cards_deck_id ON cards(deck_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_cards_card_order ON cards(deck_id, card_order)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_entry_readings_entry_id ON entry_readings(entry_id)')
+
+        # Migration: per-reading notes (multi-spread entries get a
+        # notes field per reading alongside the entry-level notes)
+        reading_columns = [r[1] for r in cursor.execute(
+            'PRAGMA table_info(entry_readings)').fetchall()]
+        if reading_columns and 'notes' not in reading_columns:
+            cursor.execute('ALTER TABLE entry_readings ADD COLUMN notes TEXT')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_entry_tags_entry_id ON entry_tags(entry_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_entry_tags_tag_id ON entry_tags(tag_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_deck_tag_assignments_deck_id ON deck_tag_assignments(deck_id)')
