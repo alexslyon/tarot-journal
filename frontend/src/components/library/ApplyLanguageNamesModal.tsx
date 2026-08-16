@@ -89,6 +89,9 @@ export default function ApplyLanguageNamesModal({ deck, open, onClose }: ApplyLa
     card: Card;
     candidates: string[];
     chosen: string; // KEEP = keep current
+    /** Why a row has nothing to rename (or 'renamable' when it does):
+     *  'already' = the card ALREADY carries this language's name. */
+    status: 'renamable' | 'already' | 'no-name' | 'no-archetype';
   }
 
   const rows: PreviewRow[] = useMemo(() => {
@@ -102,14 +105,26 @@ export default function ApplyLanguageNamesModal({ deck, open, onClose }: ApplyLa
       }
       // Renaming to the name it already has is a no-op — treat as keep
       const meaningful = candidates.filter(c => c !== card.name);
+      let status: PreviewRow['status'];
+      if (!card.archetype) {
+        status = 'no-archetype';
+      } else if (candidates.length === 0) {
+        status = 'no-name';
+      } else if (meaningful.length === 0) {
+        // Had candidates, but every one matches the current name.
+        status = 'already';
+      } else {
+        status = 'renamable';
+      }
       const fallback = meaningful.length ? meaningful[0] : KEEP;
       const chosen = overrides[card.id] !== undefined ? overrides[card.id] : fallback;
-      return { card, candidates: meaningful, chosen };
+      return { card, candidates: meaningful, chosen, status };
     });
   }, [cards, languageId, candidatesByArchetype, overrides]);
 
   const renameCount = rows.filter(r => r.chosen !== KEEP).length;
-  const unmappedCount = rows.filter(r => r.candidates.length === 0).length;
+  const alreadyCount = rows.filter(r => r.status === 'already').length;
+  const unmappedCount = rows.filter(r => r.status === 'no-name' || r.status === 'no-archetype').length;
 
   const handleLanguageChange = (value: string) => {
     setOverrides({});
@@ -162,19 +177,28 @@ export default function ApplyLanguageNamesModal({ deck, open, onClose }: ApplyLa
           <>
             <p className="lang-names__summary">
               {renameCount} of {cards.length} cards will be renamed.
+              {alreadyCount > 0 && (languageId === CANONICAL
+                ? ` ${alreadyCount} already carry their canonical name.`
+                : ` ${alreadyCount} are already named in this language.`)}
               {unmappedCount > 0 && ` ${unmappedCount} have no name in this language (or no archetype) and keep their current name.`}
               {' '}Card archetypes aren't touched, so search and journal matching keep working.
             </p>
             <div className="lang-names__list">
-              {rows.map(({ card, candidates, chosen }) => (
+              {rows.map(({ card, candidates, chosen, status }) => (
                 <div key={card.id} className="lang-names__row">
                   <span className="lang-names__current" title={card.archetype || undefined}>
                     {card.name}
                   </span>
                   <span className="lang-names__arrow">→</span>
                   {candidates.length === 0 ? (
-                    <span className="lang-names__keep">
-                      {card.archetype ? 'no name in this language' : 'no archetype'} — keeps current
+                    <span className={status === 'already' ? 'lang-names__already' : 'lang-names__keep'}>
+                      {status === 'already'
+                        ? (languageId === CANONICAL
+                          ? 'already the canonical name ✓'
+                          : 'already named in this language ✓')
+                        : status === 'no-name'
+                          ? 'no name in this language — keeps current'
+                          : 'no archetype — keeps current'}
                     </span>
                   ) : (
                     <select

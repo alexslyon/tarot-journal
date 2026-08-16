@@ -71,3 +71,10 @@
   display: flex;
   gap: 10px;
 }
+
+/* Cards already carrying the chosen language's name — a quiet
+   confirmation, not a warning. */
+.lang-names__already {
+  color: var(--tj-text-accent);
+  font-size: var(--font-size-small);
+}
