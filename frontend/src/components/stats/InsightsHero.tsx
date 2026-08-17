@@ -14,7 +14,7 @@ import {
   pairSuitCounts,
   type SuitViewMode,
 } from '../../utils/suitPairing';
-import { getDecks } from '../../api/decks';
+import { getDecks, getCartomancyTypes } from '../../api/decks';
 import { getProfiles } from '../../api/profiles';
 import QueryError from '../common/QueryError';
 import type { Deck, Profile } from '../../types';
@@ -48,11 +48,13 @@ const TIMEFRAMES = [
 async function getInsights(params: {
   days?: number;
   deck_id?: number;
+  deck_type_id?: number;
   querent_id?: number;
 }): Promise<Insights> {
   const p: Record<string, string> = {};
   if (params.days) p.days = String(params.days);
   if (params.deck_id) p.deck_id = String(params.deck_id);
+  if (params.deck_type_id) p.deck_type_id = String(params.deck_type_id);
   if (params.querent_id) p.querent_id = String(params.querent_id);
   const res = await api.get('/api/stats/insights', { params: p });
   return res.data;
@@ -77,6 +79,7 @@ function formatRange(range: Insights['date_range']): string {
 
 export default function InsightsHero() {
   const [timeframe, setTimeframe] = useState<(typeof TIMEFRAMES)[number]['label']>('All');
+  const [deckTypeId, setDeckTypeId] = useState<number | ''>('');
   const [deckId, setDeckId] = useState<number | ''>('');
   const [querentId, setQuerentId] = useState<number | ''>('');
   const [suitMode, setSuitMode] = useState<SuitViewMode>(loadSuitViewMode);
@@ -89,15 +92,23 @@ export default function InsightsHero() {
   const days = TIMEFRAMES.find(t => t.label === timeframe)?.days;
 
   const { data, error, refetch } = useQuery<Insights>({
-    queryKey: ['insights', days, deckId, querentId],
+    queryKey: ['insights', days, deckTypeId, deckId, querentId],
     queryFn: () => getInsights({
       days,
       deck_id: deckId === '' ? undefined : deckId,
+      deck_type_id: deckTypeId === '' ? undefined : deckTypeId,
       querent_id: querentId === '' ? undefined : querentId,
     }),
   });
   const { data: decks = [] } = useQuery<Deck[]>({ queryKey: ['decks'], queryFn: () => getDecks() });
+  const { data: types = [] } = useQuery({ queryKey: ['cartomancy-types'], queryFn: getCartomancyTypes });
   const { data: profiles = [] } = useQuery<Profile[]>({ queryKey: ['profiles'], queryFn: getProfiles });
+  // Type filter narrows the deck dropdown; hidden profiles stay out of
+  // the querent dropdown (unless one is already selected).
+  const typedDecks = deckTypeId === ''
+    ? decks
+    : decks.filter(d => (d.cartomancy_types || []).some(t => t.id === deckTypeId));
+  const visibleProfiles = profiles.filter(p => !p.hidden || p.id === querentId);
 
   if (error) return <QueryError what="insights" onRetry={() => refetch()} />;
   if (!data) return <div className="insights-hero__loading">Reading the journal…</div>;
@@ -122,18 +133,35 @@ export default function InsightsHero() {
         </div>
         <div className="insights-hero__controls">
           <select
+            value={deckTypeId}
+            onChange={e => {
+              const next = e.target.value ? Number(e.target.value) : '';
+              setDeckTypeId(next);
+              // Drop a deck selection that doesn't belong to the new type.
+              if (next !== '' && deckId !== '') {
+                const deck = decks.find(d => d.id === deckId);
+                if (!(deck?.cartomancy_types || []).some(t => t.id === next)) {
+                  setDeckId('');
+                }
+              }
+            }}
+          >
+            <option value="">All types</option>
+            {types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+          <select
             value={deckId}
             onChange={e => setDeckId(e.target.value ? Number(e.target.value) : '')}
           >
             <option value="">All decks</option>
-            {decks.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            {typedDecks.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
           <select
             value={querentId}
             onChange={e => setQuerentId(e.target.value ? Number(e.target.value) : '')}
           >
             <option value="">All querents</option>
-            {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {visibleProfiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <div className="insights-hero__segment" role="group" aria-label="Timeframe">
             {TIMEFRAMES.map(t => (

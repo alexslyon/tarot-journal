@@ -46,6 +46,7 @@ def get_insights():
     days = request.args.get('days', type=int)          # None = all time
     querent_id = request.args.get('querent_id', type=int)
     deck_id = request.args.get('deck_id', type=int)
+    deck_type_id = request.args.get('deck_type_id', type=int)
 
     # ── Entries in scope ────────────────────────────────────────────
     sql = '''
@@ -74,6 +75,14 @@ def get_insights():
         readings = [r for r in readings if r['deck_id'] == deck_id]
         # Deck filter narrows the entry set to entries that still have
         # at least one reading with that deck.
+        entry_ids = {r['entry_id'] for r in readings}
+        entry_when = {k: v for k, v in entry_when.items() if k in entry_ids}
+    elif deck_type_id:
+        # Type filter: readings whose deck belongs to the type.
+        typed = {r['deck_id'] for r in cur.execute(
+            'SELECT deck_id FROM deck_type_assignments WHERE type_id = ?',
+            (deck_type_id,)).fetchall()}
+        readings = [r for r in readings if r['deck_id'] in typed]
         entry_ids = {r['entry_id'] for r in readings}
         entry_when = {k: v for k, v in entry_when.items() if k in entry_ids}
 
