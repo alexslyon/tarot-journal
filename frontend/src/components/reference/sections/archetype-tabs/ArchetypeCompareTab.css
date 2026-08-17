@@ -150,38 +150,3 @@
   letter-spacing: 0.3px;
 }
 
-.archetype-compare__notes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.archetype-compare__note-field {
-  background: var(--bg-primary);
-  border-radius: var(--tj-radius-row);
-  padding: 8px 12px;
-}
-
-.archetype-compare__note-field h5 {
-  margin: 0 0 4px;
-  color: var(--accent);
-  font-size: var(--font-size-small);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.archetype-compare__note-field ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.archetype-compare__note-source {
-  font-size: var(--font-size-small);
-  font-style: italic;
-  color: var(--text-dim);
-  margin-left: 6px;
-}

@@ -5,8 +5,6 @@ import { getCards, getCard } from '../../../../api/cards';
 import { getDefaults } from '../../../../api/settings';
 import { cardPreviewUrl } from '../../../../api/images';
 import { getCardCorrespondences } from '../../../../api/correspondences';
-import { getArchetypes } from '../../../../api/correspondences';
-import { getArchetypeSourceEntries } from '../../../../api/referenceSources';
 import RichTextViewer from '../../../common/RichTextViewer';
 import {
   CORRESPONDENCE_FIELDS,
@@ -17,7 +15,6 @@ import type {
   Card,
   CartomancyType,
   ResolvedCorrespondence,
-  ArchetypeSourceEntry,
 } from '../../../../types';
 import type { Archetype } from '../../../../api/correspondences';
 import './ArchetypeCompareTab.css';
@@ -287,27 +284,11 @@ function CompareColumn({
     return [...dedupedLegacy, ...tableEntries];
   }, [cardDetail]);
 
-  // Notes are tied to whichever archetype this column's card belongs to —
-  // when the columns hold cards with different archetypes (the whole point
-  // of arbitrary card comparison), each column shows its own card's notes.
-  // Resolve archetype id by looking up the card's archetype name in the
-  // cached archetypes list for this cartomancy type.
-  const { data: archetypes = [] } = useQuery<Archetype[]>({
-    queryKey: ['archetypes', cartomancyType],
-    queryFn: () => getArchetypes(cartomancyType),
-  });
-  const cardArchetypeId = useMemo(() => {
-    if (!selectedCard?.archetype) return null;
-    const match = archetypes.find(a => a.name === selectedCard.archetype);
-    return match?.id ?? null;
-  }, [archetypes, selectedCard?.archetype]);
-
-  const { data: sourceEntries = [] } = useQuery<ArchetypeSourceEntry[]>({
-    queryKey: ['archetype-source-entries', cardArchetypeId, cartomancyType],
-    queryFn: () => getArchetypeSourceEntries(cardArchetypeId!, cartomancyType),
-    enabled: cardArchetypeId != null,
-  });
-
+  // Archetype source notes are deliberately NOT shown here: they're
+  // per-archetype, so two columns comparing the same card would just
+  // duplicate them — and they live one sub-tab away in Notes. The
+  // columns compare what actually differs per deck: art,
+  // correspondences, and the deck's own card fields.
   return (
     <div className="archetype-compare__col">
       <div className="archetype-compare__selectors">
@@ -399,51 +380,7 @@ function CompareColumn({
         </div>
       )}
 
-      {sourceEntries.length > 0 && (
-        <div className="archetype-compare__notes">
-          {sourceEntries.map(e => (
-            <CompareNoteField key={e.entry_id} entry={e} />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 
-/** One source-note block in a compare column. Fields marked
- *  collapsible start closed behind a disclosure; the rest render
- *  open as before. */
-function CompareNoteField({ entry }: { entry: ArchetypeSourceEntry }) {
-  const [open, setOpen] = useState(false);
-  if (!entry.field_collapsible) {
-    return (
-      <section className="archetype-compare__note-field">
-        <h5>
-          {entry.source_name} <span style={{ opacity: 0.7 }}>· {entry.field_name}</span>
-        </h5>
-        <RichTextViewer content={entry.content} />
-      </section>
-    );
-  }
-  return (
-    <section className="archetype-compare__note-field">
-      <button
-        type="button"
-        className="archetype-compare__note-toggle"
-        aria-expanded={open}
-        onClick={() => setOpen(o => !o)}
-      >
-        <span
-          className={`archetype-compare__chevron ${open ? 'archetype-compare__chevron--open' : ''}`}
-          aria-hidden="true"
-        >
-          ▸
-        </span>
-        <h5>
-          {entry.source_name} <span style={{ opacity: 0.7 }}>· {entry.field_name}</span>
-        </h5>
-      </button>
-      {open && <RichTextViewer content={entry.content} />}
-    </section>
-  );
-}
