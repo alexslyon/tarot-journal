@@ -1,13 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { setEntryBreakdownSettings } from '../../api/entries';
-import {
-  useEntryBreakdown,
-  renderBreakdownValue,
-  loadElementViewMode,
-  saveElementViewMode,
-  type ElementViewMode,
-} from '../../utils/readingBreakdown';
+import { useEntryBreakdown, renderBreakdownValue } from '../../utils/readingBreakdown';
 import { loadSuitViewMode, saveSuitViewMode, type SuitViewMode } from '../../utils/suitPairing';
 import type { JournalEntryFull, BreakdownSettings } from '../../types';
 import './ReadingBreakdown.css';
@@ -58,15 +52,7 @@ export default function ReadingBreakdown({ entry }: Props) {
     saveSuitViewMode(next);
   };
 
-  // Element display (All / Classical) — shared preference, like suits.
-  const [elementMode, setElementMode] = useState<ElementViewMode>(loadElementViewMode);
-  const toggleElementMode = () => {
-    const next: ElementViewMode = elementMode === 'classical' ? 'all' : 'classical';
-    setElementMode(next);
-    saveElementViewMode(next);
-  };
-
-  const data = useEntryBreakdown(entry, suitMode, elementMode);
+  const data = useEntryBreakdown(entry, suitMode);
 
   // Resolve the active tab against the entry's current tabs — the saved
   // last_tab might point at a reading that's since been deleted.
@@ -182,15 +168,6 @@ export default function ReadingBreakdown({ entry }: Props) {
             title="Toggle between separate suits and Latin/French pairs (Cups / Hearts…)"
           >
             Suits: {suitMode === 'paired' ? 'Paired' : 'Separate'}
-          </button>
-
-          {/* Element display: everything, or only the four classical */}
-          <button
-            className="reading-breakdown__filter-trigger"
-            onClick={toggleElementMode}
-            title="Toggle between all element values and only the four classical elements (Fire, Water, Air, Earth)"
-          >
-            Elements: {elementMode === 'classical' ? 'Classical' : 'All'}
           </button>
 
           {/* Filter popover trigger */}

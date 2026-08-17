@@ -63,14 +63,29 @@ function FrequencyTooltip({
   );
 }
 
+const CLASSICAL_ELEMENTS = new Set(['fire', 'water', 'air', 'earth']);
+const ELEMENT_VIEW_STORAGE_KEY = 'tj-element-view-mode';
+
 export default function CorrespondenceStatsSection({ defaultField = 'element' }: CorrespondenceStatsSectionProps) {
   const [selectedField, setSelectedField] = useState(defaultField);
   const [months, setMonths] = useState(6);
+  // Element chart: everything, or only the four classical elements
+  // (Aether and future additions ignored). Persisted preference.
+  const [classicalOnly, setClassicalOnly] = useState(
+    () => localStorage.getItem(ELEMENT_VIEW_STORAGE_KEY) === 'classical',
+  );
+  const toggleClassical = (on: boolean) => {
+    setClassicalOnly(on);
+    localStorage.setItem(ELEMENT_VIEW_STORAGE_KEY, on ? 'classical' : 'all');
+  };
 
-  const { data: frequency = [], isLoading } = useQuery<CorrespondenceFrequency[]>({
+  const { data: rawFrequency = [], isLoading } = useQuery<CorrespondenceFrequency[]>({
     queryKey: ['corr-frequency', selectedField, months],
     queryFn: () => getCorrespondenceFrequency(selectedField, months),
   });
+  const frequency = selectedField === 'element' && classicalOnly
+    ? rawFrequency.filter(f => CLASSICAL_ELEMENTS.has(f.value.trim().toLowerCase()))
+    : rawFrequency;
 
   const hasData = frequency.length > 0;
   const showPie = frequency.length <= 12;
@@ -99,6 +114,16 @@ export default function CorrespondenceStatsSection({ defaultField = 'element' }:
           <option value={12}>Last 12 months</option>
           <option value={24}>Last 24 months</option>
         </select>
+        {selectedField === 'element' && (
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 'var(--font-size-small)', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={classicalOnly}
+              onChange={e => toggleClassical(e.target.checked)}
+            />
+            <span>Classical elements only</span>
+          </label>
+        )}
       </div>
 
       {isLoading ? (

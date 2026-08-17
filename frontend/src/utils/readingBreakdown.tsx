@@ -121,27 +121,11 @@ function tallyToColumns(tally: Map<string, number>): BreakdownColumn[] {
     );
 }
 
-// ── Element display: all values, or only the four classical elements ──
-
-export type ElementViewMode = 'all' | 'classical';
-export const ELEMENT_VIEW_STORAGE_KEY = 'tj-element-view-mode';
-const CLASSICAL_ELEMENTS = new Set(['fire', 'water', 'air', 'earth']);
-
-export function loadElementViewMode(): ElementViewMode {
-  return localStorage.getItem(ELEMENT_VIEW_STORAGE_KEY) === 'classical'
-    ? 'classical' : 'all';
-}
-
-export function saveElementViewMode(mode: ElementViewMode) {
-  localStorage.setItem(ELEMENT_VIEW_STORAGE_KEY, mode);
-}
-
 export function buildBreakdownTab(
   id: 'all' | number,
   label: string,
   cards: CardWithCorrespondences[],
   suitMode: SuitViewMode = 'separate',
-  elementMode: ElementViewMode = 'all',
 ): BreakdownTab {
   const suitTally = new Map<string, number>();
   const rankTally = new Map<string, number>();
@@ -166,15 +150,8 @@ export function buildBreakdownTab(
         corrTallies.set(c.field_name, inner);
       }
       // Multi-valued correspondences (e.g. a card may have two elements)
-      // each contribute one to the count. In classical mode the element
-      // row keeps only Fire/Water/Air/Earth — Aether and any future
-      // additions are ignored.
+      // each contribute one to the count.
       for (const v of c.values) {
-        if (
-          elementMode === 'classical'
-          && c.field_name === 'element'
-          && !CLASSICAL_ELEMENTS.has(v.trim().toLowerCase())
-        ) continue;
         inner.set(v, (inner.get(v) || 0) + 1);
       }
     }
@@ -224,11 +201,7 @@ export function renderBreakdownValue(
 // Hook — fetches each unique card's correspondences and assembles tabs
 // ───────────────────────────────────────────────────────────────────────
 
-export function useEntryBreakdown(
-  entry: JournalEntryFull | undefined,
-  suitMode: SuitViewMode = 'separate',
-  elementMode: ElementViewMode = 'all',
-): BreakdownData {
+export function useEntryBreakdown(entry: JournalEntryFull | undefined, suitMode: SuitViewMode = 'separate'): BreakdownData {
   // Collect every unique card_id across all readings — react-query dedupes
   // per id so a card appearing in multiple readings only fetches once.
   const uniqueCardIds = (() => {
@@ -266,7 +239,6 @@ export function useEntryBreakdown(
       reading.spread_name || 'Reading',
       readingCards(reading, corrByCardId),
       suitMode,
-      elementMode,
     ),
   );
 
@@ -276,7 +248,7 @@ export function useEntryBreakdown(
   for (const r of entry.readings) {
     for (const cwc of readingCards(r, corrByCardId)) allCards.push(cwc);
   }
-  const aggregate = buildBreakdownTab('all', 'All Readings', allCards, suitMode, elementMode);
+  const aggregate = buildBreakdownTab('all', 'All Readings', allCards, suitMode);
 
   // Tabs: per-reading first, aggregate last. If only one reading, the
   // aggregate is identical — UI hides tabs in that case.
