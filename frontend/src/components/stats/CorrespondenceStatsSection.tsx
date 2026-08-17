@@ -134,10 +134,14 @@ export default function CorrespondenceStatsSection({ defaultField = 'element' }:
           for this time period. Assign a correspondence system to your decks to see distribution data.
         </div>
       ) : showPie ? (
-        /* Pie chart for small value sets (elements, planets, etc.) */
+        /* Pie chart for small value sets (elements, planets, etc.).
+           Keyed on the data selection: Recharts won't repaint sectors
+           for an in-place data swap (the classical toggle) until a
+           mouse event — a remount redraws immediately, matching the
+           behavior of switching fields. */
         <div className="stats-tab__chart" style={{ height: 300 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+            <PieChart key={`${selectedField}-${months}-${classicalOnly}`}>
               <Pie
                 data={frequency}
                 dataKey="count"
@@ -163,6 +167,7 @@ export default function CorrespondenceStatsSection({ defaultField = 'element' }:
         <div className="stats-tab__chart" style={{ height: Math.max(300, frequency.length * 28) }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
+              key={`${selectedField}-${months}-${classicalOnly}`}
               data={frequency}
               layout="vertical"
               margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
