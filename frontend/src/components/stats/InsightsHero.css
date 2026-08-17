@@ -307,3 +307,68 @@
   color: var(--tj-text-muted);
   border-radius: var(--tj-radius-pill);
 }
+
+/* ── Usage rows (decks / spreads / pairs) ── */
+
+.insights-hero__usage-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+/* The shared track only stretches inside these rows when told to */
+.insights-hero__usage-row .insights-hero__track {
+  flex: 1;
+  min-width: 36px;
+}
+
+.insights-hero__usage-name {
+  flex: 0 0 52%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--tj-size-ui);
+  color: var(--tj-text);
+}
+
+.insights-hero__usage-count {
+  flex-shrink: 0;
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.insights-hero__pair-and {
+  color: var(--tj-text-faint);
+}
+
+.insights-hero__panel-note {
+  margin: 8px 0 0;
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-faint);
+}
+
+/* ── By querent ── */
+
+.insights-hero__querent-row {
+  padding: 6px 0;
+}
+
+.insights-hero__querent-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.insights-hero__querent-cards {
+  margin-top: 2px;
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-muted);
+}
+
+.insights-hero__usage-row--pair .insights-hero__usage-name {
+  flex: 0 0 68%;
+}

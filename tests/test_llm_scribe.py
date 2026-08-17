@@ -671,3 +671,45 @@ def test_reversed_combinations(client):
     assert [m['meaning'] for m in reversed_] == ['First card reversed.']
     assert reversed_[0]['archetype_1_reversed'] == 1
     assert reversed_[0]['archetype_2_reversed'] == 0
+
+
+def test_insights_rich_aggregates(client):
+    """Deck/spread usage, co-occurring pairs, querent breakdown."""
+    types = client.get('/api/types').get_json()
+    deck = client.post('/api/decks', json={'name': 'Rich Deck', 'type_ids': [types[0]['id']]}).get_json()
+    fool = client.post('/api/cards', json={'deck_id': deck['id'], 'name': 'The Fool'}).get_json()
+    tower = client.post('/api/cards', json={'deck_id': deck['id'], 'name': 'The Tower'}).get_json()
+    star = client.post('/api/cards', json={'deck_id': deck['id'], 'name': 'The Star'}).get_json()
+    alice = client.post('/api/profiles', json={'name': 'Alice'}).get_json()
+
+    def make_entry(cards, querent=None):
+        e = client.post('/api/entries', json={'title': 'T'}).get_json()
+        client.post(f"/api/entries/{e['id']}/readings", json={
+            'deck_id': deck['id'], 'deck_name': 'Rich Deck',
+            'spread_name': 'Pair Draw',
+            'cards_used': [{'name': n, 'card_id': cid, 'position_index': i}
+                           for i, (n, cid) in enumerate(cards)],
+        })
+        if querent:
+            client.put(f"/api/entries/{e['id']}/querents", json={'profile_ids': [querent]})
+        return e['id']
+
+    make_entry([('The Fool', fool['id']), ('The Tower', tower['id'])], alice['id'])
+    make_entry([('The Fool', fool['id']), ('The Tower', tower['id'])], alice['id'])
+    make_entry([('The Fool', fool['id']), ('The Star', star['id'])])
+
+    data = client.get('/api/stats/insights').get_json()
+    decks = {d['name']: d for d in data['deck_usage']}
+    assert decks['Rich Deck']['count'] == 3
+    assert decks['Rich Deck']['last_used'] is not None
+    spreads = {s['name']: s['count'] for s in data['spread_usage']}
+    assert spreads['Pair Draw'] == 3
+    pairs = {(p['a'], p['b']): p['count'] for p in data['co_occurrence']}
+    assert pairs[('The Fool', 'The Tower')] == 2
+    assert ('The Fool', 'The Star') not in pairs  # below MIN_PAIR_COUNT
+    qb = {q['name']: q for q in data['querent_breakdown']}
+    assert qb['Alice']['entries'] == 2
+    assert 'The Fool' in qb['Alice']['top_cards']
+    # Filtered to a querent, the breakdown hides itself
+    filtered = client.get(f"/api/stats/insights?querent_id={alice['id']}").get_json()
+    assert filtered['querent_breakdown'] == []

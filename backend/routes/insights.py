@@ -19,6 +19,11 @@ insights_bp = Blueprint('insights', __name__)
 
 CADENCE_MONTHS = 14
 MIN_POSITION_SAMPLE = 5   # a "highest reversal position" needs this many draws
+# Readings larger than this are skipped for pair-counting: in a Grand
+# Tableau every card co-occurs with every other, so big spreads drown
+# the signal of pairs that genuinely recur across readings.
+MAX_CARDS_FOR_PAIRS = 12
+MIN_PAIR_COUNT = 2
 
 
 def _month_key(dt: datetime) -> str:
@@ -62,7 +67,8 @@ def get_insights():
 
     # ── Readings + cards ────────────────────────────────────────────
     readings = [dict(r) for r in cur.execute(
-        'SELECT entry_id, spread_id, deck_id, cards_used FROM entry_readings'
+        'SELECT entry_id, spread_id, spread_name, deck_id, deck_name, cards_used'
+        ' FROM entry_readings'
     ).fetchall() if r['entry_id'] in entry_ids]
     if deck_id:
         readings = [r for r in readings if r['deck_id'] == deck_id]
@@ -80,13 +86,45 @@ def get_insights():
             suit_of.setdefault(r['name'].lower(), r['suit'])
     positions_of = {r['id']: json.loads(r['positions'] or '[]') for r in cur.execute(
         'SELECT id, positions FROM spreads').fetchall()}
+    deck_names = {r['id']: r['name'] for r in cur.execute(
+        'SELECT id, name FROM decks').fetchall()}
+    spread_names = {r['id']: r['name'] for r in cur.execute(
+        'SELECT id, name FROM spreads').fetchall()}
+
+    # Entry → querent names, for the per-querent panel (modern
+    # entry_querents rows plus the legacy single querent_id column).
+    querents_of: defaultdict = defaultdict(set)
+    for r in cur.execute('''
+        SELECT eq.entry_id, p.name FROM entry_querents eq
+        JOIN profiles p ON p.id = eq.profile_id
+    ''').fetchall():
+        if r['entry_id'] in entry_ids:
+            querents_of[r['entry_id']].add(r['name'])
+    for r in cur.execute('''
+        SELECT e.id, p.name FROM journal_entries e
+        JOIN profiles p ON p.id = e.querent_id
+        WHERE e.querent_id IS NOT NULL
+    ''').fetchall():
+        if r['id'] in entry_ids:
+            querents_of[r['id']].add(r['name'])
 
     card_counts: Counter = Counter()
     suit_counts: Counter = Counter()
     pos_totals: Counter = Counter()
     pos_reversed: Counter = Counter()
+    pair_counts: Counter = Counter()
+    deck_usage: Counter = Counter()
+    deck_last: dict = {}
+    spread_usage: Counter = Counter()
+    spread_last: dict = {}
+    querent_entries: Counter = Counter()
+    querent_cards: defaultdict = defaultdict(Counter)
     total_cards = 0
     reversed_count = 0
+
+    for eid, qnames in querents_of.items():
+        for qn in qnames:
+            querent_entries[qn] += 1
 
     for rd in readings:
         try:
@@ -94,6 +132,31 @@ def get_insights():
         except ValueError:
             continue
         positions = positions_of.get(rd['spread_id']) or []
+        when = entry_when.get(rd['entry_id'], '')
+
+        # Deck usage: each deck involved in a reading counts once for
+        # that reading (multi-deck spreads credit every deck used).
+        reading_decks = set()
+        rd_deck = rd.get('deck_name') or deck_names.get(rd.get('deck_id'))
+        if rd_deck:
+            reading_decks.add(rd_deck)
+        for c in cards:
+            if isinstance(c, dict):
+                cd = c.get('deck_name') or deck_names.get(c.get('deck_id'))
+                if cd:
+                    reading_decks.add(cd)
+        for dn in reading_decks:
+            deck_usage[dn] += 1
+            if when and when > deck_last.get(dn, ''):
+                deck_last[dn] = when
+
+        sn = rd.get('spread_name') or spread_names.get(rd.get('spread_id'))
+        if sn:
+            spread_usage[sn] += 1
+            if when and when > spread_last.get(sn, ''):
+                spread_last[sn] = when
+
+        reading_displays = set()
         for c in cards:
             if not isinstance(c, dict):
                 continue
@@ -103,6 +166,9 @@ def get_insights():
                 continue
             total_cards += 1
             card_counts[display] += 1
+            reading_displays.add(display)
+            for qn in querents_of.get(rd['entry_id'], ()):  # per-querent tallies
+                querent_cards[qn][display] += 1
             suit = suit_of.get(display.lower())
             if suit:
                 suit_counts[suit] += 1
@@ -115,6 +181,14 @@ def get_insights():
                 pos_totals[label] += 1
                 if is_reversed:
                     pos_reversed[label] += 1
+
+        # Co-occurring pairs within this reading (skip huge spreads —
+        # see MAX_CARDS_FOR_PAIRS).
+        if 2 <= len(reading_displays) <= MAX_CARDS_FOR_PAIRS:
+            names = sorted(reading_displays)
+            for i in range(len(names)):
+                for j in range(i + 1, len(names)):
+                    pair_counts[(names[i], names[j])] += 1
 
     # ── Cadence: entries per month, last CADENCE_MONTHS ─────────────
     per_month = Counter(w[:7] for w in entry_when.values() if len(w) >= 7)
@@ -165,4 +239,26 @@ def get_insights():
             {'suit': s, 'count': c} for s, c in suit_counts.most_common()
         ],
         'top_reversed_position': top_pos,
+        'deck_usage': [
+            {'name': n, 'count': c, 'last_used': (deck_last.get(n) or '')[:10] or None}
+            for n, c in deck_usage.most_common(8)
+        ],
+        'spread_usage': [
+            {'name': n, 'count': c, 'last_used': (spread_last.get(n) or '')[:10] or None}
+            for n, c in spread_usage.most_common(8)
+        ],
+        'co_occurrence': [
+            {'a': a, 'b': b, 'count': c}
+            for (a, b), c in pair_counts.most_common(10)
+            if c >= MIN_PAIR_COUNT
+        ],
+        # Hidden while a querent filter narrows to one person.
+        'querent_breakdown': [] if querent_id else [
+            {
+                'name': n,
+                'entries': c,
+                'top_cards': [name for name, _ in querent_cards[n].most_common(3)],
+            }
+            for n, c in querent_entries.most_common(6)
+        ],
     })

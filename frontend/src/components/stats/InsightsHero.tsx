@@ -33,6 +33,10 @@ interface Insights {
   cadence: { month: string; label: string; count: number; current: boolean }[];
   suits: { suit: string; count: number }[];
   top_reversed_position: { label: string; rate: number } | null;
+  deck_usage: { name: string; count: number; last_used: string | null }[];
+  spread_usage: { name: string; count: number; last_used: string | null }[];
+  co_occurrence: { a: string; b: string; count: number }[];
+  querent_breakdown: { name: string; entries: number; top_cards: string[] }[];
 }
 
 const TIMEFRAMES = [
@@ -52,6 +56,14 @@ async function getInsights(params: {
   if (params.querent_id) p.querent_id = String(params.querent_id);
   const res = await api.get('/api/stats/insights', { params: p });
   return res.data;
+}
+
+function shortDate(s: string | null): string {
+  if (!s) return '';
+  const d = new Date(s + 'T00:00');
+  return isNaN(d.getTime())
+    ? ''
+    : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function formatRange(range: Insights['date_range']): string {
@@ -95,6 +107,9 @@ export default function InsightsHero() {
   const suits = suitMode === 'paired' ? pairSuitCounts(data.suits) : data.suits;
   const maxSuit = Math.max(1, ...suits.map(s => s.count));
   const monthDelta = data.entries_this_month - data.entries_prev_month;
+  const maxDeck = Math.max(1, ...data.deck_usage.map(d => d.count));
+  const maxSpread = Math.max(1, ...data.spread_usage.map(s => s.count));
+  const maxPair = Math.max(1, ...data.co_occurrence.map(p => p.count));
 
   return (
     <div className="insights-hero">
@@ -261,6 +276,106 @@ export default function InsightsHero() {
             )}
           </div>
         </section>
+
+        {/* ── Decks & spreads you reach for ── */}
+        <section className="insights-hero__panel">
+          <h3 className="insights-hero__panel-kicker">Decks you reach for</h3>
+          {data.deck_usage.length === 0 ? (
+            <p className="insights-hero__empty">No readings in this range.</p>
+          ) : (
+            data.deck_usage.map(d => (
+              <div
+                key={d.name}
+                className="insights-hero__usage-row"
+                title={d.last_used ? `Last used ${shortDate(d.last_used)}` : undefined}
+              >
+                <span className="insights-hero__usage-name">{d.name}</span>
+                <div className="insights-hero__track">
+                  <div
+                    className="insights-hero__bar"
+                    style={{ width: `${(d.count / maxDeck) * 100}%` }}
+                  />
+                </div>
+                <span className="insights-hero__usage-count">{d.count}</span>
+              </div>
+            ))
+          )}
+        </section>
+
+        <section className="insights-hero__panel">
+          <h3 className="insights-hero__panel-kicker">Spreads you reach for</h3>
+          {data.spread_usage.length === 0 ? (
+            <p className="insights-hero__empty">No readings in this range.</p>
+          ) : (
+            data.spread_usage.map(sp => (
+              <div
+                key={sp.name}
+                className="insights-hero__usage-row"
+                title={sp.last_used ? `Last used ${shortDate(sp.last_used)}` : undefined}
+              >
+                <span className="insights-hero__usage-name">{sp.name}</span>
+                <div className="insights-hero__track">
+                  <div
+                    className="insights-hero__bar"
+                    style={{ width: `${(sp.count / maxSpread) * 100}%` }}
+                  />
+                </div>
+                <span className="insights-hero__usage-count">{sp.count}</span>
+              </div>
+            ))
+          )}
+        </section>
+
+        {/* ── Cards that appear together ── */}
+        {data.co_occurrence.length > 0 && (
+          <section className="insights-hero__panel">
+            <h3 className="insights-hero__panel-kicker">Cards that appear together</h3>
+            {data.co_occurrence.map(p => (
+              <div
+                key={`${p.a}|${p.b}`}
+                className="insights-hero__usage-row insights-hero__usage-row--pair"
+                title={`${p.a} + ${p.b} — together in ${p.count} readings`}
+              >
+                <span className="insights-hero__usage-name">
+                  {p.a} <span className="insights-hero__pair-and">+</span> {p.b}
+                </span>
+                <div className="insights-hero__track">
+                  <div
+                    className="insights-hero__bar"
+                    style={{ width: `${(p.count / maxPair) * 100}%` }}
+                  />
+                </div>
+                <span className="insights-hero__usage-count">{p.count}</span>
+              </div>
+            ))}
+            <p className="insights-hero__panel-note">
+              Pairs drawn together in the same reading, counted across
+              readings of up to 12 cards.
+            </p>
+          </section>
+        )}
+
+        {/* ── By querent ── */}
+        {data.querent_breakdown.length > 0 && (
+          <section className="insights-hero__panel">
+            <h3 className="insights-hero__panel-kicker">By querent</h3>
+            {data.querent_breakdown.map(q => (
+              <div key={q.name} className="insights-hero__querent-row">
+                <div className="insights-hero__querent-line">
+                  <span className="insights-hero__usage-name">{q.name}</span>
+                  <span className="insights-hero__usage-count">
+                    {q.entries} entr{q.entries === 1 ? 'y' : 'ies'}
+                  </span>
+                </div>
+                {q.top_cards.length > 0 && (
+                  <div className="insights-hero__querent-cards">
+                    keeps drawing {q.top_cards.join(', ')}
+                  </div>
+                )}
+              </div>
+            ))}
+          </section>
+        )}
       </div>
     </div>
   );
