@@ -71,20 +71,45 @@ def get_insights():
         'SELECT entry_id, spread_id, spread_name, deck_id, deck_name, cards_used'
         ' FROM entry_readings'
     ).fetchall() if r['entry_id'] in entry_ids]
+
+    # Parse each reading's cards once, and collect every deck involved.
+    # Most readings carry deck ids on their CARDS, not on the reading
+    # row (the editor has stored them per-card since early 2026), so
+    # deck/type filters must look at both levels or they silently drop
+    # nearly everything.
+    for rd in readings:
+        try:
+            rd['_cards'] = [c for c in json.loads(rd['cards_used'] or '[]')
+                            if isinstance(c, dict)]
+        except ValueError:
+            rd['_cards'] = []
+        involved = set()
+        if rd['deck_id']:
+            involved.add(rd['deck_id'])
+        for c in rd['_cards']:
+            if c.get('deck_id'):
+                involved.add(c['deck_id'])
+        rd['_deck_ids'] = involved
+
+    # Per-card inclusion under a deck/type filter: a multi-deck reading
+    # may involve the filtered deck, but only ITS cards should count.
+    allowed_decks: set | None = None
     if deck_id:
-        readings = [r for r in readings if r['deck_id'] == deck_id]
-        # Deck filter narrows the entry set to entries that still have
-        # at least one reading with that deck.
-        entry_ids = {r['entry_id'] for r in readings}
-        entry_when = {k: v for k, v in entry_when.items() if k in entry_ids}
+        allowed_decks = {deck_id}
     elif deck_type_id:
-        # Type filter: readings whose deck belongs to the type.
-        typed = {r['deck_id'] for r in cur.execute(
+        allowed_decks = {r['deck_id'] for r in cur.execute(
             'SELECT deck_id FROM deck_type_assignments WHERE type_id = ?',
             (deck_type_id,)).fetchall()}
-        readings = [r for r in readings if r['deck_id'] in typed]
+    if allowed_decks is not None:
+        readings = [r for r in readings if r['_deck_ids'] & allowed_decks]
         entry_ids = {r['entry_id'] for r in readings}
         entry_when = {k: v for k, v in entry_when.items() if k in entry_ids}
+
+    def card_included(rd, c) -> bool:
+        if allowed_decks is None:
+            return True
+        cd = c.get('deck_id') or rd['deck_id']
+        return cd in allowed_decks
 
     # Lookups: card_id → archetype/name; archetype name → suit
     card_info = {r['id']: (r['archetype'], r['name']) for r in cur.execute(
@@ -136,24 +161,21 @@ def get_insights():
             querent_entries[qn] += 1
 
     for rd in readings:
-        try:
-            cards = json.loads(rd['cards_used'] or '[]')
-        except ValueError:
-            continue
+        cards = [c for c in rd['_cards'] if card_included(rd, c)]
         positions = positions_of.get(rd['spread_id']) or []
         when = entry_when.get(rd['entry_id'], '')
 
         # Deck usage: each deck involved in a reading counts once for
         # that reading (multi-deck spreads credit every deck used).
         reading_decks = set()
-        rd_deck = rd.get('deck_name') or deck_names.get(rd.get('deck_id'))
-        if rd_deck:
-            reading_decks.add(rd_deck)
+        if allowed_decks is None or rd['deck_id'] in allowed_decks:
+            rd_deck = rd.get('deck_name') or deck_names.get(rd.get('deck_id'))
+            if rd_deck:
+                reading_decks.add(rd_deck)
         for c in cards:
-            if isinstance(c, dict):
-                cd = c.get('deck_name') or deck_names.get(c.get('deck_id'))
-                if cd:
-                    reading_decks.add(cd)
+            cd = c.get('deck_name') or deck_names.get(c.get('deck_id'))
+            if cd:
+                reading_decks.add(cd)
         for dn in reading_decks:
             deck_usage[dn] += 1
             if when and when > deck_last.get(dn, ''):
@@ -167,8 +189,6 @@ def get_insights():
 
         reading_displays = set()
         for c in cards:
-            if not isinstance(c, dict):
-                continue
             archetype, fallback = card_info.get(c.get('card_id'), (None, None))
             display = archetype or fallback or (c.get('name') or '').strip()
             if not display:

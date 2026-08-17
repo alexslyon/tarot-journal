@@ -713,3 +713,26 @@ def test_insights_rich_aggregates(client):
     # Filtered to a querent, the breakdown hides itself
     filtered = client.get(f"/api/stats/insights?querent_id={alice['id']}").get_json()
     assert filtered['querent_breakdown'] == []
+
+
+def test_insights_deck_filter_uses_card_level_decks(client):
+    """Readings storing deck ids on cards (not the reading row) must
+    still be found by the deck and type filters."""
+    types = client.get('/api/types').get_json()
+    t1 = types[0]
+    deck = client.post('/api/decks', json={'name': 'CardLevel Deck', 'type_ids': [t1['id']]}).get_json()
+    card = client.post('/api/cards', json={'deck_id': deck['id'], 'name': 'Ace of Filters'}).get_json()
+    e = client.post('/api/entries', json={'title': 'Card-level deck entry'}).get_json()
+    # NO reading-level deck_id — deck info only on the card.
+    client.post(f"/api/entries/{e['id']}/readings", json={
+        'spread_name': 'Filter Check',
+        'cards_used': [{'name': 'Ace of Filters', 'card_id': card['id'],
+                        'deck_id': deck['id'], 'position_index': 0}],
+    })
+
+    by_deck = client.get(f"/api/stats/insights?deck_id={deck['id']}").get_json()
+    assert by_deck['entries'] >= 1
+    assert any(c['name'] == 'Ace of Filters' for c in by_deck['top_cards'])
+
+    by_type = client.get(f"/api/stats/insights?deck_type_id={t1['id']}").get_json()
+    assert any(c['name'] == 'Ace of Filters' for c in by_type['top_cards'])
