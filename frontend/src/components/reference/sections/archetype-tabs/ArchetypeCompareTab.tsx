@@ -343,14 +343,14 @@ function CompareColumn({
         {onToggleLinked && (
           <label
             className="archetype-compare__link-toggle"
-            title="When on, this side automatically shows the same card as the first column. Turn off to compare two different cards."
+            title="By default this side shows the same card as the first column. Tick to pick any card instead."
           >
             <input
               type="checkbox"
-              checked={!!linked}
-              onChange={e => onToggleLinked(e.target.checked)}
+              checked={!linked}
+              onChange={e => onToggleLinked(!e.target.checked)}
             />
-            <span>Follow first card</span>
+            <span>Select different card</span>
           </label>
         )}
       </div>
