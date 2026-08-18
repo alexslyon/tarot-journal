@@ -74,6 +74,17 @@ export default function ArchetypeCompareTab({ archetype, cartomancyType }: Props
   const [leftArchetype, setLeftArchetype] = useState<string | null>(null);
   const [rightArchetype, setRightArchetype] = useState<string | null>(null);
 
+  // Linked mode (default): the second card follows the first card's
+  // archetype — compare the same card across decks. Unlink to pick
+  // any two cards freely.
+  const [linked, setLinked] = useState<boolean>(
+    () => localStorage.getItem('archetypes-viewer.compare.linked') !== 'off',
+  );
+  const toggleLinked = (on: boolean) => {
+    setLinked(on);
+    localStorage.setItem('archetypes-viewer.compare.linked', on ? 'on' : 'off');
+  };
+
   if (decks.length < 2) {
     return (
       <div className="archetype-compare archetype-compare--empty">
@@ -105,6 +116,9 @@ export default function ArchetypeCompareTab({ archetype, cartomancyType }: Props
         defaultDeckId={defaultDeckId}
         otherArchetypeName={leftArchetype}
         onSelectedArchetypeChange={setRightArchetype}
+        followArchetypeName={linked ? leftArchetype : null}
+        linked={linked}
+        onToggleLinked={toggleLinked}
       />
     </div>
   );
@@ -122,6 +136,9 @@ function CompareColumn({
   defaultDeckId,
   otherArchetypeName,
   onSelectedArchetypeChange,
+  followArchetypeName = null,
+  linked,
+  onToggleLinked,
 }: {
   side: 'left' | 'right';
   archetype: Archetype;
@@ -133,6 +150,12 @@ function CompareColumn({
   otherArchetypeName: string | null;
   /** Callback to publish this column's current card archetype upward. */
   onSelectedArchetypeChange: (name: string | null) => void;
+  /** When set, this column continuously mirrors the given archetype
+   *  (linked mode — the right column following the left card). */
+  followArchetypeName?: string | null;
+  /** Linked-mode toggle rendered on the right column only. */
+  linked?: boolean;
+  onToggleLinked?: (on: boolean) => void;
 }) {
   const [deckId, setDeckId] = useState<number | null>(null);
   useEffect(() => {
@@ -204,6 +227,17 @@ function CompareColumn({
     setCardId((match ?? deckCards[0]).id);
     prevArchetypeRef.current = archetype.name;
   }, [deckCards, archetype.name]);
+
+  // Linked mode: continuously mirror the other column's archetype.
+  // Only fires when the archetypes actually differ, so cycling this
+  // column's art variants (same archetype) isn't fought.
+  useEffect(() => {
+    if (!followArchetypeName || deckCards.length === 0) return;
+    const current = deckCards.find(c => c.id === cardId);
+    if (current?.archetype === followArchetypeName) return;
+    const match = deckCards.find(c => c.archetype === followArchetypeName);
+    if (match) setCardId(match.id);
+  }, [followArchetypeName, deckCards, cardId]);
 
   const selectedCard = useMemo(
     () => deckCards.find(c => c.id === cardId) || null,
@@ -303,9 +337,22 @@ function CompareColumn({
           options={deckCards.map(c => ({ id: c.id, label: c.name }))}
           value={cardId ?? undefined}
           onSelect={opt => { if (opt) setCardId(opt.id); }}
-          disabled={deckCards.length === 0}
+          disabled={deckCards.length === 0 || !!followArchetypeName}
           placeholder={deckCards.length === 0 ? 'No cards' : 'Type to search cards…'}
         />
+        {onToggleLinked && (
+          <label
+            className="archetype-compare__link-toggle"
+            title="When on, this side automatically shows the same card as the first column. Turn off to compare two different cards."
+          >
+            <input
+              type="checkbox"
+              checked={!!linked}
+              onChange={e => onToggleLinked(e.target.checked)}
+            />
+            <span>Follow first card</span>
+          </label>
+        )}
       </div>
 
       <div className="archetype-compare__image-wrap">

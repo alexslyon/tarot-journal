@@ -150,3 +150,13 @@
   letter-spacing: 0.3px;
 }
 
+
+.archetype-compare__link-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
