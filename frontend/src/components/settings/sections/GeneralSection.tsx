@@ -10,6 +10,7 @@ import {
 import { getProfiles } from '../../../api/profiles';
 import { getCartomancyTypes, getDecks } from '../../../api/decks';
 import type { Profile, Deck, CartomancyType } from '../../../types';
+import SearchCombobox from '../../common/SearchCombobox';
 import '../SettingsTab.css';
 
 const BASE_SIZES = { size_title: 22, size_heading: 14, size_body: 13, size_small: 11 };
@@ -200,15 +201,12 @@ export default function GeneralSection() {
             return (
               <div key={type.id} className="settings-tab__field">
                 <label className="settings-tab__label">{type.name}</label>
-                <select
-                  value={defaults?.default_decks?.[type.name] ?? ''}
-                  onChange={(e) => handleDefaultDeckChange(type.name, e.target.value ? Number(e.target.value) : null)}
-                >
-                  <option value="">None</option>
-                  {typeDecks.map((deck) => (
-                    <option key={deck.id} value={deck.id}>{deck.name}</option>
-                  ))}
-                </select>
+                <SearchCombobox
+                  options={typeDecks.map((deck) => ({ id: deck.id, label: deck.name }))}
+                  value={defaults?.default_decks?.[type.name] ?? undefined}
+                  onSelect={opt => handleDefaultDeckChange(type.name, opt ? opt.id : null)}
+                  placeholder="None"
+                />
               </div>
             );
           })}

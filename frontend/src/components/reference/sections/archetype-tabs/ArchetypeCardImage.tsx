@@ -6,6 +6,7 @@ import { getDefaults } from '../../../../api/settings';
 import { cardPreviewUrl } from '../../../../api/images';
 import type { Archetype } from '../../../../api/correspondences';
 import type { Deck, Card, CartomancyType } from '../../../../types';
+import SearchCombobox from '../../../common/SearchCombobox';
 import './ArchetypeCardImage.css';
 
 interface Props {
@@ -161,15 +162,14 @@ export default function ArchetypeCardImage({ archetype, cartomancyType, classNam
           </>
         )}
       </div>
-      <select
-        className="archetype-card-image__deck"
-        value={deckId ?? ''}
-        onChange={e => setDeckId(e.target.value ? Number(e.target.value) : null)}
-      >
-        {decks.map(d => (
-          <option key={d.id} value={d.id}>{d.name}</option>
-        ))}
-      </select>
+      <div className="archetype-card-image__deck">
+        <SearchCombobox
+          options={decks.map(d => ({ id: d.id, label: d.name }))}
+          value={deckId ?? undefined}
+          onSelect={opt => { if (opt) setDeckId(opt.id); }}
+          placeholder="Type to search decks…"
+        />
+      </div>
     </aside>
   );
 }

@@ -17,6 +17,7 @@ import {
 import { getDecks, getCartomancyTypes } from '../../api/decks';
 import { getProfiles } from '../../api/profiles';
 import QueryError from '../common/QueryError';
+import SearchCombobox from '../common/SearchCombobox';
 import type { Deck, Profile } from '../../types';
 import './InsightsHero.css';
 
@@ -149,13 +150,14 @@ export default function InsightsHero() {
             <option value="">All types</option>
             {types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
-          <select
-            value={deckId}
-            onChange={e => setDeckId(e.target.value ? Number(e.target.value) : '')}
-          >
-            <option value="">All decks</option>
-            {typedDecks.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
+          <div className="insights-hero__deck-combo">
+            <SearchCombobox
+              options={typedDecks.map(d => ({ id: d.id, label: d.name }))}
+              value={deckId === '' ? undefined : deckId}
+              onSelect={opt => setDeckId(opt ? opt.id : '')}
+              placeholder="All decks"
+            />
+          </div>
           <select
             value={querentId}
             onChange={e => setQuerentId(e.target.value ? Number(e.target.value) : '')}

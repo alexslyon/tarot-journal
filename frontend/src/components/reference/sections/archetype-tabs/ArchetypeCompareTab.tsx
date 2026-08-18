@@ -6,6 +6,7 @@ import { getDefaults } from '../../../../api/settings';
 import { cardPreviewUrl } from '../../../../api/images';
 import { getCardCorrespondences } from '../../../../api/correspondences';
 import RichTextViewer from '../../../common/RichTextViewer';
+import SearchCombobox from '../../../common/SearchCombobox';
 import {
   CORRESPONDENCE_FIELDS,
   CORRESPONDENCE_FIELD_LABELS,
@@ -292,26 +293,19 @@ function CompareColumn({
   return (
     <div className="archetype-compare__col">
       <div className="archetype-compare__selectors">
-        <select
-          className="archetype-compare__deck-select"
-          value={deckId ?? ''}
-          onChange={e => setDeckId(e.target.value ? Number(e.target.value) : null)}
-        >
-          {decks.map(d => (
-            <option key={d.id} value={d.id}>{d.name}</option>
-          ))}
-        </select>
-        <select
-          className="archetype-compare__card-select"
-          value={cardId ?? ''}
-          onChange={e => setCardId(e.target.value ? Number(e.target.value) : null)}
+        <SearchCombobox
+          options={decks.map(d => ({ id: d.id, label: d.name }))}
+          value={deckId ?? undefined}
+          onSelect={opt => { if (opt) setDeckId(opt.id); }}
+          placeholder="Type to search decks…"
+        />
+        <SearchCombobox
+          options={deckCards.map(c => ({ id: c.id, label: c.name }))}
+          value={cardId ?? undefined}
+          onSelect={opt => { if (opt) setCardId(opt.id); }}
           disabled={deckCards.length === 0}
-        >
-          {deckCards.length === 0 && <option value="">No cards</option>}
-          {deckCards.map(c => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+          placeholder={deckCards.length === 0 ? 'No cards' : 'Type to search cards…'}
+        />
       </div>
 
       <div className="archetype-compare__image-wrap">

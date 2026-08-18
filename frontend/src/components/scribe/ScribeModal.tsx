@@ -19,6 +19,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Modal, { ModalCancelButton } from '../common/Modal';
+import SearchCombobox from '../common/SearchCombobox';
 import { useToast } from '../../context/ToastContext';
 import { getSourceFields, getSourceEntries } from '../../api/referenceSources';
 import { getArchetypes, type Archetype } from '../../api/correspondences';
@@ -852,13 +853,12 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
             ) : (
               <>
                 <label>Also fill card fields on a deck (optional)</label>
-                <select
-                  value={deckId}
-                  onChange={e => setDeckId(e.target.value ? Number(e.target.value) : '')}
-                >
-                  <option value="">No deck — reference fields only</option>
-                  {decksForType.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
+                <SearchCombobox
+                  options={decksForType.map(d => ({ id: d.id, label: d.name }))}
+                  value={deckId === '' ? undefined : deckId}
+                  onSelect={opt => setDeckId(opt ? opt.id : '')}
+                  placeholder="No deck — reference fields only"
+                />
               </>
             )}
             {deckId !== '' && (

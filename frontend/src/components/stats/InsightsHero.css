@@ -372,3 +372,13 @@
 .insights-hero__usage-row--pair .insights-hero__usage-name {
   flex: 0 0 68%;
 }
+
+/* Deck filter combobox needs a bounded width in the controls row */
+.insights-hero__deck-combo {
+  width: 190px;
+}
+
+.insights-hero__deck-combo .search-combobox__input {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
