@@ -9,6 +9,7 @@ import { MeaningsEditor } from '../../combinations/MeaningsEditor';
 import { getReferenceSources } from '../../../api/referenceSources';
 import { cardPreviewUrl } from '../../../api/images';
 import { useToast } from '../../../context/ToastContext';
+import SearchCombobox from '../../common/SearchCombobox';
 import {
   useArchetypeCardList,
   type ArchetypeCardEntry,
@@ -227,21 +228,18 @@ function CardPicker({
   return (
     <div className="combinations__picker">
       <label className="settings-tab__label">{label}</label>
-      <select
-        value={value ?? ''}
-        onChange={e => onChange(e.target.value ? Number(e.target.value) : null)}
-      >
-        <option value="">Choose card...</option>
-        {cardList.map(c => (
-          <option
-            key={c.archetypeId}
-            value={c.archetypeId}
-            disabled={c.archetypeId === excludeId}
-          >
-            {c.rank ? `${c.rank} · ${c.name}` : c.name}
-          </option>
-        ))}
-      </select>
+      <SearchCombobox
+        options={cardList
+          .filter(c => c.archetypeId !== excludeId)
+          .map(c => ({
+            id: c.archetypeId,
+            label: c.rank ? `${c.rank} · ${c.name}` : c.name,
+            keywords: [c.name],
+          }))}
+        value={value ?? undefined}
+        onSelect={opt => onChange(opt ? opt.id : null)}
+        placeholder="Type to search cards…"
+      />
       {onReversedChange && (
         <label className="combinations__reversed-check">
           <input
