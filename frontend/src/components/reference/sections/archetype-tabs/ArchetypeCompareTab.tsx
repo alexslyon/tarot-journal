@@ -98,7 +98,21 @@ export default function ArchetypeCompareTab({ archetype, cartomancyType }: Props
   // change deck B, you almost always want B to land on the same card you're
   // already looking at in column A, even if that's not the parent archetype.)
   return (
-    <div className="archetype-compare">
+    <div>
+      <div className="archetype-compare__toolbar">
+        <label
+          className="archetype-compare__link-toggle"
+          title="By default the second column shows the same card as the first. Tick to pick any card instead."
+        >
+          <input
+            type="checkbox"
+            checked={!linked}
+            onChange={e => toggleLinked(!e.target.checked)}
+          />
+          <span>Select different card</span>
+        </label>
+      </div>
+      <div className="archetype-compare">
       <CompareColumn
         side="left"
         archetype={archetype}
@@ -117,9 +131,8 @@ export default function ArchetypeCompareTab({ archetype, cartomancyType }: Props
         otherArchetypeName={leftArchetype}
         onSelectedArchetypeChange={setRightArchetype}
         followArchetypeName={linked ? leftArchetype : null}
-        linked={linked}
-        onToggleLinked={toggleLinked}
       />
+      </div>
     </div>
   );
 }
@@ -137,8 +150,6 @@ function CompareColumn({
   otherArchetypeName,
   onSelectedArchetypeChange,
   followArchetypeName = null,
-  linked,
-  onToggleLinked,
 }: {
   side: 'left' | 'right';
   archetype: Archetype;
@@ -153,9 +164,6 @@ function CompareColumn({
   /** When set, this column continuously mirrors the given archetype
    *  (linked mode — the right column following the left card). */
   followArchetypeName?: string | null;
-  /** Linked-mode toggle rendered on the right column only. */
-  linked?: boolean;
-  onToggleLinked?: (on: boolean) => void;
 }) {
   const [deckId, setDeckId] = useState<number | null>(null);
   useEffect(() => {
@@ -340,19 +348,6 @@ function CompareColumn({
           disabled={deckCards.length === 0 || !!followArchetypeName}
           placeholder={deckCards.length === 0 ? 'No cards' : 'Type to search cards…'}
         />
-        {onToggleLinked && (
-          <label
-            className="archetype-compare__link-toggle"
-            title="By default this side shows the same card as the first column. Tick to pick any card instead."
-          >
-            <input
-              type="checkbox"
-              checked={!linked}
-              onChange={e => onToggleLinked(!e.target.checked)}
-            />
-            <span>Select different card</span>
-          </label>
-        )}
       </div>
 
       <div className="archetype-compare__image-wrap">

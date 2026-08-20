@@ -160,3 +160,9 @@
   cursor: pointer;
   white-space: nowrap;
 }
+
+.archetype-compare__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px 0;
+}
