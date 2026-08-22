@@ -59,10 +59,13 @@ def list_meanings():
         card_2 = int(request.args.get('card_2', ''))
     except (TypeError, ValueError):
         return jsonify({'error': 'card_1 and card_2 are required integers'}), 400
+    card_3 = request.args.get('card_3', type=int)
     rows = db.get_combination_meanings(
         ctype, card_1, card_2,
         archetype_1_reversed=_flag(request.args.get('card_1_reversed')),
         archetype_2_reversed=_flag(request.args.get('card_2_reversed')),
+        archetype_3_id=card_3,
+        archetype_3_reversed=_flag(request.args.get('card_3_reversed')),
     )
     return jsonify([row_to_dict(r) for r in rows])
 
@@ -103,10 +106,13 @@ def create_meaning(data):
         except (TypeError, ValueError):
             return jsonify({'error': 'source_id must be an integer'}), 400
     try:
+        card_3 = data.get('card_3')
         new_id = db.add_combination_meaning(
             ctype, card_1, card_2, meaning, source_id,
             archetype_1_reversed=_flag(data.get('card_1_reversed')),
             archetype_2_reversed=_flag(data.get('card_2_reversed')),
+            archetype_3_id=int(card_3) if card_3 else None,
+            archetype_3_reversed=_flag(data.get('card_3_reversed')),
         )
     except ValueError as e:
         return jsonify({'error': str(e)}), 400

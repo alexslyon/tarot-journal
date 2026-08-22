@@ -365,6 +365,10 @@ export interface CombinationMeaning {
   /** 0/1 — reversal flags are part of the combination's identity. */
   archetype_1_reversed?: number;
   archetype_2_reversed?: number;
+  /** Third card (null = two-card combination). */
+  archetype_3_id?: number | null;
+  archetype_3_name?: string | null;
+  archetype_3_reversed?: number;
 }
 
 /** A pair (across any cartomancy type) that has at least one

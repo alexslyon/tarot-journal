@@ -15,6 +15,11 @@
   margin-bottom: 24px;
 }
 
+/* Triad mode: three equal columns */
+.combinations-view__pickers:has(> :nth-child(3)) {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
 .combinations-view__picker {
   display: flex;
   flex-direction: column;
@@ -152,4 +157,21 @@
   display: flex;
   justify-content: flex-end;
   margin-bottom: 10px;
+}
+
+.combinations-view__count-toggle {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 14px;
+}
+
+.combinations-view__count-toggle button {
+  padding: 4px 12px;
+  font-size: var(--font-size-small);
+}
+
+.combinations-view__count-btn--active {
+  background-color: var(--tj-tint);
+  box-shadow: inset 0 0 0 1px rgb(var(--tj-accent-rgb) / 35%);
+  color: var(--text-primary);
 }

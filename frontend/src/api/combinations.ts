@@ -12,6 +12,8 @@ export async function getCombinationMeanings(
   card2: number,
   card1Reversed = false,
   card2Reversed = false,
+  card3: number | null = null,
+  card3Reversed = false,
 ): Promise<CombinationMeaning[]> {
   const res = await api.get('/api/combinations/meanings', {
     params: {
@@ -20,6 +22,8 @@ export async function getCombinationMeanings(
       card_2: card2,
       ...(card1Reversed ? { card_1_reversed: '1' } : {}),
       ...(card2Reversed ? { card_2_reversed: '1' } : {}),
+      ...(card3 ? { card_3: card3 } : {}),
+      ...(card3 && card3Reversed ? { card_3_reversed: '1' } : {}),
     },
   });
   return res.data;
@@ -53,6 +57,8 @@ export async function createCombinationMeaning(
   sourceId: number | null = null,
   card1Reversed = false,
   card2Reversed = false,
+  card3: number | null = null,
+  card3Reversed = false,
 ): Promise<{ id: number }> {
   const res = await api.post('/api/combinations/meanings', {
     cartomancy_type: cartomancyType,
@@ -62,6 +68,8 @@ export async function createCombinationMeaning(
     source_id: sourceId,
     card_1_reversed: card1Reversed,
     card_2_reversed: card2Reversed,
+    card_3: card3,
+    card_3_reversed: card3Reversed,
   });
   return res.data;
 }

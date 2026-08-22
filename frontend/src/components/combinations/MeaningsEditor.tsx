@@ -27,6 +27,8 @@ export function MeaningsEditor({
   card2Id,
   card1Rev,
   card2Rev,
+  card3Id = null,
+  card3Rev = false,
   meanings,
   sources,
   onChanged,
@@ -37,6 +39,9 @@ export function MeaningsEditor({
   card2Id: number;
   card1Rev: boolean;
   card2Rev: boolean;
+  /** Third card for triads; null = two-card combination. */
+  card3Id?: number | null;
+  card3Rev?: boolean;
   meanings: CombinationMeaning[];
   sources: ReferenceSource[];
   onChanged: () => void;
@@ -60,6 +65,8 @@ export function MeaningsEditor({
         draftSourceId === '' ? null : draftSourceId,
         card1Rev,
         card2Rev,
+        card3Id,
+        card3Rev,
       );
       setDraftMeaning('');
       setDraftSourceId('');

@@ -1184,13 +1184,40 @@ class CoreMixin:
                 archetype_1_reversed INTEGER NOT NULL DEFAULT 0,
                 archetype_2_id INTEGER NOT NULL,
                 archetype_2_reversed INTEGER NOT NULL DEFAULT 0,
+                archetype_3_id INTEGER,
+                archetype_3_reversed INTEGER NOT NULL DEFAULT 0,
                 CHECK (archetype_1_id != archetype_2_id),
-                UNIQUE (cartomancy_type, archetype_1_id, archetype_1_reversed,
-                        archetype_2_id, archetype_2_reversed),
+                CHECK (archetype_3_id IS NULL OR
+                       (archetype_3_id != archetype_1_id AND archetype_3_id != archetype_2_id)),
                 FOREIGN KEY (archetype_1_id) REFERENCES card_archetypes(id) ON DELETE CASCADE,
-                FOREIGN KEY (archetype_2_id) REFERENCES card_archetypes(id) ON DELETE CASCADE
+                FOREIGN KEY (archetype_2_id) REFERENCES card_archetypes(id) ON DELETE CASCADE,
+                FOREIGN KEY (archetype_3_id) REFERENCES card_archetypes(id) ON DELETE CASCADE
             )
         ''')
+        # Uniqueness split across partial indexes: NULLs are pairwise
+        # distinct in SQLite unique constraints, so a single 7-column
+        # UNIQUE would let duplicate two-card rows slip through.
+        # Guarded on the column: an existing pre-three-card table lacks
+        # archetype_3_id until its migration below rebuilds it (which
+        # also creates these indexes).
+        _combo_cols_now = [r[1] for r in cursor.execute(
+            'PRAGMA table_info(archetype_combinations)').fetchall()]
+        if 'archetype_3_id' in _combo_cols_now:
+            cursor.execute('''
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_combo_two
+                ON archetype_combinations
+                   (cartomancy_type, archetype_1_id, archetype_1_reversed,
+                    archetype_2_id, archetype_2_reversed)
+                WHERE archetype_3_id IS NULL
+            ''')
+            cursor.execute('''
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_combo_three
+                ON archetype_combinations
+                   (cartomancy_type, archetype_1_id, archetype_1_reversed,
+                    archetype_2_id, archetype_2_reversed,
+                    archetype_3_id, archetype_3_reversed)
+                WHERE archetype_3_id IS NOT NULL
+            ''')
         cursor.execute(
             'CREATE INDEX IF NOT EXISTS idx_archetype_combinations_type '
             'ON archetype_combinations(cartomancy_type)'
@@ -1225,6 +1252,70 @@ class CoreMixin:
         # drop would take every authored meaning with it.
         combo_cols = [r[1] for r in cursor.execute(
             'PRAGMA table_info(archetype_combinations)').fetchall()]
+
+        # Migration: third-card slot (three-card combinations). Another
+        # rebuild — the inline five-column UNIQUE must give way to the
+        # partial indexes above. Same FK-off dance as the reversal
+        # migration (combination_meanings cascades on delete).
+        if combo_cols and 'archetype_1_reversed' in combo_cols \
+                and 'archetype_3_id' not in combo_cols:
+            cursor.execute('''
+                CREATE TABLE archetype_combinations_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    cartomancy_type TEXT NOT NULL,
+                    archetype_1_id INTEGER NOT NULL,
+                    archetype_1_reversed INTEGER NOT NULL DEFAULT 0,
+                    archetype_2_id INTEGER NOT NULL,
+                    archetype_2_reversed INTEGER NOT NULL DEFAULT 0,
+                    archetype_3_id INTEGER,
+                    archetype_3_reversed INTEGER NOT NULL DEFAULT 0,
+                    CHECK (archetype_1_id != archetype_2_id),
+                    CHECK (archetype_3_id IS NULL OR
+                           (archetype_3_id != archetype_1_id AND archetype_3_id != archetype_2_id)),
+                    FOREIGN KEY (archetype_1_id) REFERENCES card_archetypes(id) ON DELETE CASCADE,
+                    FOREIGN KEY (archetype_2_id) REFERENCES card_archetypes(id) ON DELETE CASCADE,
+                    FOREIGN KEY (archetype_3_id) REFERENCES card_archetypes(id) ON DELETE CASCADE
+                )
+            ''')
+            cursor.execute('''
+                INSERT INTO archetype_combinations_new
+                    (id, cartomancy_type, archetype_1_id, archetype_1_reversed,
+                     archetype_2_id, archetype_2_reversed)
+                SELECT id, cartomancy_type, archetype_1_id, archetype_1_reversed,
+                       archetype_2_id, archetype_2_reversed
+                FROM archetype_combinations
+            ''')
+            self.conn.commit()
+            self.conn.execute('PRAGMA foreign_keys = OFF')
+            cursor.execute('DROP TABLE archetype_combinations')
+            cursor.execute(
+                'ALTER TABLE archetype_combinations_new RENAME TO archetype_combinations')
+            self.conn.commit()
+            self.conn.execute('PRAGMA foreign_keys = ON')
+            cursor.execute('''
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_combo_two
+                ON archetype_combinations
+                   (cartomancy_type, archetype_1_id, archetype_1_reversed,
+                    archetype_2_id, archetype_2_reversed)
+                WHERE archetype_3_id IS NULL
+            ''')
+            cursor.execute('''
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_combo_three
+                ON archetype_combinations
+                   (cartomancy_type, archetype_1_id, archetype_1_reversed,
+                    archetype_2_id, archetype_2_reversed,
+                    archetype_3_id, archetype_3_reversed)
+                WHERE archetype_3_id IS NOT NULL
+            ''')
+            cursor.execute(
+                'CREATE INDEX IF NOT EXISTS idx_archetype_combinations_type '
+                'ON archetype_combinations(cartomancy_type)'
+            )
+            cursor.execute(
+                'CREATE INDEX IF NOT EXISTS idx_archetype_combinations_pair '
+                'ON archetype_combinations(archetype_1_id, archetype_2_id)'
+            )
+
         if combo_cols and 'archetype_1_reversed' not in combo_cols:
             cursor.execute('''
                 CREATE TABLE archetype_combinations_new (

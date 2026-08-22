@@ -736,3 +736,35 @@ def test_insights_deck_filter_uses_card_level_decks(client):
 
     by_type = client.get(f"/api/stats/insights?deck_type_id={t1['id']}").get_json()
     assert any(c['name'] == 'Ace of Filters' for c in by_type['top_cards'])
+
+
+def test_three_card_combinations(client):
+    """Two-card and three-card combos are distinct namespaces."""
+    types = client.get('/api/types').get_json()
+    tname = types[0]['name']
+    archetypes = client.get(f'/api/archetypes?cartomancy_type={tname}').get_json()
+    a1, a2, a3 = (archetypes[i]['id'] for i in range(3))
+
+    client.post('/api/combinations/meanings', json={
+        'cartomancy_type': tname, 'card_1': a1, 'card_2': a2,
+        'meaning': 'Just the pair.',
+    })
+    client.post('/api/combinations/meanings', json={
+        'cartomancy_type': tname, 'card_1': a1, 'card_2': a2, 'card_3': a3,
+        'meaning': 'The full triad.',
+    })
+    pair = client.get('/api/combinations/meanings', query_string={
+        'cartomancy_type': tname, 'card_1': a1, 'card_2': a2,
+    }).get_json()
+    triad = client.get('/api/combinations/meanings', query_string={
+        'cartomancy_type': tname, 'card_1': a1, 'card_2': a2, 'card_3': a3,
+    }).get_json()
+    assert [m['meaning'] for m in pair] == ['Just the pair.']
+    assert [m['meaning'] for m in triad] == ['The full triad.']
+    assert triad[0]['archetype_3_name'] == archetypes[2]['name']
+    # Duplicate third card rejected
+    bad = client.post('/api/combinations/meanings', json={
+        'cartomancy_type': tname, 'card_1': a1, 'card_2': a2, 'card_3': a1,
+        'meaning': 'Nope.',
+    })
+    assert bad.status_code == 400

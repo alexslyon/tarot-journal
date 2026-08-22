@@ -28,13 +28,18 @@ class CombinationsMixin:
         archetype_2_id: int,
         archetype_1_reversed: bool = False,
         archetype_2_reversed: bool = False,
+        archetype_3_id: int = None,
+        archetype_3_reversed: bool = False,
     ) -> int:
         r1, r2 = int(bool(archetype_1_reversed)), int(bool(archetype_2_reversed))
+        r3 = int(bool(archetype_3_reversed)) if archetype_3_id else 0
         cursor.execute(
             'SELECT id FROM archetype_combinations '
             'WHERE cartomancy_type = ? AND archetype_1_id = ? AND archetype_2_id = ? '
-            'AND archetype_1_reversed = ? AND archetype_2_reversed = ?',
-            (cartomancy_type, archetype_1_id, archetype_2_id, r1, r2)
+            'AND archetype_1_reversed = ? AND archetype_2_reversed = ? '
+            'AND archetype_3_id IS ? AND archetype_3_reversed = ?',
+            (cartomancy_type, archetype_1_id, archetype_2_id, r1, r2,
+             archetype_3_id, r3)
         )
         row = cursor.fetchone()
         if row:
@@ -42,8 +47,10 @@ class CombinationsMixin:
         cursor.execute(
             'INSERT INTO archetype_combinations '
             '(cartomancy_type, archetype_1_id, archetype_2_id, '
-            ' archetype_1_reversed, archetype_2_reversed) VALUES (?, ?, ?, ?, ?)',
-            (cartomancy_type, archetype_1_id, archetype_2_id, r1, r2)
+            ' archetype_1_reversed, archetype_2_reversed, '
+            ' archetype_3_id, archetype_3_reversed) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (cartomancy_type, archetype_1_id, archetype_2_id, r1, r2,
+             archetype_3_id, r3)
         )
         return cursor.lastrowid
 
@@ -56,6 +63,8 @@ class CombinationsMixin:
         archetype_2_id: int,
         archetype_1_reversed: bool = False,
         archetype_2_reversed: bool = False,
+        archetype_3_id: int = None,
+        archetype_3_reversed: bool = False,
     ):
         """All meanings for an ordered pair, joined with source name +
         archetype names so the UI can render without follow-up fetches.
@@ -73,22 +82,30 @@ class CombinationsMixin:
                    c.archetype_2_id AS archetype_2_id,
                    c.archetype_1_reversed AS archetype_1_reversed,
                    c.archetype_2_reversed AS archetype_2_reversed,
+                   c.archetype_3_id AS archetype_3_id,
+                   c.archetype_3_reversed AS archetype_3_reversed,
                    a1.name AS archetype_1_name,
-                   a2.name AS archetype_2_name
+                   a2.name AS archetype_2_name,
+                   a3.name AS archetype_3_name
             FROM combination_meanings m
             JOIN archetype_combinations c ON c.id = m.combination_id
             JOIN card_archetypes a1 ON a1.id = c.archetype_1_id
             JOIN card_archetypes a2 ON a2.id = c.archetype_2_id
+            LEFT JOIN card_archetypes a3 ON a3.id = c.archetype_3_id
             LEFT JOIN reference_sources s ON s.id = m.source_id
             WHERE c.cartomancy_type = ?
               AND c.archetype_1_id = ?
               AND c.archetype_2_id = ?
               AND c.archetype_1_reversed = ?
               AND c.archetype_2_reversed = ?
+              AND c.archetype_3_id IS ?
+              AND c.archetype_3_reversed = ?
             ORDER BY m.sort_order, m.id
             ''',
             (cartomancy_type, archetype_1_id, archetype_2_id,
-             int(bool(archetype_1_reversed)), int(bool(archetype_2_reversed)))
+             int(bool(archetype_1_reversed)), int(bool(archetype_2_reversed)),
+             archetype_3_id,
+             int(bool(archetype_3_reversed)) if archetype_3_id else 0)
         )
         return cursor.fetchall()
 
@@ -100,14 +117,16 @@ class CombinationsMixin:
             '''
             SELECT
                 c.id AS combination_id,
-                c.archetype_1_id, c.archetype_2_id,
-                c.archetype_1_reversed, c.archetype_2_reversed,
+                c.archetype_1_id, c.archetype_2_id, c.archetype_3_id,
+                c.archetype_1_reversed, c.archetype_2_reversed, c.archetype_3_reversed,
                 a1.name AS archetype_1_name, a1.rank AS archetype_1_rank,
                 a2.name AS archetype_2_name, a2.rank AS archetype_2_rank,
+                a3.name AS archetype_3_name, a3.rank AS archetype_3_rank,
                 COUNT(m.id) AS meaning_count
             FROM archetype_combinations c
             JOIN card_archetypes a1 ON a1.id = c.archetype_1_id
             JOIN card_archetypes a2 ON a2.id = c.archetype_2_id
+            LEFT JOIN card_archetypes a3 ON a3.id = c.archetype_3_id
             JOIN combination_meanings m ON m.combination_id = c.id
             WHERE c.cartomancy_type = ?
             GROUP BY c.id
@@ -128,17 +147,22 @@ class CombinationsMixin:
         source_id: int = None,
         archetype_1_reversed: bool = False,
         archetype_2_reversed: bool = False,
+        archetype_3_id: int = None,
+        archetype_3_reversed: bool = False,
     ) -> int:
         """Create the combination row if needed, then append a new meaning
         at the end of its sort order."""
         if archetype_1_id == archetype_2_id:
             raise ValueError('Combinations must use two different cards')
+        if archetype_3_id in (archetype_1_id, archetype_2_id):
+            raise ValueError('Combinations must use distinct cards')
         if not meaning or not meaning.strip():
             raise ValueError('Meaning text is required')
         cursor = self.conn.cursor()
         combination_id = self._get_or_create_combination(
             cursor, cartomancy_type, archetype_1_id, archetype_2_id,
             archetype_1_reversed, archetype_2_reversed,
+            archetype_3_id, archetype_3_reversed,
         )
         cursor.execute(
             'SELECT COALESCE(MAX(sort_order), -1) + 1 FROM combination_meanings '

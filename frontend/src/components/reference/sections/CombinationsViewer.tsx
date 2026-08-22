@@ -27,12 +27,19 @@ export default function CombinationsViewer() {
   const [card2Id, setCard2Id] = useState<number | null>(null);
   const [card1Rev, setCard1Rev] = useState(false);
   const [card2Rev, setCard2Rev] = useState(false);
+  // Two-card by default; triad mode adds a third slot.
+  const [triad, setTriad] = useState(false);
+  const [card3Id, setCard3Id] = useState<number | null>(null);
+  const [card3Rev, setCard3Rev] = useState(false);
+  const effCard3 = triad ? card3Id : null;
 
   useEffect(() => {
     setCard1Id(null);
     setCard2Id(null);
     setCard1Rev(false);
     setCard2Rev(false);
+    setCard3Id(null);
+    setCard3Rev(false);
   }, [cartomancyType]);
 
   const { data: reversedTypes = [] } = useQuery<string[]>({
@@ -48,11 +55,12 @@ export default function CombinationsViewer() {
     queryFn: () => getReferenceSources(),
   });
 
-  const meaningsKey = ['combination-meanings', cartomancyType, card1Id, card1Rev, card2Id, card2Rev];
+  const meaningsKey = ['combination-meanings', cartomancyType, card1Id, card1Rev, card2Id, card2Rev, effCard3, card3Rev];
   const { data: meanings = [] } = useQuery<CombinationMeaning[]>({
     queryKey: meaningsKey,
-    queryFn: () => getCombinationMeanings(cartomancyType, card1Id!, card2Id!, card1Rev, card2Rev),
-    enabled: card1Id != null && card2Id != null && card1Id !== card2Id,
+    queryFn: () => getCombinationMeanings(cartomancyType, card1Id!, card2Id!, card1Rev, card2Rev, effCard3, card3Rev),
+    enabled: card1Id != null && card2Id != null && card1Id !== card2Id
+      && (!triad || (card3Id != null && card3Id !== card1Id && card3Id !== card2Id)),
   });
   const invalidateMeanings = () =>
     queryClient.invalidateQueries({ queryKey: meaningsKey });
@@ -62,7 +70,7 @@ export default function CombinationsViewer() {
   const [editing, setEditing] = useState(false);
   useEffect(() => {
     setEditing(false);
-  }, [cartomancyType, card1Id, card2Id, card1Rev, card2Rev]);
+  }, [cartomancyType, card1Id, card2Id, card1Rev, card2Rev, effCard3, card3Rev]);
   // Attribution only offers sources covering this deck type.
   const typeSources = useMemo(
     () => sources.filter(s => s.cartomancy_types.includes(cartomancyType)),
@@ -90,7 +98,8 @@ export default function CombinationsViewer() {
     return result;
   }, [meanings, sources]);
 
-  const bothSelected = card1Id != null && card2Id != null && card1Id !== card2Id;
+  const bothSelected = card1Id != null && card2Id != null && card1Id !== card2Id
+    && (!triad || (card3Id != null && card3Id !== card1Id && card3Id !== card2Id));
 
   return (
     <div className="reference-section combinations-view">
@@ -110,6 +119,22 @@ export default function CombinationsViewer() {
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
+        <div className="combinations-view__count-toggle" role="group" aria-label="Combination size">
+          <button
+            type="button"
+            className={!triad ? 'combinations-view__count-btn--active' : ''}
+            onClick={() => setTriad(false)}
+          >
+            Two cards
+          </button>
+          <button
+            type="button"
+            className={triad ? 'combinations-view__count-btn--active' : ''}
+            onClick={() => setTriad(true)}
+          >
+            Three cards
+          </button>
+        </div>
       </div>
 
       {defaultDeckId == null && (
@@ -125,7 +150,7 @@ export default function CombinationsViewer() {
           value={card1Id}
           onChange={setCard1Id}
           cardList={cardList}
-          excludeId={card2Id}
+          excludeIds={[card2Id, effCard3]}
           reversed={card1Rev}
           onReversedChange={reversalsEnabled ? setCard1Rev : undefined}
         />
@@ -134,10 +159,21 @@ export default function CombinationsViewer() {
           value={card2Id}
           onChange={setCard2Id}
           cardList={cardList}
-          excludeId={card1Id}
+          excludeIds={[card1Id, effCard3]}
           reversed={card2Rev}
           onReversedChange={reversalsEnabled ? setCard2Rev : undefined}
         />
+        {triad && (
+          <CardPicker
+            label="Third card"
+            value={card3Id}
+            onChange={setCard3Id}
+            cardList={cardList}
+            excludeIds={[card1Id, card2Id]}
+            reversed={card3Rev}
+            onReversedChange={reversalsEnabled ? setCard3Rev : undefined}
+          />
+        )}
       </div>
 
       {bothSelected && editing && (
@@ -153,6 +189,8 @@ export default function CombinationsViewer() {
             card2Id={card2Id!}
             card1Rev={card1Rev}
             card2Rev={card2Rev}
+            card3Id={effCard3}
+            card3Rev={card3Rev}
             meanings={meanings}
             sources={typeSources}
             onChanged={invalidateMeanings}
@@ -206,7 +244,7 @@ function CardPicker({
   value,
   onChange,
   cardList,
-  excludeId,
+  excludeIds,
   reversed = false,
   onReversedChange,
 }: {
@@ -214,7 +252,7 @@ function CardPicker({
   value: number | null;
   onChange: (id: number | null) => void;
   cardList: ArchetypeCardEntry[];
-  excludeId: number | null;
+  excludeIds: (number | null)[];
   reversed?: boolean;
   onReversedChange?: (reversed: boolean) => void;
 }) {
@@ -224,7 +262,7 @@ function CardPicker({
       <label className="combinations-view__picker-label">{label}</label>
       <SearchCombobox
         options={cardList
-          .filter(c => c.archetypeId !== excludeId)
+          .filter(c => !excludeIds.includes(c.archetypeId))
           .map(c => ({
             id: c.archetypeId,
             label: c.rank ? `${c.rank} · ${c.name}` : c.name,
