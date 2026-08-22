@@ -33,6 +33,7 @@ export function MeaningsEditor({
   sources,
   onChanged,
   showToast,
+  startAdding = false,
 }: {
   cartomancyType: string;
   card1Id: number;
@@ -46,10 +47,13 @@ export function MeaningsEditor({
   sources: ReferenceSource[];
   onChanged: () => void;
   showToast: (msg: string) => void;
+  /** Open with the new-meaning form already showing — used when the
+   *  user arrives via an empty combination's "+ Add meanings". */
+  startAdding?: boolean;
 }) {
   const [draftMeaning, setDraftMeaning] = useState('');
   const [draftSourceId, setDraftSourceId] = useState<number | ''>('');
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(startAdding);
 
   const [draggedId, setDraggedId] = useState<number | null>(null);
   const [dragOverId, setDragOverId] = useState<number | null>(null);

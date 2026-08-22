@@ -68,6 +68,9 @@ export default function CombinationsViewer() {
   // Inline editing — the meat of authoring happens right here, no
   // Settings round-trip. Editing state resets when the pair changes.
   const [editing, setEditing] = useState(false);
+  // Whether edit mode should open with the add form already showing
+  // (true when entered from an empty combination's "+ Add meanings").
+  const [editStartsAdding, setEditStartsAdding] = useState(false);
   useEffect(() => {
     setEditing(false);
   }, [cartomancyType, card1Id, card2Id, card1Rev, card2Rev, effCard3, card3Rev]);
@@ -191,6 +194,7 @@ export default function CombinationsViewer() {
             card2Rev={card2Rev}
             card3Id={effCard3}
             card3Rev={card3Rev}
+            startAdding={editStartsAdding}
             meanings={meanings}
             sources={typeSources}
             onChanged={invalidateMeanings}
@@ -205,7 +209,7 @@ export default function CombinationsViewer() {
           <button
             type="button"
             className="combinations-view__edit-link"
-            onClick={() => setEditing(true)}
+            onClick={() => { setEditStartsAdding(true); setEditing(true); }}
           >
             + Add meanings
           </button>
@@ -229,7 +233,7 @@ export default function CombinationsViewer() {
           <button
             type="button"
             className="combinations-view__edit-link"
-            onClick={() => setEditing(true)}
+            onClick={() => { setEditStartsAdding(false); setEditing(true); }}
           >
             Edit
           </button>
