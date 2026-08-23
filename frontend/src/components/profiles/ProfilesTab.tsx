@@ -10,6 +10,7 @@ import {
 import { useToast } from '../../context/ToastContext';
 import type { Profile } from '../../types';
 import ChartModal from '../astrology/ChartModal';
+import BirthCardsModal from './BirthCardsModal';
 import PlaceLookupButton from '../common/PlaceLookupButton';
 import './ProfilesTab.css';
 import { confirmDialog } from '../common/ConfirmDialog';
@@ -20,6 +21,7 @@ export default function ProfilesTab() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [chartOpen, setChartOpen] = useState(false);
+  const [birthCardsOpen, setBirthCardsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [error, setError] = useState('');
@@ -338,6 +340,18 @@ export default function ProfilesTab() {
                     View Chart
                   </button>
                 )}
+                {!isNew && selectedProfile && (
+                  <button
+                    className="profiles-tab__chart-btn"
+                    onClick={() => setBirthCardsOpen(true)}
+                    disabled={!selectedProfile.birth_date}
+                    title={selectedProfile.birth_date
+                      ? 'Greer birth cards from the birth date'
+                      : 'Set a birth date to calculate birth cards'}
+                  >
+                    Birth Cards
+                  </button>
+                )}
                 {!isNew && (
                   <button className="profiles-tab__delete-btn" onClick={handleDelete}>
                     Delete
@@ -371,6 +385,14 @@ export default function ProfilesTab() {
           open={chartOpen}
           onClose={() => setChartOpen(false)}
           source={{ type: 'profile', id: selectedProfile.id, name: selectedProfile.name }}
+        />
+      )}
+      {selectedProfile && (
+        <BirthCardsModal
+          open={birthCardsOpen}
+          onClose={() => setBirthCardsOpen(false)}
+          profileId={selectedProfile.id}
+          profileName={selectedProfile.name}
         />
       )}
     </div>

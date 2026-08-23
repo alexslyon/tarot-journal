@@ -1,0 +1,146 @@
+.birth-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.birth-cards__loading {
+  color: var(--text-dim);
+  padding: 24px 0;
+  text-align: center;
+}
+
+/* ── Header ── */
+
+.birth-cards__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.birth-cards__pattern {
+  background: var(--tj-tint-strong);
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: var(--font-size-body);
+  padding: 3px 12px;
+  border-radius: 999px;
+}
+
+.birth-cards__birthdate {
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+}
+
+.birth-cards__controls {
+  margin-left: auto;
+  display: flex;
+  gap: 12px;
+}
+
+.birth-cards__control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+}
+
+.birth-cards__method-note {
+  margin: 0;
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+}
+
+/* ── Sections ── */
+
+.birth-cards__section {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.birth-cards__heading {
+  margin: 0 0 8px;
+  font-size: var(--font-size-body);
+  color: var(--text-primary);
+}
+
+.birth-cards__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.birth-cards__text {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-body);
+}
+
+.birth-cards__note {
+  margin: 8px 0 0;
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+}
+
+.birth-cards__footnote {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: var(--font-size-small);
+  font-style: italic;
+}
+
+/* ── Card tiles ── */
+
+.birth-cards__tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 110px;
+}
+
+.birth-cards__tile--small {
+  width: 84px;
+}
+
+.birth-cards__tile-img {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.birth-cards__tile-placeholder {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 6px;
+}
+
+.birth-cards__tile-name {
+  font-size: var(--font-size-small);
+  color: var(--text-primary);
+  text-align: center;
+  line-height: 1.25;
+}
+
+.birth-cards__tile-caption {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 1.2;
+}
