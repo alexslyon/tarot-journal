@@ -1,0 +1,254 @@
+/* Layout inherits the .birth-cards scroll/section/tile styles; this
+   file covers only the name-cards-specific pieces. */
+
+/* ── Parts editor ── */
+
+.name-cards__parts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.name-cards__parts-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.name-cards__part {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.name-cards__part-box {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--tj-radius-row);
+}
+
+.name-cards__part-input {
+  width: 130px;
+}
+
+.name-cards__part-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.name-cards__role {
+  flex: 1;
+  font-size: var(--font-size-small);
+}
+
+.name-cards__part-remove {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--tj-radius-row);
+  cursor: pointer;
+}
+
+.name-cards__part-remove:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.name-cards__merge {
+  padding: 2px 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: var(--tj-radius-row);
+  cursor: pointer;
+}
+
+.name-cards__merge:hover {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.name-cards__add-part,
+.name-cards__reset {
+  padding: 4px 10px;
+  font-size: var(--font-size-small);
+}
+
+.name-cards__parts-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.name-cards__suffix-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.name-cards__api-error {
+  color: var(--danger);
+  font-size: var(--font-size-body);
+  padding: 12px;
+  border: 1px solid var(--danger);
+  border-radius: var(--tj-radius-row);
+}
+
+/* ── Y panel ── */
+
+.name-cards__y-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.name-cards__y-chip {
+  padding: 3px 10px;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.name-cards__y-chip:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.name-cards__y-chip--overridden {
+  border-color: var(--accent);
+}
+
+/* ── Constellation count ── */
+
+.name-cards__constellations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.name-cards__constellation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 52px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--tj-radius-row);
+}
+
+.name-cards__constellation-root {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.name-cards__constellation-count {
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+}
+
+.name-cards__constellation--absent {
+  border-style: dashed;
+}
+
+.name-cards__constellation--absent .name-cards__constellation-count {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.name-cards__constellation--peak {
+  border-color: var(--accent);
+}
+
+/* ── Mandala ── */
+
+.name-cards__mandala-part {
+  margin-bottom: 10px;
+}
+
+.name-cards__mandala-label {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+}
+
+.name-cards__mandala-rhythm {
+  font-family: var(--tj-font-mono, monospace);
+  color: var(--text-dim);
+  letter-spacing: 2px;
+}
+
+.name-cards__mandala-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.name-cards__mandala-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 52px;
+}
+
+.name-cards__mandala-tile img {
+  width: 100%;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+/* Vowels ride above the consonant baseline */
+.name-cards__mandala-tile--vowel {
+  transform: translateY(-12px);
+}
+
+.name-cards__mandala-fallback {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+}
+
+.name-cards__mandala-letter {
+  font-size: var(--font-size-small);
+  color: var(--text-primary);
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+}
+
+.name-cards__mandala-letter em {
+  color: var(--text-dim);
+  font-style: normal;
+  font-size: 0.85em;
+}

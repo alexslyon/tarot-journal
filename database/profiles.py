@@ -21,7 +21,8 @@ class ProfilesMixin:
     def add_profile(self, name: str, gender: str = None, birth_date: str = None,
                     birth_time: str = None, birth_place_name: str = None,
                     birth_place_lat: float = None, birth_place_lon: float = None,
-                    querent_only: bool = False, hidden: bool = False):
+                    querent_only: bool = False, hidden: bool = False,
+                    full_name: str = None):
         """Add a new profile"""
         if not name or not name.strip():
             raise ValueError("Profile name is required")
@@ -29,11 +30,11 @@ class ProfilesMixin:
         cursor.execute('''
             INSERT INTO profiles (name, gender, birth_date, birth_time,
                                   birth_place_name, birth_place_lat, birth_place_lon,
-                                  querent_only, hidden)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                  querent_only, hidden, full_name)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (name, gender, birth_date, birth_time, birth_place_name,
               birth_place_lat, birth_place_lon, 1 if querent_only else 0,
-              1 if hidden else 0))
+              1 if hidden else 0, full_name))
         self._commit()
         return cursor.lastrowid
 
@@ -41,7 +42,8 @@ class ProfilesMixin:
                        birth_date: str = None, birth_time: str = None,
                        birth_place_name: str = None, birth_place_lat: float = None,
                        birth_place_lon: float = None, querent_only: bool = None,
-                       hidden: bool = None):
+                       hidden: bool = None, full_name: str = None,
+                       name_cards_config: str = None):
         """Update an existing profile. Safe dynamic SQL: column names are hardcoded, values use ? params."""
         cursor = self.conn.cursor()
         updates = []
@@ -74,6 +76,13 @@ class ProfilesMixin:
         if hidden is not None:
             updates.append('hidden = ?')
             params.append(1 if hidden else 0)
+        if full_name is not None:
+            updates.append('full_name = ?')
+            params.append(full_name)
+        if name_cards_config is not None:
+            # Empty string clears the saved adjustments
+            updates.append('name_cards_config = ?')
+            params.append(name_cards_config or None)
 
         if updates:
             params.append(profile_id)

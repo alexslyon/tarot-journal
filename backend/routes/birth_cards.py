@@ -35,7 +35,7 @@ def _prefs(db):
     return method, eight_eleven, court_system
 
 
-def _tarot_archetype_ids(db):
+def tarot_archetype_ids(db):
     """Map (rank, suit) -> archetype id for every Tarot archetype.
     Majors use rank '0'..'21' with suit 'Major Arcana'; Minors are
     matched by name instead (rank strings differ per deck tradition)."""
@@ -53,7 +53,7 @@ def _tarot_archetype_ids(db):
     return by_rank, by_name
 
 
-def _default_tarot_card_ids(db):
+def default_tarot_card_ids(db):
     """Map archetype name (lowercased) -> card id in the user's default
     Tarot deck, so the UI can show real card images. Empty if no
     default deck is set."""
@@ -76,8 +76,8 @@ def _default_tarot_card_ids(db):
 def _hydrate(profile, eight_eleven, court_system, db):
     """Attach display names, archetype ids, and (when a default Tarot
     deck is set) card ids for images to every card reference."""
-    by_rank, by_name = _tarot_archetype_ids(db)
-    card_ids = _default_tarot_card_ids(db)
+    by_rank, by_name = tarot_archetype_ids(db)
+    card_ids = default_tarot_card_ids(db)
 
     def major(n):
         if n is None:

@@ -193,6 +193,8 @@ export interface JournalEntryFull extends JournalEntry {
 export interface Profile {
   id: number;
   name: string;
+  /** Full birth name — feeds the name-cards calculator. */
+  full_name?: string | null;
   gender: string | null;
   birth_date: string | null;
   birth_time: string | null;

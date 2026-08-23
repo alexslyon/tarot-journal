@@ -31,6 +31,7 @@ def register_blueprints(app):
     from backend.routes.pdf_export import pdf_export_bp
     from backend.routes.geocode import geocode_bp
     from backend.routes.birth_cards import birth_cards_bp
+    from backend.routes.name_cards import name_cards_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(prompts_bp)
@@ -57,3 +58,4 @@ def register_blueprints(app):
     app.register_blueprint(pdf_export_bp)
     app.register_blueprint(geocode_bp)
     app.register_blueprint(birth_cards_bp)
+    app.register_blueprint(name_cards_bp)

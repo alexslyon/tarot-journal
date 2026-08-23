@@ -571,6 +571,12 @@ class CoreMixin:
             cursor.execute('ALTER TABLE profiles ADD COLUMN querent_only INTEGER DEFAULT 0')
         if 'hidden' not in profile_columns:
             cursor.execute('ALTER TABLE profiles ADD COLUMN hidden INTEGER DEFAULT 0')
+        # Migration: full birth name (feeds name cards) + the user's
+        # saved name-card adjustments (parts/roles/Y overrides, JSON)
+        if 'full_name' not in profile_columns:
+            cursor.execute('ALTER TABLE profiles ADD COLUMN full_name TEXT')
+        if 'name_cards_config' not in profile_columns:
+            cursor.execute('ALTER TABLE profiles ADD COLUMN name_cards_config TEXT')
 
         # Migration: add querent_id and reader_id to journal_entries
         cursor.execute('PRAGMA table_info(journal_entries)')

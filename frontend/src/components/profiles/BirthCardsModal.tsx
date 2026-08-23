@@ -22,8 +22,9 @@ interface BirthCardsModalProps {
 }
 
 /** One card tile: deck image when the default Tarot deck has the card,
- *  otherwise a text placeholder in card proportions. */
-function CardTile({ card, caption, small }: {
+ *  otherwise a text placeholder in card proportions. Shared with the
+ *  Name Cards modal (which also reuses the .birth-cards tile CSS). */
+export function CardTile({ card, caption, small }: {
   card: { name: string; card_id: number | null } | MajorCardRef | MinorCardRef;
   caption?: string;
   small?: boolean;

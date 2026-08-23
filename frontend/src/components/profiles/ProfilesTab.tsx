@@ -11,6 +11,7 @@ import { useToast } from '../../context/ToastContext';
 import type { Profile } from '../../types';
 import ChartModal from '../astrology/ChartModal';
 import BirthCardsModal from './BirthCardsModal';
+import NameCardsModal from './NameCardsModal';
 import PlaceLookupButton from '../common/PlaceLookupButton';
 import './ProfilesTab.css';
 import { confirmDialog } from '../common/ConfirmDialog';
@@ -22,12 +23,14 @@ export default function ProfilesTab() {
   const [isNew, setIsNew] = useState(false);
   const [chartOpen, setChartOpen] = useState(false);
   const [birthCardsOpen, setBirthCardsOpen] = useState(false);
+  const [nameCardsOpen, setNameCardsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [error, setError] = useState('');
 
   // Form state
   const [name, setName] = useState('');
+  const [fullName, setFullName] = useState('');
   const [gender, setGender] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [birthTime, setBirthTime] = useState('');
@@ -54,6 +57,7 @@ export default function ProfilesTab() {
     if (selectedProfile && !isNew) {
       populatingRef.current = true;
       setName(selectedProfile.name);
+      setFullName(selectedProfile.full_name || '');
       setGender(selectedProfile.gender || '');
       setBirthDate(selectedProfile.birth_date || '');
       setBirthTime(selectedProfile.birth_time || '');
@@ -77,6 +81,7 @@ export default function ProfilesTab() {
     try {
       await updateProfile(selectedId, {
         name: name.trim(),
+        full_name: fullName.trim() || null,
         gender: gender.trim() || null,
         birth_date: birthDate || null,
         birth_time: birthTime || null,
@@ -93,7 +98,7 @@ export default function ProfilesTab() {
       showToast('Failed to save profile.');
       setSaveStatus('idle');
     }
-  }, [selectedId, isNew, name, gender, birthDate, birthTime, birthPlaceName, birthPlaceLat, birthPlaceLon, querentOnly, hidden, queryClient]);
+  }, [selectedId, isNew, name, fullName, gender, birthDate, birthTime, birthPlaceName, birthPlaceLat, birthPlaceLon, querentOnly, hidden, queryClient]);
 
   // Debounced auto-save effect
   useEffect(() => {
@@ -109,7 +114,7 @@ export default function ProfilesTab() {
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [name, gender, birthDate, birthTime, birthPlaceName, birthPlaceLat, birthPlaceLon, querentOnly, hidden, selectedId, isNew, doAutoSave]);
+  }, [name, fullName, gender, birthDate, birthTime, birthPlaceName, birthPlaceLat, birthPlaceLon, querentOnly, hidden, selectedId, isNew, doAutoSave]);
 
   const handleSelect = (profile: Profile) => {
     // Flush any pending auto-save immediately
@@ -129,6 +134,7 @@ export default function ProfilesTab() {
     setSelectedId(null);
     setIsNew(true);
     setName('');
+    setFullName('');
     setGender('');
     setBirthDate('');
     setBirthTime('');
@@ -147,6 +153,7 @@ export default function ProfilesTab() {
     try {
       const data = {
         name: name.trim(),
+        full_name: fullName.trim() || null,
         gender: gender.trim() || null,
         birth_date: birthDate || null,
         birth_time: birthTime || null,
@@ -244,6 +251,16 @@ export default function ProfilesTab() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Profile name"
+                  />
+                </div>
+
+                <div className="profiles-tab__field">
+                  <label className="profiles-tab__label">Full Name</label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Full birth name (used for name cards)"
                   />
                 </div>
 
@@ -352,6 +369,18 @@ export default function ProfilesTab() {
                     Birth Cards
                   </button>
                 )}
+                {!isNew && selectedProfile && (
+                  <button
+                    className="profiles-tab__chart-btn"
+                    onClick={() => setNameCardsOpen(true)}
+                    disabled={!selectedProfile.full_name}
+                    title={selectedProfile.full_name
+                      ? 'Greer name cards from the full name'
+                      : 'Set a Full Name to calculate name cards'}
+                  >
+                    Name Cards
+                  </button>
+                )}
                 {!isNew && (
                   <button className="profiles-tab__delete-btn" onClick={handleDelete}>
                     Delete
@@ -393,6 +422,15 @@ export default function ProfilesTab() {
           onClose={() => setBirthCardsOpen(false)}
           profileId={selectedProfile.id}
           profileName={selectedProfile.name}
+        />
+      )}
+      {selectedProfile && selectedProfile.full_name && (
+        <NameCardsModal
+          open={nameCardsOpen}
+          onClose={() => setNameCardsOpen(false)}
+          profileId={selectedProfile.id}
+          profileName={selectedProfile.name}
+          fullName={selectedProfile.full_name}
         />
       )}
     </div>
