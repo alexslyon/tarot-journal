@@ -310,6 +310,32 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
     setReadings(prev => [...prev, emptyReading()]);
   };
 
+  // "Add reading like this": a fresh reading with the previous one's
+  // spread and deck setup — card slots empty, but keeping each slot's
+  // deck assignment so multi-deck spreads carry their slot mapping.
+  const addReadingLikeLast = () => {
+    setReadings(prev => {
+      const last = prev[prev.length - 1];
+      if (!last) return [...prev, emptyReading()];
+      return [...prev, {
+        _key: crypto.randomUUID(),
+        spread_id: last.spread_id,
+        spread_name: last.spread_name,
+        deck_id: last.deck_id,
+        deck_name: last.deck_name,
+        cartomancy_type: last.cartomancy_type,
+        notes: '',
+        cards: last.cards.map(c => ({
+          name: '',
+          reversed: false,
+          deck_id: c.deck_id,
+          deck_name: c.deck_name,
+          position_index: c.position_index,
+        })),
+      }];
+    });
+  };
+
   const updateReading = (idx: number, data: ReadingData) => {
     setReadings(prev => prev.map((r, i) => (i === idx ? data : r)));
   };
@@ -665,6 +691,17 @@ export default function EntryEditorModal({ entryId, templateEntryId, open, onClo
             <button className="entry-editor__add-btn" onClick={addReading}>
               + Add Reading
             </button>
+            {readings.length > 0
+              && (readings[readings.length - 1].spread_id != null
+                || readings[readings.length - 1].deck_id != null) && (
+              <button
+                className="entry-editor__add-btn"
+                onClick={addReadingLikeLast}
+                title="New reading with the previous reading's spread and deck, cards empty"
+              >
+                + Add Reading Like This
+              </button>
+            )}
           </div>
 
           {/* Notes */}
