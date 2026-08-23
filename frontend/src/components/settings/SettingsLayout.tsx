@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import GeneralSection from './sections/GeneralSection';
-import ProfilesSection from './sections/ProfilesSection';
 import TagsSection from './sections/TagsSection';
 import ImportPresetsSection from './sections/ImportPresetsSection';
 import BackupSection from './sections/BackupSection';
@@ -16,7 +15,6 @@ import './SettingsLayout.css';
 
 export type SettingsSectionId =
   | 'general'
-  | 'profiles'
   | 'tags'
   | 'correspondences'
   | 'archetype-notes'
@@ -47,9 +45,8 @@ const SECTION_GROUPS: {
     ],
   },
   {
-    heading: 'People & Tags',
+    heading: 'Tags',
     sections: [
-      { id: 'profiles', label: 'Profiles' },
       { id: 'tags', label: 'Tags' },
     ],
   },
@@ -120,7 +117,6 @@ export default function SettingsLayout({
       </nav>
       <div className="settings-layout__content">
         {activeSection === 'general' && <GeneralSection />}
-        {activeSection === 'profiles' && <ProfilesSection />}
         {activeSection === 'tags' && <TagsSection />}
         {activeSection === 'correspondences' && <CorrespondencesSection />}
         {activeSection === 'archetype-notes' && (

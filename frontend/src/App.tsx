@@ -12,6 +12,7 @@ import LibraryTab from './components/library/LibraryTab';
 import JournalTab from './components/journal/JournalTab';
 import SpreadsTab from './components/spreads/SpreadsTab';
 import ReferenceTab from './components/reference/ReferenceTab';
+import ProfilesTab from './components/profiles/ProfilesTab';
 import StatsTab from './components/stats/StatsTab';
 import SettingsTab from './components/settings/SettingsTab';
 /* Style stack, in load order: Nocturne ramps → tj application tokens →
@@ -219,6 +220,7 @@ export default function App() {
                   onPendingEntryHandled={() => setPendingEntryId(null)}
                 />
               )}
+              {activeTab === 'profiles' && <ProfilesTab />}
               {activeTab === 'reference' && (
                 <ReferenceTab
                   onNavigateToSettings={handleNavigateToSettings}
