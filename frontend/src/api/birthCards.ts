@@ -4,6 +4,7 @@ import api from './client';
 
 export type BirthCardMethod = 'greer' | 'amberstone';
 export type EightEleven = 'golden_dawn' | 'marseille';
+export type CourtSystem = 'golden_dawn' | 'bota';
 
 /** A Major Arcana reference, hydrated by the backend. */
 export interface MajorCardRef {
@@ -43,6 +44,15 @@ export interface BirthCardProfile {
     sign_major: number;
     planet_major: number;
   };
+  /** Court card ruling the birth decan's 20°–20° span. */
+  decan_court: {
+    rank: string;
+    suit: string;
+    name: string;
+    court_sign: string;
+    span: string;
+  };
+  court_system: CourtSystem;
   karmic_year: number;
   year_card: number;
   generic_year: number;
@@ -62,6 +72,13 @@ export interface BirthCardProfile {
     zodiacal: MinorCardRef;
     zodiacal_sign_ruler: MajorCardRef;
     zodiacal_planet_ruler: MajorCardRef;
+    decan_court: {
+      rank: string;
+      suit: string;
+      name: string;
+      archetype_id: number | null;
+      card_id: number | null;
+    };
     year_card: MajorCardRef;
     generic_year: MajorCardRef;
     personal_month: MajorCardRef;
@@ -71,27 +88,38 @@ export interface BirthCardProfile {
 export interface BirthCardPrefs {
   method: BirthCardMethod;
   eight_eleven: EightEleven;
+  court_system: CourtSystem;
+}
+
+interface BirthCardOpts {
+  method?: BirthCardMethod;
+  eightEleven?: EightEleven;
+  courtSystem?: CourtSystem;
+}
+
+function optsToParams(opts?: BirthCardOpts): URLSearchParams {
+  const params = new URLSearchParams();
+  if (opts?.method) params.set('method', opts.method);
+  if (opts?.eightEleven) params.set('eight_eleven', opts.eightEleven);
+  if (opts?.courtSystem) params.set('court_system', opts.courtSystem);
+  return params;
 }
 
 export async function getProfileBirthCards(
   profileId: number,
-  opts?: { method?: BirthCardMethod; eightEleven?: EightEleven },
+  opts?: BirthCardOpts,
 ): Promise<BirthCardProfile> {
-  const params = new URLSearchParams();
-  if (opts?.method) params.set('method', opts.method);
-  if (opts?.eightEleven) params.set('eight_eleven', opts.eightEleven);
-  const qs = params.toString();
+  const qs = optsToParams(opts).toString();
   const res = await api.get(`/api/profiles/${profileId}/birth-cards${qs ? `?${qs}` : ''}`);
   return res.data;
 }
 
 export async function getBirthCardsForDate(
   date: string,
-  opts?: { method?: BirthCardMethod; eightEleven?: EightEleven },
+  opts?: BirthCardOpts,
 ): Promise<BirthCardProfile> {
-  const params = new URLSearchParams({ date });
-  if (opts?.method) params.set('method', opts.method);
-  if (opts?.eightEleven) params.set('eight_eleven', opts.eightEleven);
+  const params = optsToParams(opts);
+  params.set('date', date);
   const res = await api.get(`/api/birth-cards?${params.toString()}`);
   return res.data;
 }

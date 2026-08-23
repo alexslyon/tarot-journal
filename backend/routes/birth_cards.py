@@ -19,16 +19,20 @@ birth_cards_bp = Blueprint('birth_cards', __name__)
 
 METHOD_KEY = 'birth_cards_method'
 EIGHT_ELEVEN_KEY = 'birth_cards_eight_eleven'
+COURT_SYSTEM_KEY = 'birth_cards_court_system'
 
 
 def _prefs(db):
     method = db.get_setting(METHOD_KEY) or bc.GREER
     eight_eleven = db.get_setting(EIGHT_ELEVEN_KEY) or 'golden_dawn'
+    court_system = db.get_setting(COURT_SYSTEM_KEY) or 'golden_dawn'
     if method not in bc.METHODS:
         method = bc.GREER
     if eight_eleven not in ('golden_dawn', 'marseille'):
         eight_eleven = 'golden_dawn'
-    return method, eight_eleven
+    if court_system not in bc.COURT_SYSTEMS:
+        court_system = 'golden_dawn'
+    return method, eight_eleven, court_system
 
 
 def _tarot_archetype_ids(db):
@@ -69,7 +73,7 @@ def _default_tarot_card_ids(db):
     return out
 
 
-def _hydrate(profile, eight_eleven, db):
+def _hydrate(profile, eight_eleven, court_system, db):
     """Attach display names, archetype ids, and (when a default Tarot
     deck is set) card ids for images to every card reference."""
     by_rank, by_name = _tarot_archetype_ids(db)
@@ -115,9 +119,11 @@ def _hydrate(profile, eight_eleven, db):
         return hydrated
 
     rulers = bc.zodiacal_rulers(profile['zodiacal_card'])
+    court = bc.decan_court(profile['zodiacal_card'], court_system)
 
     out = dict(profile)
     out['zodiacal_rulers'] = rulers
+    out['decan_court'] = court
     out['cards'] = {
         'personality': major(profile['personality']),
         'soul': major(profile['soul']),
@@ -129,6 +135,13 @@ def _hydrate(profile, eight_eleven, db):
         'zodiacal': minor(profile['zodiacal_card']),
         'zodiacal_sign_ruler': ruler_major(rulers['sign_major']),
         'zodiacal_planet_ruler': ruler_major(rulers['planet_major']),
+        'decan_court': {
+            'rank': court['rank'],
+            'suit': court['suit'],
+            'name': court['name'],
+            'archetype_id': by_name.get(court['name'].lower()),
+            'card_id': card_ids.get(court['name'].lower()),
+        },
     }
     for key in ('year_card', 'generic_year', 'personal_month'):
         if key in profile:
@@ -139,9 +152,11 @@ def _hydrate(profile, eight_eleven, db):
 def _compute_response(db, birth: date, birth_date_str: str):
     method = request.args.get('method')
     eight_eleven = request.args.get('eight_eleven')
-    saved_method, saved_ee = _prefs(db)
+    court_system = request.args.get('court_system')
+    saved_method, saved_ee, saved_court = _prefs(db)
     method = method if method in bc.METHODS else saved_method
     eight_eleven = eight_eleven if eight_eleven in ('golden_dawn', 'marseille') else saved_ee
+    court_system = court_system if court_system in bc.COURT_SYSTEMS else saved_court
 
     today = date.today()
     try:
@@ -153,13 +168,14 @@ def _compute_response(db, birth: date, birth_date_str: str):
     profile = bc.calculate(
         birth, method=method,
         reference_year=reference_year, reference_month=reference_month)
-    hydrated = _hydrate(profile, eight_eleven, db)
+    hydrated = _hydrate(profile, eight_eleven, court_system, db)
 
     age = today.year - birth.year - (
         (today.month, today.day) < (birth.month, birth.day))
     hydrated['birth_date'] = birth_date_str
     hydrated['age'] = age
     hydrated['eight_eleven'] = eight_eleven
+    hydrated['court_system'] = court_system
     hydrated['reference_year'] = reference_year
     hydrated['reference_month'] = reference_month
     return jsonify(hydrated)
@@ -196,8 +212,9 @@ def adhoc_birth_cards():
 
 @birth_cards_bp.route('/api/birth-cards/prefs')
 def get_birth_card_prefs():
-    method, eight_eleven = _prefs(current_app.config['DB'])
-    return jsonify({'method': method, 'eight_eleven': eight_eleven})
+    method, eight_eleven, court_system = _prefs(current_app.config['DB'])
+    return jsonify({'method': method, 'eight_eleven': eight_eleven,
+                    'court_system': court_system})
 
 
 @birth_cards_bp.route('/api/birth-cards/prefs', methods=['PUT'])
@@ -206,6 +223,7 @@ def set_birth_card_prefs(data):
     db = current_app.config['DB']
     method = data.get('method')
     eight_eleven = data.get('eight_eleven')
+    court_system = data.get('court_system')
     if method is not None:
         if method not in bc.METHODS:
             return jsonify({'error': f'method must be one of {bc.METHODS}'}), 400
@@ -214,5 +232,10 @@ def set_birth_card_prefs(data):
         if eight_eleven not in ('golden_dawn', 'marseille'):
             return jsonify({'error': 'eight_eleven must be golden_dawn or marseille'}), 400
         db.set_setting(EIGHT_ELEVEN_KEY, eight_eleven)
-    method, eight_eleven = _prefs(db)
-    return jsonify({'method': method, 'eight_eleven': eight_eleven})
+    if court_system is not None:
+        if court_system not in bc.COURT_SYSTEMS:
+            return jsonify({'error': f'court_system must be one of {bc.COURT_SYSTEMS}'}), 400
+        db.set_setting(COURT_SYSTEM_KEY, court_system)
+    method, eight_eleven, court_system = _prefs(db)
+    return jsonify({'method': method, 'eight_eleven': eight_eleven,
+                    'court_system': court_system})

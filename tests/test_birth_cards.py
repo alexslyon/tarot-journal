@@ -263,10 +263,12 @@ def test_api_profile_without_birth_date(client, db):
 
 def test_api_prefs_roundtrip_and_method_override(client):
     res = client.get('/api/birth-cards/prefs')
-    assert res.get_json() == {'method': 'greer', 'eight_eleven': 'golden_dawn'}
+    assert res.get_json() == {'method': 'greer', 'eight_eleven': 'golden_dawn',
+                              'court_system': 'golden_dawn'}
     res = client.put('/api/birth-cards/prefs',
                      json={'method': 'amberstone', 'eight_eleven': 'marseille'})
-    assert res.get_json() == {'method': 'amberstone', 'eight_eleven': 'marseille'}
+    assert res.get_json() == {'method': 'amberstone', 'eight_eleven': 'marseille',
+                              'court_system': 'golden_dawn'}
     # Saved prefs now apply by default
     res = client.get('/api/birth-cards?date=1945-12-12')
     assert res.get_json()['pattern'] == '16-7'
@@ -326,3 +328,67 @@ def test_api_zodiacal_rulers(client):
     data = res.get_json()
     assert data['zodiacal_rulers']['sign'] == 'Leo'
     assert data['cards']['zodiacal_sign_ruler']['name'] == 'Strength'
+
+
+# === Decan court rulers (Golden Dawn vs B.O.T.A.) ===
+
+def test_decan_court_known_cases():
+    # Cancer II (3 of Cups): cardinal water -> Queen of Cups, both systems
+    for system in bc.COURT_SYSTEMS:
+        court = bc.decan_court({'rank': 3, 'suit': 'Cups'}, system)
+        assert court['name'] == 'Queen of Cups', system
+        assert court['span'] == '20° Gemini – 20° Cancer'
+    # Sagittarius I (8 of Wands): mutable fire -> GD King / BOTA Knight
+    assert bc.decan_court({'rank': 8, 'suit': 'Wands'})['name'] == 'King of Wands'
+    assert bc.decan_court({'rank': 8, 'suit': 'Wands'}, 'bota')['name'] == 'Knight of Wands'
+    # Capricorn III (4 of Pentacles): span belongs to the NEXT sign's
+    # court — fixed air Aquarius -> GD Knight / BOTA King of Swords
+    gd = bc.decan_court({'rank': 4, 'suit': 'Pentacles'})
+    assert gd['name'] == 'Knight of Swords'
+    assert gd['court_sign'] == 'Aquarius'
+    assert gd['span'] == '20° Capricorn – 20° Aquarius'
+    assert bc.decan_court({'rank': 4, 'suit': 'Pentacles'}, 'bota')['name'] == 'King of Swords'
+
+
+def test_decan_court_structure():
+    """Across all 36 decans: every span is a real 20-20 court span,
+    each of the 12 courts rules exactly three decans, Queens are
+    system-invariant, and Kings/Knights swap exactly between systems."""
+    gd_counts = {}
+    for (rank, suit) in bc._DECAN_INDEX:
+        ref = {'rank': rank, 'suit': suit}
+        gd = bc.decan_court(ref, 'golden_dawn')
+        bota = bc.decan_court(ref, 'bota')
+        assert gd['suit'] == bota['suit']
+        assert gd['span'] == bota['span']
+        if gd['rank'] == 'Queen':
+            assert bota['rank'] == 'Queen'
+        else:
+            assert {gd['rank'], bota['rank']} == {'King', 'Knight'}
+        gd_counts[gd['name']] = gd_counts.get(gd['name'], 0) + 1
+    assert len(gd_counts) == 12
+    assert all(count == 3 for count in gd_counts.values())
+
+
+def test_decan_court_rejects_unknown_system():
+    with pytest.raises(ValueError):
+        bc.decan_court({'rank': 3, 'suit': 'Cups'}, 'thoth')
+
+
+def test_api_decan_court(client):
+    # 1929-01-15 -> 4 of Pentacles (Capricorn III)
+    res = client.get('/api/birth-cards?date=1929-01-15')
+    data = res.get_json()
+    assert data['decan_court']['name'] == 'Knight of Swords'
+    assert data['cards']['decan_court']['name'] == 'Knight of Swords'
+    assert data['court_system'] == 'golden_dawn'
+    res = client.get('/api/birth-cards?date=1929-01-15&court_system=bota')
+    data = res.get_json()
+    assert data['decan_court']['name'] == 'King of Swords'
+    # Prefs roundtrip includes the court system
+    res = client.put('/api/birth-cards/prefs', json={'court_system': 'bota'})
+    assert res.get_json()['court_system'] == 'bota'
+    res = client.get('/api/birth-cards?date=1929-01-15')
+    assert res.get_json()['decan_court']['name'] == 'King of Swords'
+    assert client.put('/api/birth-cards/prefs',
+                      json={'court_system': 'thoth'}).status_code == 400

@@ -218,6 +218,56 @@ DECAN_RULERS = {
 }
 
 
+# === Decan court rulers ===
+
+# Each non-Page court card rules 20° of one sign through 20° of the
+# next: the last decan of the earlier sign plus the first two of its
+# own. Queens take the cardinal-sign spans in every tradition; the
+# other two ranks differ by naming lineage. Waite renamed the Golden
+# Dawn's fire courts (Book T "Knights") to Kings, while Case's B.O.T.A.
+# kept Knight = fire — so in RWS-named decks the two systems swap
+# King and Knight for the same span.
+COURT_SYSTEMS = ('golden_dawn', 'bota')
+
+_SUIT_BY_SIGN_INDEX = ['Wands', 'Pentacles', 'Swords', 'Cups']    # fire/earth/air/water
+_MODALITY_BY_SIGN_INDEX = ['cardinal', 'fixed', 'mutable']
+
+_DECAN_INDEX = {(rank, suit): i for i, (_, _, rank, suit) in enumerate(DECANS)}
+
+
+def decan_court(ref: dict, system: str = 'golden_dawn') -> dict:
+    """The court card ruling a decan Minor's span, in RWS rank names.
+
+    system='golden_dawn': Waite's rendering of Book T (mutable -> King,
+    fixed -> Knight). system='bota': Case's naming (mutable -> Knight,
+    fixed -> King). Queens (cardinal) are identical in both.
+    """
+    if system not in COURT_SYSTEMS:
+        raise ValueError(f'Unknown court system: {system!r}')
+    i = _DECAN_INDEX[(ref['rank'], ref['suit'])]
+    sign_i, decan_in_sign = i // 3, i % 3 + 1
+    # Decan III belongs to the NEXT sign's court (its span starts at
+    # 20 degrees of this sign).
+    court_sign_i = sign_i if decan_in_sign <= 2 else (sign_i + 1) % 12
+    court_sign = _SIGN_ORDER[court_sign_i]
+    suit = _SUIT_BY_SIGN_INDEX[court_sign_i % 4]
+    modality = _MODALITY_BY_SIGN_INDEX[court_sign_i % 3]
+    if modality == 'cardinal':
+        rank = 'Queen'
+    elif modality == 'fixed':
+        rank = 'Knight' if system == 'golden_dawn' else 'King'
+    else:  # mutable — the fire/"mounted" court of Book T
+        rank = 'King' if system == 'golden_dawn' else 'Knight'
+    prev_sign = _SIGN_ORDER[(court_sign_i - 1) % 12]
+    return {
+        'rank': rank,
+        'suit': suit,
+        'name': f'{rank} of {suit}',
+        'court_sign': court_sign,
+        'span': f'20° {prev_sign} – 20° {court_sign}',
+    }
+
+
 def zodiacal_rulers(ref: dict) -> dict:
     """Sign and planetary rulers of a decan Minor, with each ruler's
     Major Arcana trump (Golden Dawn attributions)."""

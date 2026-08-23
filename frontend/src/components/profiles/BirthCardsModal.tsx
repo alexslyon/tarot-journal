@@ -6,6 +6,7 @@ import {
   getProfileBirthCards,
   setBirthCardPrefs,
   type BirthCardMethod,
+  type CourtSystem,
   type EightEleven,
   type MajorCardRef,
   type MinorCardRef,
@@ -23,7 +24,7 @@ interface BirthCardsModalProps {
 /** One card tile: deck image when the default Tarot deck has the card,
  *  otherwise a text placeholder in card proportions. */
 function CardTile({ card, caption, small }: {
-  card: MajorCardRef | MinorCardRef;
+  card: { name: string; card_id: number | null } | MajorCardRef | MinorCardRef;
   caption?: string;
   small?: boolean;
 }) {
@@ -55,12 +56,14 @@ export default function BirthCardsModal({
   // null = use the saved preference; the response echoes what applied.
   const [method, setMethod] = useState<BirthCardMethod | null>(null);
   const [eightEleven, setEightEleven] = useState<EightEleven | null>(null);
+  const [courtSystem, setCourtSystem] = useState<CourtSystem | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['birth-cards', profileId, method, eightEleven],
+    queryKey: ['birth-cards', profileId, method, eightEleven, courtSystem],
     queryFn: () => getProfileBirthCards(profileId, {
       method: method ?? undefined,
       eightEleven: eightEleven ?? undefined,
+      courtSystem: courtSystem ?? undefined,
     }),
     enabled: open,
     staleTime: 30_000,
@@ -77,6 +80,13 @@ export default function BirthCardsModal({
   const changeEightEleven = (v: EightEleven) => {
     setEightEleven(v);
     setBirthCardPrefs({ eight_eleven: v })
+      .then(() => queryClient.invalidateQueries({ queryKey: ['birth-cards'] }))
+      .catch(() => {});
+  };
+
+  const changeCourtSystem = (v: CourtSystem) => {
+    setCourtSystem(v);
+    setBirthCardPrefs({ court_system: v })
       .then(() => queryClient.invalidateQueries({ queryKey: ['birth-cards'] }))
       .catch(() => {});
   };
@@ -122,6 +132,16 @@ export default function BirthCardsModal({
                   >
                     <option value="golden_dawn">8 Strength · 11 Justice</option>
                     <option value="marseille">8 Justice · 11 Strength</option>
+                  </select>
+                </label>
+                <label className="birth-cards__control">
+                  <span>Courts</span>
+                  <select
+                    value={data.court_system ?? 'golden_dawn'}
+                    onChange={(e) => changeCourtSystem(e.target.value as CourtSystem)}
+                  >
+                    <option value="golden_dawn">Golden Dawn</option>
+                    <option value="bota">B.O.T.A.</option>
                   </select>
                 </label>
               </div>
@@ -208,6 +228,13 @@ export default function BirthCardsModal({
                     card={c.zodiacal_planet_ruler}
                     small
                     caption={`Planetary ruler — ${data.zodiacal_rulers.planet}`}
+                  />
+                )}
+                {c.decan_court && data.decan_court && (
+                  <CardTile
+                    card={c.decan_court}
+                    small
+                    caption={`Court ruler — ${data.decan_court.span}`}
                   />
                 )}
               </div>
