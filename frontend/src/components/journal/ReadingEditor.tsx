@@ -4,7 +4,7 @@ import { getDecks } from '../../api/decks';
 import { getCards } from '../../api/cards';
 import { getSpreads, getSpread } from '../../api/spreads';
 import { cardThumbnailUrl } from '../../api/images';
-import { deckMatchesType, ensureHtml } from '../../utils/formatting';
+import { deckMatchesSlot, ensureHtml, slotTypes, slotTypeLabel } from '../../utils/formatting';
 import RichTextViewer from '../common/RichTextViewer';
 import RichTextEditor from '../common/RichTextEditor';
 import SearchCombobox, { type SearchComboboxHandle } from '../common/SearchCombobox';
@@ -125,12 +125,17 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
       if (defaultDecks && deckSlots.length > 0) {
         for (const slot of deckSlots) {
           if (!derived[slot.key]) {
-            const defaultDeckId = defaultDecks[slot.cartomancy_type];
-            if (defaultDeckId) {
-              // Verify the default deck exists and matches the type
-              const deck = decks.find(d => d.id === defaultDeckId);
-              if (deck && deckMatchesType(deck, slot.cartomancy_type)) {
-                derived[slot.key] = defaultDeckId;
+            // A slot can allow several types — take the first allowed
+            // type that has a valid default deck configured.
+            for (const slotType of slotTypes(slot)) {
+              const defaultDeckId = defaultDecks[slotType];
+              if (defaultDeckId) {
+                // Verify the default deck exists and matches the slot
+                const deck = decks.find(d => d.id === defaultDeckId);
+                if (deck && deckMatchesSlot(deck, slot)) {
+                  derived[slot.key] = defaultDeckId;
+                  break;
+                }
               }
             }
           }
@@ -391,11 +396,11 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
         {!hasMultipleSlots && (
           <div className="reading-editor__field">
             <label className="reading-editor__field-label">
-              {deckSlots[0] ? `Deck (${deckSlots[0].cartomancy_type})` : 'Deck'}
+              {deckSlots[0] ? `Deck (${slotTypeLabel(deckSlots[0])})` : 'Deck'}
             </label>
             <SearchCombobox
               options={decks
-                .filter(d => useAnyDeck || !deckSlots[0] || deckMatchesType(d, deckSlots[0].cartomancy_type))
+                .filter(d => useAnyDeck || !deckSlots[0] || deckMatchesSlot(d, deckSlots[0]))
                 .map((d) => ({ id: d.id, label: d.name }))}
               value={deckSlots[0] ? (slotDecks[deckSlots[0].key] ?? undefined) : (value.deck_id ?? undefined)}
               placeholder="Select deck — type to search…"
@@ -449,14 +454,14 @@ export default function ReadingEditor({ value, onChange, onRemove, index, defaul
             <div key={slot.key} className="reading-editor__slot-row">
               <span className="reading-editor__slot-key">{slot.key}</span>
               <span className="reading-editor__slot-label">
-                {slot.label || slot.cartomancy_type}
+                {slot.label || slotTypeLabel(slot)}
               </span>
               <SearchCombobox
                 options={decks
-                  .filter(d => useAnyDeck || deckMatchesType(d, slot.cartomancy_type))
+                  .filter(d => useAnyDeck || deckMatchesSlot(d, slot))
                   .map((d) => ({ id: d.id, label: d.name }))}
                 value={slotDecks[slot.key] ?? undefined}
-                placeholder={`Select ${slot.cartomancy_type} deck — type to search…`}
+                placeholder={`Select ${slotTypeLabel(slot)} deck — type to search…`}
                 onSelect={(opt) => handleSlotDeckChange(slot.key, opt ? opt.id : null)}
               />
             </div>

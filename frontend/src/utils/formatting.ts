@@ -1,4 +1,4 @@
-import type { Deck } from '../types';
+import type { Deck, DeckSlot } from '../types';
 
 /** Format a date string as a short date (e.g. "Mar 22, 2026"). */
 export function formatDate(dateStr: string | null): string {
@@ -88,4 +88,30 @@ export function deckMatchesType(deck: Deck, requiredType: string): boolean {
     return deck.cartomancy_types.some(t => t.name === requiredType);
   }
   return deck.cartomancy_type === requiredType;
+}
+
+/** The deck types a spread slot allows. Newer slots store an array
+ *  (cartomancy_types); older ones a single string. Empty array means
+ *  any type is allowed. */
+export function slotTypes(slot: DeckSlot): string[] {
+  if (slot.cartomancy_types && slot.cartomancy_types.length > 0) {
+    return slot.cartomancy_types.filter(t => t !== 'Any');
+  }
+  if (slot.cartomancy_type && slot.cartomancy_type !== 'Any') {
+    return [slot.cartomancy_type];
+  }
+  return [];
+}
+
+/** Human label for a slot's allowed types, e.g. "Tarot / Oracle" or "Any". */
+export function slotTypeLabel(slot: DeckSlot): string {
+  const types = slotTypes(slot);
+  return types.length > 0 ? types.join(' / ') : 'Any';
+}
+
+/** Whether a deck can be placed in a slot: it matches any of the
+ *  slot's allowed types (or the slot allows any type). */
+export function deckMatchesSlot(deck: Deck, slot: DeckSlot): boolean {
+  const types = slotTypes(slot);
+  return types.length === 0 || types.some(t => deckMatchesType(deck, t));
 }

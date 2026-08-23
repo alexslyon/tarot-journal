@@ -157,7 +157,7 @@ export default function SpreadsTab({
     setAllowedDeckTypes([]);
     setDefaultDeckId(null);
     // Default to one deck slot with Tarot type
-    setDeckSlots([{ key: 'A', cartomancy_type: 'Tarot', label: 'Main Deck' }]);
+    setDeckSlots([{ key: 'A', cartomancy_type: 'Tarot', cartomancy_types: ['Tarot'], label: 'Main Deck' }]);
     setTagIds([]);
     setSelectedIndex(null);
   };

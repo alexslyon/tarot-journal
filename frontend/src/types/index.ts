@@ -48,12 +48,17 @@ export interface Card {
   cartomancy_type?: string;
 }
 
-/** A deck slot defines one deck type used in a spread */
+/** A deck slot defines the deck type(s) allowed in a spread position */
 export interface DeckSlot {
   /** Unique key for this slot (e.g., "A", "B", "1", "2") */
   key: string;
-  /** The cartomancy type required for this slot */
-  cartomancy_type: string;
+  /** Legacy single-type field ('Any' or one type name). Kept in sync
+   *  when possible so older data/readers stay coherent; new code
+   *  should go through slotTypes() in utils/formatting instead. */
+  cartomancy_type?: string;
+  /** The cartomancy types allowed for this slot. Empty/missing with
+   *  no legacy value means any type is allowed. */
+  cartomancy_types?: string[];
   /** Optional display label (e.g., "Main Deck", "Oracle") */
   label?: string;
 }

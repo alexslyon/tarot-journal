@@ -52,8 +52,41 @@
 
 .spread-props__slot {
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--tj-radius-row);
+}
+
+.spread-props__slot-head {
+  display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.spread-props__slot-types {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding-left: 30px; /* aligns under the label, past the key badge */
+}
+
+.spread-props__slot-type-check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.spread-props__slot-any {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  font-style: italic;
 }
 
 .spread-props__slot-key {
@@ -71,13 +104,8 @@
 }
 
 .spread-props__slot-label {
-  width: 120px;
-  flex-shrink: 0;
-}
-
-.spread-props__slot-type {
   flex: 1;
-  min-width: 100px;
+  min-width: 0;
 }
 
 .spread-props__slot-remove {

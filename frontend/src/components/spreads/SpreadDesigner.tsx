@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import type { SpreadPosition, DeckSlot } from '../../types';
 import './SpreadDesigner.css';
 import { confirmDialog } from '../common/ConfirmDialog';
+import { slotTypeLabel } from '../../utils/formatting';
 
 // Minimum canvas dimensions (used when empty or for small spreads);
 // the toolbar lets the user raise them per session.
@@ -773,7 +774,7 @@ export default function SpreadDesigner({
                       <div className="designer__submenu">
                         {deckSlots.map((slot) => (
                           <button key={slot.key} onClick={() => handleSetDeckSlot(slot.key)}>
-                            {slot.key}: {slot.label || slot.cartomancy_type}
+                            {slot.key}: {slot.label || slotTypeLabel(slot)}
                           </button>
                         ))}
                       </div>

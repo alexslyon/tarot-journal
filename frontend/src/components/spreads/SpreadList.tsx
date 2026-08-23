@@ -5,6 +5,7 @@ import { getCartomancyTypes } from '../../api/decks';
 import { getSpreadTags } from '../../api/tags';
 import { useToast } from '../../context/ToastContext';
 import type { Spread, Tag } from '../../types';
+import { slotTypes } from '../../utils/formatting';
 import QueryError from '../common/QueryError';
 import './SpreadList.css';
 
@@ -37,7 +38,7 @@ function spreadDeckTypes(spread: Spread): string[] {
   if (Array.isArray(slots) && slots.length > 0) {
     const types = new Set<string>();
     for (const slot of slots) {
-      if (slot.cartomancy_type && slot.cartomancy_type !== 'Any') types.add(slot.cartomancy_type);
+      for (const t of slotTypes(slot)) types.add(t);
     }
     return [...types];
   }

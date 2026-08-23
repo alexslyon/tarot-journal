@@ -4,7 +4,7 @@ import { getCartomancyTypes } from '../../api/decks';
 import { getSpreadTags, addSpreadTag } from '../../api/tags';
 import { useToast } from '../../context/ToastContext';
 import RichTextEditor from '../common/RichTextEditor';
-import { ensureHtml } from '../../utils/formatting';
+import { ensureHtml, slotTypes } from '../../utils/formatting';
 import type { DeckSlot, Tag } from '../../types';
 import './SpreadProperties.css';
 
@@ -57,7 +57,7 @@ export default function SpreadProperties({
   const addDeckSlot = () => {
     onDeckSlotsChange([
       ...deckSlots,
-      { key: getNextSlotKey(), cartomancy_type: 'Any' },
+      { key: getNextSlotKey(), cartomancy_type: 'Any', cartomancy_types: [] },
     ]);
   };
 
@@ -65,9 +65,19 @@ export default function SpreadProperties({
     onDeckSlotsChange(deckSlots.filter((_, i) => i !== idx));
   };
 
-  const updateSlotType = (idx: number, typeName: string) => {
+  const toggleSlotType = (idx: number, typeName: string) => {
     const updated = [...deckSlots];
-    updated[idx] = { ...updated[idx], cartomancy_type: typeName };
+    const current = slotTypes(updated[idx]);
+    const next = current.includes(typeName)
+      ? current.filter(t => t !== typeName)
+      : [...current, typeName];
+    updated[idx] = {
+      ...updated[idx],
+      cartomancy_types: next,
+      // Keep the legacy single-type field coherent: exact when one
+      // type is checked, permissive 'Any' otherwise.
+      cartomancy_type: next.length === 1 ? next[0] : 'Any',
+    };
     onDeckSlotsChange(updated);
   };
 
@@ -102,40 +112,51 @@ export default function SpreadProperties({
       <div className="spread-props__field">
         <label className="spread-props__label">Deck Slots</label>
         <div className="spread-props__hint">
-          Define the deck types used in this spread. Assign positions to slots in the designer.
+          Define the deck types used in this spread. Check one or more types per
+          slot — none checked means any type. Assign positions to slots in the designer.
         </div>
         <div className="spread-props__slots">
-          {deckSlots.map((slot, idx) => (
+          {deckSlots.map((slot, idx) => {
+            const checked = slotTypes(slot);
+            return (
             <div key={slot.key} className="spread-props__slot">
-              <span className="spread-props__slot-key">{slot.key}</span>
-              <input
-                type="text"
-                className="spread-props__slot-label"
-                value={slot.label || ''}
-                onChange={(e) => updateSlotLabel(idx, e.target.value)}
-                placeholder="Label (optional)"
-              />
-              <select
-                className="spread-props__slot-type"
-                value={slot.cartomancy_type}
-                onChange={(e) => updateSlotType(idx, e.target.value)}
-              >
-                <option value="Any">Any</option>
+              <div className="spread-props__slot-head">
+                <span className="spread-props__slot-key">{slot.key}</span>
+                <input
+                  type="text"
+                  className="spread-props__slot-label"
+                  value={slot.label || ''}
+                  onChange={(e) => updateSlotLabel(idx, e.target.value)}
+                  placeholder="Label (optional)"
+                />
+                {deckSlots.length > 1 && (
+                  <button
+                    className="spread-props__slot-remove"
+                    onClick={() => removeDeckSlot(idx)}
+                    title="Remove slot"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+              <div className="spread-props__slot-types">
                 {types.map((t) => (
-                  <option key={t.id} value={t.name}>{t.name}</option>
+                  <label key={t.id} className="spread-props__slot-type-check">
+                    <input
+                      type="checkbox"
+                      checked={checked.includes(t.name)}
+                      onChange={() => toggleSlotType(idx, t.name)}
+                    />
+                    <span>{t.name}</span>
+                  </label>
                 ))}
-              </select>
-              {deckSlots.length > 1 && (
-                <button
-                  className="spread-props__slot-remove"
-                  onClick={() => removeDeckSlot(idx)}
-                  title="Remove slot"
-                >
-                  ×
-                </button>
-              )}
+                {checked.length === 0 && (
+                  <span className="spread-props__slot-any">Any</span>
+                )}
+              </div>
             </div>
-          ))}
+            );
+          })}
           <button className="spread-props__add-slot" onClick={addDeckSlot}>
             + Add Deck Slot
           </button>
