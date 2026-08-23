@@ -36,6 +36,13 @@ export interface BirthCardProfile {
   fool_center: boolean;
   constellation: { root: number; majors: number[] };
   dynamic: 1 | 2 | 3 | null;
+  /** Golden Dawn decan attributions for the zodiacal card. */
+  zodiacal_rulers: {
+    sign: string;
+    planet: string;
+    sign_major: number;
+    planet_major: number;
+  };
   karmic_year: number;
   year_card: number;
   generic_year: number;
@@ -53,6 +60,8 @@ export interface BirthCardProfile {
     constellation_majors: MajorCardRef[];
     lessons_and_opportunities: MinorCardRef[];
     zodiacal: MinorCardRef;
+    zodiacal_sign_ruler: MajorCardRef;
+    zodiacal_planet_ruler: MajorCardRef;
     year_card: MajorCardRef;
     generic_year: MajorCardRef;
     personal_month: MajorCardRef;

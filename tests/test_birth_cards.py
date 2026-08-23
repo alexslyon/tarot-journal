@@ -283,3 +283,46 @@ def test_api_eight_eleven_naming(client):
     assert res.get_json()['cards']['hidden_factor'][0]['name'] == 'Justice'
     res = client.get('/api/birth-cards?date=1961-08-04&eight_eleven=marseille')
     assert res.get_json()['cards']['hidden_factor'][0]['name'] == 'Strength'
+
+
+# === Decan rulers (Golden Dawn Book T) ===
+
+def test_zodiacal_rulers_known_decans():
+    # 3 of Cups = Cancer II, ruled by Mercury -> Chariot + Magician
+    r = bc.zodiacal_rulers({'rank': 3, 'suit': 'Cups'})
+    assert r == {'sign': 'Cancer', 'planet': 'Mercury',
+                 'sign_major': 7, 'planet_major': 1}
+    # 5 of Wands = Leo I, ruled by Saturn -> Strength + The World
+    r = bc.zodiacal_rulers({'rank': 5, 'suit': 'Wands'})
+    assert r == {'sign': 'Leo', 'planet': 'Saturn',
+                 'sign_major': 8, 'planet_major': 21}
+    # 8 of Wands = Sagittarius I, ruled by Mercury
+    r = bc.zodiacal_rulers({'rank': 8, 'suit': 'Wands'})
+    assert r['sign'] == 'Sagittarius' and r['planet'] == 'Mercury'
+
+
+def test_decan_rulers_structure():
+    """Every decan has a valid sign and planet; each sign covers exactly
+    three decans; Mars famously rules both Aries I and Pisces III."""
+    assert len(bc.DECAN_RULERS) == 36
+    sign_counts = {}
+    for rulers in bc.DECAN_RULERS.values():
+        assert rulers['sign'] in bc.SIGN_MAJORS
+        assert rulers['planet'] in bc.PLANET_MAJORS
+        sign_counts[rulers['sign']] = sign_counts.get(rulers['sign'], 0) + 1
+    assert all(count == 3 for count in sign_counts.values())
+    assert bc.DECAN_RULERS[(2, 'Wands')]['planet'] == 'Mars'    # Aries I
+    assert bc.DECAN_RULERS[(10, 'Cups')]['planet'] == 'Mars'    # Pisces III
+
+
+def test_api_zodiacal_rulers(client):
+    res = client.get('/api/birth-cards?date=1907-07-06')  # 3 of Cups
+    data = res.get_json()
+    assert data['zodiacal_rulers']['sign'] == 'Cancer'
+    assert data['cards']['zodiacal_sign_ruler']['name'] == 'The Chariot'
+    assert data['cards']['zodiacal_planet_ruler']['name'] == 'The Magician'
+    # Ruler names ignore the 8/11 relabel: Leo is always the Strength card
+    res = client.get('/api/birth-cards?date=1943-07-26&eight_eleven=marseille')
+    data = res.get_json()
+    assert data['zodiacal_rulers']['sign'] == 'Leo'
+    assert data['cards']['zodiacal_sign_ruler']['name'] == 'Strength'

@@ -106,7 +106,18 @@ def _hydrate(profile, eight_eleven, db):
             'card_id': card_ids.get(name.lower()),
         }
 
+    def ruler_major(n):
+        """Like major(), but always the canonical Golden Dawn name:
+        astrological attributions are card identities (Leo IS the
+        Strength card), so the 8/11 numbering toggle doesn't apply."""
+        hydrated = major(n)
+        hydrated['name'] = bc.MAJOR_NAMES[n]
+        return hydrated
+
+    rulers = bc.zodiacal_rulers(profile['zodiacal_card'])
+
     out = dict(profile)
+    out['zodiacal_rulers'] = rulers
     out['cards'] = {
         'personality': major(profile['personality']),
         'soul': major(profile['soul']),
@@ -116,6 +127,8 @@ def _hydrate(profile, eight_eleven, db):
         'lessons_and_opportunities': [
             minor(ref) for ref in profile['lessons_and_opportunities']],
         'zodiacal': minor(profile['zodiacal_card']),
+        'zodiacal_sign_ruler': ruler_major(rulers['sign_major']),
+        'zodiacal_planet_ruler': ruler_major(rulers['planet_major']),
     }
     for key in ('year_card', 'generic_year', 'personal_month'):
         if key in profile:

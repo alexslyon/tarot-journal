@@ -184,6 +184,52 @@ def zodiacal_card(birth: date) -> dict:
     raise AssertionError(f'decan table gap at {md}')  # tiling test proves unreachable
 
 
+# === Decan rulers (Golden Dawn Book T) ===
+
+# Sign trumps. Astrological attributions are card identities in the
+# Golden Dawn scheme — Leo is always the Strength card and Libra always
+# Justice, so the 8/11 numbering toggle deliberately does not apply.
+SIGN_MAJORS = {
+    'Aries': 4, 'Taurus': 5, 'Gemini': 6, 'Cancer': 7, 'Leo': 8,
+    'Virgo': 9, 'Libra': 11, 'Scorpio': 13, 'Sagittarius': 14,
+    'Capricorn': 15, 'Aquarius': 17, 'Pisces': 18,
+}
+
+PLANET_MAJORS = {
+    'Mercury': 1, 'Moon': 2, 'Venus': 3, 'Jupiter': 10,
+    'Mars': 16, 'Sun': 19, 'Saturn': 21,
+}
+
+# Book T's planetary rulers walk the descending Chaldean order
+# (Saturn, Jupiter, Mars, Sun, Venus, Mercury, Moon) starting from
+# Mars at Aries I; Mars also closes the year at Pisces III — the
+# well-known doubling that bridges the zodiac's seam. DECANS is
+# ordered from Aries I, so both signs and planets derive by index.
+_CHALDEAN_FROM_MARS = ['Mars', 'Sun', 'Venus', 'Mercury', 'Moon', 'Saturn', 'Jupiter']
+_SIGN_ORDER = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
+               'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces']
+
+DECAN_RULERS = {
+    (rank, suit): {
+        'sign': _SIGN_ORDER[i // 3],
+        'planet': _CHALDEAN_FROM_MARS[i % 7],
+    }
+    for i, (_, _, rank, suit) in enumerate(DECANS)
+}
+
+
+def zodiacal_rulers(ref: dict) -> dict:
+    """Sign and planetary rulers of a decan Minor, with each ruler's
+    Major Arcana trump (Golden Dawn attributions)."""
+    rulers = DECAN_RULERS[(ref['rank'], ref['suit'])]
+    return {
+        'sign': rulers['sign'],
+        'planet': rulers['planet'],
+        'sign_major': SIGN_MAJORS[rulers['sign']],
+        'planet_major': PLANET_MAJORS[rulers['planet']],
+    }
+
+
 def dynamic_group(personality: int) -> int | None:
     """Soul-group hexagram (1/2/3) from the Personality Card. The Fool
     (22) sits at the center of all three — None, with fool_center set."""

@@ -194,6 +194,22 @@ export default function BirthCardsModal({
               <h3 className="birth-cards__heading">Zodiacal Lesson & Opportunity</h3>
               <div className="birth-cards__row">
                 <CardTile card={c.zodiacal} small caption="From the birthday's decan" />
+                {/* Guarded so a stale backend (older response shape)
+                    degrades to just the decan card, not a crash */}
+                {c.zodiacal_sign_ruler && data.zodiacal_rulers && (
+                  <CardTile
+                    card={c.zodiacal_sign_ruler}
+                    small
+                    caption={`Zodiacal ruler — ${data.zodiacal_rulers.sign}`}
+                  />
+                )}
+                {c.zodiacal_planet_ruler && data.zodiacal_rulers && (
+                  <CardTile
+                    card={c.zodiacal_planet_ruler}
+                    small
+                    caption={`Planetary ruler — ${data.zodiacal_rulers.planet}`}
+                  />
+                )}
               </div>
             </div>
 
@@ -224,10 +240,7 @@ export default function BirthCardsModal({
             </div>
 
             <p className="birth-cards__footnote">
-              Numbers follow Mary K. Greer's <em>Archetypal Tarot</em>. The
-              system rests on the calendar we're culturally steeped in, not
-              on any claim of ancient cosmic correspondence — Greer herself
-              is explicit about that.
+              Numbers follow Mary K. Greer's <em>Archetypal Tarot</em>.
             </p>
           </>
         )}
