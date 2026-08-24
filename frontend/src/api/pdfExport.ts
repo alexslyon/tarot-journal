@@ -94,3 +94,42 @@ export async function exportEntryPdf(
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+// === Profile PDF export ===
+
+export interface ProfilePdfOptions {
+  include_chart?: boolean;
+  include_birth_cards?: boolean;
+  /** Which addition methods to include: greer, amberstone, or both. */
+  birth_card_methods?: ('greer' | 'amberstone')[];
+  include_name_cards?: boolean;
+}
+
+/** Same blob-download flow as entry PDFs. */
+export async function exportProfilePdf(
+  profileId: number,
+  options: ProfilePdfOptions,
+): Promise<void> {
+  const res = await api.post(`/api/profiles/${profileId}/export-pdf`, options, {
+    responseType: 'blob',
+  });
+
+  let filename = `profile_${profileId}.pdf`;
+  const cd =
+    res.headers['content-disposition'] ||
+    (res.headers as Record<string, string>)['Content-Disposition'];
+  if (cd) {
+    const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd);
+    if (match && match[1]) filename = decodeURIComponent(match[1]);
+  }
+
+  const blob = new Blob([res.data], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+
+  <header class="head">
+    <h1 class="head__name">{{ profile.name }}</h1>
+    {% if profile.full_name and profile.full_name != profile.name %}
+      <div class="head__full-name">{{ profile.full_name }}</div>
+    {% endif %}
+    <div class="head__meta">
+      {% if profile.birth_date %}<span>Born {{ profile.birth_date }}{% if profile.birth_time %} at {{ profile.birth_time }}{% endif %}</span>{% endif %}
+      {% if profile.birth_place_name %}<span>{{ profile.birth_place_name }}</span>{% endif %}
+      {% if profile.gender %}<span>{{ profile.gender }}</span>{% endif %}
+    </div>
+  </header>
+
+  {# ── Natal chart ── #}
+  {% if chart_block %}
+    <section class="chart">
+      <h2 class="section-title">Natal Chart</h2>
+      <div class="chart__meta">
+        {% if chart_block.house_system %}<span>{{ chart_block.house_system }} houses</span>{% endif %}
+        {% if chart_block.timezone %}<span>{{ chart_block.timezone }}</span>{% endif %}
+        {% if chart_block.solar_chart %}<span>Solar chart (birth time unknown)</span>{% endif %}
+      </div>
+      {% if chart_block.png_uri %}
+        <div class="chart__wheel"><img src="{{ chart_block.png_uri }}" alt="Natal chart" /></div>
+      {% endif %}
+      {% if chart_block.positions %}
+        <table class="chart__table">
+          <thead><tr><th>Body</th><th>Sign</th><th>Degree</th><th>House</th></tr></thead>
+          <tbody>
+            {% for row in chart_block.positions %}
+              <tr>
+                <td>{{ row.label }}{% if row.retrograde %} ℞{% endif %}</td>
+                <td>{{ row.sign }}</td>
+                <td>{{ '%.1f' % row.position }}°</td>
+                <td>{{ row.house }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  {# ── Birth cards, one block per method ── #}
+  {% macro tile(card, caption) %}
+    {% if card %}
+      <div class="tile">
+        {% if card.image_uri %}
+          <img class="tile__img" src="{{ card.image_uri }}" alt="{{ card.name }}" />
+        {% else %}
+          <div class="tile__placeholder">{{ card.name }}</div>
+        {% endif %}
+        <div class="tile__name">{{ card.name }}</div>
+        {% if caption %}<div class="tile__caption">{{ caption }}</div>{% endif %}
+      </div>
+    {% endif %}
+  {% endmacro %}
+
+  {% for block in birth_blocks %}
+    <section class="cards-section">
+      <h2 class="section-title">Birth Cards — {{ block.method_label }}</h2>
+      <div class="cards-section__pattern">Pattern {{ block.pattern }}</div>
+
+      <div class="tile-row">
+        {% if block.personality == block.soul %}
+          {{ tile(block.cards.personality, 'Personality & Soul') }}
+        {% else %}
+          {{ tile(block.cards.personality, 'Personality') }}
+          {{ tile(block.cards.soul, 'Soul') }}
+        {% endif %}
+        {{ tile(block.cards.teacher, 'Teacher') }}
+        {% for card in block.cards.hidden_factor %}
+          {{ tile(card, 'Hidden Factor') }}
+        {% endfor %}
+      </div>
+
+      <h3 class="sub-title">Lessons &amp; Opportunities</h3>
+      <div class="tile-row tile-row--small">
+        {% for card in block.cards.lessons_and_opportunities %}
+          {{ tile(card, none) }}
+        {% endfor %}
+      </div>
+
+      <h3 class="sub-title">Zodiacal Lesson &amp; Opportunity</h3>
+      <div class="tile-row tile-row--small">
+        {{ tile(block.cards.zodiacal, "Birthday's decan") }}
+        {{ tile(block.cards.zodiacal_sign_ruler, 'Zodiacal ruler — ' ~ block.zodiacal_rulers.sign) }}
+        {{ tile(block.cards.zodiacal_planet_ruler, 'Planetary ruler — ' ~ block.zodiacal_rulers.planet) }}
+        {{ tile(block.cards.decan_court, 'Court ruler — ' ~ block.decan_court.span) }}
+      </div>
+
+      <h3 class="sub-title">{{ block.reference_year }} Cards</h3>
+      <div class="tile-row tile-row--small">
+        {{ tile(block.cards.year_card, 'Year Card ' ~ block.reference_year) }}
+        {{ tile(block.cards.personal_month, 'Personal Month') }}
+        {{ tile(block.cards.generic_year, 'Generic Year') }}
+      </div>
+      <p class="note">
+        Karmic Year: {{ block.karmic_year }}.
+        {% if block.dynamic %}Dynamic group {{ block.dynamic }} of 3.{% endif %}
+        {% if block.fool_center %}The Fool sits at the center of all three dynamics.{% endif %}
+      </p>
+    </section>
+  {% endfor %}
+
+  {# ── Name cards ── #}
+  {% if name_block %}
+    <section class="cards-section">
+      <h2 class="section-title">Name Cards</h2>
+      <div class="cards-section__pattern">
+        {% for part in name_block.parts %}{{ part.original }}{% if not loop.last %} · {% endif %}{% endfor %}
+      </div>
+
+      <h3 class="sub-title">Theme Chord</h3>
+      <div class="tile-row">
+        {{ tile(name_block.cards.first_name, 'First name — Conscious Self') }}
+        {{ tile(name_block.cards.middle_name, 'Middle name — Hidden Self') }}
+        {{ tile(name_block.cards.last_name, 'Last name — Social Self') }}
+      </div>
+
+      <h3 class="sub-title">Inner &amp; Outer</h3>
+      <div class="tile-row">
+        {{ tile(name_block.cards.desires_inner_motivation, 'Desires & Inner Motivation') }}
+        {{ tile(name_block.cards.outer_persona, 'Outer Persona') }}
+      </div>
+
+      <h3 class="sub-title">Theme Note · Rhythm · Melody</h3>
+      <div class="tile-row tile-row--small">
+        {{ tile(name_block.cards.theme_note, 'Theme Note') }}
+        {{ tile(name_block.cards.rhythm, 'Rhythm') }}
+        {{ tile(name_block.cards.melody, 'Melody') }}
+        {% for card in name_block.cards.hidden_factor_name %}
+          {{ tile(card, 'Hidden Factor') }}
+        {% endfor %}
+        {{ tile(name_block.cards.life_potential, 'Life Potential') }}
+      </div>
+
+      <h3 class="sub-title">Constellation Count</h3>
+      <div class="constellations">
+        {% for row in name_block.constellation_rows %}
+          <div class="constellation {% if row.count == 0 %}constellation--absent{% endif %}">
+            <span class="constellation__root">{{ row.root }}</span>
+            <span class="constellation__count">{% if row.count == 0 %}absent{% else %}× {{ row.count }}{% endif %}</span>
+          </div>
+        {% endfor %}
+      </div>
+
+      <h3 class="sub-title">Name Mandala</h3>
+      {% for part in name_block.parts %}
+        <div class="mandala-part">
+          <div class="mandala-part__label">{{ part.original }}</div>
+          <div class="mandala-row">
+            {% for letter in part.letters %}
+              {% set major = name_block.majors_by_number[letter.key] %}
+              <div class="mandala-tile {% if letter.is_vowel %}mandala-tile--vowel{% endif %}">
+                {% if major and major.image_uri %}
+                  <img src="{{ major.image_uri }}" alt="{{ major.name }}" />
+                {% else %}
+                  <div class="mandala-tile__fallback">{{ letter.key }}</div>
+                {% endif %}
+                <span class="mandala-tile__letter">{{ letter.letter }} <em>{{ letter.note }}</em></span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+      <p class="note">Vowels ride above the consonant line; the small note under each letter is Paul Foster Case's musical attribution.</p>
+    </section>
+  {% endif %}
+
+  <footer class="foot">
+    Calculations follow Mary K. Greer, <em>Archetypal Tarot</em>.
+  </footer>
+
+</body>
+</html>

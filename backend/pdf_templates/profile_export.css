@@ -1,0 +1,328 @@
+/* Profile PDF export — same paper skin as the journal entry export
+   (Nocturne's print counterpart): Newsreader for everything written,
+   Inter for the instrument, the neutral paper palette. */
+
+@font-face {
+  font-family: 'Newsreader';
+  font-weight: 300;
+  src: url('../../frontend/src/assets/fonts/Newsreader-normal-300-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Newsreader';
+  font-weight: 400;
+  src: url('../../frontend/src/assets/fonts/Newsreader-normal-400-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Newsreader';
+  font-weight: 300;
+  font-style: italic;
+  src: url('../../frontend/src/assets/fonts/Newsreader-italic-300-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-weight: 400;
+  src: url('../../frontend/src/assets/fonts/Inter-normal-400-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-weight: 500;
+  src: url('../../frontend/src/assets/fonts/Inter-normal-500-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-weight: 600;
+  src: url('../../frontend/src/assets/fonts/Inter-normal-600-latin.woff2') format('woff2');
+}
+
+@page {
+  size: A4 portrait;
+  margin: 18mm 16mm 20mm;
+  background: #f3f5fe;
+  @bottom-center {
+    content: counter(page) ' / ' counter(pages);
+    font-family: 'Inter', sans-serif;
+    font-size: 8pt;
+    color: #75798c;
+  }
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  font-size: 9.5pt;
+  color: #3f424d;
+  background: #f3f5fe;
+}
+
+/* ── Header ── */
+
+.head {
+  border-bottom: 0.6pt solid rgba(41, 43, 49, 0.2);
+  padding-bottom: 10pt;
+  margin-bottom: 14pt;
+}
+
+.head__name {
+  font-family: 'Newsreader', serif;
+  font-weight: 300;
+  font-size: 24pt;
+  color: #292b31;
+  margin: 0 0 2pt;
+}
+
+.head__full-name {
+  font-family: 'Newsreader', serif;
+  font-style: italic;
+  font-size: 12pt;
+  color: #595d6c;
+  margin-bottom: 4pt;
+}
+
+.head__meta {
+  font-size: 9pt;
+  color: #595d6c;
+}
+
+.head__meta span + span::before {
+  content: ' · ';
+  color: #75798c;
+}
+
+/* ── Sections ── */
+
+.section-title {
+  font-family: 'Newsreader', serif;
+  font-weight: 400;
+  font-size: 15pt;
+  color: #292b31;
+  margin: 0 0 4pt;
+  page-break-after: avoid;
+}
+
+.sub-title {
+  font-family: 'Newsreader', serif;
+  font-weight: 400;
+  font-size: 11.5pt;
+  color: #292b31;
+  margin: 10pt 0 5pt;
+  page-break-after: avoid;
+}
+
+.cards-section,
+.chart {
+  margin-bottom: 16pt;
+}
+
+/* Break before a cards section only when another section precedes
+   it — a lone section flows straight under the header. */
+.chart + .cards-section,
+.cards-section + .cards-section {
+  page-break-before: always;
+}
+
+.cards-section__pattern {
+  font-size: 9pt;
+  font-weight: 600;
+  color: #535f6c;
+  margin-bottom: 6pt;
+}
+
+.note {
+  font-size: 8.5pt;
+  color: #595d6c;
+  margin: 4pt 0 0;
+}
+
+/* ── Chart ── */
+
+.chart__meta {
+  font-size: 8.5pt;
+  color: #595d6c;
+  margin-bottom: 6pt;
+}
+
+.chart__meta span + span::before { content: ' · '; }
+
+.chart__wheel img {
+  width: 100%;
+  max-height: 150mm;
+  object-fit: contain;
+}
+
+.chart__table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6pt;
+  font-size: 8.5pt;
+}
+
+.chart__table th {
+  text-align: left;
+  font-weight: 600;
+  color: #292b31;
+  border-bottom: 0.6pt solid rgba(41, 43, 49, 0.2);
+  padding: 2pt 6pt 2pt 0;
+}
+
+.chart__table td {
+  padding: 2pt 6pt 2pt 0;
+  border-bottom: 0.3pt solid rgba(41, 43, 49, 0.1);
+}
+
+/* ── Card tiles ── */
+
+.tile-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8pt;
+  align-items: flex-start;
+  page-break-inside: avoid;
+}
+
+.tile {
+  width: 68pt;
+  text-align: center;
+}
+
+.tile-row--small .tile {
+  width: 52pt;
+}
+
+.tile__img {
+  width: 100%;
+  border-radius: 3pt;
+  border: 0.6pt solid rgba(41, 43, 49, 0.2);
+}
+
+.tile__placeholder {
+  width: 100%;
+  height: 96pt;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0.6pt solid rgba(41, 43, 49, 0.2);
+  border-radius: 3pt;
+  background: #e4e7f5;
+  font-size: 7.5pt;
+  color: #595d6c;
+  padding: 3pt;
+}
+
+.tile-row--small .tile__placeholder { height: 74pt; }
+
+.tile__name {
+  font-family: 'Newsreader', serif;
+  font-size: 8.5pt;
+  color: #292b31;
+  margin-top: 2pt;
+  line-height: 1.2;
+}
+
+.tile__caption {
+  font-size: 7pt;
+  color: #75798c;
+  line-height: 1.25;
+}
+
+/* ── Constellation strip ── */
+
+.constellations {
+  display: flex;
+  gap: 6pt;
+  page-break-inside: avoid;
+}
+
+.constellation {
+  border: 0.6pt solid rgba(41, 43, 49, 0.2);
+  border-radius: 3pt;
+  padding: 3pt 6pt;
+  text-align: center;
+  min-width: 30pt;
+}
+
+.constellation--absent { border-style: dashed; }
+
+.constellation__root {
+  display: block;
+  font-weight: 600;
+  color: #292b31;
+}
+
+.constellation__count {
+  font-size: 7.5pt;
+  color: #595d6c;
+}
+
+.constellation--absent .constellation__count {
+  font-style: italic;
+  color: #75798c;
+}
+
+/* ── Mandala ── */
+
+.mandala-part {
+  margin-bottom: 8pt;
+  page-break-inside: avoid;
+}
+
+.mandala-part__label {
+  font-family: 'Newsreader', serif;
+  font-size: 9pt;
+  color: #595d6c;
+  margin-bottom: 10pt;
+}
+
+.mandala-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4pt;
+  align-items: flex-end;
+}
+
+.mandala-tile {
+  width: 34pt;
+  text-align: center;
+}
+
+.mandala-tile--vowel {
+  margin-bottom: 9pt;   /* vowels ride above the consonant line */
+}
+
+.mandala-tile img {
+  width: 100%;
+  border-radius: 2pt;
+  border: 0.4pt solid rgba(41, 43, 49, 0.2);
+}
+
+.mandala-tile__fallback {
+  width: 100%;
+  height: 48pt;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0.4pt solid rgba(41, 43, 49, 0.2);
+  border-radius: 2pt;
+  background: #e4e7f5;
+  font-size: 8pt;
+  color: #595d6c;
+}
+
+.mandala-tile__letter {
+  font-size: 7.5pt;
+  color: #292b31;
+}
+
+.mandala-tile__letter em {
+  font-style: normal;
+  color: #75798c;
+  font-size: 6.5pt;
+}
+
+/* ── Footer ── */
+
+.foot {
+  margin-top: 18pt;
+  padding-top: 6pt;
+  border-top: 0.6pt solid rgba(41, 43, 49, 0.2);
+  font-size: 8pt;
+  color: #75798c;
+}

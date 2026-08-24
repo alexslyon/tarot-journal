@@ -306,3 +306,38 @@ def test_api_full_name_persists_via_profile_routes(client):
     client.put(f'/api/profiles/{pid}', json={'full_name': 'Changed Name'})
     assert client.get(
         f'/api/profiles/{pid}').get_json()['full_name'] == 'Changed Name'
+
+
+# === Profile PDF export ===
+
+def _weasyprint_available():
+    try:
+        import weasyprint  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+@pytest.mark.skipif(not _weasyprint_available(),
+                    reason='weasyprint needs DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib')
+def test_profile_pdf_export(client, db):
+    pid = db.add_profile('PDF Test', birth_date='1929-01-15',
+                         full_name='John Quincy Adams')
+    res = client.post(f'/api/profiles/{pid}/export-pdf', json={
+        'include_birth_cards': True,
+        'birth_card_methods': ['greer', 'amberstone'],
+        'include_name_cards': True,
+        'include_chart': True,   # no birth place -> section quietly omitted
+    })
+    assert res.status_code == 200
+    assert res.mimetype == 'application/pdf'
+    assert res.data[:5] == b'%PDF-'
+    assert len(res.data) > 5000
+    assert 'PDF_Test' in res.headers.get('Content-Disposition', '')
+
+
+@pytest.mark.skipif(not _weasyprint_available(),
+                    reason='weasyprint needs DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib')
+def test_profile_pdf_unknown_profile(client):
+    assert client.post('/api/profiles/99999/export-pdf',
+                       json={}).status_code == 404

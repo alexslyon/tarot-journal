@@ -12,6 +12,7 @@ import type { Profile } from '../../types';
 import ChartModal from '../astrology/ChartModal';
 import BirthCardsModal from './BirthCardsModal';
 import NameCardsModal from './NameCardsModal';
+import ProfilePdfModal from './ProfilePdfModal';
 import PlaceLookupButton from '../common/PlaceLookupButton';
 import './ProfilesTab.css';
 import { confirmDialog } from '../common/ConfirmDialog';
@@ -24,6 +25,7 @@ export default function ProfilesTab() {
   const [chartOpen, setChartOpen] = useState(false);
   const [birthCardsOpen, setBirthCardsOpen] = useState(false);
   const [nameCardsOpen, setNameCardsOpen] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [error, setError] = useState('');
@@ -381,6 +383,15 @@ export default function ProfilesTab() {
                     Name Cards
                   </button>
                 )}
+                {!isNew && selectedProfile && (
+                  <button
+                    className="profiles-tab__chart-btn"
+                    onClick={() => setPdfOpen(true)}
+                    title="Export this profile as a PDF"
+                  >
+                    Export PDF
+                  </button>
+                )}
                 {!isNew && (
                   <button className="profiles-tab__delete-btn" onClick={handleDelete}>
                     Delete
@@ -422,6 +433,14 @@ export default function ProfilesTab() {
           onClose={() => setBirthCardsOpen(false)}
           profileId={selectedProfile.id}
           profileName={selectedProfile.name}
+        />
+      )}
+      {selectedProfile && (
+        <ProfilePdfModal
+          key={selectedProfile.id}
+          open={pdfOpen}
+          onClose={() => setPdfOpen(false)}
+          profile={selectedProfile}
         />
       )}
       {selectedProfile && selectedProfile.full_name && (

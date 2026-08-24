@@ -1,0 +1,48 @@
+.profile-pdf {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-pdf__option {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: var(--font-size-body);
+}
+
+.profile-pdf__option--disabled {
+  cursor: default;
+  color: var(--text-dim);
+}
+
+.profile-pdf__hint {
+  font-style: italic;
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  margin-left: 8px;
+}
+
+.profile-pdf__methods {
+  display: flex;
+  gap: 16px;
+  padding-left: 26px;
+}
+
+.profile-pdf__method {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.profile-pdf__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
