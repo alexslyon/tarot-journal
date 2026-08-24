@@ -98,6 +98,8 @@ interface BirthCardOpts {
   method?: BirthCardMethod;
   eightEleven?: EightEleven;
   courtSystem?: CourtSystem;
+  /** Reference year for the Year Card (defaults server-side to today). */
+  year?: number;
 }
 
 function optsToParams(opts?: BirthCardOpts): URLSearchParams {
@@ -105,6 +107,7 @@ function optsToParams(opts?: BirthCardOpts): URLSearchParams {
   if (opts?.method) params.set('method', opts.method);
   if (opts?.eightEleven) params.set('eight_eleven', opts.eightEleven);
   if (opts?.courtSystem) params.set('court_system', opts.courtSystem);
+  if (opts?.year) params.set('year', String(opts.year));
   return params;
 }
 

@@ -4,6 +4,7 @@ import { getEntry, deleteEntry, getEntryLlmMarkdown } from '../../api/entries';
 import { useToast } from '../../context/ToastContext';
 import RichTextViewer from '../common/RichTextViewer';
 import SpreadDisplay from './SpreadDisplay';
+import { useQuerentBirthCards, QuerentBirthCardsPanel } from './QuerentBirthCards';
 import FollowUpNotes from './FollowUpNotes';
 import ReadingBreakdown from './ReadingBreakdown';
 import ChartModal from '../astrology/ChartModal';
@@ -45,6 +46,25 @@ export default function EntryViewer({ entryId, onEdit, onNewFromEntry, onFindCar
     queryKey: ['entry', entryId],
     queryFn: () => getEntry(entryId),
   });
+
+  // "Indicate Birth Cards": highlight the querents' Greer birth cards
+  // inside Tarot spreads. Preference sticks across entries.
+  const [indicateBirthCards, setIndicateBirthCards] = useState(
+    () => localStorage.getItem('tj-indicate-birth-cards') === '1');
+  const toggleIndicateBirthCards = () => setIndicateBirthCards(v => {
+    try { localStorage.setItem('tj-indicate-birth-cards', v ? '0' : '1'); } catch { /* private mode */ }
+    return !v;
+  });
+  const readingYear = entry?.reading_datetime
+    ? new Date(entry.reading_datetime).getFullYear()
+    : undefined;
+  const querentBirthCards = useQuerentBirthCards(
+    entry?.querents, readingYear, !!entry);
+  const hasTarotReading = !!entry?.readings.some(r =>
+    r.cartomancy_type === 'Tarot'
+    || (r.cards_used || []).some(c => c.cartomancy_type === 'Tarot'));
+  const showBirthCardControls =
+    hasTarotReading && querentBirthCards.perQuerent.length > 0;
 
   // Collect all card IDs and their deck IDs from all readings for navigation/editing
   const { allCardIds, cardToDeckMap } = useMemo(() => {
@@ -206,6 +226,7 @@ export default function EntryViewer({ entryId, onEdit, onNewFromEntry, onFindCar
                 {entry.querents.length === 1 ? 'Querent' : 'Querents'}
               </span>
               <span>{entry.querents.map(q => q.name).join(', ')}</span>
+              <QuerentBirthCardsPanel data={querentBirthCards} onCardClick={setViewingCardId} />
             </div>
           )}
           {entry.reader_name && (
@@ -234,12 +255,27 @@ export default function EntryViewer({ entryId, onEdit, onNewFromEntry, onFindCar
         {/* Readings */}
         {entry.readings.length > 0 && (
           <div className="entry-viewer__section">
-            <h3 className="entry-viewer__section-title">Readings</h3>
+            <div className="entry-viewer__section-head">
+              <h3 className="entry-viewer__section-title">Readings</h3>
+              {showBirthCardControls && (
+                <label className="entry-viewer__birth-toggle">
+                  <input
+                    type="checkbox"
+                    checked={indicateBirthCards}
+                    onChange={toggleIndicateBirthCards}
+                  />
+                  <span>Indicate Birth &amp; Name Cards</span>
+                </label>
+              )}
+            </div>
             {entry.readings.map((reading) => (
               <div key={reading.id} className="entry-viewer__reading">
                 <SpreadDisplay
                   reading={reading}
                   onCardDoubleClick={setViewingCardId}
+                  birthLabels={indicateBirthCards && showBirthCardControls
+                    ? querentBirthCards.labelsByArchetype
+                    : undefined}
                 />
                 {(reading.notes || '').replace(/<[^>]*>/g, '').trim() && (
                   <div className="entry-viewer__reading-notes">

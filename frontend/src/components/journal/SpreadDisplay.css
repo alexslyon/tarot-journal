@@ -250,3 +250,57 @@
   text-align: center;
   margin-top: 2px;
 }
+
+/* ── Birth-card highlighting ("Indicate Birth Cards") ── */
+
+/* Simple rows: outline the card image directly */
+.spread-display__card--birth .spread-display__card-img {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+/* Positioned slots clip everything to their bounds (overflow:
+   hidden), so the highlight is an INSET frame and the tag a pill at
+   the card's foot — nothing may extend outside the slot. */
+.spread-display__slot--birth::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 3px solid var(--accent);
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.spread-display__birth-tag {
+  font-size: var(--font-size-small);
+  color: var(--accent);
+  text-align: center;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+.spread-display__birth-tag--overlay {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 8px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--bg-primary);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 0 8px;
+  z-index: 7;
+  pointer-events: none;
+  margin-top: 0;
+}
+
+.spread-display__legend-birth {
+  color: var(--accent);
+  font-size: var(--font-size-small);
+  margin-left: 6px;
+}

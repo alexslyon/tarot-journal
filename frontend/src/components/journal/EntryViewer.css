@@ -140,3 +140,22 @@
   background: var(--tj-tint-neutral-hover);
   border-radius: var(--tj-radius-row);
 }
+
+/* ── Indicate Birth Cards ── */
+
+.entry-viewer__section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.entry-viewer__birth-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}

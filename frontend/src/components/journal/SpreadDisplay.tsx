@@ -7,9 +7,22 @@ import './SpreadDisplay.css';
 interface SpreadDisplayProps {
   reading: EntryReadingParsed;
   onCardDoubleClick?: (cardId: number) => void;
+  /** "Indicate Birth Cards": lowercase Tarot archetype name -> label
+   *  (e.g. "Soul", "Anna: Year Card 2026"). Only Tarot cards match. */
+  birthLabels?: Map<string, string>;
 }
 
-export default function SpreadDisplay({ reading, onCardDoubleClick }: SpreadDisplayProps) {
+/** The querent birth-card label for a card, if highlighting is on and
+ *  this is a Tarot card whose archetype is one of the birth cards. */
+function birthLabelFor(
+  card: CardUsed | undefined,
+  birthLabels?: Map<string, string>,
+): string | undefined {
+  if (!card || !birthLabels || card.cartomancy_type !== 'Tarot') return undefined;
+  return birthLabels.get((card.archetype || '').toLowerCase());
+}
+
+export default function SpreadDisplay({ reading, onCardDoubleClick, birthLabels }: SpreadDisplayProps) {
   const { data: spread } = useQuery<Spread>({
     queryKey: ['spread', reading.spread_id],
     queryFn: () => getSpread(reading.spread_id!),
@@ -23,11 +36,11 @@ export default function SpreadDisplay({ reading, onCardDoubleClick }: SpreadDisp
     spread?.positions && Array.isArray(spread.positions) ? spread.positions : [];
 
   if (positions.length > 0 && cards.length > 0) {
-    return <PositionedLayout cards={cards} positions={positions} spreadName={reading.spread_name} onCardDoubleClick={onCardDoubleClick} />;
+    return <PositionedLayout cards={cards} positions={positions} spreadName={reading.spread_name} onCardDoubleClick={onCardDoubleClick} birthLabels={birthLabels} />;
   }
 
   // Fallback: simple card row
-  return <SimpleCardRow cards={cards} spreadName={reading.spread_name} deckName={reading.deck_name} onCardDoubleClick={onCardDoubleClick} />;
+  return <SimpleCardRow cards={cards} spreadName={reading.spread_name} deckName={reading.deck_name} onCardDoubleClick={onCardDoubleClick} birthLabels={birthLabels} />;
 }
 
 function PositionedLayout({
@@ -35,11 +48,13 @@ function PositionedLayout({
   positions,
   spreadName,
   onCardDoubleClick,
+  birthLabels,
 }: {
   cards: EntryReadingParsed['cards_used'];
   positions: SpreadPosition[];
   spreadName: string | null;
   onCardDoubleClick?: (cardId: number) => void;
+  birthLabels?: Map<string, string>;
 }) {
   // Calculate the actual bounding box of content (trimming empty space)
   const minX = Math.min(...positions.map(p => p.x || 0));
@@ -70,6 +85,7 @@ function PositionedLayout({
           {positions.map((pos, idx) => {
             const card = cards.find(c => c.position_index === idx)
               ?? (cards[idx]?.position_index == null ? cards[idx] : undefined);
+            const birthTag = birthLabelFor(card, birthLabels);
             // Calculate position as percentage of content area (offset by minX/minY)
             const leftPct = ((pos.x || 0) - minX) / contentWidth * 100;
             const topPct = ((pos.y || 0) - minY) / contentHeight * 100;
@@ -79,7 +95,7 @@ function PositionedLayout({
             return (
               <div
                 key={idx}
-                className={`spread-display__slot ${card?.reversed ? 'spread-display__slot--reversed' : ''}`}
+                className={`spread-display__slot ${card?.reversed ? 'spread-display__slot--reversed' : ''} ${birthTag ? 'spread-display__slot--birth' : ''}`}
                 style={{
                   position: 'absolute',
                   left: `${leftPct}%`,
@@ -106,6 +122,11 @@ function PositionedLayout({
                     <span className="spread-display__slot-label">{pos.label || idx + 1}</span>
                   </div>
                 )}
+                {birthTag && (
+                  <div className="spread-display__birth-tag spread-display__birth-tag--overlay">
+                    {birthTag}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -126,7 +147,7 @@ function PositionedLayout({
                 : null;
               return (
                 <div key={i} className="spread-display__card-item">
-                  <CardSlot card={card} onDoubleClick={onCardDoubleClick} />
+                  <CardSlot card={card} onDoubleClick={onCardDoubleClick} birthLabel={birthLabelFor(card, birthLabels)} />
                   {targetLabel && (
                     <span
                       className="spread-display__clarifies-badge"
@@ -146,6 +167,7 @@ function PositionedLayout({
       <div className="spread-display__legend">
         {positions.map((pos, idx) => {
           const card = cards.find(c => c.position_index === idx) || cards[idx];
+          const birthTag = birthLabelFor(card, birthLabels);
           return (
             <div key={idx} className="spread-display__legend-item">
               <span className="spread-display__legend-key">{pos.key || idx + 1}</span>
@@ -154,6 +176,7 @@ function PositionedLayout({
                 {card?.current_name || card?.name || '—'}
                 {card?.reversed && <span className="spread-display__reversed-badge"> R</span>}
               </span>
+              {birthTag && <span className="spread-display__legend-birth">{birthTag}</span>}
             </div>
           );
         })}
@@ -167,11 +190,13 @@ function SimpleCardRow({
   spreadName,
   deckName,
   onCardDoubleClick,
+  birthLabels,
 }: {
   cards: EntryReadingParsed['cards_used'];
   spreadName: string | null;
   deckName: string | null;
   onCardDoubleClick?: (cardId: number) => void;
+  birthLabels?: Map<string, string>;
 }) {
   return (
     <div className="spread-display">
@@ -183,7 +208,7 @@ function SimpleCardRow({
         <div className="spread-display__card-row">
           {cards.map((card, idx) => (
             <div key={idx} className="spread-display__card-item">
-              <CardSlot card={card} onDoubleClick={onCardDoubleClick} />
+              <CardSlot card={card} onDoubleClick={onCardDoubleClick} birthLabel={birthLabelFor(card, birthLabels)} />
             </div>
           ))}
         </div>
@@ -201,6 +226,7 @@ function CardSlot({
   slotWidth,
   slotHeight,
   onDoubleClick,
+  birthLabel,
 }: {
   card: CardUsed;
   hideLabel?: boolean;
@@ -208,6 +234,7 @@ function CardSlot({
   slotWidth?: number;
   slotHeight?: number;
   onDoubleClick?: (cardId: number) => void;
+  birthLabel?: string;
 }) {
   const handleDoubleClick = () => {
     if (card.card_id && onDoubleClick) {
@@ -240,7 +267,7 @@ function CardSlot({
 
   return (
     <div
-      className={`spread-display__card ${card.reversed ? 'spread-display__card--reversed' : ''} ${card.card_id && onDoubleClick ? 'spread-display__card--clickable' : ''}`}
+      className={`spread-display__card ${card.reversed ? 'spread-display__card--reversed' : ''} ${card.card_id && onDoubleClick ? 'spread-display__card--clickable' : ''} ${birthLabel ? 'spread-display__card--birth' : ''}`}
       onDoubleClick={handleDoubleClick}
     >
       {card.card_id ? (
@@ -258,6 +285,9 @@ function CardSlot({
           {card.current_name || card.name}
           {card.reversed && <span className="spread-display__reversed-badge"> R</span>}
         </div>
+      )}
+      {birthLabel && (
+        <div className="spread-display__birth-tag">{birthLabel}</div>
       )}
     </div>
   );
