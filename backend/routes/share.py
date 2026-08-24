@@ -173,6 +173,15 @@ def export_profiles():
         p['querent_only'] = bool(r.get('querent_only'))
         p['hidden'] = bool(r.get('hidden'))
         p['name_cards_config'] = _parse_json_column(r.get('name_cards_config'))
+        p['alternate_names'] = [{
+            'name_kind': row_to_dict(n)['name_kind'],
+            'display_name': row_to_dict(n)['display_name'],
+            'parts': _parse_json_column(row_to_dict(n).get('parts')),
+            'roles': _parse_json_column(row_to_dict(n).get('roles')),
+            'y_mode': row_to_dict(n).get('y_mode') or 'heuristic',
+            'y_overrides': _parse_json_column(row_to_dict(n).get('y_overrides')),
+            'drop_suffixes': bool(row_to_dict(n).get('drop_suffixes', 1)),
+        } for n in db.get_profile_names(r['id'])]
         profiles.append(p)
 
     return jsonify({
@@ -220,6 +229,21 @@ def import_profiles(data):
         if isinstance(config, dict):
             db.update_profile(profile_id,
                               name_cards_config=json.dumps(config))
+        for alt in (p.get('alternate_names') or []):
+            display = (alt.get('display_name') or '').strip()
+            if not display:
+                continue
+            db.add_profile_name(
+                profile_id, display,
+                name_kind=alt.get('name_kind') or 'other',
+                parts=json.dumps(alt['parts'])
+                    if alt.get('parts') is not None else None,
+                roles=json.dumps(alt['roles'])
+                    if alt.get('roles') is not None else None,
+                y_mode=alt.get('y_mode') or 'heuristic',
+                y_overrides=json.dumps(alt['y_overrides'])
+                    if alt.get('y_overrides') is not None else None,
+                drop_suffixes=bool(alt.get('drop_suffixes', True)))
         existing_names.add(name.lower())
         imported += 1
 

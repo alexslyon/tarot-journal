@@ -392,3 +392,17 @@ def test_api_decan_court(client):
     assert res.get_json()['decan_court']['name'] == 'King of Swords'
     assert client.put('/api/birth-cards/prefs',
                       json={'court_system': 'thoth'}).status_code == 400
+
+
+def test_api_year_series_and_majors_map(client, db):
+    pid = db.add_profile('Series Person', birth_date='1990-06-15')
+    data = client.get(f'/api/profiles/{pid}/birth-cards').get_json()
+    series = data['year_series']
+    assert series[0]['year'] == 1990
+    assert series[-1]['year'] >= 2036
+    assert all(1 <= s['card'] <= 22 for s in series)
+    # Spot-check one year: 6 + 15 + 1990 = 2011 -> 4 (The Emperor)
+    y1990 = next(s for s in series if s['year'] == 1990)
+    assert y1990['card'] == 4
+    assert data['majors_by_number']['4']['name'] == 'The Emperor'
+    assert len(data['majors_by_number']) == 22

@@ -146,6 +146,9 @@ def _hydrate(profile, eight_eleven, court_system, db):
     for key in ('year_card', 'generic_year', 'personal_month'):
         if key in profile:
             out['cards'][key] = major(profile[key])
+    # One entry per Major so the year timeline renders without a
+    # hydration per year.
+    out['majors_by_number'] = {n: major(n) for n in range(1, 23)}
     return out
 
 
@@ -178,6 +181,12 @@ def _compute_response(db, birth: date, birth_date_str: str):
     hydrated['court_system'] = court_system
     hydrated['reference_year'] = reference_year
     hydrated['reference_month'] = reference_month
+    # Year Cards run in ~decade-long consecutive runs ("cycle themes");
+    # the series is method-independent (one formula, month+day+year).
+    # Birth year through ten years past the reference year gives the
+    # UI enough to group into runs without a second request.
+    hydrated['year_series'] = bc.year_card_series(
+        birth, birth.year, max(reference_year, today.year) + 10)
     return jsonify(hydrated)
 
 

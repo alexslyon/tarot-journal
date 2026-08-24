@@ -589,6 +589,25 @@ class CoreMixin:
         if 'name_cards_config' not in profile_columns:
             cursor.execute('ALTER TABLE profiles ADD COLUMN name_cards_config TEXT')
 
+        # Alternate names per profile (chosen names, nicknames) — each
+        # runs through the name-cards calculator with its own parts and
+        # Y adjustments. The birth name stays on profiles.full_name.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS profile_names (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id INTEGER NOT NULL,
+                name_kind TEXT NOT NULL DEFAULT 'other',
+                display_name TEXT NOT NULL,
+                parts TEXT,
+                roles TEXT,
+                y_mode TEXT DEFAULT 'heuristic',
+                y_overrides TEXT,
+                drop_suffixes INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE
+            )
+        ''')
+
         # Migration: add querent_id and reader_id to journal_entries
         cursor.execute('PRAGMA table_info(journal_entries)')
         columns = [col[1] for col in cursor.fetchall()]

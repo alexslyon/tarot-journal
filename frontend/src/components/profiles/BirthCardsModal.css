@@ -144,3 +144,77 @@
   text-align: center;
   line-height: 1.2;
 }
+
+/* ── Year Card timeline ── */
+
+.birth-cards__timeline-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-body);
+  cursor: pointer;
+}
+
+.birth-cards__timeline-chevron {
+  display: inline-block;
+  transition: transform 0.15s;
+  color: var(--text-dim);
+}
+
+.birth-cards__timeline-chevron--open {
+  transform: rotate(90deg);
+}
+
+.birth-cards__run {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--tj-radius-row);
+}
+
+.birth-cards__run--current {
+  border-color: var(--accent);
+}
+
+.birth-cards__run-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.birth-cards__run-span {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.birth-cards__run-theme {
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+}
+
+.birth-cards__run-years {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.birth-cards__run-year {
+  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+.birth-cards__run-year--now {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  font-weight: 600;
+}

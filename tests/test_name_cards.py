@@ -341,3 +341,52 @@ def test_profile_pdf_export(client, db):
 def test_profile_pdf_unknown_profile(client):
     assert client.post('/api/profiles/99999/export-pdf',
                        json={}).status_code == 404
+
+
+# === Alternate names (spec §9) ===
+
+def test_profile_names_crud(client, db):
+    pid = db.add_profile('Alt Names', full_name='Birth Name Here')
+    assert client.get(f'/api/profiles/{pid}/names').get_json() == []
+
+    r = client.post(f'/api/profiles/{pid}/names', json={
+        'display_name': 'Stage Persona', 'name_kind': 'chosen'})
+    assert r.status_code == 201
+    nid = r.get_json()['id']
+
+    names = client.get(f'/api/profiles/{pid}/names').get_json()
+    assert len(names) == 1
+    assert names[0]['display_name'] == 'Stage Persona'
+    assert names[0]['name_kind'] == 'chosen'
+    assert names[0]['y_mode'] == 'heuristic'
+
+    client.put(f'/api/profile-names/{nid}', json={
+        'parts': ['Stage', 'Persona'],
+        'y_overrides': [{'part': 0, 'index': 0, 'as': 'vowel'}],
+        'y_mode': 'always_consonant'})
+    got = client.get(f'/api/profiles/{pid}/names').get_json()[0]
+    assert got['parts'] == ['Stage', 'Persona']
+    assert got['y_mode'] == 'always_consonant'
+    assert got['y_overrides'] == [{'part': 0, 'index': 0, 'as': 'vowel'}]
+
+    assert client.delete(f'/api/profile-names/{nid}').status_code == 200
+    assert client.get(f'/api/profiles/{pid}/names').get_json() == []
+
+
+def test_profile_names_travel_in_share_export(client, db):
+    pid = db.add_profile('Sharer', full_name='Share Person')
+    db.add_profile_name(pid, 'Nick', name_kind='nickname',
+                        parts='["Nick"]')
+    data = client.get(f'/api/profiles/export?ids={pid}').get_json()
+    p = data['profiles'][0]
+    assert p['alternate_names'][0]['display_name'] == 'Nick'
+    assert p['alternate_names'][0]['parts'] == ['Nick']
+
+    p['name'] = 'Sharer (copy)'
+    res = client.post('/api/profiles/import', json=data).get_json()
+    assert res['imported'] == 1
+    profs = client.get('/api/profiles').get_json()
+    new_pid = next(x['id'] for x in profs if x['name'] == 'Sharer (copy)')
+    names = client.get(f'/api/profiles/{new_pid}/names').get_json()
+    assert names[0]['display_name'] == 'Nick'
+    assert names[0]['name_kind'] == 'nickname'

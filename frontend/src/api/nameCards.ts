@@ -108,6 +108,54 @@ export async function calculateNameCards(input: {
   return res.data;
 }
 
+// === Alternate names (chosen names, nicknames) ===
+
+export type NameKind = 'birth' | 'chosen' | 'nickname' | 'other';
+
+export interface ProfileName {
+  id: number;
+  profile_id: number;
+  name_kind: NameKind;
+  display_name: string;
+  parts: string[] | null;
+  roles: NameRole[] | null;
+  y_mode: YMode;
+  y_overrides: YOverride[];
+  drop_suffixes: boolean;
+}
+
+export async function getProfileNames(profileId: number): Promise<ProfileName[]> {
+  const res = await api.get(`/api/profiles/${profileId}/names`);
+  return res.data;
+}
+
+export async function addProfileName(
+  profileId: number,
+  input: { display_name: string; name_kind: NameKind },
+): Promise<{ id: number }> {
+  const res = await api.post(`/api/profiles/${profileId}/names`, input);
+  return res.data;
+}
+
+export async function updateProfileName(
+  nameId: number,
+  changes: Partial<{
+    display_name: string;
+    name_kind: NameKind;
+    parts: string[];
+    roles: NameRole[] | null;
+    y_mode: YMode;
+    y_overrides: YOverride[];
+    drop_suffixes: boolean;
+  }>,
+): Promise<void> {
+  await api.put(`/api/profile-names/${nameId}`, changes);
+}
+
+export async function deleteProfileName(nameId: number): Promise<void> {
+  await api.delete(`/api/profile-names/${nameId}`);
+}
+
 export async function getNameCardsConfig(profileId: number): Promise<{
   full_name: string | null;
   config: NameCardsConfig | null;

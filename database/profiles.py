@@ -89,6 +89,79 @@ class ProfilesMixin:
             cursor.execute(f'UPDATE profiles SET {", ".join(updates)} WHERE id = ?', params)
             self._commit()
 
+    # === Alternate names (name-cards inputs beyond the birth name) ===
+
+    NAME_KINDS = ('birth', 'chosen', 'nickname', 'other')
+
+    def get_profile_names(self, profile_id: int):
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'SELECT * FROM profile_names WHERE profile_id = ? ORDER BY id',
+            (profile_id,))
+        return cursor.fetchall()
+
+    def add_profile_name(self, profile_id: int, display_name: str,
+                         name_kind: str = 'other', parts: str = None,
+                         roles: str = None, y_mode: str = 'heuristic',
+                         y_overrides: str = None, drop_suffixes: bool = True):
+        """parts/roles/y_overrides arrive as JSON strings (or None)."""
+        if not display_name or not display_name.strip():
+            raise ValueError('Name is required')
+        if name_kind not in self.NAME_KINDS:
+            name_kind = 'other'
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            INSERT INTO profile_names
+                (profile_id, name_kind, display_name, parts, roles,
+                 y_mode, y_overrides, drop_suffixes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (profile_id, name_kind, display_name.strip(), parts, roles,
+              y_mode, y_overrides, 1 if drop_suffixes else 0))
+        self._commit()
+        return cursor.lastrowid
+
+    def update_profile_name(self, name_id: int, display_name: str = None,
+                            name_kind: str = None, parts: str = None,
+                            roles: str = None, clear_roles: bool = False,
+                            y_mode: str = None, y_overrides: str = None,
+                            drop_suffixes: bool = None):
+        cursor = self.conn.cursor()
+        updates, params = [], []
+        if display_name is not None and display_name.strip():
+            updates.append('display_name = ?')
+            params.append(display_name.strip())
+        if name_kind is not None and name_kind in self.NAME_KINDS:
+            updates.append('name_kind = ?')
+            params.append(name_kind)
+        if parts is not None:
+            updates.append('parts = ?')
+            params.append(parts)
+        if clear_roles:
+            updates.append('roles = NULL')
+        elif roles is not None:
+            updates.append('roles = ?')
+            params.append(roles)
+        if y_mode is not None:
+            updates.append('y_mode = ?')
+            params.append(y_mode)
+        if y_overrides is not None:
+            updates.append('y_overrides = ?')
+            params.append(y_overrides)
+        if drop_suffixes is not None:
+            updates.append('drop_suffixes = ?')
+            params.append(1 if drop_suffixes else 0)
+        if updates:
+            params.append(name_id)
+            cursor.execute(
+                f'UPDATE profile_names SET {", ".join(updates)} WHERE id = ?',
+                params)
+            self._commit()
+
+    def delete_profile_name(self, name_id: int):
+        cursor = self.conn.cursor()
+        cursor.execute('DELETE FROM profile_names WHERE id = ?', (name_id,))
+        self._commit()
+
     def delete_profile(self, profile_id: int):
         """Delete a profile and clean up all references."""
         cursor = self.conn.cursor()

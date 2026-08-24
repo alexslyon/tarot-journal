@@ -113,6 +113,90 @@ def calculate(data):
     return jsonify(profile)
 
 
+# === Alternate names (chosen names, nicknames — spec §9) ===
+
+def _loads(raw, default=None):
+    if not raw:
+        return default
+    try:
+        return json.loads(raw)
+    except (ValueError, TypeError):
+        return default
+
+
+def _name_row_json(row) -> dict:
+    r = row if isinstance(row, dict) else dict(row)
+    return {
+        'id': r['id'],
+        'profile_id': r['profile_id'],
+        'name_kind': r['name_kind'],
+        'display_name': r['display_name'],
+        'parts': _loads(r.get('parts')),
+        'roles': _loads(r.get('roles')),
+        'y_mode': r.get('y_mode') or 'heuristic',
+        'y_overrides': _loads(r.get('y_overrides'), []),
+        'drop_suffixes': bool(r.get('drop_suffixes', 1)),
+    }
+
+
+@name_cards_bp.route('/api/profiles/<int:profile_id>/names')
+def get_profile_names(profile_id):
+    db = current_app.config['DB']
+    if not db.get_profile(profile_id):
+        return jsonify({'error': 'Profile not found'}), 404
+    return jsonify([_name_row_json(r) for r in db.get_profile_names(profile_id)])
+
+
+@name_cards_bp.route('/api/profiles/<int:profile_id>/names', methods=['POST'])
+@require_json
+def add_profile_name(profile_id, data):
+    db = current_app.config['DB']
+    if not db.get_profile(profile_id):
+        return jsonify({'error': 'Profile not found'}), 404
+    display_name = (data.get('display_name') or '').strip()
+    if not display_name:
+        return jsonify({'error': 'display_name is required'}), 400
+    parts = data.get('parts')
+    try:
+        new_id = db.add_profile_name(
+            profile_id, display_name,
+            name_kind=data.get('name_kind') or 'other',
+            parts=json.dumps(parts) if parts is not None else None,
+            roles=json.dumps(data['roles']) if data.get('roles') is not None else None,
+            y_mode=data.get('y_mode') or 'heuristic',
+            y_overrides=json.dumps(data['y_overrides'])
+                if data.get('y_overrides') is not None else None,
+            drop_suffixes=data.get('drop_suffixes', True))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    return jsonify({'id': new_id}), 201
+
+
+@name_cards_bp.route('/api/profile-names/<int:name_id>', methods=['PUT'])
+@require_json
+def update_profile_name(name_id, data):
+    db = current_app.config['DB']
+    db.update_profile_name(
+        name_id,
+        display_name=data.get('display_name'),
+        name_kind=data.get('name_kind'),
+        parts=json.dumps(data['parts']) if data.get('parts') is not None else None,
+        roles=json.dumps(data['roles']) if data.get('roles') is not None else None,
+        clear_roles=data.get('roles', 'missing') is None,
+        y_mode=data.get('y_mode'),
+        y_overrides=json.dumps(data['y_overrides'])
+            if data.get('y_overrides') is not None else None,
+        drop_suffixes=data.get('drop_suffixes'))
+    return jsonify({'ok': True})
+
+
+@name_cards_bp.route('/api/profile-names/<int:name_id>', methods=['DELETE'])
+def delete_profile_name(name_id):
+    db = current_app.config['DB']
+    db.delete_profile_name(name_id)
+    return jsonify({'ok': True})
+
+
 @name_cards_bp.route('/api/profiles/<int:profile_id>/name-cards-config')
 def get_name_cards_config(profile_id):
     db = current_app.config['DB']

@@ -53,6 +53,9 @@ export interface BirthCardProfile {
     span: string;
   };
   court_system: CourtSystem;
+  /** Year Card per year, birth year through ~10 years ahead. */
+  year_series: { year: number; card: number }[];
+  majors_by_number: Record<string, MajorCardRef>;
   karmic_year: number;
   year_card: number;
   generic_year: number;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Modal from '../common/Modal';
 import QueryError from '../common/QueryError';
@@ -92,9 +92,30 @@ export default function BirthCardsModal({
       .catch(() => {});
   };
 
+  const [timelineOpen, setTimelineOpen] = useState(false);
+
   const c = data?.cards;
   // Same card in both roles for single-digit patterns — show it once.
   const soulIsPersonality = data != null && data.personality === data.soul;
+
+  // Year Cards run in consecutive stretches where each year's card is
+  // one higher than the last; the run's first card themes the whole
+  // stretch ("cycle themes"). Split the series wherever the +1 chain
+  // breaks.
+  const yearRuns = useMemo(() => {
+    const series = data?.year_series ?? [];
+    const runs: { year: number; card: number }[][] = [];
+    for (const entry of series) {
+      const run = runs[runs.length - 1];
+      if (run && entry.card === run[run.length - 1].card + 1) {
+        run.push(entry);
+      } else {
+        runs.push([entry]);
+      }
+    }
+    return runs;
+  }, [data?.year_series]);
+  const currentYear = new Date().getFullYear();
   // Shadow vs Teacher framing is keyed to the Saturn return (~29).
   const hiddenLabel = data == null ? 'Hidden Factor'
     : data.age >= 29 ? 'Teacher Card' : 'Shadow Card';
@@ -266,6 +287,64 @@ export default function BirthCardsModal({
                 total read as a calendar year.
               </p>
             </div>
+
+            {yearRuns.length > 0 && (
+              <div className="birth-cards__section">
+                <button
+                  type="button"
+                  className="birth-cards__timeline-toggle"
+                  aria-expanded={timelineOpen}
+                  onClick={() => setTimelineOpen(o => !o)}
+                >
+                  <span
+                    className={`birth-cards__timeline-chevron ${timelineOpen ? 'birth-cards__timeline-chevron--open' : ''}`}
+                    aria-hidden="true"
+                  >
+                    ▸
+                  </span>
+                  Year Card timeline ({yearRuns.length} cycles)
+                </button>
+                {timelineOpen && (
+                  <>
+                    <p className="birth-cards__note">
+                      Year Cards climb one Key per year in runs of about a
+                      decade, then drop back and start a new run — the run's
+                      first card themes the whole cycle.
+                    </p>
+                    {yearRuns.map((run) => {
+                      const theme = data.majors_by_number[String(run[0].card)];
+                      const isCurrent = run.some(e => e.year === currentYear);
+                      return (
+                        <div
+                          key={run[0].year}
+                          className={`birth-cards__run ${isCurrent ? 'birth-cards__run--current' : ''}`}
+                        >
+                          <div className="birth-cards__run-head">
+                            <span className="birth-cards__run-span">
+                              {run[0].year}–{run[run.length - 1].year}
+                            </span>
+                            <span className="birth-cards__run-theme">
+                              themed by {theme?.name ?? run[0].card}
+                            </span>
+                          </div>
+                          <div className="birth-cards__run-years">
+                            {run.map((entry) => (
+                              <span
+                                key={entry.year}
+                                className={`birth-cards__run-year ${entry.year === currentYear ? 'birth-cards__run-year--now' : ''}`}
+                                title={data.majors_by_number[String(entry.card)]?.name}
+                              >
+                                {entry.year} · {entry.card}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            )}
 
             <p className="birth-cards__footnote">
               Numbers follow Mary K. Greer's <em>Archetypal Tarot</em>.

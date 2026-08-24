@@ -4,13 +4,20 @@ import Modal from '../common/Modal';
 import QueryError from '../common/QueryError';
 import { CardTile } from './BirthCardsModal';
 import {
+  addProfileName,
   calculateNameCards,
+  deleteProfileName,
   getNameCardsConfig,
+  getProfileNames,
   setNameCardsConfig,
+  updateProfileName,
+  type NameKind,
   type NameRole,
+  type ProfileName,
   type YMode,
   type YOverride,
 } from '../../api/nameCards';
+import { confirmDialog } from '../common/ConfirmDialog';
 import { cardThumbnailUrl } from '../../api/images';
 import './NameCardsModal.css';
 
@@ -44,8 +51,15 @@ export default function NameCardsModal({
 }: NameCardsModalProps) {
   const queryClient = useQueryClient();
 
+  // Which name is being read: the birth name (profiles.full_name) or
+  // a saved alternate (profile_names row id).
+  const [activeName, setActiveName] = useState<'birth' | number>('birth');
+  const [addOpen, setAddOpen] = useState(false);
+  const [addText, setAddText] = useState('');
+  const [addKind, setAddKind] = useState<NameKind>('chosen');
+
   // Working state — initialized from the saved config (or the parsed
-  // full name) once per open.
+  // full name) once per open and per name selection.
   const [initialized, setInitialized] = useState(false);
   const [parts, setParts] = useState<string[]>([]);
   const [roles, setRoles] = useState<NameRole[] | null>(null);
@@ -59,35 +73,95 @@ export default function NameCardsModal({
     enabled: open,
     staleTime: 30_000,
   });
+  const { data: savedNames = [] } = useQuery<ProfileName[]>({
+    queryKey: ['profile-names', profileId],
+    queryFn: () => getProfileNames(profileId),
+    enabled: open,
+    staleTime: 30_000,
+  });
+
+  const selectName = (target: 'birth' | number) => {
+    setActiveName(target);
+    setInitialized(false);
+  };
 
   useEffect(() => {
-    if (!open) { setInitialized(false); return; }
+    if (!open) { setInitialized(false); setActiveName('birth'); return; }
     if (initialized || !saved) return;
-    const cfg = saved.config;
-    setParts(cfg?.parts?.length ? cfg.parts : parseFullName(fullName));
-    setRoles(cfg?.roles ?? null);
-    setYMode(cfg?.y_mode ?? 'heuristic');
-    setYOverrides(cfg?.y_overrides ?? []);
-    setDropSuffixes(cfg?.drop_suffixes ?? true);
+    if (activeName === 'birth') {
+      const cfg = saved.config;
+      setParts(cfg?.parts?.length ? cfg.parts : parseFullName(fullName));
+      setRoles(cfg?.roles ?? null);
+      setYMode(cfg?.y_mode ?? 'heuristic');
+      setYOverrides(cfg?.y_overrides ?? []);
+      setDropSuffixes(cfg?.drop_suffixes ?? true);
+    } else {
+      const record = savedNames.find(n => n.id === activeName);
+      if (!record) return;   // list still loading, or the name was deleted
+      setParts(record.parts?.length ? record.parts : parseFullName(record.display_name));
+      setRoles(record.roles ?? null);
+      setYMode(record.y_mode ?? 'heuristic');
+      setYOverrides(record.y_overrides ?? []);
+      setDropSuffixes(record.drop_suffixes ?? true);
+    }
     setInitialized(true);
-  }, [open, initialized, saved, fullName]);
+  }, [open, initialized, saved, savedNames, activeName, fullName]);
 
   const persist = (next: {
     parts: string[]; roles: NameRole[] | null; yMode: YMode;
     yOverrides: YOverride[]; dropSuffixes: boolean;
   }) => {
-    const isDefault = next.parts.join('\n') === parseFullName(fullName).join('\n')
-      && next.roles === null && next.yMode === 'heuristic'
-      && next.yOverrides.length === 0 && next.dropSuffixes;
-    setNameCardsConfig(profileId, isDefault ? null : {
-      parts: next.parts,
-      roles: next.roles,
-      y_mode: next.yMode,
-      y_overrides: next.yOverrides,
-      drop_suffixes: next.dropSuffixes,
-    }).then(() => queryClient.invalidateQueries({
-      queryKey: ['name-cards-config', profileId],
-    })).catch(() => {});
+    if (activeName === 'birth') {
+      const isDefault = next.parts.join('\n') === parseFullName(fullName).join('\n')
+        && next.roles === null && next.yMode === 'heuristic'
+        && next.yOverrides.length === 0 && next.dropSuffixes;
+      setNameCardsConfig(profileId, isDefault ? null : {
+        parts: next.parts,
+        roles: next.roles,
+        y_mode: next.yMode,
+        y_overrides: next.yOverrides,
+        drop_suffixes: next.dropSuffixes,
+      }).then(() => queryClient.invalidateQueries({
+        queryKey: ['name-cards-config', profileId],
+      })).catch(() => {});
+    } else {
+      updateProfileName(activeName, {
+        display_name: next.parts.join(' ').trim() || undefined,
+        parts: next.parts,
+        roles: next.roles,
+        y_mode: next.yMode,
+        y_overrides: next.yOverrides,
+        drop_suffixes: next.dropSuffixes,
+      }).then(() => queryClient.invalidateQueries({
+        queryKey: ['profile-names', profileId],
+      })).catch(() => {});
+    }
+  };
+
+  const handleAddName = async () => {
+    const display = addText.trim();
+    if (!display) return;
+    try {
+      const { id } = await addProfileName(profileId, {
+        display_name: display, name_kind: addKind,
+      });
+      setAddText('');
+      setAddOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ['profile-names', profileId] });
+      selectName(id);
+    } catch { /* toastless: rare, retry is obvious */ }
+  };
+
+  const handleDeleteName = async (record: ProfileName) => {
+    const ok = await confirmDialog({
+      title: 'Delete Name',
+      message: `Delete "${record.display_name}" and its adjustments?`,
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
+    await deleteProfileName(record.id);
+    await queryClient.invalidateQueries({ queryKey: ['profile-names', profileId] });
+    if (activeName === record.id) selectName('birth');
   };
 
   const apply = (changes: Partial<{
@@ -108,7 +182,7 @@ export default function NameCardsModal({
   const effectiveRoles = roles ?? defaultRoles(parts.length);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['name-cards', profileId, parts, roles, yMode, yOverrides, dropSuffixes],
+    queryKey: ['name-cards', profileId, activeName, parts, roles, yMode, yOverrides, dropSuffixes],
     queryFn: () => calculateNameCards({
       parts,
       roles,
@@ -159,8 +233,11 @@ export default function NameCardsModal({
   };
 
   const resetToParsed = () => {
+    const source = activeName === 'birth'
+      ? fullName
+      : savedNames.find(n => n.id === activeName)?.display_name ?? '';
     apply({
-      parts: parseFullName(fullName), roles: null, yMode: 'heuristic',
+      parts: parseFullName(source), roles: null, yMode: 'heuristic',
       yOverrides: [], dropSuffixes: true,
     });
   };
@@ -181,6 +258,66 @@ export default function NameCardsModal({
   return (
     <Modal open={open} onClose={onClose} title={`Name Cards — ${profileName}`} width={900}>
       <div className="name-cards birth-cards">
+        {/* ── Which name (spec §9: birth name primary, alternates
+              welcome — each with its own adjustments) ── */}
+        <div className="name-cards__names">
+          <button
+            className={`name-cards__name-chip ${activeName === 'birth' ? 'name-cards__name-chip--active' : ''}`}
+            onClick={() => selectName('birth')}
+          >
+            <em>birth</em> {fullName}
+          </button>
+          {savedNames.map(record => (
+            <span
+              key={record.id}
+              className={`name-cards__name-chip ${activeName === record.id ? 'name-cards__name-chip--active' : ''}`}
+            >
+              <button
+                className="name-cards__name-chip-main"
+                onClick={() => selectName(record.id)}
+              >
+                <em>{record.name_kind}</em> {record.display_name}
+              </button>
+              <button
+                className="name-cards__name-chip-delete"
+                title="Delete this name"
+                onClick={() => handleDeleteName(record)}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          {!addOpen ? (
+            <button className="name-cards__add-part" onClick={() => setAddOpen(true)}>
+              + Add name
+            </button>
+          ) : (
+            <span className="name-cards__add-name">
+              <input
+                autoFocus
+                type="text"
+                value={addText}
+                placeholder="Nickname or chosen name"
+                onChange={e => setAddText(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleAddName();
+                  if (e.key === 'Escape') setAddOpen(false);
+                }}
+              />
+              <select
+                value={addKind}
+                onChange={e => setAddKind(e.target.value as NameKind)}
+              >
+                <option value="chosen">chosen</option>
+                <option value="nickname">nickname</option>
+                <option value="other">other</option>
+              </select>
+              <button onClick={handleAddName} disabled={!addText.trim()}>Add</button>
+              <button onClick={() => setAddOpen(false)}>Cancel</button>
+            </span>
+          )}
+        </div>
+
         {/* ── Name parts editor ── */}
         <div className="name-cards__parts">
           <div className="name-cards__parts-list">
