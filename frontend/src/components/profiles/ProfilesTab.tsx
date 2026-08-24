@@ -14,6 +14,8 @@ import BirthCardsModal from './BirthCardsModal';
 import NameCardsModal from './NameCardsModal';
 import ProfilePdfModal from './ProfilePdfModal';
 import PlaceLookupButton from '../common/PlaceLookupButton';
+import ShareControls from '../common/ShareControls';
+import { downloadProfilesExport, importProfiles } from '../../api/share';
 import './ProfilesTab.css';
 import { confirmDialog } from '../common/ConfirmDialog';
 
@@ -232,6 +234,23 @@ export default function ProfilesTab() {
               {!isLoading && profiles.length === 0 && (
                 <div className="profiles-tab__empty">No profiles yet</div>
               )}
+            </div>
+            <div className="profiles-tab__share">
+              <ShareControls
+                noun="profiles"
+                selected={selectedProfile
+                  ? { id: selectedProfile.id, name: selectedProfile.name }
+                  : null}
+                onExport={downloadProfilesExport}
+                onImport={async (data) => {
+                  const res = await importProfiles(data);
+                  queryClient.invalidateQueries({ queryKey: ['profiles'] });
+                  const skipped = res.skipped.length
+                    ? ` ${res.skipped.length} skipped (already exist: ${res.skipped.slice(0, 3).join(', ')}${res.skipped.length > 3 ? '…' : ''}).`
+                    : '';
+                  return `Imported ${res.imported} profile${res.imported === 1 ? '' : 's'}.${skipped}`;
+                }}
+              />
             </div>
           </div>
         </Panel>

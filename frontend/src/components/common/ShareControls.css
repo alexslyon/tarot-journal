@@ -1,0 +1,26 @@
+.share-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.share-controls button {
+  padding: 3px 10px;
+  font-size: var(--font-size-small);
+}
+
+.share-controls__export {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.share-controls__export > button {
+  padding: 8px 12px;
+}
+
+.share-controls__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}

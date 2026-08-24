@@ -7,6 +7,8 @@ import { useToast } from '../../context/ToastContext';
 import type { Spread, Tag } from '../../types';
 import { slotTypes } from '../../utils/formatting';
 import QueryError from '../common/QueryError';
+import ShareControls from '../common/ShareControls';
+import { downloadSpreadsExport, importSpreads } from '../../api/share';
 import './SpreadList.css';
 
 interface SpreadListProps {
@@ -251,6 +253,23 @@ export default function SpreadList({
             {showArchived && archived.map(renderRow)}
           </div>
         )}
+      </div>
+
+      <div className="spread-list__share">
+        <ShareControls
+          noun="spreads"
+          selected={spreads.find(s => s.id === selectedSpreadId) ?? null}
+          onExport={downloadSpreadsExport}
+          onImport={async (data) => {
+            const res = await importSpreads(data);
+            queryClient.invalidateQueries({ queryKey: ['spreads'] });
+            queryClient.invalidateQueries({ queryKey: ['spread-tags'] });
+            const skipped = res.skipped.length
+              ? ` ${res.skipped.length} skipped (already exist: ${res.skipped.slice(0, 3).join(', ')}${res.skipped.length > 3 ? '…' : ''}).`
+              : '';
+            return `Imported ${res.imported} spread${res.imported === 1 ? '' : 's'}.${skipped}`;
+          }}
+        />
       </div>
     </div>
   );

@@ -198,3 +198,9 @@
   font-size: var(--font-size-small);
   font-variant-numeric: tabular-nums;
 }
+
+.profiles-tab__share {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}

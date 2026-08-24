@@ -200,3 +200,9 @@
   height: 8px;
   border-radius: 50%;
 }
+
+.spread-list__share {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
