@@ -85,16 +85,29 @@ export function renderScribePrompt(
     targetFields: string;
   },
   userInstructions = '',
+  combinations?: { reversalsEnabled: boolean },
 ): string {
   const filled = template
     .replaceAll('{{cartomancy_type}}', vars.cartomancyType)
     .replaceAll('{{source_name}}', vars.sourceName)
     .replaceAll('{{archetype_names}}', vars.archetypeNames)
     .replaceAll('{{target_fields}}', vars.targetFields);
+  // Appended (rather than templated) so user-saved prompt presets
+  // written before this feature keep working unchanged.
+  const comboBlock = combinations
+    ? `\n\nALSO extract card COMBINATIONS: meanings the source gives for two or three specific cards together (e.g. "Rider + Clover: swift luck arriving"). Emit them in the SAME json block as the proposals, in a "combinations" array beside "proposals" (send "proposals": [] if a part has only combinations):
+\`\`\`json
+{"proposals": [], "combinations": [{"cards": ["<archetype name>", "<archetype name>"], "meaning": "<content>", "flags": []}]}
+\`\`\`
+- Each entry lists two or three card names in the source's order, using the app's archetype names exactly where you are confident of the match; keep the source's name and add a flag when unsure.
+- One entry per distinct combination meaning, faithful to the source text.${combinations.reversalsEnabled ? `
+- When the source distinguishes REVERSED cards in a combination, add "reversed": [true/false, ...] parallel to the cards array.` : ''}
+- Like card proposals, each block contains only new or changed combinations — never re-send unchanged ones.`
+    : '';
   const instructions = userInstructions.trim()
     ? `\n\nInstructions from the user for THIS import — follow them; where they conflict with the matching or content guidance above, the user's instructions win (the JSON output format is always required):\n${userInstructions.trim()}`
     : '';
-  return filled + instructions;
+  return filled + comboBlock + instructions;
 }
 
 /** The prompt an assistant should use right now: the active preset's

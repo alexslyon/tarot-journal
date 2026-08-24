@@ -125,11 +125,17 @@ def apply_proposals():
 
     Body: {"writes": [
         {"target": "archetype", "archetype_id": 1, "field_id": 2, "content": "..."},
-        {"target": "card", "card_id": 5, "field_name": "Keywords", "content": "..."}
+        {"target": "card", "card_id": 5, "field_name": "Keywords", "content": "..."},
+        {"target": "combination", "cartomancy_type": "Lenormand",
+         "archetype_ids": [1, 2], "reversed": [false, false],
+         "content": "...", "source_id": 3}
     ]}
 
     Card writes upsert by field name: update the card's existing custom
     field if one has that name, otherwise create it (type "text").
+    Combination writes append a meaning to the (2- or 3-card) pair,
+    skipping exact-duplicate meaning text so re-running an import
+    doesn't stack copies; skips are counted separately from errors.
     """
     db = current_app.config['DB']
     data = request.get_json() or {}
@@ -138,6 +144,7 @@ def apply_proposals():
         return jsonify({'error': 'writes is required'}), 400
 
     applied = 0
+    skipped = 0
     errors = []
     for i, w in enumerate(writes):
         try:
@@ -147,13 +154,49 @@ def apply_proposals():
                 db.set_source_entry(int(w['archetype_id']), int(w['field_id']), content)
             elif target == 'card':
                 _upsert_card_field(db, int(w['card_id']), w['field_name'], content)
+            elif target == 'combination':
+                if _add_combination_meaning_deduped(db, w, content):
+                    applied += 1
+                else:
+                    skipped += 1
+                continue
             else:
                 raise ValueError(f"unknown target {target!r}")
             applied += 1
         except Exception as e:  # keep going; report per-row failures
             errors.append({'index': i, 'error': str(e)})
 
-    return jsonify({'applied': applied, 'errors': errors})
+    return jsonify({'applied': applied, 'skipped': skipped, 'errors': errors})
+
+
+def _add_combination_meaning_deduped(db, w: dict, content: str) -> bool:
+    """Append a combination meaning unless identical text already
+    exists for that exact combination. Returns True when written."""
+    if not content:
+        raise ValueError('combination meaning is empty')
+    ids = w.get('archetype_ids') or []
+    if len(ids) < 2:
+        raise ValueError('combination needs at least two archetype ids')
+    rev = w.get('reversed') or []
+    a1, a2 = int(ids[0]), int(ids[1])
+    a3 = int(ids[2]) if len(ids) > 2 and ids[2] else None
+    r1 = bool(rev[0]) if len(rev) > 0 else False
+    r2 = bool(rev[1]) if len(rev) > 1 else False
+    r3 = bool(rev[2]) if len(rev) > 2 else False
+    ctype = w['cartomancy_type']
+
+    existing = db.get_combination_meanings(ctype, a1, a2, r1, r2, a3, r3)
+    norm = content.lower()
+    for row in existing:
+        m = row if isinstance(row, dict) else dict(row)
+        if (m.get('meaning') or '').strip().lower() == norm:
+            return False
+    db.add_combination_meaning(
+        ctype, a1, a2, content,
+        source_id=w.get('source_id'),
+        archetype_1_reversed=r1, archetype_2_reversed=r2,
+        archetype_3_id=a3, archetype_3_reversed=r3)
+    return True
 
 
 def _upsert_card_field(db, card_id: int, field_name: str, content: str):

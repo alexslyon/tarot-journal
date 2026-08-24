@@ -26,6 +26,7 @@ import { getArchetypes, type Archetype } from '../../api/correspondences';
 import { getDecks, getDeckCustomFields, getDeckFieldCoverage, type DeckFieldCoverage } from '../../api/decks';
 import { getCards } from '../../api/cards';
 import { extractSourceText, convertSourceImage, applyScribeWrites, type ScribeWrite } from '../../api/scribe';
+import { getReversedCombinationTypes } from '../../api/combinations';
 import { useActivePrompt, renderScribePrompt } from '../../utils/assistantPrompts';
 import { llmChat, getLlmConfig, type LlmMessage, type LlmMessagePart } from '../../api/llm';
 import type { ReferenceSource, SourceField, Card, Deck, DeckCustomField } from '../../types';
@@ -73,6 +74,24 @@ interface Proposal {
   // resolved locally:
   archetypeId?: number;
   cardId?: number;
+  checked: boolean;
+}
+
+// ── One combination row parsed from the model's JSON ─────────
+interface RawCombo {
+  cards?: unknown;
+  meaning?: unknown;
+  reversed?: unknown;
+  flags?: unknown;
+}
+
+interface ComboProposal {
+  cards: string[];                 // 2-3 names, source order
+  meaning: string;
+  reversed?: boolean[];
+  flags?: string[];
+  // resolved locally, parallel to cards (undefined = unmatched):
+  archetypeIds: (number | undefined)[];
   checked: boolean;
 }
 
@@ -161,6 +180,17 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     return next;
   };
 
+  // Combination proposals — same ref-as-source-of-truth pattern.
+  const [combos, setCombos] = useState<ComboProposal[]>([]);
+  const combosRef = useRef<ComboProposal[]>([]);
+  const updateCombos = (fn: (current: ComboProposal[]) => ComboProposal[]): ComboProposal[] => {
+    const next = fn(combosRef.current);
+    combosRef.current = next;
+    setCombos(next);
+    return next;
+  };
+  const [extractCombos, setExtractCombos] = useState(false);
+
   // Mirrors for async code (same rationale as proposalsRef): user
   // events and worker loops need current values, not render-time ones.
   const busyRef = useRef(false);
@@ -210,6 +240,13 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     queryKey: ['deck-field-coverage', deckId],
     queryFn: () => getDeckFieldCoverage(deckId as number),
     enabled: open && deckId !== '',
+  });
+  // Whether this type supports reversed-card combinations — steers
+  // the prompt's combination instructions.
+  const { data: reversedComboTypes = [] } = useQuery<string[]>({
+    queryKey: ['combination-reversed-types'],
+    queryFn: getReversedCombinationTypes,
+    enabled: open,
   });
   const cardFieldFilled = (fieldName: string): number => {
     if (!deckCoverage) return 0;
@@ -377,7 +414,8 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     ...(deckId !== '' ? cardFieldNames : []),
   ];
 
-  const canStart = materials.length > 0 && targetLabels.length > 0 && !extracting
+  const canStart = materials.length > 0
+    && (targetLabels.length > 0 || extractCombos) && !extracting
     && scribePromptReady;
 
   const handleStart = async () => {
@@ -385,8 +423,13 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
       cartomancyType: ctype,
       sourceName: displayName,
       archetypeNames: archetypes.map(a => a.name).join(', '),
-      targetFields: targetLabels.map(l => `"${l}"`).join(', '),
-    }, customInstructions);
+      targetFields: targetLabels.length
+        ? targetLabels.map(l => `"${l}"`).join(', ')
+        : '(none — this import extracts card combinations only; send "proposals": [] in each block)',
+    }, customInstructions,
+    extractCombos
+      ? { reversalsEnabled: reversedComboTypes.includes(ctype) }
+      : undefined);
 
     const totalText = materials.reduce((n, m) => n + (m.text?.length || 0), 0);
     if (totalText > MAX_SOURCE_CHARS) {
@@ -397,6 +440,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
 
     setMessagesTracked([]);
     updateProposals(() => []);
+    updateCombos(() => []);
     setDisplayMessages([]);
     setStage('chat');
     await runExtraction(units, []);
@@ -469,11 +513,19 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
         setDisplayMessages(prev => [...prev, { role: 'user', text: `Reading ${unit.label}…` }]);
         try {
           const { text: reply, truncated, userMsg } = await requestUnit(unit);
-          const { visible, parsed } = splitReply(reply);
-          if (parsed) {
-            const merged = updateProposals(current =>
-              mergeProposals(current, parsed, archetypes, deckCards, true));
-            const summary = `${parsed.length} card${parsed.length === 1 ? '' : 's'} (${merged.length} total): ${summarizeCards(parsed)}`;
+          const { visible, parsed, parsedCombos } = splitReply(reply);
+          if (parsedCombos) {
+            updateCombos(current => mergeCombos(current, parsedCombos, archetypes));
+          }
+          if (parsed || parsedCombos) {
+            const merged = parsed
+              ? updateProposals(current =>
+                mergeProposals(current, parsed, archetypes, deckCards, true))
+              : proposalsRef.current;
+            const bits = [];
+            if (parsed) bits.push(`${parsed.length} card${parsed.length === 1 ? '' : 's'} (${merged.length} total): ${summarizeCards(parsed)}`);
+            if (parsedCombos) bits.push(`${parsedCombos.length} combination${parsedCombos.length === 1 ? '' : 's'} (${combosRef.current.length} total)`);
+            const summary = bits.join('; ');
             setDisplayMessages(prev => [...prev, {
               role: 'assistant',
               text: `[${unit.label}] ${trimProse(visible) ? `${trimProse(visible)}\n— ${summary}` : summary}`,
@@ -648,13 +700,21 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
         system: systemPromptRef.current,
         max_tokens: 64000,
       });
-      const { visible, parsed } = splitReply(reply);
+      const { visible, parsed, parsedCombos } = splitReply(reply);
       const newHistory: LlmMessage[] = [...history, { role: 'assistant', content: reply }];
       setMessagesTracked(newHistory);
-      if (parsed) {
-        const merged = updateProposals(current =>
-          mergeProposals(current, parsed, archetypes, deckCards));
-        const summary = `Updated ${parsed.length} card${parsed.length === 1 ? '' : 's'} (${merged.length} total): ${summarizeCards(parsed)}`;
+      if (parsedCombos) {
+        updateCombos(current => mergeCombos(current, parsedCombos, archetypes));
+      }
+      if (parsed || parsedCombos) {
+        const merged = parsed
+          ? updateProposals(current =>
+            mergeProposals(current, parsed, archetypes, deckCards))
+          : proposalsRef.current;
+        const bits = [];
+        if (parsed) bits.push(`Updated ${parsed.length} card${parsed.length === 1 ? '' : 's'} (${merged.length} total): ${summarizeCards(parsed)}`);
+        if (parsedCombos) bits.push(`${parsedCombos.length} combination${parsedCombos.length === 1 ? '' : 's'} (${combosRef.current.length} total)`);
+        const summary = bits.join('; ');
         setDisplayMessages(prev => [...prev, {
           role: 'assistant',
           text: visible ? `${visible}\n— ${summary}` : summary,
@@ -705,6 +765,8 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
   // Only writable rows count — a checked row with no reachable target
   // must not inflate the Apply button's promise.
   const checkedProposals = proposals.filter(p => p.checked && isWritable(p));
+  const checkedCombos = combos.filter(c =>
+    c.checked && c.archetypeIds.every(id => id != null));
   const fieldByName = useMemo(() => {
     const map = new Map<string, SourceField>();
     for (const f of selectedFields) map.set(f.name.toLowerCase(), f);
@@ -755,6 +817,16 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
         'card fields can\'t be written. Use "Assign to card…" on those rows first.',
       );
     }
+    for (const c of checkedCombos) {
+      writes.push({
+        target: 'combination',
+        cartomancy_type: ctype,
+        archetype_ids: c.archetypeIds as number[],
+        reversed: c.reversed,
+        content: c.meaning,
+        source_id: source?.id ?? null,
+      });
+    }
     if (!writes.length) {
       showToast('Nothing to apply — the checked cards have no writable fields.');
       return;
@@ -766,10 +838,17 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
       queryClient.invalidateQueries({ queryKey: ['source-entries'] });
       queryClient.invalidateQueries({ queryKey: ['cards'] });
       queryClient.invalidateQueries({ queryKey: ['deck-custom-fields'] });
+      if (checkedCombos.length) {
+        queryClient.invalidateQueries({ queryKey: ['combination-meanings'] });
+        queryClient.invalidateQueries({ queryKey: ['populated-combinations'] });
+      }
+      const dupNote = result.skipped
+        ? ` (${result.skipped} duplicate combination${result.skipped === 1 ? '' : 's'} skipped)`
+        : '';
       if (result.errors.length) {
-        showToast(`Applied ${result.applied} of ${writes.length} — ${result.errors.length} failed.`);
+        showToast(`Applied ${result.applied} of ${writes.length} — ${result.errors.length} failed.${dupNote}`);
       } else {
-        showToast(`Imported ${result.applied} entries from ${displayName}.`, 'success');
+        showToast(`Imported ${result.applied} entries from ${displayName}.${dupNote}`, 'success');
         onClose();
       }
     } catch {
@@ -779,7 +858,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     }
   };
 
-  const dirty = stage === 'chat' && proposals.length > 0;
+  const dirty = stage === 'chat' && (proposals.length > 0 || combos.length > 0);
 
   return (
     <Modal
@@ -952,6 +1031,24 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
           </div>
 
           <div className="scribe__field">
+            <label className="scribe__combo-toggle">
+              <input
+                type="checkbox"
+                checked={extractCombos}
+                onChange={e => setExtractCombos(e.target.checked)}
+                disabled={extracting}
+              />
+              <span>
+                Extract card combinations
+                <em className="scribe__hint-inline">
+                  {' '}— pair/triad meanings ("Rider + Clover: …") go to the
+                  Combinations reference{source ? `, attributed to ${source.name}` : ''}
+                </em>
+              </span>
+            </label>
+          </div>
+
+          <div className="scribe__field">
             <label>Instructions for this import (optional)</label>
             <textarea
               className="scribe__instructions"
@@ -1018,7 +1115,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
               )}
             </div>
             <div className="scribe__review-list">
-              {proposals.length === 0 && !busy && (
+              {proposals.length === 0 && combos.length === 0 && !busy && (
                 <p className="scribe__hint">
                   Proposals will appear here once the model has read the material.
                 </p>
@@ -1066,14 +1163,60 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
                       : x))}
                 />
               ))}
+
+              {combos.length > 0 && (
+                <>
+                  <div className="scribe__review-head scribe__review-head--combos">
+                    <strong>{combos.length} combination{combos.length === 1 ? '' : 's'}</strong>
+                    <span className="scribe__review-bulk">
+                      <button onClick={() => updateCombos(p => p.map(x =>
+                        ({ ...x, checked: x.archetypeIds.every(id => id != null) })))}>All</button>
+                      <button onClick={() => updateCombos(p => p.map(x => ({ ...x, checked: false })))}>None</button>
+                    </span>
+                  </div>
+                  {combos.map((c, i) => {
+                    const unmatched = c.cards.filter((_, j) => c.archetypeIds[j] == null);
+                    return (
+                      <div key={`combo-${i}`} className="scribe__combo-row">
+                        <label className="scribe__combo-row-main">
+                          <input
+                            type="checkbox"
+                            checked={c.checked}
+                            disabled={unmatched.length > 0}
+                            onChange={() => updateCombos(prev =>
+                              prev.map((x, j) => j === i ? { ...x, checked: !x.checked } : x))}
+                          />
+                          <span className="scribe__combo-cards">
+                            {c.cards.map((name, j) =>
+                              `${name}${c.reversed?.[j] ? ' (rev)' : ''}`).join(' + ')}
+                          </span>
+                        </label>
+                        <div className="scribe__combo-meaning" title={c.meaning}>{c.meaning}</div>
+                        {unmatched.length > 0 && (
+                          <div className="scribe__combo-warn">
+                            Unmatched: {unmatched.join(', ')} — ask the model to
+                            use the app's archetype names for these.
+                          </div>
+                        )}
+                        {c.flags && c.flags.length > 0 && (
+                          <div className="scribe__combo-warn">{c.flags.join(' · ')}</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
             <div className="scribe__actions">
               <button
                 className="primary"
                 onClick={handleApply}
-                disabled={applying || checkedProposals.length === 0}
+                disabled={applying || (checkedProposals.length === 0 && checkedCombos.length === 0)}
               >
-                {applying ? 'Applying…' : `Apply ${checkedProposals.length} card${checkedProposals.length === 1 ? '' : 's'}`}
+                {applying ? 'Applying…' : `Apply ${[
+                  checkedProposals.length > 0 && `${checkedProposals.length} card${checkedProposals.length === 1 ? '' : 's'}`,
+                  checkedCombos.length > 0 && `${checkedCombos.length} combination${checkedCombos.length === 1 ? '' : 's'}`,
+                ].filter(Boolean).join(' + ') || 'selection'}`}
               </button>
               <button onClick={() => setStage('setup')} disabled={busy}>Back to setup</button>
               <ModalCancelButton>Close</ModalCancelButton>
@@ -1235,34 +1378,55 @@ function summarizeCards(cards: { card: string }[], max = 12): string {
  *  or get cut off at the reply-length limit mid-JSON. A truncated
  *  proposals array is salvaged up to its last complete card so a long
  *  extraction degrades to "most cards + a warning" instead of nothing. */
-function splitReply(reply: string): { visible: string; parsed: RawProposal[] | null } {
+function splitReply(reply: string): {
+  visible: string;
+  parsed: RawProposal[] | null;
+  parsedCombos: RawCombo[] | null;
+} {
   const candidates: string[] = [];
   // Closed fences, any tag casing, last one wins
   for (const m of reply.matchAll(/```[a-zA-Z]*\s*([\s\S]*?)```/g)) {
-    if (m[1].includes('"proposals"')) candidates.push(m[1]);
+    if (m[1].includes('"proposals"') || m[1].includes('"combinations"')) candidates.push(m[1]);
   }
   // Unterminated final fence (typical of a truncated reply)
   if (!candidates.length) {
     const open = reply.match(/```[a-zA-Z]*\s*([\s\S]*)$/);
-    if (open && open[1].includes('"proposals"')) candidates.push(open[1]);
+    if (open && (open[1].includes('"proposals"') || open[1].includes('"combinations"'))) candidates.push(open[1]);
   }
   // No fence at all — bare JSON object somewhere in the reply
   if (!candidates.length) {
-    const idx = reply.search(/\{\s*"proposals"/);
+    const idx = reply.search(/\{\s*"(proposals|combinations)"/);
     if (idx !== -1) candidates.push(reply.slice(idx));
   }
 
   let parsed: RawProposal[] | null = null;
-  for (let i = candidates.length - 1; i >= 0 && !parsed; i--) {
+  let parsedCombos: RawCombo[] | null = null;
+  for (let i = candidates.length - 1; i >= 0 && !parsed && !parsedCombos; i--) {
     parsed = parseProposals(candidates[i]);
+    parsedCombos = parseCombinations(candidates[i]);
   }
 
   // Prose = the reply minus fenced blocks (terminated or not) and any
   // bare proposals JSON we managed to parse.
   let visible = reply.replace(/```[\s\S]*?(```|$)/g, '');
-  if (parsed) visible = visible.replace(/\{\s*"proposals"[\s\S]*$/, '');
+  if (parsed || parsedCombos) visible = visible.replace(/\{\s*"(proposals|combinations)"[\s\S]*$/, '');
   visible = visible.replace(/\n{3,}/g, '\n\n').trim();
-  return { visible, parsed };
+  return { visible, parsed, parsedCombos };
+}
+
+/** Parse the "combinations" array from a JSON block; null when
+ *  missing or unparseable (no salvage pass — combination entries are
+ *  short, so truncation rarely lands inside them). */
+function parseCombinations(jsonText: string): RawCombo[] | null {
+  try {
+    const obj = JSON.parse(jsonText);
+    if (Array.isArray(obj?.combinations) && obj.combinations.length) {
+      return obj.combinations;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /** Parse a proposals JSON string; on failure, salvage every complete
@@ -1377,6 +1541,48 @@ function mergeProposals(
       });
       indexByKey.set(key, result.length - 1);
     }
+  }
+  return result;
+}
+
+/** Merge a JSON block's combinations into the running list. Keyed by
+ *  the card names + reversal pattern + meaning text (case-insensitive)
+ *  so overlapping parts don't duplicate entries; a re-sent identical
+ *  combination keeps its checkbox state. */
+function mergeCombos(
+  previous: ComboProposal[],
+  incoming: RawCombo[],
+  archetypes: Archetype[],
+): ComboProposal[] {
+  const archByName = new Map(archetypes.map(a => [a.name.toLowerCase(), a.id]));
+  const result = [...previous];
+  const keyOf = (c: { cards: string[]; reversed?: boolean[]; meaning: string }) =>
+    `${c.cards.map(n => n.toLowerCase()).join('+')}|${(c.reversed || []).map(r => r ? 'r' : 'u').join('')}|${c.meaning.trim().toLowerCase()}`;
+  const seen = new Set(result.map(keyOf));
+
+  for (const raw of incoming) {
+    if (!raw || !Array.isArray(raw.cards) || typeof raw.meaning !== 'string') continue;
+    const cards = raw.cards.filter((n): n is string => typeof n === 'string' && !!n.trim());
+    const meaning = raw.meaning.trim();
+    if (cards.length < 2 || cards.length > 3 || !meaning) continue;
+    const reversed = Array.isArray(raw.reversed)
+      ? cards.map((_, i) => Boolean((raw.reversed as unknown[])[i]))
+      : undefined;
+    const flags = Array.isArray(raw.flags)
+      ? (raw.flags as unknown[]).filter((f): f is string => typeof f === 'string')
+      : undefined;
+    const entry = { cards, reversed, meaning };
+    if (seen.has(keyOf(entry))) continue;
+    seen.add(keyOf(entry));
+    const archetypeIds = cards.map(n => archByName.get(n.toLowerCase()));
+    result.push({
+      cards,
+      meaning,
+      reversed,
+      flags: flags?.length ? flags : undefined,
+      archetypeIds,
+      checked: archetypeIds.every(id => id != null),
+    });
   }
   return result;
 }

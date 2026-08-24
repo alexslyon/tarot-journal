@@ -768,3 +768,62 @@ def test_three_card_combinations(client):
         'meaning': 'Nope.',
     })
     assert bad.status_code == 400
+
+
+def test_scribe_apply_combinations(client):
+    """The combination write target: creates the pair + meaning with
+    source attribution, dedupes exact re-imports, supports triads and
+    reversal flags, and reports bad rows as per-row errors."""
+    types = client.get('/api/types').get_json()
+    tname = types[0]['name']
+    src = client.post('/api/reference/sources',
+                      json={'name': 'Combo Book', 'cartomancy_types': [tname]}).get_json()
+    archetypes = client.get(f'/api/archetypes?cartomancy_type={tname}').get_json()
+    a1, a2, a3 = archetypes[0]['id'], archetypes[1]['id'], archetypes[2]['id']
+
+    r = client.post('/api/scribe/apply', json={'writes': [
+        {'target': 'combination', 'cartomancy_type': tname,
+         'archetype_ids': [a1, a2], 'content': 'Swift luck arriving.',
+         'source_id': src['id']},
+        {'target': 'combination', 'cartomancy_type': tname,
+         'archetype_ids': [a1, a2, a3], 'content': 'A three-card story.'},
+        {'target': 'combination', 'cartomancy_type': tname,
+         'archetype_ids': [a1, a2], 'reversed': [True, False],
+         'content': 'Luck delayed.'},
+        {'target': 'combination', 'cartomancy_type': tname,
+         'archetype_ids': [a1], 'content': 'too few cards'},
+    ]})
+    data = r.get_json()
+    assert data['applied'] == 3
+    assert data['skipped'] == 0
+    assert len(data['errors']) == 1
+
+    # The pair meaning landed with its source
+    meanings = client.get(
+        f'/api/combinations/meanings?cartomancy_type={tname}'
+        f'&card_1={a1}&card_2={a2}').get_json()
+    assert len(meanings) == 1
+    assert meanings[0]['meaning'] == 'Swift luck arriving.'
+    assert meanings[0]['source_name'] == 'Combo Book'
+
+    # The reversed variant is a distinct combination
+    rev = client.get(
+        f'/api/combinations/meanings?cartomancy_type={tname}'
+        f'&card_1={a1}&card_2={a2}&card_1_reversed=1').get_json()
+    assert len(rev) == 1 and rev[0]['meaning'] == 'Luck delayed.'
+
+    # Re-importing the identical meaning is skipped, not duplicated
+    r = client.post('/api/scribe/apply', json={'writes': [
+        {'target': 'combination', 'cartomancy_type': tname,
+         'archetype_ids': [a1, a2], 'content': 'Swift luck arriving.',
+         'source_id': src['id']},
+        {'target': 'combination', 'cartomancy_type': tname,
+         'archetype_ids': [a1, a2], 'content': 'A different meaning.'},
+    ]})
+    data = r.get_json()
+    assert data['applied'] == 1
+    assert data['skipped'] == 1
+    meanings = client.get(
+        f'/api/combinations/meanings?cartomancy_type={tname}'
+        f'&card_1={a1}&card_2={a2}').get_json()
+    assert len(meanings) == 2

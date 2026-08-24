@@ -367,3 +367,59 @@
   font-family: inherit;
   font-size: var(--font-size-body);
 }
+
+/* ── Combinations extraction ── */
+
+.scribe__combo-toggle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.scribe__hint-inline {
+  font-style: italic;
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+}
+
+.scribe__review-head--combos {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.scribe__combo-row {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.scribe__combo-row-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.scribe__combo-cards {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--font-size-small);
+}
+
+.scribe__combo-meaning {
+  margin-left: 24px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-small);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.scribe__combo-warn {
+  margin-left: 24px;
+  color: var(--warning);
+  font-size: var(--font-size-small);
+}

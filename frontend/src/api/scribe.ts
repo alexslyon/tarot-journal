@@ -41,10 +41,21 @@ export async function convertSourceImage(file: File): Promise<{
 
 export type ScribeWrite =
   | { target: 'archetype'; archetype_id: number; field_id: number; content: string }
-  | { target: 'card'; card_id: number; field_name: string; content: string };
+  | { target: 'card'; card_id: number; field_name: string; content: string }
+  | {
+      target: 'combination';
+      cartomancy_type: string;
+      /** Two or three archetype ids, in the source's order. */
+      archetype_ids: number[];
+      reversed?: boolean[];
+      content: string;
+      source_id?: number | null;
+    };
 
 export async function applyScribeWrites(writes: ScribeWrite[]): Promise<{
   applied: number;
+  /** Exact-duplicate combination meanings skipped server-side. */
+  skipped?: number;
   errors: { index: number; error: string }[];
 }> {
   const res = await api.post('/api/scribe/apply', { writes });
