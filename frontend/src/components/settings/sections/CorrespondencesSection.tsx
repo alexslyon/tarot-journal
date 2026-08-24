@@ -27,6 +27,8 @@ import {
   CORRESPONDENCE_FIELD_LABELS,
 } from '../../../types';
 import { detectGroupPatterns, patternsByCategory, type PatternCategorySection } from '../../../utils/correspondencePatterns';
+import { getCartomancyTypes } from '../../../api/decks';
+import type { CartomancyType } from '../../../types';
 import { displayArchetypeName, archetypeSortKey, displayArchetypeRank, displayGroupLabel } from '../../../utils/tarotNaming';
 import { lenormandDefaultNumerology, PIP_RANK_TO_NUMBER } from '../../../utils/lenormand';
 import { tarotPipNumerology, tarotPipDecan } from '../../../utils/tarotPips';
@@ -44,6 +46,13 @@ export default function CorrespondencesSection() {
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newCartomancyType, setNewCartomancyType] = useState('Tarot');
+  // Every deck type — including user-created ones — can carry a
+  // correspondence system; only the seeding shortcuts below are
+  // type-specific.
+  const { data: allTypes = [] } = useQuery<CartomancyType[]>({
+    queryKey: ['cartomancy-types'],
+    queryFn: getCartomancyTypes,
+  });
   const [newNamingStyle, setNewNamingStyle] = useState('RWS');
   const [newSourceId, setNewSourceId] = useState<number | ''>('');
   const [creating, setCreating] = useState(false);
@@ -584,12 +593,9 @@ export default function CorrespondencesSection() {
                     value={newCartomancyType}
                     onChange={e => setNewCartomancyType(e.target.value)}
                   >
-                    <option value="Tarot">Tarot</option>
-                    <option value="Lenormand">Lenormand</option>
-                    <option value="Playing Cards">Playing Cards</option>
-                    <option value="Oracle">Oracle</option>
-                    <option value="I Ching">I Ching</option>
-                    <option value="Kipper">Kipper</option>
+                    {allTypes.map(t => (
+                      <option key={t.id} value={t.name}>{t.name}</option>
+                    ))}
                   </select>
                 </div>
                 {newCartomancyType === 'Tarot' && (
