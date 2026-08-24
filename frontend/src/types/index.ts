@@ -3,6 +3,9 @@
 export interface CartomancyType {
   id: number;
   name: string;
+  /** Built-ins are re-seeded on startup; only custom types can be
+   *  renamed or deleted. */
+  builtin?: boolean;
 }
 
 export interface Deck {

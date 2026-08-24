@@ -65,6 +65,7 @@ const SETTINGS_ITEMS: PaletteItem[] = ([
   ['backup', 'Backup & Restore'],
   ['cache', 'Thumbnail Cache'],
   ['tags', 'Tags'],
+  ['deck-types', 'Deck Types'],
   ['correspondences', 'Correspondences'],
   ['archetype-notes', 'Archetype Notes'],
   ['archetype-languages', 'Archetype Languages'],

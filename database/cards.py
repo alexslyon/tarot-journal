@@ -278,6 +278,98 @@ class CardsMixin:
             cursor.execute('SELECT * FROM card_archetypes ORDER BY cartomancy_type, id')
         return cursor.fetchall()
 
+    def add_archetype(self, name: str, cartomancy_type: str,
+                      rank: str = None, suit: str = None,
+                      card_type: str = None) -> int:
+        """Create one archetype. UNIQUE(name, cartomancy_type) makes a
+        duplicate raise IntegrityError — callers surface that."""
+        if not name or not name.strip():
+            raise ValueError('Archetype name is required')
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'INSERT INTO card_archetypes (name, cartomancy_type, rank, suit, card_type) '
+            'VALUES (?, ?, ?, ?, ?)',
+            (name.strip(), cartomancy_type, rank, suit, card_type))
+        self._commit()
+        return cursor.lastrowid
+
+    def update_archetype(self, archetype_id: int, name: str = None,
+                         rank: str = None, suit: str = None):
+        """Rename / retag an archetype. A rename also updates the
+        plain-text archetype field on cards in decks of this type so
+        card-to-archetype matching keeps working."""
+        cursor = self.conn.cursor()
+        row = cursor.execute(
+            'SELECT name, cartomancy_type FROM card_archetypes WHERE id = ?',
+            (archetype_id,)).fetchone()
+        if not row:
+            raise ValueError('Archetype not found')
+        old = row if isinstance(row, dict) else dict(row)
+        if name is not None and name.strip() and name.strip() != old['name']:
+            new_name = name.strip()
+            cursor.execute('UPDATE card_archetypes SET name = ? WHERE id = ?',
+                           (new_name, archetype_id))
+            cursor.execute('''
+                UPDATE cards SET archetype = ?
+                WHERE archetype = ? AND deck_id IN (
+                    SELECT dta.deck_id FROM deck_type_assignments dta
+                    JOIN cartomancy_types ct ON ct.id = dta.type_id
+                    WHERE ct.name = ?)
+            ''', (new_name, old['name'], old['cartomancy_type']))
+        if rank is not None:
+            cursor.execute('UPDATE card_archetypes SET rank = ? WHERE id = ?',
+                           (rank or None, archetype_id))
+        if suit is not None:
+            cursor.execute('UPDATE card_archetypes SET suit = ? WHERE id = ?',
+                           (suit or None, archetype_id))
+        self._commit()
+
+    def delete_archetype(self, archetype_id: int):
+        """Delete an archetype; combinations, source entries, language
+        names, and correspondence assignments cascade via FK."""
+        cursor = self.conn.cursor()
+        cursor.execute('DELETE FROM card_archetypes WHERE id = ?',
+                       (archetype_id,))
+        self._commit()
+
+    def seed_archetypes_from_deck(self, deck_id: int,
+                                  cartomancy_type: str) -> int:
+        """Create an archetype for every distinct card name in a deck
+        that doesn't already exist for the type (matching each card's
+        archetype field when set, its name otherwise). Cards without an
+        archetype tag get one pointing at their new archetype. Returns
+        how many archetypes were created."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'SELECT id, name, archetype FROM cards WHERE deck_id = ? '
+            'ORDER BY card_order', (deck_id,))
+        rows = [r if isinstance(r, dict) else dict(r) for r in cursor.fetchall()]
+        existing = {
+            (r[0] if not isinstance(r, dict) else r['name']).lower()
+            for r in cursor.execute(
+                'SELECT name FROM card_archetypes WHERE cartomancy_type = ?',
+                (cartomancy_type,)).fetchall()}
+        created = 0
+        seen = set()
+        for r in rows:
+            label = (r.get('archetype') or r.get('name') or '').strip()
+            if not label or label.lower() in seen:
+                continue
+            seen.add(label.lower())
+            if label.lower() in existing:
+                continue
+            cursor.execute(
+                'INSERT INTO card_archetypes (name, cartomancy_type) VALUES (?, ?)',
+                (label, cartomancy_type))
+            created += 1
+        # Tag untagged cards with their own name so they resolve.
+        cursor.execute(
+            "UPDATE cards SET archetype = name "
+            "WHERE deck_id = ? AND (archetype IS NULL OR archetype = '')",
+            (deck_id,))
+        self._commit()
+        return created
+
     def search_archetypes(self, query: str, cartomancy_type: str = None):
         """Search archetypes by name for autocomplete"""
         cursor = self.conn.cursor()

@@ -5,6 +5,7 @@ import ImportPresetsSection from './sections/ImportPresetsSection';
 import BackupSection from './sections/BackupSection';
 import CacheSection from './sections/CacheSection';
 import CorrespondencesSection from './sections/CorrespondencesSection';
+import DeckTypesSection from './sections/DeckTypesSection';
 import CombinationsSection from './sections/CombinationsSection';
 import ArchetypeNotesSection from './sections/ArchetypeNotesSection';
 import ArchetypeLanguagesSection from './sections/ArchetypeLanguagesSection';
@@ -15,6 +16,7 @@ import './SettingsLayout.css';
 
 export type SettingsSectionId =
   | 'general'
+  | 'deck-types'
   | 'tags'
   | 'correspondences'
   | 'archetype-notes'
@@ -53,6 +55,7 @@ const SECTION_GROUPS: {
   {
     heading: 'Reference Data',
     sections: [
+      { id: 'deck-types', label: 'Deck Types' },
       { id: 'correspondences', label: 'Correspondences' },
       { id: 'archetype-notes', label: 'Archetype Notes' },
       { id: 'archetype-languages', label: 'Archetype Languages' },
@@ -118,6 +121,7 @@ export default function SettingsLayout({
       <div className="settings-layout__content">
         {activeSection === 'general' && <GeneralSection />}
         {activeSection === 'tags' && <TagsSection />}
+        {activeSection === 'deck-types' && <DeckTypesSection />}
         {activeSection === 'correspondences' && <CorrespondencesSection />}
         {activeSection === 'archetype-notes' && (
           <ArchetypeNotesSection initialArchetypeId={initialArchetypeId} />

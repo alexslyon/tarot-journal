@@ -12,6 +12,17 @@ from contextlib import contextmanager
 from logger_config import get_logger
 from app_config import get_config
 
+# Built-in cartomancy types, re-seeded (INSERT OR IGNORE) on every
+# startup. Because deleting or renaming one would just resurrect it on
+# the next launch, the in-app Deck Types manager only allows renaming
+# and deleting types NOT in this list.
+DEFAULT_TYPE_NAMES = [
+    'Tarot', 'Lenormand', 'Kipper', 'Playing Cards', 'Oracle', 'I Ching',
+    'Playing Cards (Spanish)', 'Oracle Belline',
+    'Vera Sibilla Italiana / Sibilla della Zingara',
+    'Sibylle des Salons / Sibilla Indovina',
+]
+
 logger = get_logger('database')
 _cfg = get_config()
 
@@ -792,12 +803,7 @@ class CoreMixin:
             self.set_setting('grand_etteilla_type_removal_done', 'true')
 
         # Insert default cartomancy types
-        default_types = [
-            'Tarot', 'Lenormand', 'Kipper', 'Playing Cards', 'Oracle', 'I Ching',
-            'Playing Cards (Spanish)', 'Oracle Belline', 'Vera Sibilla Italiana / Sibilla della Zingara',
-            'Sibylle des Salons / Sibilla Indovina',
-        ]
-        for ct in default_types:
+        for ct in DEFAULT_TYPE_NAMES:
             cursor.execute(
                 'INSERT OR IGNORE INTO cartomancy_types (name) VALUES (?)',
                 (ct,)

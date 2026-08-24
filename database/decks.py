@@ -26,6 +26,77 @@ class DecksMixin:
         self._commit()
         return cursor.lastrowid
 
+    def _tables_with_cartomancy_type_column(self):
+        """Every table carrying the type name as a plain-text
+        'cartomancy_type' column. Discovered dynamically so tables
+        added later are covered without touching this method."""
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' "
+            "AND name NOT LIKE 'sqlite_%'")
+        out = []
+        for (table,) in cursor.fetchall():
+            cols = [c[1] for c in cursor.execute(
+                f'PRAGMA table_info({table})').fetchall()]
+            if 'cartomancy_type' in cols:
+                out.append(table)
+        return out
+
+    def rename_cartomancy_type(self, type_id: int, new_name: str):
+        """Rename a type everywhere: the types row plus every table
+        that stores the name as a string (mirrors the one-time rename
+        migrations in core.py, but discovered dynamically)."""
+        cursor = self.conn.cursor()
+        row = cursor.execute(
+            'SELECT name FROM cartomancy_types WHERE id = ?', (type_id,)
+        ).fetchone()
+        if not row:
+            raise ValueError('Type not found')
+        old_name = row[0] if not isinstance(row, dict) else row['name']
+        cursor.execute('UPDATE cartomancy_types SET name = ? WHERE id = ?',
+                       (new_name, type_id))
+        for table in self._tables_with_cartomancy_type_column():
+            cursor.execute(
+                f'UPDATE {table} SET cartomancy_type = ? WHERE cartomancy_type = ?',
+                (new_name, old_name))
+        self._commit()
+
+    def delete_cartomancy_type(self, type_id: int):
+        """Delete a type and its per-type data. The caller must have
+        verified no decks are assigned. Archetype deletion cascades to
+        combinations, source entries, language names, and
+        correspondence assignments (all FK ON DELETE CASCADE)."""
+        cursor = self.conn.cursor()
+        row = cursor.execute(
+            'SELECT name FROM cartomancy_types WHERE id = ?', (type_id,)
+        ).fetchone()
+        if not row:
+            raise ValueError('Type not found')
+        name = row[0] if not isinstance(row, dict) else row['name']
+        cursor.execute('DELETE FROM card_archetypes WHERE cartomancy_type = ?',
+                       (name,))
+        # Per-type reference structures keyed by name.
+        for table in ('source_fields', 'source_cartomancy_types',
+                      'correspondence_systems'):
+            try:
+                cursor.execute(
+                    f'DELETE FROM {table} WHERE cartomancy_type = ?', (name,))
+            except Exception:
+                pass
+        # Spreads keep their layouts — only the legacy type tag clears.
+        cursor.execute(
+            'UPDATE spreads SET cartomancy_type = NULL WHERE cartomancy_type = ?',
+            (name,))
+        cursor.execute('DELETE FROM cartomancy_types WHERE id = ?', (type_id,))
+        self._commit()
+
+    def count_decks_for_type(self, type_id: int) -> int:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'SELECT COUNT(*) FROM deck_type_assignments WHERE type_id = ?',
+            (type_id,))
+        return cursor.fetchone()[0]
+
     # === Decks ===
     def get_decks(self, cartomancy_type_id: Optional[int] = None):
         """Get all decks, optionally filtered by cartomancy type.
