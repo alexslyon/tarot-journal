@@ -13,6 +13,19 @@ from backend.utils import require_json
 
 anki_export_bp = Blueprint('anki_export', __name__)
 
+# Custom-field keys that render under Classification in the card
+# modal for I Ching decks — given friendly export labels there too.
+ICHING_CLASSIFICATION_CUSTOM = {
+    'traditional_chinese': 'Traditional Chinese',
+    'simplified_chinese': 'Simplified Chinese',
+}
+
+
+def _deck_is_iching(deck) -> bool:
+    return any(t['name'] == 'I Ching'
+               for t in (deck.get('cartomancy_types') or []))
+
+
 # Display labels for correspondence fields (matches frontend labels)
 FIELD_LABELS = {
     'element': 'Element',
@@ -170,6 +183,9 @@ def anki_export(deck_id, data):
         lines.append('#separator:tab')
         lines.append('#html:true')
 
+        # Classification labels follow the card modal's I Ching aliases
+        is_iching = _deck_is_iching(deck)
+
         # Header comment with field names
         header_labels = []
         for f in fields:
@@ -179,6 +195,14 @@ def anki_export(deck_id, data):
                 header_labels.append('Card Name')
             elif f == 'sort_number':
                 header_labels.append('Sort Number')
+            elif f == 'archetype':
+                header_labels.append('Archetype')
+            elif f == 'rank':
+                header_labels.append('Hexagram Number' if is_iching else 'Rank')
+            elif f == 'suit':
+                header_labels.append('Pinyin' if is_iching else 'Suit')
+            elif f in ICHING_CLASSIFICATION_CUSTOM:
+                header_labels.append(ICHING_CLASSIFICATION_CUSTOM[f])
             elif f == 'notes':
                 header_labels.append('Notes')
             elif f.startswith('archnote:'):
@@ -211,6 +235,12 @@ def anki_export(deck_id, data):
                     row.append(sanitize(card.get('name')))
                 elif f == 'sort_number':
                     row.append(sanitize(card.get('card_order')))
+                elif f == 'archetype':
+                    row.append(sanitize(card.get('archetype')))
+                elif f == 'rank':
+                    row.append(sanitize(card.get('rank')))
+                elif f == 'suit':
+                    row.append(sanitize(card.get('suit')))
                 elif f == 'notes':
                     row.append(sanitize(card.get('notes')))
                 elif f.startswith('archnote:'):
@@ -267,8 +297,28 @@ def anki_fields(deck_id):
         {'key': 'sort_number', 'label': 'Sort Number', 'always': True},
     ]
 
-    # Check which correspondence fields have any values in this deck
     cards = db.get_cards(deck_id)
+
+    # Classification fields from the card modal: archetype, rank, suit
+    # (I Ching decks alias the latter two, matching the modal), plus
+    # the Chinese name fields I Ching stores as custom fields.
+    is_iching = _deck_is_iching(deck)
+    for key, label in (
+        ('archetype', 'Archetype'),
+        ('rank', 'Hexagram Number' if is_iching else 'Rank'),
+        ('suit', 'Pinyin' if is_iching else 'Suit'),
+    ):
+        fields.append({
+            'key': key,
+            'label': label,
+            'always': False,
+            'populated': any(c[key] for c in cards),
+        })
+    if is_iching:
+        for key, label in ICHING_CLASSIFICATION_CUSTOM.items():
+            fields.append({'key': key, 'label': label, 'always': False})
+
+    # Check which correspondence fields have any values in this deck
     corr_populated = set()
     for card in cards[:10]:  # Sample first 10 cards for speed
         for c in db.get_card_correspondences(card['id']):
