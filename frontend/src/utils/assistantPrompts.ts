@@ -71,8 +71,20 @@ export const DEFAULT_PROMPTS: Record<LlmFeature, string> = {
 export const PROMPT_EDITOR_NOTES: Record<LlmFeature, string> = {
   mirror: 'Plain system prompt — the journal entry (with reference material) is attached separately.',
   analyst: 'Plain system prompt — the journal excerpt and app-computed statistics are attached separately.',
-  scribe: 'Template — the placeholders {{cartomancy_type}}, {{source_name}}, {{archetype_names}}, and {{target_fields}} are filled in for each import. Keep the JSON output block intact: the app parses replies with it, and extraction breaks without it.',
+  scribe: 'Template — the placeholders {{cartomancy_type}}, {{source_name}}, {{archetype_names}}, and {{target_fields}} are filled in for each import. Keep the JSON output block intact: the app parses replies with it, and extraction breaks without it. A card-name alias guide (Pope→Hierophant, Coins→Pentacles, Thoth court mapping, …) is appended automatically at run time.',
 };
+
+/** Appended to every Scribe run so books using variant card and suit
+ *  names still land on the app's archetypes. Lives here (not in the
+ *  template) so user-saved prompt presets pick it up unchanged. */
+const SCRIBE_ALIAS_GUIDE = `
+
+Name-matching guide — sources often use variant names; map them to the app's archetype names silently (no flag needed for these well-known equivalences):
+- Majors: The Pope / High Priest → The Hierophant; The Papess / Female Pope → The High Priestess; The Juggler / The Magus → The Magician; Adjustment → Justice; Lust → Strength; Fortitude → Strength; Art → Temperance; The Aeon / The Last Judgment → Judgement; The Universe → The World; Fortune / The Wheel → Wheel of Fortune; The Mat / Le Mat → The Fool; the unnamed card XIII → Death.
+- Justice and Strength swap numbers between traditions (8/11) — match by NAME, not number, unless the deck is known to renumber.
+- Suits: Coins / Disks / Discs / Deniers → Pentacles; Rods / Staves / Staffs / Batons / Scepters → Wands; Chalices / Goblets / Coupes → Cups; Blades / Épées → Swords.
+- Courts: Knave / Valet / Princess (Thoth) → Page; Prince (Thoth) → Knight. In Thoth-lineage decks the mounted "Knight" is the senior court → King (so Thoth Knight → King, Prince → Knight, Princess → Page); the user's instructions win if they say otherwise.
+- When the source numbers its cards, use the number to confirm the match; when a rendering is ambiguous or a name maps to no archetype even through these aliases, keep the source's name and flag it as before.`;
 
 /** Fill the Scribe template's placeholders and append any per-import
  *  user instructions. */
@@ -107,7 +119,7 @@ export function renderScribePrompt(
   const instructions = userInstructions.trim()
     ? `\n\nInstructions from the user for THIS import — follow them; where they conflict with the matching or content guidance above, the user's instructions win (the JSON output format is always required):\n${userInstructions.trim()}`
     : '';
-  return filled + comboBlock + instructions;
+  return filled + SCRIBE_ALIAS_GUIDE + comboBlock + instructions;
 }
 
 /** The prompt an assistant should use right now: the active preset's
