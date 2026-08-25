@@ -353,9 +353,10 @@ export default function CorrespondencesSection() {
   }, [systemDetail]);
 
   // === Bulk assign groups ===
-  // Groups are defined per cartomancy type so the dropdown matches the
-  // selected system's deck — Lenormand doesn't have suits or courts, etc.
-  const BULK_GROUPS = getBulkGroups(activeCartomancyType);
+  // Curated per-type lists where they exist (Tarot, Lenormand,
+  // Playing Cards); every other type derives Suits/Ranks groups from
+  // its own archetype data.
+  const BULK_GROUPS = getBulkGroups(activeCartomancyType, allArchetypes);
   const BULK_CATEGORIES = getBulkCategories(BULK_GROUPS);
 
   const getGroupArchetypes = (groupLabel: string): Archetype[] =>

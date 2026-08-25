@@ -66,7 +66,7 @@ export default function DeckCorrespondenceOverrides({
     optionsByField.get(opt.field_name)!.push(opt.option_value);
   }
 
-  const BULK_GROUPS = getBulkGroups(cartomancyType);
+  const BULK_GROUPS = getBulkGroups(cartomancyType, archetypes);
   const BULK_CATEGORIES = getBulkCategories(BULK_GROUPS);
 
   // Roll up override rows by (source_group, field). All rows share the same

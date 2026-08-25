@@ -98,8 +98,40 @@ const GROUPS_BY_TYPE: Record<string, BulkGroup[]> = {
   'Lenormand': LENORMAND_BULK_GROUPS,
 };
 
-export function getBulkGroups(cartomancyType: string): BulkGroup[] {
-  return GROUPS_BY_TYPE[cartomancyType] || [];
+export function getBulkGroups(
+  cartomancyType: string,
+  archetypes: Archetype[] = [],
+): BulkGroup[] {
+  const preset = GROUPS_BY_TYPE[cartomancyType];
+  if (preset) return preset;
+  return deriveGroupsFromArchetypes(archetypes);
+}
+
+/** Types without a curated list get groups straight from their own
+ *  archetype data: every distinct suit and every distinct rank that
+ *  covers at least two cards becomes a group. This is what makes the
+ *  Sibillas (playing-card rank/suit on every archetype), Spanish
+ *  Playing Cards, and any future custom type work without touching
+ *  this file. Single-member "groups" are skipped as noise — that also
+ *  keeps unique-numbered types (Kipper, I Ching) from listing every
+ *  card as its own group. */
+function deriveGroupsFromArchetypes(archetypes: Archetype[]): BulkGroup[] {
+  const suitCounts = new Map<string, number>();
+  const rankCounts = new Map<string, number>();
+  for (const a of archetypes) {
+    if (a.suit) suitCounts.set(a.suit, (suitCounts.get(a.suit) ?? 0) + 1);
+    if (a.rank) rankCounts.set(a.rank, (rankCounts.get(a.rank) ?? 0) + 1);
+  }
+  const groups: BulkGroup[] = [];
+  for (const [suit, count] of suitCounts) {
+    if (count < 2) continue;
+    groups.push({ label: suit, category: 'Suits', filter: a => a.suit === suit });
+  }
+  for (const [rank, count] of rankCounts) {
+    if (count < 2) continue;
+    groups.push({ label: rank, category: 'Ranks', filter: a => a.rank === rank });
+  }
+  return groups;
 }
 
 /** Ordered list of unique category names (preserves BULK_GROUPS order). */
