@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getCombinationMeanings,
+  getCombinationPartners,
   getReversedCombinationTypes,
   setReversedCombinationTypes,
 } from '../../../api/combinations';
@@ -118,6 +119,23 @@ export default function CombinationsSection({
     }
   };
 
+  // "has meanings" hints for the second/third card dropdowns
+  const { data: partners2 = {} } = useQuery({
+    queryKey: ['combination-partners', cartomancyType, card1Id, card1Rev, triad],
+    queryFn: () => getCombinationPartners({
+      cartomancyType, card1: card1Id!, card1Reversed: card1Rev, triad,
+    }),
+    enabled: card1Id != null,
+  });
+  const { data: partners3 = {} } = useQuery({
+    queryKey: ['combination-partners3', cartomancyType, card1Id, card1Rev, card2Id, card2Rev],
+    queryFn: () => getCombinationPartners({
+      cartomancyType, card1: card1Id!, card1Reversed: card1Rev,
+      triad: true, card2: card2Id, card2Reversed: card2Rev,
+    }),
+    enabled: triad && card1Id != null && card2Id != null,
+  });
+
   const meaningsKey = ['combination-meanings', cartomancyType, card1Id, card1Rev, card2Id, card2Rev, effCard3, card3Rev];
   const { data: meanings = [] } = useQuery<CombinationMeaning[]>({
     queryKey: meaningsKey,
@@ -202,6 +220,7 @@ export default function CombinationsSection({
             value={card2Id}
             onChange={setCard2Id}
             cardList={cardList}
+            populated={partners2}
             excludeIds={[card1Id, effCard3]}
             reversed={card2Rev}
             onReversedChange={reversalsEnabled ? setCard2Rev : undefined}
@@ -212,6 +231,7 @@ export default function CombinationsSection({
               value={card3Id}
               onChange={setCard3Id}
               cardList={cardList}
+              populated={partners3}
               excludeIds={[card1Id, card2Id]}
               reversed={card3Rev}
               onReversedChange={reversalsEnabled ? setCard3Rev : undefined}
@@ -252,6 +272,7 @@ function CardPicker({
   excludeIds,
   reversed = false,
   onReversedChange,
+  populated,
 }: {
   label: string;
   value: number | null;
@@ -259,6 +280,8 @@ function CardPicker({
   cardList: ArchetypeCardEntry[];
   excludeIds: (number | null)[];
   reversed?: boolean;
+  /** archetype id -> authored meaning count, for dropdown hints. */
+  populated?: Record<string, number>;
   /** Present only when the type allows reversed combinations. */
   onReversedChange?: (reversed: boolean) => void;
 }) {
@@ -269,11 +292,15 @@ function CardPicker({
       <SearchCombobox
         options={cardList
           .filter(c => !excludeIds.includes(c.archetypeId))
-          .map(c => ({
-            id: c.archetypeId,
-            label: c.rank ? `${c.rank} · ${c.name}` : c.name,
-            keywords: [c.name],
-          }))}
+          .map(c => {
+            const count = populated?.[String(c.archetypeId)];
+            return {
+              id: c.archetypeId,
+              label: c.rank ? `${c.rank} · ${c.name}` : c.name,
+              keywords: [c.name],
+              hint: count ? `${count} meaning${count === 1 ? '' : 's'}` : undefined,
+            };
+          })}
         value={value ?? undefined}
         onSelect={opt => onChange(opt ? opt.id : null)}
         placeholder="Type to search cards…"

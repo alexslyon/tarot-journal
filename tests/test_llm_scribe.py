@@ -827,3 +827,48 @@ def test_scribe_apply_combinations(client):
         f'/api/combinations/meanings?cartomancy_type={tname}'
         f'&card_1={a1}&card_2={a2}').get_json()
     assert len(meanings) == 2
+
+
+def test_combination_partners_hints(client):
+    """The partners endpoint powering the picker dropdown hints:
+    pair partners, triad second-slot partners, triad third-slot
+    partners, with exact flags on chosen cards and any-variant
+    matching on the partner."""
+    types = client.get('/api/types').get_json()
+    tname = types[0]['name']
+    archetypes = client.get(f'/api/archetypes?cartomancy_type={tname}').get_json()
+    a1, a2, a3, a4 = [a['id'] for a in archetypes[:4]]
+
+    client.post('/api/scribe/apply', json={'writes': [
+        {'target': 'combination', 'cartomancy_type': tname,
+         'archetype_ids': [a1, a2], 'content': 'Pair meaning one.'},
+        {'target': 'combination', 'cartomancy_type': tname,
+         'archetype_ids': [a1, a2], 'content': 'Pair meaning two.'},
+        {'target': 'combination', 'cartomancy_type': tname,
+         'archetype_ids': [a1, a3], 'reversed': [False, True],
+         'content': 'Partner reversed still counts.'},
+        {'target': 'combination', 'cartomancy_type': tname,
+         'archetype_ids': [a1, a2, a4], 'content': 'A triad tale.'},
+        {'target': 'combination', 'cartomancy_type': tname,
+         'archetype_ids': [a2, a3], 'content': 'Different first card.'},
+    ]})
+
+    # Pair partners of a1: a2 (2 meanings) + a3 (reversed variant counts)
+    res = client.get(f'/api/combinations/partners?cartomancy_type={tname}&card_1={a1}')
+    partners = res.get_json()['partners']
+    assert partners == {str(a2): 2, str(a3): 1}
+
+    # Reversed first card has no combos
+    res = client.get(f'/api/combinations/partners?cartomancy_type={tname}'
+                     f'&card_1={a1}&card_1_reversed=1')
+    assert res.get_json()['partners'] == {}
+
+    # Triad second-slot partners of a1
+    res = client.get(f'/api/combinations/partners?cartomancy_type={tname}'
+                     f'&card_1={a1}&triad=1')
+    assert res.get_json()['partners'] == {str(a2): 1}
+
+    # Triad third-slot partners of (a1, a2)
+    res = client.get(f'/api/combinations/partners?cartomancy_type={tname}'
+                     f'&card_1={a1}&triad=1&card_2={a2}')
+    assert res.get_json()['partners'] == {str(a4): 1}

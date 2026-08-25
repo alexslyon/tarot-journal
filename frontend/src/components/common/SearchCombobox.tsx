@@ -14,6 +14,9 @@ export interface ComboOption {
   /** Alternate names the option also matches on (e.g. a card's
    *  archetype: searching "Ace of Wands" finds "As de Bâtons"). */
   keywords?: string[];
+  /** Right-aligned annotation in the dropdown row only — never part
+   *  of the input value (e.g. "3 meanings" in combination pickers). */
+  hint?: string;
 }
 
 interface SearchComboboxProps {
@@ -200,7 +203,10 @@ const SearchCombobox = forwardRef<SearchComboboxHandle, SearchComboboxProps>(
                 }}
                 onMouseEnter={() => setHighlight(i)}
               >
-                {o.label}
+                <span className="search-combobox__option-label">{o.label}</span>
+                {o.hint && (
+                  <span className="search-combobox__option-hint">{o.hint}</span>
+                )}
               </li>
             ))}
           </ul>

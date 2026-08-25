@@ -94,3 +94,27 @@ export async function reorderCombinationMeanings(
     ordered_ids: orderedIds,
   });
 }
+
+/** Partner archetypes that already have authored meanings, keyed by
+ *  archetype id (string) → meaning count. Drives the "n meanings"
+ *  hints in the combination pickers. */
+export async function getCombinationPartners(params: {
+  cartomancyType: string;
+  card1: number;
+  card1Reversed?: boolean;
+  triad?: boolean;
+  card2?: number | null;
+  card2Reversed?: boolean;
+}): Promise<Record<string, number>> {
+  const res = await api.get('/api/combinations/partners', {
+    params: {
+      cartomancy_type: params.cartomancyType,
+      card_1: params.card1,
+      ...(params.card1Reversed ? { card_1_reversed: '1' } : {}),
+      ...(params.triad ? { triad: '1' } : {}),
+      ...(params.card2 != null ? { card_2: params.card2 } : {}),
+      ...(params.card2Reversed ? { card_2_reversed: '1' } : {}),
+    },
+  });
+  return res.data.partners;
+}

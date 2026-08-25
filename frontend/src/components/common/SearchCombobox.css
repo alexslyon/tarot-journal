@@ -86,3 +86,23 @@
   color: var(--text-dim);
   font-size: var(--font-size-body);
 }
+
+/* Right-aligned per-option annotation (e.g. "3 meanings") */
+.search-combobox__option {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.search-combobox__option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-combobox__option-hint {
+  flex-shrink: 0;
+  font-size: var(--font-size-small);
+  color: var(--accent);
+}

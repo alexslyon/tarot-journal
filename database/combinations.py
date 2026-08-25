@@ -109,6 +109,58 @@ class CombinationsMixin:
         )
         return cursor.fetchall()
 
+    def get_combination_partners(
+        self,
+        cartomancy_type: str,
+        archetype_1_id: int,
+        archetype_1_reversed: bool = False,
+        triad: bool = False,
+        archetype_2_id: int = None,
+        archetype_2_reversed: bool = False,
+    ):
+        """Partner archetypes that already have authored meanings, for
+        the picker dropdowns' "has meanings" hints.
+
+        - triad=False: second-card partners among two-card combinations.
+        - triad=True, no archetype_2_id: second-card partners among
+          three-card combinations.
+        - triad=True with archetype_2_id: third-card partners for the
+          chosen pair.
+        The partner's own reversal flag is ignored (any variant counts);
+        the chosen cards' flags are exact. Returns [(archetype_id,
+        meaning_count)] rows.
+        """
+        cursor = self.conn.cursor()
+        r1 = int(bool(archetype_1_reversed))
+        if triad and archetype_2_id is not None:
+            cursor.execute(
+                '''
+                SELECT c.archetype_3_id AS archetype_id, COUNT(m.id) AS meaning_count
+                FROM archetype_combinations c
+                JOIN combination_meanings m ON m.combination_id = c.id
+                WHERE c.cartomancy_type = ? AND c.archetype_1_id = ?
+                  AND c.archetype_1_reversed = ? AND c.archetype_2_id = ?
+                  AND c.archetype_2_reversed = ? AND c.archetype_3_id IS NOT NULL
+                GROUP BY c.archetype_3_id
+                ''',
+                (cartomancy_type, archetype_1_id, r1,
+                 archetype_2_id, int(bool(archetype_2_reversed)))
+            )
+        else:
+            cursor.execute(
+                f'''
+                SELECT c.archetype_2_id AS archetype_id, COUNT(m.id) AS meaning_count
+                FROM archetype_combinations c
+                JOIN combination_meanings m ON m.combination_id = c.id
+                WHERE c.cartomancy_type = ? AND c.archetype_1_id = ?
+                  AND c.archetype_1_reversed = ?
+                  AND c.archetype_3_id IS {'NOT NULL' if triad else 'NULL'}
+                GROUP BY c.archetype_2_id
+                ''',
+                (cartomancy_type, archetype_1_id, r1)
+            )
+        return cursor.fetchall()
+
     def list_populated_combinations(self, cartomancy_type: str):
         """All combinations of this type that have at least one meaning.
         Used by the viewer's "browse what's been written" listing."""

@@ -70,6 +70,34 @@ def list_meanings():
     return jsonify([row_to_dict(r) for r in rows])
 
 
+@combinations_bp.route('/api/combinations/partners')
+def combination_partners():
+    """Partner archetypes with authored meanings, for the picker
+    dropdowns' "has meanings" hints. Query params: cartomancy_type,
+    card_1, card_1_reversed, triad, and (for the third-card slot)
+    card_2 + card_2_reversed. Returns {partners: {id: count}}."""
+    db = current_app.config['DB']
+    ctype = (request.args.get('cartomancy_type') or '').strip()
+    if not ctype:
+        return jsonify({'error': 'cartomancy_type is required'}), 400
+    try:
+        card_1 = int(request.args.get('card_1', ''))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'card_1 is a required integer'}), 400
+    rows = db.get_combination_partners(
+        ctype, card_1,
+        archetype_1_reversed=_flag(request.args.get('card_1_reversed')),
+        triad=_flag(request.args.get('triad')),
+        archetype_2_id=request.args.get('card_2', type=int),
+        archetype_2_reversed=_flag(request.args.get('card_2_reversed')),
+    )
+    partners = {}
+    for r in rows:
+        d = row_to_dict(r)
+        partners[str(d['archetype_id'])] = d['meaning_count']
+    return jsonify({'partners': partners})
+
+
 @combinations_bp.route('/api/combinations/populated')
 def populated_combinations():
     """List combinations of a type that have at least one meaning.
