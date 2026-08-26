@@ -872,3 +872,41 @@ def test_combination_partners_hints(client):
     res = client.get(f'/api/combinations/partners?cartomancy_type={tname}'
                      f'&card_1={a1}&triad=1&card_2={a2}')
     assert res.get_json()['partners'] == {str(a4): 1}
+
+
+def test_combinations_by_source(client):
+    """Browse-by-source: meanings filtered by source (or unattributed),
+    with combination info for the click-through."""
+    types = client.get('/api/types').get_json()
+    tname = types[0]['name']
+    src = client.post('/api/reference/sources',
+                      json={'name': 'Browse Book', 'cartomancy_types': [tname]}).get_json()
+    archetypes = client.get(f'/api/archetypes?cartomancy_type={tname}').get_json()
+    a1, a2, a3 = archetypes[0]['id'], archetypes[1]['id'], archetypes[2]['id']
+
+    client.post('/api/scribe/apply', json={'writes': [
+        {'target': 'combination', 'cartomancy_type': tname,
+         'archetype_ids': [a1, a2], 'content': 'From the book.',
+         'source_id': src['id']},
+        {'target': 'combination', 'cartomancy_type': tname,
+         'archetype_ids': [a1, a2, a3], 'content': 'Triad from the book.',
+         'source_id': src['id']},
+        {'target': 'combination', 'cartomancy_type': tname,
+         'archetype_ids': [a2, a3], 'content': 'Unattributed note.'},
+    ]})
+
+    rows = client.get(
+        f"/api/combinations/by-source?cartomancy_type={tname}&source_id={src['id']}"
+    ).get_json()
+    assert len(rows) == 2
+    assert {r['meaning'] for r in rows} == {'From the book.', 'Triad from the book.'}
+    triad_row = next(r for r in rows if r['archetype_3_id'])
+    assert triad_row['archetype_3_name'] == archetypes[2]['name']
+
+    rows = client.get(
+        f'/api/combinations/by-source?cartomancy_type={tname}&source_id=none'
+    ).get_json()
+    assert len(rows) == 1
+    assert rows[0]['meaning'] == 'Unattributed note.'
+
+    assert client.get('/api/combinations/by-source').status_code == 400

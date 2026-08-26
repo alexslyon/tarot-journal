@@ -118,3 +118,18 @@ export async function getCombinationPartners(params: {
   });
   return res.data.partners;
 }
+
+/** All of a type's meanings from one source (null = unattributed),
+ *  with combination and archetype info, ordered by card names. */
+export async function getCombinationsBySource(
+  cartomancyType: string,
+  sourceId: number | null,
+): Promise<CombinationMeaning[]> {
+  const res = await api.get('/api/combinations/by-source', {
+    params: {
+      cartomancy_type: cartomancyType,
+      source_id: sourceId == null ? 'none' : sourceId,
+    },
+  });
+  return res.data;
+}

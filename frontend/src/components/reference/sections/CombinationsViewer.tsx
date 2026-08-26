@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getCombinationMeanings, getCombinationPartners, getReversedCombinationTypes } from '../../../api/combinations';
+import { getCombinationMeanings, getCombinationPartners, getCombinationsBySource, getReversedCombinationTypes } from '../../../api/combinations';
 import { MeaningsEditor } from '../../combinations/MeaningsEditor';
 import { useToast } from '../../../context/ToastContext';
 import { getReferenceSources } from '../../../api/referenceSources';
@@ -96,6 +96,49 @@ export default function CombinationsViewer() {
     () => sources.filter(s => s.cartomancy_types.includes(cartomancyType)),
     [sources, cartomancyType],
   );
+
+  // === Browse by source ===
+  const [browseOpen, setBrowseOpen] = useState(false);
+  // '' = nothing chosen; 'none' = unattributed; otherwise a source id.
+  const [browseSourceId, setBrowseSourceId] = useState('');
+  useEffect(() => { setBrowseSourceId(''); }, [cartomancyType]);
+  const { data: browseMeanings = [] } = useQuery<CombinationMeaning[]>({
+    queryKey: ['combinations-by-source', cartomancyType, browseSourceId],
+    queryFn: () => getCombinationsBySource(
+      cartomancyType,
+      browseSourceId === 'none' ? null : Number(browseSourceId)),
+    enabled: browseOpen && browseSourceId !== '',
+  });
+  // One row per combination, its meanings from this source beneath.
+  const browseGroups = useMemo(() => {
+    const byCombo = new Map<number, CombinationMeaning[]>();
+    for (const m of browseMeanings) {
+      if (!byCombo.has(m.combination_id)) byCombo.set(m.combination_id, []);
+      byCombo.get(m.combination_id)!.push(m);
+    }
+    return [...byCombo.values()];
+  }, [browseMeanings]);
+
+  const comboLabel = (m: CombinationMeaning) => {
+    const part = (name?: string | null, rev?: number) =>
+      name ? `${name}${rev ? ' (rev)' : ''}` : null;
+    return [
+      part(m.archetype_1_name, m.archetype_1_reversed),
+      part(m.archetype_2_name, m.archetype_2_reversed),
+      part(m.archetype_3_name, m.archetype_3_reversed),
+    ].filter(Boolean).join(' + ');
+  };
+
+  const openCombination = (m: CombinationMeaning) => {
+    const hasThird = m.archetype_3_id != null;
+    setTriad(hasThird);
+    setCard1Id(m.archetype_1_id ?? null);
+    setCard2Id(m.archetype_2_id ?? null);
+    setCard3Id(hasThird ? m.archetype_3_id! : null);
+    setCard1Rev(!!m.archetype_1_reversed);
+    setCard2Rev(!!m.archetype_2_reversed);
+    setCard3Rev(!!m.archetype_3_reversed);
+  };
 
   const grouped = useMemo(() => {
     const bySource = new Map<string, CombinationMeaning[]>();
@@ -258,6 +301,65 @@ export default function CombinationsViewer() {
           </button>
         </div>
       )}
+
+      {/* ── Browse everything a source has contributed ── */}
+      <div className="combinations-view__browse">
+        <button
+          type="button"
+          className="combinations-view__browse-toggle"
+          aria-expanded={browseOpen}
+          onClick={() => setBrowseOpen(o => !o)}
+        >
+          <span className={`combinations-view__browse-chevron ${browseOpen ? 'combinations-view__browse-chevron--open' : ''}`} aria-hidden="true">▸</span>
+          Browse by source
+        </button>
+        {browseOpen && (
+          <div className="combinations-view__browse-body">
+            <select
+              value={browseSourceId}
+              onChange={e => setBrowseSourceId(e.target.value)}
+            >
+              <option value="">Select a source…</option>
+              {typeSources.map(src => (
+                <option key={src.id} value={String(src.id)}>{src.name}</option>
+              ))}
+              <option value="none">(no source)</option>
+            </select>
+            {browseSourceId !== '' && browseGroups.length === 0 && (
+              <p className="combinations-view__browse-empty">
+                No combinations from this source yet.
+              </p>
+            )}
+            {browseGroups.length > 0 && (
+              <>
+                <p className="combinations-view__browse-count">
+                  {browseGroups.length} combination{browseGroups.length === 1 ? '' : 's'},{' '}
+                  {browseMeanings.length} meaning{browseMeanings.length === 1 ? '' : 's'} —
+                  click one to open it above.
+                </p>
+                <ul className="combinations-view__browse-list">
+                  {browseGroups.map(group => (
+                    <li key={group[0].combination_id}>
+                      <button
+                        type="button"
+                        className="combinations-view__browse-row"
+                        onClick={() => openCombination(group[0])}
+                      >
+                        <span className="combinations-view__browse-cards">
+                          {comboLabel(group[0])}
+                        </span>
+                        <span className="combinations-view__browse-snippet">
+                          {group.map(m => m.meaning.replace(/<[^>]*>/g, ' ').trim()).join(' · ')}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

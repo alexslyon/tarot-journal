@@ -161,6 +161,42 @@ class CombinationsMixin:
             )
         return cursor.fetchall()
 
+    def get_meanings_by_source(self, cartomancy_type: str,
+                               source_id: int = None):
+        """Every meaning of a type attributed to one source (or
+        unattributed when source_id is None), with combination info and
+        archetype names, ordered by card names. Powers the viewer's
+        browse-by-source listing."""
+        cursor = self.conn.cursor()
+        source_clause = ('m.source_id IS NULL' if source_id is None
+                         else 'm.source_id = ?')
+        params = [cartomancy_type]
+        if source_id is not None:
+            params.append(source_id)
+        cursor.execute(
+            f'''
+            SELECT m.id, m.combination_id, m.meaning, m.source_id,
+                   m.sort_order, m.created_at,
+                   s.name AS source_name,
+                   c.cartomancy_type AS cartomancy_type,
+                   c.archetype_1_id, c.archetype_2_id, c.archetype_3_id,
+                   c.archetype_1_reversed, c.archetype_2_reversed,
+                   c.archetype_3_reversed,
+                   a1.name AS archetype_1_name,
+                   a2.name AS archetype_2_name,
+                   a3.name AS archetype_3_name
+            FROM combination_meanings m
+            JOIN archetype_combinations c ON c.id = m.combination_id
+            JOIN card_archetypes a1 ON a1.id = c.archetype_1_id
+            JOIN card_archetypes a2 ON a2.id = c.archetype_2_id
+            LEFT JOIN card_archetypes a3 ON a3.id = c.archetype_3_id
+            LEFT JOIN reference_sources s ON s.id = m.source_id
+            WHERE c.cartomancy_type = ? AND {source_clause}
+            ORDER BY a1.name, a2.name, a3.name, m.sort_order, m.id
+            ''',
+            params)
+        return cursor.fetchall()
+
     def list_populated_combinations(self, cartomancy_type: str):
         """All combinations of this type that have at least one meaning.
         Used by the viewer's "browse what's been written" listing."""

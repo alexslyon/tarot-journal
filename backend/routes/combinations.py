@@ -98,6 +98,26 @@ def combination_partners():
     return jsonify({'partners': partners})
 
 
+@combinations_bp.route('/api/combinations/by-source')
+def combinations_by_source():
+    """All of a type's meanings from one source — source_id absent or
+    empty means unattributed meanings. Query params: cartomancy_type,
+    source_id."""
+    db = current_app.config['DB']
+    ctype = (request.args.get('cartomancy_type') or '').strip()
+    if not ctype:
+        return jsonify({'error': 'cartomancy_type is required'}), 400
+    raw = (request.args.get('source_id') or '').strip()
+    source_id = None
+    if raw and raw != 'none':
+        try:
+            source_id = int(raw)
+        except ValueError:
+            return jsonify({'error': 'source_id must be an integer or "none"'}), 400
+    rows = db.get_meanings_by_source(ctype, source_id)
+    return jsonify([row_to_dict(r) for r in rows])
+
+
 @combinations_bp.route('/api/combinations/populated')
 def populated_combinations():
     """List combinations of a type that have at least one meaning.
