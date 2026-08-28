@@ -34,6 +34,7 @@ def register_blueprints(app):
     from backend.routes.name_cards import name_cards_bp
     from backend.routes.share import share_bp
     from backend.routes.profile_pdf import profile_pdf_bp
+    from backend.routes.reference_content import reference_content_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(prompts_bp)
@@ -63,3 +64,4 @@ def register_blueprints(app):
     app.register_blueprint(name_cards_bp)
     app.register_blueprint(share_bp)
     app.register_blueprint(profile_pdf_bp)
+    app.register_blueprint(reference_content_bp)

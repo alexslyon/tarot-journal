@@ -21,6 +21,7 @@ import './CommandPalette.css';
 export type PaletteAction =
   | { type: 'tab'; tab: TabId }
   | { type: 'settings'; section: string }
+  | { type: 'reference'; section: string }
   | { type: 'new-entry' }
   | { type: 'shortcuts' }
   | { type: 'deck'; id: number }
@@ -77,6 +78,21 @@ const SETTINGS_ITEMS: PaletteItem[] = ([
   group: 'Settings',
   label,
   action: { type: 'settings', section },
+}));
+
+// The Reference tab's content sections (its card-data sections are
+// reachable through the tab itself; these are the lookup pages worth
+// jumping straight to).
+const REFERENCE_ITEMS: PaletteItem[] = ([
+  ['astrology', 'Astrology'],
+  ['kabbalah', 'Kabbalah'],
+  ['numerology', 'Numerology'],
+  ['chakras', 'Chakras'],
+] as [string, string][]).map(([section, label]) => ({
+  key: `reference-${section}`,
+  group: 'Reference',
+  label,
+  action: { type: 'reference', section },
 }));
 
 const ACTION_ITEMS: PaletteItem[] = [
@@ -167,6 +183,7 @@ export default function CommandPalette({ open, onClose, onAction }: CommandPalet
     // types — an empty palette dumping the whole catalog (hundreds of
     // rows) buries the useful starting points.
     if (q) {
+      result.push(...REFERENCE_ITEMS.filter(i => matches(i.label)));
       result.push(...SETTINGS_ITEMS.filter(i => matches(i.label)));
       result.push(...decks.filter(d => matches(d.name)).map(d => ({
         key: `deck-${d.id}`,

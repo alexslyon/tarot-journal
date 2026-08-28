@@ -11,7 +11,7 @@ import ShortcutsOverlay from './components/common/ShortcutsOverlay';
 import LibraryTab from './components/library/LibraryTab';
 import JournalTab from './components/journal/JournalTab';
 import SpreadsTab from './components/spreads/SpreadsTab';
-import ReferenceTab from './components/reference/ReferenceTab';
+import ReferenceTab, { type ReferenceSectionId } from './components/reference/ReferenceTab';
 import ProfilesTab from './components/profiles/ProfilesTab';
 import StatsTab from './components/stats/StatsTab';
 import SettingsTab from './components/settings/SettingsTab';
@@ -61,6 +61,8 @@ export default function App() {
   const [pendingEntryId, setPendingEntryId] = useState<number | null>(null);
   const [pendingArchetype, setPendingArchetype] =
     useState<{ id: number; cartomancyType: string } | null>(null);
+  const [referenceSection, setReferenceSection] =
+    useState<ReferenceSectionId | undefined>();
 
   // Switching top-level tabs unmounts the current tab's editors, so a
   // dirty non-modal editor (e.g. a half-designed spread) would lose
@@ -164,6 +166,11 @@ export default function App() {
           setPendingArchetype({ id: action.id, cartomancyType: action.cartomancyType });
         }
         break;
+      case 'reference':
+        if (await guardedSwitchTab('reference')) {
+          setReferenceSection(action.section as ReferenceSectionId);
+        }
+        break;
     }
   }, [guardedSwitchTab]);
 
@@ -226,6 +233,8 @@ export default function App() {
                   onNavigateToSettings={handleNavigateToSettings}
                   pendingArchetype={pendingArchetype}
                   onPendingArchetypeHandled={() => setPendingArchetype(null)}
+                  initialSection={referenceSection}
+                  onSectionViewed={() => setReferenceSection(undefined)}
                 />
               )}
               {activeTab === 'insights' && <StatsTab />}

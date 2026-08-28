@@ -73,13 +73,20 @@ def default_tarot_card_ids(db):
     return out
 
 
-def _hydrate(profile, eight_eleven, court_system, db):
-    """Attach display names, archetype ids, and (when a default Tarot
-    deck is set) card ids for images to every card reference."""
+def make_card_hydrators(db, eight_eleven='golden_dawn'):
+    """Build (major, minor, by_card_name) hydrator functions that attach
+    display names, archetype ids, and (when a default Tarot deck is set)
+    card ids for images. Shared with the reference-content routes.
+
+    major(n, canonical=True) keeps the canonical Golden Dawn name even
+    under the Marseille 8/11 preference — astrological/kabbalistic
+    attributions are card identities (Leo IS the Strength card), so the
+    numbering toggle deliberately doesn't rename those.
+    """
     by_rank, by_name = tarot_archetype_ids(db)
     card_ids = default_tarot_card_ids(db)
 
-    def major(n):
+    def major(n, canonical=False):
         if n is None:
             return None
         # Image lookup tries both 8/11 labels plus Thoth aliases, so a
@@ -95,7 +102,7 @@ def _hydrate(profile, eight_eleven, court_system, db):
             None)
         return {
             'number': n,
-            'name': bc.major_name(n, eight_eleven),
+            'name': bc.MAJOR_NAMES[n] if canonical else bc.major_name(n, eight_eleven),
             'archetype_id': by_rank.get(bc.major_archetype_rank(n)),
             'card_id': card_id,
         }
@@ -110,13 +117,24 @@ def _hydrate(profile, eight_eleven, court_system, db):
             'card_id': card_ids.get(name.lower()),
         }
 
+    def by_card_name(name):
+        """Hydrate an arbitrary card name (e.g. 'Queen of Wands')."""
+        return {
+            'name': name,
+            'archetype_id': by_name.get(name.lower()),
+            'card_id': card_ids.get(name.lower()),
+        }
+
+    return major, minor, by_card_name
+
+
+def _hydrate(profile, eight_eleven, court_system, db):
+    """Attach display names, archetype ids, and (when a default Tarot
+    deck is set) card ids for images to every card reference."""
+    major, minor, by_card_name = make_card_hydrators(db, eight_eleven)
+
     def ruler_major(n):
-        """Like major(), but always the canonical Golden Dawn name:
-        astrological attributions are card identities (Leo IS the
-        Strength card), so the 8/11 numbering toggle doesn't apply."""
-        hydrated = major(n)
-        hydrated['name'] = bc.MAJOR_NAMES[n]
-        return hydrated
+        return major(n, canonical=True)
 
     rulers = bc.zodiacal_rulers(profile['zodiacal_card'])
     court = bc.decan_court(profile['zodiacal_card'], court_system)
@@ -138,9 +156,7 @@ def _hydrate(profile, eight_eleven, court_system, db):
         'decan_court': {
             'rank': court['rank'],
             'suit': court['suit'],
-            'name': court['name'],
-            'archetype_id': by_name.get(court['name'].lower()),
-            'card_id': card_ids.get(court['name'].lower()),
+            **by_card_name(court['name']),
         },
     }
     for key in ('year_card', 'generic_year', 'personal_month'):

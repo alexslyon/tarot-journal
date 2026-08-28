@@ -2,17 +2,29 @@ import { useEffect, useState } from 'react';
 import CorrespondencesViewer from './sections/CorrespondencesViewer';
 import CombinationsViewer from './sections/CombinationsViewer';
 import ArchetypesViewer from './sections/ArchetypesViewer';
+import AstrologySection from './sections/AstrologySection';
+import KabbalahSection from './sections/KabbalahSection';
+import NumerologySection from './sections/NumerologySection';
+import ChakrasSection from './sections/ChakrasSection';
 import './ReferenceTab.css';
 
-type ReferenceSectionId =
+export type ReferenceSectionId =
   | 'archetypes'
   | 'correspondences'
-  | 'combinations';
+  | 'combinations'
+  | 'astrology'
+  | 'kabbalah'
+  | 'numerology'
+  | 'chakras';
 
-const SECTIONS: { id: ReferenceSectionId; label: string }[] = [
+export const REFERENCE_SECTIONS: { id: ReferenceSectionId; label: string }[] = [
   { id: 'archetypes', label: 'Archetypes' },
   { id: 'correspondences', label: 'Correspondences' },
   { id: 'combinations', label: 'Combinations' },
+  { id: 'astrology', label: 'Astrology' },
+  { id: 'kabbalah', label: 'Kabbalah' },
+  { id: 'numerology', label: 'Numerology' },
+  { id: 'chakras', label: 'Chakras' },
 ];
 
 interface ReferenceTabProps {
@@ -47,6 +59,11 @@ export default function ReferenceTab({
   onPendingArchetypeHandled,
 }: ReferenceTabProps) {
   const [activeSection, setActiveSection] = useState<ReferenceSectionId>('archetypes');
+  // "In your correspondences" chips in the content sections jump to
+  // the Archetypes viewer — same mechanism as the palette's deep link,
+  // but originating inside this tab.
+  const [localArchetype, setLocalArchetype] =
+    useState<{ id: number; cartomancyType: string } | null>(null);
 
   // A pending archetype always lands on the Archetypes section.
   useEffect(() => {
@@ -54,16 +71,21 @@ export default function ReferenceTab({
   }, [pendingArchetype]);
 
   useEffect(() => {
-    if (initialSection && SECTIONS.some(s => s.id === initialSection)) {
+    if (initialSection && REFERENCE_SECTIONS.some(s => s.id === initialSection)) {
       setActiveSection(initialSection);
       onSectionViewed?.();
     }
   }, [initialSection, onSectionViewed]);
 
+  const openArchetype = (id: number, cartomancyType: string) => {
+    setLocalArchetype({ id, cartomancyType });
+    setActiveSection('archetypes');
+  };
+
   return (
     <div className="reference-layout">
       <nav className="reference-layout__sidebar">
-        {SECTIONS.map(section => (
+        {REFERENCE_SECTIONS.map(section => (
           <button
             key={section.id}
             className={`reference-layout__nav-item ${activeSection === section.id ? 'reference-layout__nav-item--active' : ''}`}
@@ -76,8 +98,11 @@ export default function ReferenceTab({
       <div className="reference-layout__content">
         {activeSection === 'archetypes' && (
           <ArchetypesViewer
-            pendingArchetype={pendingArchetype}
-            onPendingArchetypeHandled={onPendingArchetypeHandled}
+            pendingArchetype={pendingArchetype ?? localArchetype}
+            onPendingArchetypeHandled={() => {
+              setLocalArchetype(null);
+              onPendingArchetypeHandled?.();
+            }}
             onNavigateToSettings={
               onNavigateToSettings
                 ? (section, payload) => onNavigateToSettings(section, payload)
@@ -96,6 +121,18 @@ export default function ReferenceTab({
         )}
         {activeSection === 'combinations' && (
           <CombinationsViewer />
+        )}
+        {activeSection === 'astrology' && (
+          <AstrologySection onOpenArchetype={openArchetype} />
+        )}
+        {activeSection === 'kabbalah' && (
+          <KabbalahSection onOpenArchetype={openArchetype} />
+        )}
+        {activeSection === 'numerology' && (
+          <NumerologySection onOpenArchetype={openArchetype} />
+        )}
+        {activeSection === 'chakras' && (
+          <ChakrasSection onOpenArchetype={openArchetype} />
         )}
       </div>
     </div>

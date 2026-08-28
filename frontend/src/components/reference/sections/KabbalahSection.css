@@ -1,0 +1,43 @@
+.kabbalah__hebrew {
+  font-size: 0.85em;
+  color: var(--tj-text-muted);
+  margin-left: 4px;
+}
+
+.kabbalah__table-wrap {
+  overflow-x: auto;
+}
+
+.kabbalah__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--tj-size-small);
+}
+
+.kabbalah__table th {
+  text-align: left;
+  padding: 6px 10px;
+  color: var(--tj-text-kicker);
+  font-size: var(--tj-size-kicker);
+  letter-spacing: var(--tj-kicker-tracking);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--tj-hairline-strong);
+}
+
+.kabbalah__table td {
+  padding: 6px 10px;
+  color: var(--tj-text);
+  border-bottom: 1px solid var(--tj-hairline);
+}
+
+.kabbalah__table tbody tr {
+  cursor: pointer;
+}
+
+.kabbalah__table tbody tr:hover {
+  background: var(--tj-tint-hover);
+}
+
+.kabbalah__row--active td {
+  background: rgb(var(--tj-accent-rgb) / 10%);
+}
