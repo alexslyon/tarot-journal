@@ -15,6 +15,7 @@ computed, never stored here.
 """
 
 from collections import defaultdict
+from datetime import date
 
 from flask import Blueprint, jsonify, request, current_app
 
@@ -168,11 +169,14 @@ def astrology():
             'assigned': _assigned(index, 'planet', planet['name']),
         })
 
+    # Today's decan, for the wheel's "you are here" marker.
+    today_ref = bc.zodiacal_card(date.today())
     return jsonify({
         'eight_eleven': eight_eleven,
         'court_system': court_system,
         'signs': signs,
         'planets': planets,
+        'today_decan': bc.decan_position(today_ref),
     })
 
 

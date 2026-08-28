@@ -283,6 +283,13 @@ def decan_court(ref: dict, system: str = 'golden_dawn') -> dict:
     }
 
 
+def decan_position(ref: dict) -> dict:
+    """Where a decan Minor sits on the wheel: its sign and which of the
+    sign's three decans it is (1-3)."""
+    i = _DECAN_INDEX[(ref['rank'], ref['suit'])]
+    return {'sign': _SIGN_ORDER[i // 3], 'index': i % 3 + 1}
+
+
 def zodiacal_rulers(ref: dict) -> dict:
     """Sign and planetary rulers of a decan Minor, with each ruler's
     Major Arcana trump (Golden Dawn attributions)."""

@@ -64,6 +64,8 @@ export interface AstrologyData {
   court_system: CourtSystem;
   signs: SignRef[];
   planets: PlanetRef[];
+  /** Which decan today's date falls in (the wheel's marker). */
+  today_decan: { sign: string; index: 1 | 2 | 3 };
 }
 
 export interface SephiraRef {

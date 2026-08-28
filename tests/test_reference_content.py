@@ -114,6 +114,21 @@ def test_astrology_endpoint(client):
     assert uranus['modern_attribution'] is True
 
 
+def test_astrology_today_decan_and_positions(client):
+    """The wheel's markers: today's decan is always a real position,
+    and decan_position round-trips the decan table."""
+    assert bc.decan_position({'rank': 2, 'suit': 'Wands'}) == {
+        'sign': 'Aries', 'index': 1}
+    # The year-boundary wrap decan sits in Capricorn II
+    assert bc.decan_position({'rank': 3, 'suit': 'Pentacles'}) == {
+        'sign': 'Capricorn', 'index': 2}
+
+    data = client.get('/api/reference/astrology').get_json()
+    today = data['today_decan']
+    assert today['sign'] in [s['name'] for s in rc.SIGNS]
+    assert today['index'] in (1, 2, 3)
+
+
 def test_kabbalah_endpoint(client):
     data = client.get('/api/reference/kabbalah').get_json()
     assert len(data['sephiroth']) == 10

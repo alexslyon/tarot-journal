@@ -1,0 +1,164 @@
+.decan-wheel {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.decan-wheel__chart {
+  flex: 1 1 380px;
+  min-width: 320px;
+  max-width: 560px;
+}
+
+.decan-wheel__chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Rings — theme-aware fills only */
+.decan-wheel__sign {
+  fill: var(--tj-well);
+  stroke: var(--tj-hairline-strong);
+  stroke-width: 1;
+}
+
+.decan-wheel__sign-glyph {
+  fill: var(--tj-text-accent);
+  font-size: 22px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.decan-wheel__decan {
+  fill: var(--tj-panel);
+  stroke: var(--tj-hairline);
+  stroke-width: 1;
+  cursor: pointer;
+  transition: fill 0.12s;
+}
+
+.decan-wheel__decan--hover {
+  fill: var(--tj-tint-hover);
+}
+
+.decan-wheel__decan--selected {
+  fill: rgb(var(--tj-accent-rgb) / 26%);
+  stroke: rgb(var(--tj-accent-rgb) / 70%);
+  stroke-width: 1.5;
+}
+
+.decan-wheel__decan--today {
+  stroke: var(--tj-text-accent);
+  stroke-width: 2;
+}
+
+.decan-wheel__decan--profile {
+  stroke: var(--tj-text);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+
+.decan-wheel__planet-glyph {
+  fill: var(--tj-text-muted);
+  font-size: 15px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.decan-wheel__court {
+  fill: rgb(var(--tj-accent-rgb) / 10%);
+  stroke: rgb(var(--tj-accent-rgb) / 36%);
+  stroke-width: 1;
+}
+
+.decan-wheel__court-label {
+  fill: var(--tj-text-muted);
+  font-size: 11px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+/* Controls under the chart */
+.decan-wheel__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  margin-top: 10px;
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-muted);
+}
+
+.decan-wheel__control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.decan-wheel__legend {
+  display: inline-flex;
+  gap: 14px;
+}
+
+.decan-wheel__legend-item {
+  position: relative;
+  padding-left: 20px;
+}
+
+.decan-wheel__legend-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 3px;
+}
+
+.decan-wheel__legend-item--today::before {
+  background: var(--tj-text-accent);
+}
+
+.decan-wheel__legend-item--profile::before {
+  background:
+    repeating-linear-gradient(90deg,
+      var(--tj-text) 0 4px, transparent 4px 7px);
+}
+
+/* Side panel */
+.decan-wheel__panel {
+  flex: 1 1 300px;
+  min-width: 280px;
+  background: var(--tj-panel);
+  border-radius: var(--tj-radius-panel);
+  padding: var(--tj-panel-pad);
+}
+
+.decan-wheel__courts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.decan-wheel__court-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--tj-radius-row);
+  border: 1px solid var(--tj-hairline);
+}
+
+.decan-wheel__court-cell--pref {
+  border-color: rgb(var(--tj-accent-rgb) / 45%);
+}
+
+.decan-wheel__court-system {
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-muted);
+}

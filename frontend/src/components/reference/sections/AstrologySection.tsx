@@ -17,6 +17,7 @@ import {
   useCardPeek,
   useReferenceSystem,
 } from './referenceShared';
+import DecanWheel from './DecanWheel';
 import '../ReferenceTab.css';
 
 const COURT_SYSTEM_LABELS: Record<CourtSystem, string> = {
@@ -30,7 +31,7 @@ interface AstrologySectionProps {
 }
 
 export default function AstrologySection({ onOpenArchetype }: AstrologySectionProps) {
-  const [tab, setTab] = useState<'signs' | 'planets'>('signs');
+  const [tab, setTab] = useState<'signs' | 'planets' | 'wheel'>('signs');
   const [signName, setSignName] = useState('Aries');
   const [planetName, setPlanetName] = useState('Sun');
   const { systems, systemId, setSystemId } = useReferenceSystem();
@@ -72,6 +73,13 @@ export default function AstrologySection({ onOpenArchetype }: AstrologySectionPr
           onClick={() => setTab('planets')}
         >
           Planets
+        </button>
+        <button
+          type="button"
+          className={`ref-subtabs__tab ${tab === 'wheel' ? 'ref-subtabs__tab--active' : ''}`}
+          onClick={() => setTab('wheel')}
+        >
+          Decan Wheel
         </button>
       </div>
 
@@ -232,6 +240,10 @@ export default function AstrologySection({ onOpenArchetype }: AstrologySectionPr
             </div>
           )}
         </>
+      )}
+
+      {data && tab === 'wheel' && (
+        <DecanWheel data={data} openCard={openCard} />
       )}
 
       {cardModal}
