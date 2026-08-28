@@ -15,6 +15,7 @@ import {
   useCardPeek,
   useReferenceSystem,
 } from './referenceShared';
+import TreeOfLife from './TreeOfLife';
 import '../ReferenceTab.css';
 import './KabbalahSection.css';
 
@@ -29,7 +30,7 @@ interface KabbalahSectionProps {
 }
 
 export default function KabbalahSection({ onOpenArchetype }: KabbalahSectionProps) {
-  const [tab, setTab] = useState<'sephiroth' | 'paths'>('sephiroth');
+  const [tab, setTab] = useState<'tree' | 'sephiroth' | 'paths'>('tree');
   const [sephiraNumber, setSephiraNumber] = useState(1);
   const [pathNumber, setPathNumber] = useState(11);
   const { systems, systemId, setSystemId } = useReferenceSystem();
@@ -59,6 +60,13 @@ export default function KabbalahSection({ onOpenArchetype }: KabbalahSectionProp
       <div className="ref-subtabs">
         <button
           type="button"
+          className={`ref-subtabs__tab ${tab === 'tree' ? 'ref-subtabs__tab--active' : ''}`}
+          onClick={() => setTab('tree')}
+        >
+          Tree of Life
+        </button>
+        <button
+          type="button"
           className={`ref-subtabs__tab ${tab === 'sephiroth' ? 'ref-subtabs__tab--active' : ''}`}
           onClick={() => setTab('sephiroth')}
         >
@@ -75,6 +83,10 @@ export default function KabbalahSection({ onOpenArchetype }: KabbalahSectionProp
 
       {isLoading && <p className="reference-section__hint">Loading…</p>}
       {isError && <QueryError what="Kabbalah reference" onRetry={() => refetch()} />}
+
+      {data && tab === 'tree' && (
+        <TreeOfLife data={data} openCard={openCard} onOpenArchetype={onOpenArchetype} />
+      )}
 
       {data && tab === 'sephiroth' && (
         <>

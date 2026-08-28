@@ -1,0 +1,103 @@
+.tree-of-life {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.tree-of-life__chart {
+  flex: 1 1 340px;
+  min-width: 300px;
+  max-width: 460px;
+}
+
+.tree-of-life__chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.tree-of-life__path {
+  stroke: var(--tj-hairline-strong);
+  stroke-width: 3;
+  transition: stroke 0.12s;
+}
+
+.tree-of-life__path--lit {
+  stroke: rgb(var(--tj-accent-rgb) / 45%);
+}
+
+.tree-of-life__path--active {
+  stroke: rgb(var(--tj-accent-rgb) / 85%);
+  stroke-width: 4;
+}
+
+.tree-of-life__path-hit {
+  stroke: transparent;
+  stroke-width: 16;
+  cursor: pointer;
+}
+
+/* Hovering the hit line lights the visible line beneath it */
+.tree-of-life__path-hit:hover + .tree-of-life__letter .tree-of-life__letter-bg {
+  fill: var(--tj-tint-hover);
+}
+
+.tree-of-life__letter-bg {
+  fill: var(--tj-canvas);
+  stroke: var(--tj-hairline);
+  stroke-width: 1;
+}
+
+.tree-of-life__letter-glyph {
+  fill: var(--tj-text-muted);
+  font-size: 13px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.tree-of-life__sephira {
+  cursor: pointer;
+}
+
+.tree-of-life__circle {
+  fill: var(--tj-panel);
+  stroke: var(--tj-hairline-strong);
+  stroke-width: 1.5;
+  transition: fill 0.12s, stroke 0.12s;
+}
+
+.tree-of-life__sephira:hover .tree-of-life__circle {
+  fill: var(--tj-tint-hover);
+}
+
+.tree-of-life__sephira--active .tree-of-life__circle {
+  fill: rgb(var(--tj-accent-rgb) / 22%);
+  stroke: rgb(var(--tj-accent-rgb) / 75%);
+  stroke-width: 2;
+}
+
+.tree-of-life__sephira-number {
+  fill: var(--tj-text-accent);
+  font-size: 15px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.tree-of-life__sephira-name {
+  fill: var(--tj-text-muted);
+  font-size: 11px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.tree-of-life__panel {
+  flex: 1 1 300px;
+  min-width: 280px;
+  background: var(--tj-panel);
+  border-radius: var(--tj-radius-panel);
+  padding: var(--tj-panel-pad);
+}
