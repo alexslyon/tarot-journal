@@ -406,3 +406,32 @@ def test_api_year_series_and_majors_map(client, db):
     assert y1990['card'] == 4
     assert data['majors_by_number']['4']['name'] == 'The Emperor'
     assert len(data['majors_by_number']) == 22
+
+
+def test_profile_pdf_birth_card_context_merges_identical_methods(client, db):
+    """Both-methods PDF export: per-method cores + one shared block;
+    identical patterns collapse to a single core with an agree note."""
+    from backend.routes.profile_pdf import _birth_card_context
+
+    # Divergent date: Greer 7-7 vs Amberstone 16-7
+    pid = db.add_profile('Div', birth_date='1945-12-12')
+    profile = dict(db.get_profile(pid))
+    ctx = _birth_card_context(db, None, profile, ['greer', 'amberstone'])
+    assert [c['pattern'] for c in ctx['cores']] == ['7-7', '16-7']
+    assert 'Greer method' in ctx['cores'][0]['method_label']
+    # Shared block exists exactly once with the method-invariant parts
+    assert len(ctx['shared']['cards']['lessons_and_opportunities']) == 4
+    assert ctx['karmic_year'] == 1969
+
+    # Agreeing date: 1990-06-15 -> Greer 2011->4, Amberstone 130->4
+    pid2 = db.add_profile('Same', birth_date='1990-06-15')
+    profile2 = dict(db.get_profile(pid2))
+    ctx2 = _birth_card_context(db, None, profile2, ['greer', 'amberstone'])
+    assert len(ctx2['cores']) == 1
+    assert ctx2['cores'][0]['pattern'] == '4-4'
+    assert 'both give the same cards' in ctx2['cores'][0]['method_label']
+
+    # Single-method requests keep their plain label
+    ctx3 = _birth_card_context(db, None, profile, ['greer'])
+    assert len(ctx3['cores']) == 1
+    assert ctx3['cores'][0]['method_label'].startswith('Greer method')

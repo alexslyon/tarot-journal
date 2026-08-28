@@ -60,52 +60,60 @@
     {% endif %}
   {% endmacro %}
 
-  {% for block in birth_blocks %}
+  {% if birth_cards %}
     <section class="cards-section">
-      <h2 class="section-title">Birth Cards — {{ block.method_label }}</h2>
-      <div class="cards-section__pattern">Pattern {{ block.pattern }}</div>
+      <h2 class="section-title">Birth Cards</h2>
 
-      <div class="tile-row">
-        {% if block.personality == block.soul %}
-          {{ tile(block.cards.personality, 'Personality & Soul') }}
-        {% else %}
-          {{ tile(block.cards.personality, 'Personality') }}
-          {{ tile(block.cards.soul, 'Soul') }}
-        {% endif %}
-        {{ tile(block.cards.teacher, 'Teacher') }}
-        {% for card in block.cards.hidden_factor %}
-          {{ tile(card, 'Hidden Factor') }}
-        {% endfor %}
-      </div>
+      {# Per-method cores first — only these change between the Greer
+         and Amberstone additions; a single core with a combined label
+         means the two methods agree for this birth date. #}
+      {% for core in birth_cards.cores %}
+        <h3 class="sub-title">{{ core.method_label }}</h3>
+        <div class="cards-section__pattern">Pattern {{ core.pattern }}</div>
+        <div class="tile-row">
+          {% if core.personality == core.soul %}
+            {{ tile(core.cards.personality, 'Personality & Soul') }}
+          {% else %}
+            {{ tile(core.cards.personality, 'Personality') }}
+            {{ tile(core.cards.soul, 'Soul') }}
+          {% endif %}
+          {{ tile(core.cards.teacher, 'Teacher') }}
+          {% for card in core.cards.hidden_factor %}
+            {{ tile(card, 'Hidden Factor') }}
+          {% endfor %}
+        </div>
+        <p class="note">
+          {% if core.dynamic %}Dynamic group {{ core.dynamic }} of 3.{% endif %}
+          {% if core.fool_center %}The Fool sits at the center of all three dynamics.{% endif %}
+        </p>
+      {% endfor %}
 
+      {# The rest never varies by method — shown once. #}
+      {% set shared = birth_cards.shared %}
       <h3 class="sub-title">Lessons &amp; Opportunities</h3>
       <div class="tile-row tile-row--small">
-        {% for card in block.cards.lessons_and_opportunities %}
+        {% for card in shared.cards.lessons_and_opportunities %}
           {{ tile(card, none) }}
         {% endfor %}
       </div>
 
       <h3 class="sub-title">Zodiacal Lesson &amp; Opportunity</h3>
       <div class="tile-row tile-row--small">
-        {{ tile(block.cards.zodiacal, "Birthday's decan") }}
-        {{ tile(block.cards.zodiacal_sign_ruler, 'Zodiacal ruler — ' ~ block.zodiacal_rulers.sign) }}
-        {{ tile(block.cards.zodiacal_planet_ruler, 'Planetary ruler — ' ~ block.zodiacal_rulers.planet) }}
-        {{ tile(block.cards.decan_court, 'Court ruler — ' ~ block.decan_court.span) }}
+        {{ tile(shared.cards.zodiacal, "Birthday's decan") }}
+        {{ tile(shared.cards.zodiacal_sign_ruler, 'Zodiacal ruler — ' ~ shared.zodiacal_rulers.sign) }}
+        {{ tile(shared.cards.zodiacal_planet_ruler, 'Planetary ruler — ' ~ shared.zodiacal_rulers.planet) }}
+        {{ tile(shared.cards.decan_court, 'Court ruler — ' ~ shared.decan_court.span) }}
       </div>
 
-      <h3 class="sub-title">{{ block.reference_year }} Cards</h3>
+      <h3 class="sub-title">{{ birth_cards.reference_year }} Cards</h3>
       <div class="tile-row tile-row--small">
-        {{ tile(block.cards.year_card, 'Year Card ' ~ block.reference_year) }}
-        {{ tile(block.cards.personal_month, 'Personal Month') }}
-        {{ tile(block.cards.generic_year, 'Generic Year') }}
+        {{ tile(shared.cards.year_card, 'Year Card ' ~ birth_cards.reference_year) }}
+        {{ tile(shared.cards.personal_month, 'Personal Month') }}
+        {{ tile(shared.cards.generic_year, 'Generic Year') }}
       </div>
-      <p class="note">
-        Karmic Year: {{ block.karmic_year }}.
-        {% if block.dynamic %}Dynamic group {{ block.dynamic }} of 3.{% endif %}
-        {% if block.fool_center %}The Fool sits at the center of all three dynamics.{% endif %}
-      </p>
+      <p class="note">Karmic Year: {{ birth_cards.karmic_year }}.</p>
     </section>
-  {% endfor %}
+  {% endif %}
 
   {# ── Name cards ── #}
   {% if name_block %}

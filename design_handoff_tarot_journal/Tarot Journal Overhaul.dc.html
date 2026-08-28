@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=Inter:wght@300;400;500;600&family=Cormorant+Garamond:wght@400;600&family=Lora:ital,wght@0,400;0,600;1,400&family=Newsreader:ital,wght@0,300;0,400;1,300&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  body { margin: 0; background: #34322f; }
+  a { color: inherit; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>
+</helmet>
+
+<section id="8a" style="position:absolute;left:0px;top:0px;width:1440px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">8a</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300">Command palette</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400">⌘K · finds cards and entries as well as commands, so it doubles as the search</span>
+  </div>
+
+  <div style="width:1440px;height:940px;background:radial-gradient(120% 80% at 50% -10%,#232544 0%,#161826 60%);color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5);position:relative">
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;filter:blur(1.5px)">
+      <div style="display:flex;align-items:center;gap:18px;padding:16px 24px">
+        <div style="display:flex;gap:7px"><span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span><span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span><span style="width:10px;height:10px;border-radius:50%;background:#5d5294"></span></div>
+        <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;color:#cfd3e5">Tarot Journal</span>
+        <span style="flex:1"></span>
+        <div style="display:flex;gap:3px;padding:3px;border-radius:999px;background:rgba(35,37,50,.8)"><span style="padding:7px 16px;border-radius:999px;font-size:13px;color:#75798c">Library</span><span style="padding:7px 16px;border-radius:999px;font-size:13px;color:#75798c">Spreads</span><span style="padding:7px 16px;border-radius:999px;font-size:13px;color:#cfd3e5;background:rgba(145,132,217,.18)">Journal</span><span style="padding:7px 16px;border-radius:999px;font-size:13px;color:#75798c">Reference</span><span style="padding:7px 16px;border-radius:999px;font-size:13px;color:#75798c">Insights</span></div>
+        <span style="flex:1"></span>
+      </div>
+      <div style="flex:1;display:grid;grid-template-columns:372px 1fr;gap:24px;padding:0 18px 18px">
+        <div style="border-radius:14px;background:rgba(29,31,46,.66)"></div>
+        <div style="padding-top:12px">
+          <div style="width:220px;height:11px;border-radius:999px;background:rgba(145,132,217,.3)"></div>
+          <div style="width:520px;height:42px;border-radius:8px;background:rgba(233,233,237,.09);margin-top:16px"></div>
+          <div style="display:grid;grid-template-columns:1fr 316px;gap:24px;margin-top:34px;height:600px"><div style="border-radius:14px;background:rgba(29,31,46,.5)"></div><div style="border-radius:14px;background:rgba(29,31,46,.5)"></div></div>
+        </div>
+      </div>
+    </div>
+    <div style="position:absolute;inset:0;background:rgba(11,12,20,.7)"></div>
+
+    <div style="position:absolute;left:50%;top:104px;transform:translateX(-50%);width:720px;border-radius:14px;background:#1a1c2c;box-shadow:inset 0 0 0 1px rgba(233,233,237,.12),0 30px 70px rgba(0,0,0,.6);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:12px;padding:18px 22px">
+        <svg width="17" height="17" viewBox="0 0 256 256" fill="#968ae0" style="flex-shrink:0"><path d="M229.66 218.34l-50.07-50.06a88.11 88.11 0 1 0-11.31 11.31l50.06 50.07a8 8 0 0 0 11.32-11.32zM40 112a72 72 0 1 1 72 72 72.08 72.08 0 0 1-72-72z"></path></svg>
+        <span style="flex:1;font-size:17px;color:#e9e9ed">moon<span style="display:inline-block;width:1px;height:19px;background:#b5abfc;vertical-align:-4px;margin-left:1px"></span></span>
+        <span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#5a5e70;padding:4px 8px;border-radius:6px;background:rgba(233,233,237,.06)">esc</span>
+      </div>
+      <div style="height:1px;background:linear-gradient(to right,transparent,rgba(233,233,237,.12) 48px,rgba(233,233,237,.12) calc(100% - 48px),transparent)"></div>
+
+      <div style="padding:10px 0 8px">
+        <sc-for list="{{ paletteGroups }}" as="g" hint-placeholder-count="4">
+          <div style="padding:10px 22px 4px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#5a5e70">{{ g.label }}</div>
+          <sc-for list="{{ g.items }}" as="i" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:14px;padding:10px 22px;background:{{ i.bg }};cursor:pointer" style-hover="background:rgba(233,233,237,.05)">
+              <span style="width:20px;flex-shrink:0;display:flex;justify-content:center;color:{{ i.iconColor }}"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="{{ i.icon }}"></path></svg></span>
+              <span style="flex:1;min-width:0;font-size:14px;color:{{ i.titleColor }};overflow:hidden;white-space:nowrap;text-overflow:ellipsis">{{ i.title }}</span>
+              <span style="font-size:12px;color:#75798c;white-space:nowrap">{{ i.meta }}</span>
+              <span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:{{ i.keyColor }};padding:3px 7px;border-radius:6px;background:{{ i.keyBg }};min-width:34px;text-align:center">{{ i.key }}</span>
+            </div>
+          </sc-for>
+        </sc-for>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:20px;padding:12px 22px;background:rgba(22,24,38,.6)">
+        <span style="display:flex;align-items:center;gap:7px;font-size:12px;color:#75798c"><span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;padding:2px 6px;border-radius:5px;background:rgba(233,233,237,.07)">↑↓</span>navigate</span>
+        <span style="display:flex;align-items:center;gap:7px;font-size:12px;color:#75798c"><span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;padding:2px 6px;border-radius:5px;background:rgba(233,233,237,.07)">↵</span>open</span>
+        <span style="display:flex;align-items:center;gap:7px;font-size:12px;color:#75798c"><span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;padding:2px 6px;border-radius:5px;background:rgba(233,233,237,.07)">⌘↵</span>open in new window</span>
+        <span style="flex:1"></span>
+        <span style="font-size:12px;color:#5a5e70">31 results</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="8b" style="position:absolute;left:1540px;top:0px;width:1440px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">8b</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300">Shortcuts</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400">? opens it · grouped by where you are, not alphabetically</span>
+  </div>
+
+  <div style="width:1440px;height:940px;background:radial-gradient(120% 80% at 50% -10%,#232544 0%,#161826 60%);color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5);position:relative">
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;filter:blur(1.5px)">
+      <div style="display:flex;align-items:center;gap:18px;padding:16px 24px">
+        <div style="display:flex;gap:7px"><span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span><span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span><span style="width:10px;height:10px;border-radius:50%;background:#5d5294"></span></div>
+        <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;color:#cfd3e5">Tarot Journal</span>
+      </div>
+      <div style="flex:1;display:grid;grid-template-columns:372px 1fr;gap:24px;padding:0 18px 18px">
+        <div style="border-radius:14px;background:rgba(29,31,46,.66)"></div>
+        <div style="border-radius:14px;background:rgba(29,31,46,.4)"></div>
+      </div>
+    </div>
+    <div style="position:absolute;inset:0;background:rgba(11,12,20,.72)"></div>
+
+    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:940px;border-radius:14px;background:#1a1c2c;box-shadow:inset 0 0 0 1px rgba(233,233,237,.12),0 30px 70px rgba(0,0,0,.6);padding:32px 36px 30px">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+        <div>
+          <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#968ae0;margin-bottom:8px">Keyboard</div>
+          <div style="font-family:'Newsreader',Georgia,serif;font-size:34px;font-weight:300;line-height:1.1">Shortcuts</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <span style="font-size:12px;color:#75798c">Editable in Settings → Shortcuts</span>
+          <span style="width:30px;height:30px;border-radius:999px;background:rgba(233,233,237,.07);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:rgba(233,233,237,.14)"><svg width="11" height="11" viewBox="0 0 256 256" fill="#b2b6ca"><path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128 50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128z"></path></svg></span>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:34px;margin-top:30px">
+        <sc-for list="{{ shortcutGroups }}" as="g" hint-placeholder-count="6">
+          <div>
+            <div style="font-family:'Newsreader',Georgia,serif;font-size:19px;color:#cfd3e5;padding-bottom:10px">{{ g.label }}</div>
+            <div style="height:1px;background:linear-gradient(to right,rgba(233,233,237,.14),rgba(233,233,237,.14) calc(100% - 32px),transparent)"></div>
+            <div style="display:flex;flex-direction:column;margin-top:6px">
+              <sc-for list="{{ g.items }}" as="s" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:14px;padding:8px 0">
+                  <span style="flex:1;min-width:0;font-size:13px;color:#b2b6ca">{{ s.label }}</span>
+                  <span style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:#d2cefd;padding:3px 9px;border-radius:6px;background:rgba(233,233,237,.07);white-space:nowrap">{{ s.key }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="8c" style="position:absolute;left:3080px;top:0px;width:1440px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">8c</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300">Unsaved changes</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400">Names what would be lost, and keeps the draft as the safe default</span>
+  </div>
+
+  <div style="width:1440px;height:940px;background:radial-gradient(120% 80% at 50% -10%,#232544 0%,#161826 60%);color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5);position:relative">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;filter:blur(2px)">
+      <div style="width:1180px;height:850px;border-radius:14px;background:#1a1c2c;box-shadow:inset 0 0 0 1px rgba(233,233,237,.1);padding:24px 28px">
+        <div style="width:180px;height:10px;border-radius:999px;background:rgba(145,132,217,.3)"></div>
+        <div style="width:480px;height:38px;border-radius:8px;background:rgba(233,233,237,.09);margin-top:14px"></div>
+        <div style="display:grid;grid-template-columns:1fr 360px;gap:20px;margin-top:26px;height:700px"><div style="border-radius:14px;background:rgba(29,31,46,.66)"></div><div style="border-radius:14px;background:rgba(29,31,46,.66)"></div></div>
+      </div>
+    </div>
+    <div style="position:absolute;inset:0;background:rgba(11,12,20,.74)"></div>
+
+    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:520px;border-radius:14px;background:#1a1c2c;box-shadow:inset 0 0 0 1px rgba(233,233,237,.12),0 30px 70px rgba(0,0,0,.6);padding:30px 32px 26px">
+      <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#968ae0;margin-bottom:10px">Draft · 4 minutes of work</div>
+      <div style="font-family:'Newsreader',Georgia,serif;font-size:30px;font-weight:300;line-height:1.14">Close “Threshold at the New Moon” without saving?</div>
+      <p style="font-size:13.5px;color:#b2b6ca;margin:14px 0 0;text-wrap:pretty">The reading has not been written to your vault yet.</p>
+      <div style="margin-top:18px;padding:16px 18px;border-radius:14px;background:rgba(22,24,38,.7);box-shadow:inset 0 0 0 1px rgba(233,233,237,.08)">
+        <sc-for list="{{ unsavedItems }}" as="u" hint-placeholder-count="3">
+          <div style="display:flex;align-items:baseline;gap:12px;padding:4px 0">
+            <span style="width:5px;height:5px;border-radius:50%;background:#5d5294;flex-shrink:0;transform:translateY(-3px)"></span>
+            <span style="flex:1;font-size:13px;color:#cfd3e5">{{ u }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:24px">
+        <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13.5px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:11px 22px" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">Save and close</button>
+        <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-size:13.5px;color:#cfd3e5;background:transparent;border:1px solid rgba(233,233,237,.14);border-radius:999px;padding:11px 20px" style-hover="background:rgba(233,233,237,.06)">Keep editing</button>
+        <span style="flex:1"></span>
+        <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#9397ab;background:transparent;border:0;padding:11px 4px" style-hover="color:#e9e9ed;text-decoration:underline">Discard</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="8d" style="position:absolute;left:4620px;top:0px;width:1440px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">8d</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300">Delete entry</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400">No red in the palette — so weight, an inventory, and a typed confirmation carry the risk</span>
+  </div>
+
+  <div style="width:1440px;height:940px;background:radial-gradient(120% 80% at 50% -10%,#232544 0%,#161826 60%);color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5);position:relative">
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;filter:blur(2px)">
+      <div style="display:flex;align-items:center;gap:18px;padding:16px 24px">
+        <div style="display:flex;gap:7px"><span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span><span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span><span style="width:10px;height:10px;border-radius:50%;background:#5d5294"></span></div>
+        <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;color:#cfd3e5">Tarot Journal</span>
+      </div>
+      <div style="flex:1;display:grid;grid-template-columns:372px 1fr;gap:24px;padding:0 18px 18px">
+        <div style="border-radius:14px;background:rgba(29,31,46,.66)"></div>
+        <div style="padding-top:12px"><div style="width:220px;height:11px;border-radius:999px;background:rgba(145,132,217,.3)"></div><div style="width:560px;height:44px;border-radius:8px;background:rgba(233,233,237,.09);margin-top:16px"></div></div>
+      </div>
+    </div>
+    <div style="position:absolute;inset:0;background:rgba(11,12,20,.78)"></div>
+
+    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:540px;border-radius:14px;background:#1a1c2c;box-shadow:inset 0 0 0 1px rgba(233,233,237,.14),0 30px 70px rgba(0,0,0,.6);padding:30px 32px 26px">
+      <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#9397ab;margin-bottom:10px">Permanent · not sent to the trash</div>
+      <div style="font-family:'Newsreader',Georgia,serif;font-size:30px;font-weight:300;line-height:1.14">Delete “Midsummer check-in”</div>
+      <p style="font-size:13.5px;color:#b2b6ca;margin:14px 0 0;text-wrap:pretty">The entry file is removed from your vault. This cannot be undone from inside the app.</p>
+
+      <div style="margin-top:18px;border-radius:14px;background:rgba(22,24,38,.7);box-shadow:inset 0 0 0 1px rgba(233,233,237,.08);padding:16px 18px">
+        <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#75798c;margin-bottom:10px">What goes with it</div>
+        <sc-for list="{{ deleteItems }}" as="d" hint-placeholder-count="4">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding:5px 0">
+            <span style="font-size:13px;color:#cfd3e5">{{ d.what }}</span>
+            <span style="font-size:12px;color:#75798c;font-variant-numeric:tabular-nums">{{ d.n }}</span>
+          </div>
+        </sc-for>
+        <div style="height:1px;background:linear-gradient(to right,rgba(233,233,237,.1),rgba(233,233,237,.1) calc(100% - 24px),transparent);margin:12px 0 10px"></div>
+        <div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#75798c">~/Documents/Tarot Journal/2026-07-12-midsummer.md</div>
+      </div>
+
+      <div style="margin-top:18px">
+        <div style="font-size:12px;color:#9397ab;margin-bottom:8px">Type <span style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:#d2cefd">delete</span> to confirm</div>
+        <input placeholder="delete" style="width:100%;background:rgba(22,24,38,.7);color:#e9e9ed;border:1px solid rgba(233,233,237,.12);border-radius:999px;padding:10px 16px;font-family:ui-monospace,Menlo,monospace;font-size:13px;outline:none">
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin-top:22px">
+        <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13.5px;color:#5a5e70;background:transparent;border:1px solid rgba(233,233,237,.1);border-radius:999px;padding:11px 22px;cursor:not-allowed">Delete entry</button>
+        <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-size:13.5px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:11px 22px" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">Keep entry</button>
+        <span style="flex:1"></span>
+        <span style="font-size:12px;color:#75798c">Or export it first</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="7a" style="position:absolute;left:0px;top:1240px;width:1440px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">7a</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300">First launch</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400">No deck, no entries. One decision, stated plainly — the ghost spread shows what the app is for</span>
+  </div>
+
+  <div style="width:1440px;height:940px;background:radial-gradient(120% 80% at 50% -10%,#232544 0%,#161826 60%);color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;gap:18px;padding:16px 24px">
+      <div style="display:flex;gap:7px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#5d5294"></span>
+      </div>
+      <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;color:#cfd3e5">Tarot Journal</span>
+      <span style="flex:1"></span>
+      <nav style="display:flex;align-items:center;gap:3px;padding:3px;border-radius:999px;background:rgba(35,37,50,.5);box-shadow:inset 0 0 0 1px rgba(233,233,237,.06);opacity:.45">
+        <span style="padding:7px 16px;border-radius:999px;font-size:13px;color:#5a5e70">Library</span>
+        <span style="padding:7px 16px;border-radius:999px;font-size:13px;color:#5a5e70">Spreads</span>
+        <span style="padding:7px 16px;border-radius:999px;font-size:13px;color:#5a5e70">Journal</span>
+        <span style="padding:7px 16px;border-radius:999px;font-size:13px;color:#5a5e70">Reference</span>
+        <span style="padding:7px 16px;border-radius:999px;font-size:13px;color:#5a5e70">Insights</span>
+      </nav>
+      <span style="flex:1"></span>
+      <span style="font-size:12px;color:#5a5e70">Local vault · 0 entries</span>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:0 24px 40px;min-height:0">
+      <div style="display:grid;grid-template-columns:repeat(3,124px);gap:14px 20px;margin-bottom:52px;opacity:.5">
+        <div style="grid-area:1/2;aspect-ratio:2/3;border-radius:14px;border:1px dashed rgba(233,233,237,.16)"></div>
+        <div style="grid-area:2/1;aspect-ratio:2/3;border-radius:14px;border:1px dashed rgba(233,233,237,.16)"></div>
+        <div style="grid-area:2/2;aspect-ratio:2/3;border-radius:14px;border:1px dashed rgba(145,132,217,.45);box-shadow:0 0 26px rgba(145,132,217,.16)"></div>
+        <div style="grid-area:2/3;aspect-ratio:2/3;border-radius:14px;border:1px dashed rgba(233,233,237,.16)"></div>
+      </div>
+
+      <div style="text-align:center;max-width:560px">
+        <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#968ae0;margin-bottom:14px">Tarot Journal</div>
+        <h1 style="font-family:'Newsreader',Georgia,serif;font-size:52px;font-weight:300;line-height:1.06;margin:0;letter-spacing:-.005em">Bring in a deck to begin</h1>
+        <p style="font-size:15px;color:#b2b6ca;margin:18px 0 0;text-wrap:pretty">Everything here is a record of your own readings, kept in a folder you choose. Nothing is uploaded, and nothing is interpreted for you.</p>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:30px">
+          <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:14px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:12px 24px" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">Import a deck…</button>
+          <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-size:14px;color:#cfd3e5;background:transparent;border:1px solid rgba(233,233,237,.14);border-radius:999px;padding:12px 24px" style-hover="background:rgba(233,233,237,.06)">Start with Marseille</button>
+        </div>
+        <div style="font-size:12px;color:#75798c;margin-top:16px">A folder of images, or a deck file. Marseille (Camoin) ships with the app.</div>
+      </div>
+
+      <div style="display:flex;gap:0;align-items:stretch;margin-top:56px">
+        <sc-for list="{{ firstRun }}" as="s" hint-placeholder-count="3">
+          <div style="width:250px;padding:0 26px;border-left:1px solid rgba(233,233,237,.08)">
+            <div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#5d5294">{{ s.n }}</div>
+            <div style="font-family:'Newsreader',Georgia,serif;font-size:19px;color:#cfd3e5;margin-top:8px">{{ s.title }}</div>
+            <div style="font-size:12px;color:#75798c;margin-top:5px;text-wrap:pretty">{{ s.note }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="7b" style="position:absolute;left:1540px;top:1240px;width:1440px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">7b</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300">Journal, no entries</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400">Deck is in; nothing recorded. The real chrome stays, so the app doesn't feel broken</span>
+  </div>
+
+  <div style="width:1440px;height:940px;background:radial-gradient(120% 80% at 50% -10%,#232544 0%,#161826 60%);color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;gap:18px;padding:16px 24px">
+      <div style="display:flex;gap:7px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#5d5294"></span>
+      </div>
+      <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;color:#cfd3e5">Tarot Journal</span>
+      <span style="flex:1"></span>
+      <nav style="display:flex;align-items:center;gap:3px;padding:3px;border-radius:999px;background:rgba(35,37,50,.8);box-shadow:inset 0 0 0 1px rgba(233,233,237,.09)">
+        <a href="#7b" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Library</a>
+        <a href="#7b" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Spreads</a>
+        <a href="#7b" style="padding:7px 16px;border-radius:999px;font-size:13px;font-weight:500;color:#e7e5fe;background:rgba(145,132,217,.22);box-shadow:0 0 20px rgba(145,132,217,.25)">Journal</a>
+        <a href="#7b" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Reference</a>
+        <a href="#7b" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#5a5e70">Insights</a>
+      </nav>
+      <span style="flex:1"></span>
+      <a href="#7b" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;color:#9397ab;background:rgba(35,37,50,.8)" style-hover="color:#e9e9ed"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48 48 0 0 0-48-48zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32z"></path><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88z"></path></svg></a>
+    </div>
+
+    <div style="flex:1;display:grid;grid-template-columns:372px 1fr;min-height:0;padding:0 18px 18px">
+      <div style="display:flex;flex-direction:column;min-height:0;padding:18px;gap:14px;border-radius:14px;background:rgba(29,31,46,.66)">
+        <div style="display:flex;gap:8px">
+          <button style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:10px 16px" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">
+            <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8z"></path></svg>New Entry
+          </button>
+          <button style="cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#5a5e70;background:transparent;border:1px solid rgba(233,233,237,.08);border-radius:999px;padding:10px 16px;cursor:not-allowed">Export</button>
+        </div>
+        <input placeholder="Search entries" disabled style="width:100%;background:rgba(22,24,38,.45);color:#5a5e70;border:1px solid rgba(233,233,237,.06);border-radius:999px;padding:10px 16px;font-family:'Inter',system-ui,sans-serif;font-size:13px;outline:none">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 18px 30px;text-align:center">
+          <div style="display:flex;gap:8px;opacity:.5">
+            <span style="width:30px;height:45px;border-radius:6px;border:1px dashed rgba(233,233,237,.16)"></span>
+            <span style="width:30px;height:45px;border-radius:6px;border:1px dashed rgba(233,233,237,.16)"></span>
+            <span style="width:30px;height:45px;border-radius:6px;border:1px dashed rgba(233,233,237,.16)"></span>
+          </div>
+          <div style="font-family:'Newsreader',Georgia,serif;font-size:20px;color:#9397ab;line-height:1.3">No entries yet</div>
+          <div style="font-size:12px;color:#75798c;text-wrap:pretty">Saved readings appear here, newest first. Search and tags switch on with the first one.</div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:0 24px 24px;min-height:0">
+        <div style="display:grid;grid-template-columns:repeat(3,140px);gap:18px 24px;opacity:.6">
+          <div style="grid-area:1/2;aspect-ratio:2/3;border-radius:14px;border:1px dashed rgba(233,233,237,.16)"></div>
+          <div style="grid-area:2/1;aspect-ratio:2/3;border-radius:14px;border:1px dashed rgba(233,233,237,.16)"></div>
+          <div style="grid-area:2/2;aspect-ratio:2/3;border-radius:14px;border:1px dashed rgba(145,132,217,.45);box-shadow:0 0 26px rgba(145,132,217,.14)"></div>
+          <div style="grid-area:2/3;aspect-ratio:2/3;border-radius:14px;border:1px dashed rgba(233,233,237,.16)"></div>
+          <div style="grid-area:3/2;aspect-ratio:2/3;border-radius:14px;border:1px dashed rgba(233,233,237,.16)"></div>
+        </div>
+        <div style="text-align:center;max-width:460px;margin-top:44px">
+          <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#968ae0;margin-bottom:12px">Marseille (Camoin) · ready</div>
+          <h1 style="font-family:'Newsreader',Georgia,serif;font-size:44px;font-weight:300;line-height:1.06;margin:0">Your first reading</h1>
+          <p style="font-size:14px;color:#b2b6ca;margin:16px 0 0;text-wrap:pretty">Lay the cards however you like — the spread is a record of what you did, not a rule about it.</p>
+          <div style="display:flex;gap:10px;justify-content:center;margin-top:26px">
+            <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:14px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:11px 22px" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">New entry</button>
+            <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-size:14px;color:#cfd3e5;background:transparent;border:1px solid rgba(233,233,237,.14);border-radius:999px;padding:11px 22px" style-hover="background:rgba(233,233,237,.06)">Import past readings</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="7c" style="position:absolute;left:3080px;top:1240px;width:1440px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">7c</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300">No results</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400">The filters that caused it are named and removable in place</span>
+  </div>
+
+  <div style="width:1440px;height:940px;background:radial-gradient(120% 80% at 50% -10%,#232544 0%,#161826 60%);color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;gap:18px;padding:16px 24px">
+      <div style="display:flex;gap:7px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#5d5294"></span>
+      </div>
+      <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;color:#cfd3e5">Tarot Journal</span>
+      <span style="flex:1"></span>
+      <nav style="display:flex;align-items:center;gap:3px;padding:3px;border-radius:999px;background:rgba(35,37,50,.8);box-shadow:inset 0 0 0 1px rgba(233,233,237,.09)">
+        <a href="#7c" style="padding:7px 16px;border-radius:999px;font-size:13px;font-weight:500;color:#e7e5fe;background:rgba(145,132,217,.22);box-shadow:0 0 20px rgba(145,132,217,.25)">Library</a>
+        <a href="#7c" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Spreads</a>
+        <a href="#7c" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Journal</a>
+        <a href="#7c" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Reference</a>
+        <a href="#7c" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Insights</a>
+      </nav>
+      <span style="flex:1"></span>
+      <a href="#7c" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;color:#9397ab;background:rgba(35,37,50,.8)" style-hover="color:#e9e9ed"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48 48 0 0 0-48-48zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32z"></path><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88z"></path></svg></a>
+    </div>
+
+    <div style="flex:1;display:grid;grid-template-columns:340px 1fr;min-height:0;padding:0 18px 18px;gap:24px">
+      <div style="display:flex;flex-direction:column;min-height:0;padding:18px;gap:14px;border-radius:14px;background:rgba(29,31,46,.66)">
+        <button style="display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:10px 16px" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">Import Deck</button>
+        <input placeholder="Search decks" style="width:100%;background:rgba(22,24,38,.7);color:#e9e9ed;border:1px solid rgba(233,233,237,.1);border-radius:999px;padding:10px 16px;font-family:'Inter',system-ui,sans-serif;font-size:13px;outline:none">
+        <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;gap:12px;align-items:center;padding:12px;border-radius:14px;background:rgba(145,132,217,.14);box-shadow:inset 0 0 0 1px rgba(145,132,217,.35)">
+            <div style="width:38px;height:57px;flex-shrink:0;border-radius:6px;background:#2b2741;box-shadow:inset 0 0 0 1px rgba(145,132,217,.4)"></div>
+            <div style="min-width:0">
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:19px;line-height:1.2">Marseille (Camoin)</div>
+              <div style="font-size:12px;color:#b2b6ca;margin-top:3px">Tarot · 78 cards</div>
+            </div>
+          </div>
+          <sc-for list="{{ decks }}" as="d" hint-placeholder-count="5">
+            <div style="display:flex;gap:12px;align-items:center;padding:12px;border-radius:14px" style-hover="background:rgba(233,233,237,.05)">
+              <div style="width:38px;height:57px;flex-shrink:0;border-radius:6px;background:#242737;box-shadow:inset 0 0 0 1px rgba(233,233,237,.1)"></div>
+              <div style="min-width:0">
+                <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;color:#cfd3e5;line-height:1.2">{{ d.name }}</div>
+                <div style="font-size:12px;color:#75798c;margin-top:3px">{{ d.meta }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;min-height:0;gap:14px">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding-top:12px">
+          <div>
+            <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#968ae0;margin-bottom:10px">Deck · Tarot · 1760, restored 1997</div>
+            <h1 style="font-family:'Newsreader',Georgia,serif;font-size:44px;font-weight:300;line-height:1.04;margin:0">Marseille (Camoin)</h1>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0">
+            <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#cfd3e5;background:transparent;border:1px solid rgba(233,233,237,.14);border-radius:999px;padding:10px 18px" style-hover="background:rgba(233,233,237,.06)">Edit deck</button>
+            <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:10px 18px" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">Add cards</button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div style="flex:1;min-width:220px;display:flex;align-items:center;gap:9px;background:rgba(22,24,38,.7);border:1px solid rgba(145,132,217,.4);border-radius:999px;padding:9px 16px;box-shadow:0 0 18px rgba(145,132,217,.14)">
+            <svg width="14" height="14" viewBox="0 0 256 256" fill="#9397ab"><path d="M229.66 218.34l-50.07-50.06a88.11 88.11 0 1 0-11.31 11.31l50.06 50.07a8 8 0 0 0 11.32-11.32zM40 112a72 72 0 1 1 72 72 72.08 72.08 0 0 1-72-72z"></path></svg>
+            <span style="font-size:13px;color:#e9e9ed">wands of fire</span>
+            <span style="flex:1"></span>
+            <span style="width:18px;height:18px;border-radius:999px;background:rgba(233,233,237,.08);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:rgba(233,233,237,.16)"><svg width="9" height="9" viewBox="0 0 256 256" fill="#b2b6ca"><path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128 50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128z"></path></svg></span>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;padding:6px 12px 6px 14px;border-radius:999px;background:rgba(145,132,217,.2);color:#d2cefd;cursor:pointer">Major Arcana <svg width="9" height="9" viewBox="0 0 256 256" fill="currentColor"><path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128 50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128z"></path></svg></span>
+          <span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;padding:6px 12px 6px 14px;border-radius:999px;background:rgba(145,132,217,.2);color:#d2cefd;cursor:pointer">Suit · Cups <svg width="9" height="9" viewBox="0 0 256 256" fill="currentColor"><path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128 50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128z"></path></svg></span>
+          <span style="font-size:12px;color:#75798c;margin-left:4px">0 of 78</span>
+        </div>
+
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:18px;border-radius:14px;background:rgba(29,31,46,.5)">
+          <div style="max-width:480px;text-align:center">
+            <div style="display:flex;justify-content:center;gap:12px;opacity:.45;margin-bottom:32px">
+              <span style="width:52px;height:78px;border-radius:10px;border:1px dashed rgba(233,233,237,.16);transform:rotate(-7deg)"></span>
+              <span style="width:52px;height:78px;border-radius:10px;border:1px dashed rgba(233,233,237,.16)"></span>
+              <span style="width:52px;height:78px;border-radius:10px;border:1px dashed rgba(233,233,237,.16);transform:rotate(7deg)"></span>
+            </div>
+            <h2 style="font-family:'Newsreader',Georgia,serif;font-size:32px;font-weight:300;line-height:1.1;margin:0">Nothing matches “wands of fire”</h2>
+            <p style="font-size:14px;color:#b2b6ca;margin:14px 0 0;text-wrap:pretty">Two filters are narrowing this deck. In Marseille the wands suit is called <span style="font-style:italic;color:#d2cefd">Batons</span>.</p>
+            <div style="display:flex;gap:10px;justify-content:center;margin-top:26px;flex-wrap:wrap">
+              <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:10px 20px" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">Search “Batons” instead</button>
+              <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#cfd3e5;background:transparent;border:1px solid rgba(233,233,237,.14);border-radius:999px;padding:10px 20px" style-hover="background:rgba(233,233,237,.06)">Clear 2 filters</button>
+              <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#cfd3e5;background:transparent;border:1px solid rgba(233,233,237,.14);border-radius:999px;padding:10px 20px" style-hover="background:rgba(233,233,237,.06)">Search all 9 decks</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="7d" style="position:absolute;left:4620px;top:1240px;width:1440px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">7d</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300">Missing card images</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400">Degraded, not broken: names still work, the fix is one action, and no red is introduced</span>
+  </div>
+
+  <div style="width:1440px;height:940px;background:radial-gradient(120% 80% at 50% -10%,#232544 0%,#161826 60%);color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;gap:18px;padding:16px 24px">
+      <div style="display:flex;gap:7px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#5d5294"></span>
+      </div>
+      <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;color:#cfd3e5">Tarot Journal</span>
+      <span style="flex:1"></span>
+      <nav style="display:flex;align-items:center;gap:3px;padding:3px;border-radius:999px;background:rgba(35,37,50,.8);box-shadow:inset 0 0 0 1px rgba(233,233,237,.09)">
+        <a href="#7d" style="padding:7px 16px;border-radius:999px;font-size:13px;font-weight:500;color:#e7e5fe;background:rgba(145,132,217,.22);box-shadow:0 0 20px rgba(145,132,217,.25)">Library</a>
+        <a href="#7d" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Spreads</a>
+        <a href="#7d" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Journal</a>
+        <a href="#7d" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Reference</a>
+        <a href="#7d" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Insights</a>
+      </nav>
+      <span style="flex:1"></span>
+      <a href="#7d" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;color:#9397ab;background:rgba(35,37,50,.8)" style-hover="color:#e9e9ed"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48 48 0 0 0-48-48zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32z"></path><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88z"></path></svg></a>
+    </div>
+
+    <div style="flex:1;display:grid;grid-template-columns:340px 1fr;min-height:0;padding:0 18px 18px;gap:24px">
+      <div style="display:flex;flex-direction:column;min-height:0;padding:18px;gap:14px;border-radius:14px;background:rgba(29,31,46,.66)">
+        <button style="display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:10px 16px" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">Import Deck</button>
+        <input placeholder="Search decks" style="width:100%;background:rgba(22,24,38,.7);color:#e9e9ed;border:1px solid rgba(233,233,237,.1);border-radius:999px;padding:10px 16px;font-family:'Inter',system-ui,sans-serif;font-size:13px;outline:none">
+        <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;gap:12px;align-items:center;padding:12px;border-radius:14px;background:rgba(145,132,217,.14);box-shadow:inset 0 0 0 1px rgba(145,132,217,.35)">
+            <div style="width:38px;height:57px;flex-shrink:0;border-radius:6px;border:1px dashed rgba(145,132,217,.45);display:flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 256 256" fill="#b5abfc"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24zm-8 56a8 8 0 0 1 16 0v56a8 8 0 0 1-16 0zm8 104a12 12 0 1 1 12-12 12 12 0 0 1-12 12z"></path></svg></div>
+            <div style="min-width:0">
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:19px;line-height:1.2">Wild Unknown</div>
+              <div style="font-size:12px;color:#b5abfc;margin-top:3px">42 images not found</div>
+            </div>
+          </div>
+          <sc-for list="{{ decks }}" as="d" hint-placeholder-count="5">
+            <div style="display:flex;gap:12px;align-items:center;padding:12px;border-radius:14px" style-hover="background:rgba(233,233,237,.05)">
+              <div style="width:38px;height:57px;flex-shrink:0;border-radius:6px;background:#242737;box-shadow:inset 0 0 0 1px rgba(233,233,237,.1)"></div>
+              <div style="min-width:0">
+                <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;color:#cfd3e5;line-height:1.2">{{ d.name }}</div>
+                <div style="font-size:12px;color:#75798c;margin-top:3px">{{ d.meta }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;min-height:0;gap:14px">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding-top:12px">
+          <div>
+            <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#968ae0;margin-bottom:10px">Deck · Oracle · 78 cards · 36 with images</div>
+            <h1 style="font-family:'Newsreader',Georgia,serif;font-size:44px;font-weight:300;line-height:1.04;margin:0">Wild Unknown</h1>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0">
+            <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#cfd3e5;background:transparent;border:1px solid rgba(233,233,237,.14);border-radius:999px;padding:10px 18px" style-hover="background:rgba(233,233,237,.06)">Edit deck</button>
+            <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:10px 18px" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">Relink folder…</button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;border-radius:14px;background:rgba(145,132,217,.1);box-shadow:inset 0 0 0 1px rgba(145,132,217,.3)">
+          <svg width="20" height="20" viewBox="0 0 256 256" fill="#b5abfc" style="flex-shrink:0"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24zm-8 56a8 8 0 0 1 16 0v56a8 8 0 0 1-16 0zm8 104a12 12 0 1 1 12-12 12 12 0 0 1-12 12z"></path></svg>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;color:#e9e9ed">42 card images couldn't be found</div>
+            <div style="font-size:12px;color:#b2b6ca;margin-top:2px;font-family:ui-monospace,Menlo,monospace">~/Pictures/Decks/wild-unknown/ — folder moved or renamed</div>
+          </div>
+          <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#d2cefd;background:transparent;border:1px solid rgba(145,132,217,.4);border-radius:999px;padding:8px 16px;flex-shrink:0" style-hover="background:rgba(145,132,217,.18)">Locate folder…</button>
+          <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#9397ab;background:transparent;border:0;padding:8px 6px;flex-shrink:0" style-hover="color:#e9e9ed">Keep names only</button>
+        </div>
+
+        <div style="flex:1;overflow:hidden;padding:18px;border-radius:14px;background:rgba(29,31,46,.5)">
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:16px">
+            <sc-for list="{{ brokenCards }}" as="c" hint-placeholder-count="14">
+              <div>
+                <div style="aspect-ratio:2/3;border-radius:14px;background:{{ c.bg }};border:{{ c.border }};box-shadow:{{ c.shadow }};display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:9px;gap:6px">
+                  <sc-if value="{{ c.missing }}" hint-placeholder-val="{{ true }}">
+                    <svg width="13" height="13" viewBox="0 0 256 256" fill="#5a5e70"><path d="M216 40H40a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V56a16 16 0 0 0-16-16zm0 16v92.69l-26.34-26.35a16 16 0 0 0-22.63 0L144 145.37 100.69 102a16 16 0 0 0-22.63 0L40 140.11V56zM40 200v-37.3l49.37-49.36 63.32 63.31L128 200zm176 0h-65.37l24.69-24.69L216 171.31V200z"></path></svg>
+                  </sc-if>
+                  <span style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:{{ c.codeColor }}">{{ c.code }}</span>
+                </div>
+                <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;color:#cfd3e5;margin-top:8px;text-align:center">{{ c.name }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="6a" style="position:absolute;left:0px;top:2480px;width:1440px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">6a</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300">Reference — in 3a</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400">Card meanings as a reading page, with the practitioner's own history beside it</span>
+  </div>
+
+  <div style="width:1440px;height:940px;background:radial-gradient(120% 80% at 50% -10%,#232544 0%,#161826 60%);color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;gap:18px;padding:16px 24px">
+      <div style="display:flex;gap:7px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#5d5294"></span>
+      </div>
+      <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;color:#cfd3e5">Tarot Journal</span>
+      <span style="flex:1"></span>
+      <nav style="display:flex;align-items:center;gap:3px;padding:3px;border-radius:999px;background:rgba(35,37,50,.8);box-shadow:inset 0 0 0 1px rgba(233,233,237,.09)">
+        <a href="#6a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Library</a>
+        <a href="#6a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Spreads</a>
+        <a href="#6a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Journal</a>
+        <a href="#6a" style="padding:7px 16px;border-radius:999px;font-size:13px;font-weight:500;color:#e7e5fe;background:rgba(145,132,217,.22);box-shadow:0 0 20px rgba(145,132,217,.25)">Reference</a>
+        <a href="#6a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Insights</a>
+      </nav>
+      <span style="flex:1"></span>
+      <a href="#6a" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;color:#9397ab;background:rgba(35,37,50,.8)" style-hover="color:#e9e9ed"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48 48 0 0 0-48-48zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32z"></path><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88z"></path></svg></a>
+    </div>
+
+    <div style="flex:1;display:grid;grid-template-columns:272px 1fr 316px;min-height:0;padding:0 18px 18px;gap:20px">
+      <div style="display:flex;flex-direction:column;min-height:0;padding:16px 14px;gap:12px;border-radius:14px;background:rgba(29,31,46,.66)">
+        <input placeholder="Search meanings" style="width:100%;background:rgba(22,24,38,.7);color:#e9e9ed;border:1px solid rgba(233,233,237,.1);border-radius:999px;padding:10px 16px;font-family:'Inter',system-ui,sans-serif;font-size:13px;outline:none">
+        <div style="display:flex;gap:2px;padding:3px;border-radius:999px;background:rgba(22,24,38,.7);box-shadow:inset 0 0 0 1px rgba(233,233,237,.09)">
+          <span style="flex:1;text-align:center;font-size:12px;padding:6px 0;border-radius:999px;color:#e7e5fe;background:rgba(145,132,217,.22)">Major</span>
+          <span style="flex:1;text-align:center;font-size:12px;padding:6px 0;border-radius:999px;color:#9397ab;cursor:pointer" style-hover="color:#e9e9ed">Minor</span>
+          <span style="flex:1;text-align:center;font-size:12px;padding:6px 0;border-radius:999px;color:#9397ab;cursor:pointer" style-hover="color:#e9e9ed">Court</span>
+        </div>
+        <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:1px;margin-top:2px">
+          <div style="display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:10px;background:rgba(145,132,217,.14);box-shadow:inset 0 0 0 1px rgba(145,132,217,.32)">
+            <span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#b5abfc;width:26px">XVIII</span>
+            <span style="flex:1;font-family:'Newsreader',Georgia,serif;font-size:18px;line-height:1.2">The Moon</span>
+            <span style="font-size:11px;color:#d2cefd">31</span>
+          </div>
+          <sc-for list="{{ reference }}" as="r" hint-placeholder-count="13">
+            <div style="display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:10px;cursor:pointer" style-hover="background:rgba(233,233,237,.05)">
+              <span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#5a5e70;width:26px">{{ r.num }}</span>
+              <span style="flex:1;font-family:'Newsreader',Georgia,serif;font-size:17px;color:#cfd3e5;line-height:1.2">{{ r.name }}</span>
+              <span style="font-size:11px;color:#5a5e70">{{ r.n }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:20px;padding-top:12px">
+        <div style="display:flex;gap:28px;align-items:flex-start">
+          <div style="width:176px;flex-shrink:0">
+            <div style="aspect-ratio:2/3;border-radius:14px;background:#2b2741;box-shadow:inset 0 0 0 1px rgba(145,132,217,.5),0 0 32px rgba(145,132,217,.22);display:flex;align-items:flex-end;padding:11px">
+              <span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#d2cefd">XVIII The Moon</span>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:10px">
+              <span style="flex:1;text-align:center;font-size:11px;padding:5px 0;border-radius:999px;background:rgba(145,132,217,.2);color:#d2cefd">Upright</span>
+              <span style="flex:1;text-align:center;font-size:11px;padding:5px 0;border-radius:999px;background:rgba(233,233,237,.07);color:#9397ab;cursor:pointer" style-hover="color:#e9e9ed">Reversed</span>
+            </div>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#968ae0;margin-bottom:10px">Major Arcana XVIII · Water · Pisces</div>
+            <h1 style="font-family:'Newsreader',Georgia,serif;font-size:52px;font-weight:300;line-height:1;margin:0">The Moon</h1>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:18px">
+              <sc-for list="{{ moonKeywords }}" as="k" hint-placeholder-count="6">
+                <span style="font-size:11px;padding:4px 12px;border-radius:999px;background:rgba(233,233,237,.07);color:#b2b6ca">{{ k }}</span>
+              </sc-for>
+            </div>
+            <p style="font-size:14px;color:#cfd3e5;margin:18px 0 0;max-width:520px;text-wrap:pretty">Night knowledge. What is true but not yet sayable — dream, intuition, the thing sensed at the edge of the path. The Moon does not lie; it only refuses daylight terms.</p>
+            <div style="display:flex;gap:8px;margin-top:20px">
+              <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#cfd3e5;background:transparent;border:1px solid rgba(233,233,237,.14);border-radius:999px;padding:9px 18px" style-hover="background:rgba(233,233,237,.06)">Edit my note</button>
+              <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:9px 18px" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">Start reading with this card</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="height:1px;background:linear-gradient(to right,transparent,rgba(233,233,237,.1) 48px,rgba(233,233,237,.1) calc(100% - 48px),transparent)"></div>
+
+        <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:24px;min-height:0;overflow:hidden">
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:19px;color:#cfd3e5">Upright</div>
+              <p style="font-size:13px;color:#b2b6ca;margin:8px 0 0;text-wrap:pretty">Trust the reading that arrives without argument. Something is being remembered rather than decided. Fitting for questions about creative work, grief, and anything approached at night.</p>
+            </div>
+            <div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:19px;color:#cfd3e5">Reversed</div>
+              <p style="font-size:13px;color:#b2b6ca;margin:8px 0 0;text-wrap:pretty">Fog mistaken for depth. Confusion dressed as mystery, or a fear held so long it now passes for intuition. Ask what plain fact is being avoided.</p>
+            </div>
+            <div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:19px;color:#cfd3e5">Symbols in this deck</div>
+              <div style="display:flex;flex-direction:column;gap:7px;margin-top:9px">
+                <sc-for list="{{ moonSymbols }}" as="s" hint-placeholder-count="3">
+                  <div style="display:flex;gap:12px;font-size:13px"><span style="width:96px;flex-shrink:0;color:#75798c">{{ s.name }}</span><span style="color:#b2b6ca">{{ s.note }}</span></div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding:18px;border-radius:14px;background:rgba(29,31,46,.66);display:flex;flex-direction:column;min-height:0">
+            <div style="font-family:'Newsreader',Georgia,serif;font-size:19px;color:#cfd3e5">My note</div>
+            <p style="font-size:13px;color:#cfd3e5;margin:9px 0 0;text-wrap:pretty">For me it has almost never been about deception. It shows up when I already know and am stalling — the lease, the studio, E.'s question in June. Read it as <span style="font-style:italic;color:#d2cefd">you know, say it</span>.</p>
+            <div style="height:1px;background:linear-gradient(to right,transparent,rgba(233,233,237,.1) 24px,rgba(233,233,237,.1) calc(100% - 24px),transparent);margin:16px 0"></div>
+            <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#75798c">Traditions</div>
+            <div style="display:flex;flex-direction:column;gap:9px;margin-top:10px">
+              <sc-for list="{{ moonSources }}" as="s" hint-placeholder-count="3">
+                <div style="font-size:13px;color:#b2b6ca"><span style="color:#e9e9ed">{{ s.who }}</span> — {{ s.what }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;min-height:0;gap:12px;padding-top:12px">
+        <div style="padding:18px;border-radius:14px;background:rgba(29,31,46,.66)">
+          <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#75798c">In my practice</div>
+          <div style="font-family:'Newsreader',Georgia,serif;font-size:44px;font-weight:300;line-height:1.1;margin-top:8px;font-variant-numeric:tabular-nums">31<span style="font-size:22px;color:#9397ab"> draws</span></div>
+          <div style="font-size:12px;color:#9397ab;margin-top:2px">Most-drawn card · 14% of readings</div>
+          <div style="display:flex;flex-direction:column;gap:9px;margin-top:16px">
+            <sc-for list="{{ moonPositions }}" as="p" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:11px">
+                <span style="width:72px;font-size:12px;color:#b2b6ca">{{ p.name }}</span>
+                <div style="flex:1;height:3px;border-radius:999px;background:rgba(233,233,237,.08)"><div style="height:3px;border-radius:999px;background:#9184d9;width:{{ p.pct }}"></div></div>
+                <span style="font-size:11px;color:#75798c;width:18px;text-align:right;font-variant-numeric:tabular-nums">{{ p.n }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-size:12px;color:#b5abfc;margin-top:14px">Reversed 9 of 31 times</div>
+        </div>
+
+        <div style="flex:1;padding:18px;border-radius:14px;background:rgba(29,31,46,.66);display:flex;flex-direction:column;min-height:0">
+          <div style="display:flex;align-items:baseline;justify-content:space-between">
+            <span style="font-family:'Newsreader',Georgia,serif;font-size:18px;color:#cfd3e5">Entries with this card</span>
+            <span style="font-size:11px;color:#75798c">31</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:1px;margin-top:10px;overflow:hidden">
+            <sc-for list="{{ moonEntries }}" as="e" hint-placeholder-count="6">
+              <div style="padding:10px 12px;border-radius:10px;cursor:pointer" style-hover="background:rgba(233,233,237,.05)">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;gap:9px">
+                  <span style="font-family:'Newsreader',Georgia,serif;font-size:16px;color:#e9e9ed;line-height:1.2">{{ e.title }}</span>
+                  <span style="font-size:11px;color:#75798c;white-space:nowrap">{{ e.day }}</span>
+                </div>
+                <div style="font-size:11px;color:#75798c;margin-top:3px">{{ e.pos }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top:auto;padding-top:12px"><span style="font-size:12px;color:#d2cefd;cursor:pointer" style-hover="text-decoration:underline">See all 31 entries</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="5a" style="position:absolute;left:0px;top:3720px;width:1440px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">5a</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300">Spreads — in 3a</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400">Layout editor: the board is the hero, positions read as a numbered list</span>
+  </div>
+
+  <div style="width:1440px;height:940px;background:radial-gradient(120% 80% at 50% -10%,#232544 0%,#161826 60%);color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;gap:18px;padding:16px 24px">
+      <div style="display:flex;gap:7px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#5d5294"></span>
+      </div>
+      <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;color:#cfd3e5">Tarot Journal</span>
+      <span style="flex:1"></span>
+      <nav style="display:flex;align-items:center;gap:3px;padding:3px;border-radius:999px;background:rgba(35,37,50,.8);box-shadow:inset 0 0 0 1px rgba(233,233,237,.09)">
+        <a href="#5a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Library</a>
+        <a href="#5a" style="padding:7px 16px;border-radius:999px;font-size:13px;font-weight:500;color:#e7e5fe;background:rgba(145,132,217,.22);box-shadow:0 0 20px rgba(145,132,217,.25)">Spreads</a>
+        <a href="#5a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Journal</a>
+        <a href="#5a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Reference</a>
+        <a href="#5a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Insights</a>
+      </nav>
+      <span style="flex:1"></span>
+      <a href="#5a" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;color:#9397ab;background:rgba(35,37,50,.8)" style-hover="color:#e9e9ed"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48 48 0 0 0-48-48zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32z"></path><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88z"></path></svg></a>
+    </div>
+
+    <div style="flex:1;display:grid;grid-template-columns:320px 1fr 300px;min-height:0;padding:0 18px 18px;gap:20px">
+      <div style="display:flex;flex-direction:column;min-height:0;padding:18px;gap:14px;border-radius:14px;background:rgba(29,31,46,.66)">
+        <button style="display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:10px 16px" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">
+          <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8z"></path></svg>New spread
+        </button>
+        <input placeholder="Search spreads" style="width:100%;background:rgba(22,24,38,.7);color:#e9e9ed;border:1px solid rgba(233,233,237,.1);border-radius:999px;padding:10px 16px;font-family:'Inter',system-ui,sans-serif;font-size:13px;outline:none">
+        <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#75798c;padding-top:4px">Mine</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:14px;background:rgba(145,132,217,.14);box-shadow:inset 0 0 0 1px rgba(145,132,217,.35)">
+            <span style="font-family:'Newsreader',Georgia,serif;font-size:19px;line-height:1.2">Five-Card Cross</span>
+            <span style="font-size:11px;color:#d2cefd;white-space:nowrap">5 · used 41×</span>
+          </div>
+          <sc-for list="{{ spreadsMine }}" as="s" hint-placeholder-count="3">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:14px" style-hover="background:rgba(233,233,237,.05)">
+              <span style="font-family:'Newsreader',Georgia,serif;font-size:18px;color:#cfd3e5;line-height:1.2">{{ s.name }}</span>
+              <span style="font-size:11px;color:#75798c;white-space:nowrap">{{ s.meta }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#75798c;padding-top:10px">Built in</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <sc-for list="{{ spreadsStock }}" as="s" hint-placeholder-count="4">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:14px" style-hover="background:rgba(233,233,237,.05)">
+              <span style="font-family:'Newsreader',Georgia,serif;font-size:18px;color:#cfd3e5;line-height:1.2">{{ s.name }}</span>
+              <span style="font-size:11px;color:#75798c;white-space:nowrap">{{ s.meta }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;min-height:0;gap:14px">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding-top:12px">
+          <div>
+            <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#968ae0;margin-bottom:10px">Spread · 5 positions · used in 41 entries</div>
+            <h1 style="font-family:'Newsreader',Georgia,serif;font-size:42px;font-weight:300;line-height:1.04;margin:0">Five-Card Cross</h1>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0">
+            <button style="cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#cfd3e5;background:transparent;border:1px solid rgba(233,233,237,.14);border-radius:999px;padding:10px 18px;white-space:nowrap" style-hover="background:rgba(233,233,237,.06)">Duplicate</button>
+            <button style="cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:10px 18px;white-space:nowrap" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">Use spread</button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;padding:6px 14px;border-radius:999px;background:rgba(145,132,217,.2);color:#d2cefd">Arrange</span>
+          <span style="font-size:12px;padding:6px 14px;border-radius:999px;background:rgba(233,233,237,.07);color:#b2b6ca">Preview</span>
+          <span style="flex:1"></span>
+          <span style="font-size:12px;color:#75798c">Snap to grid</span>
+          <span style="width:34px;height:20px;border-radius:999px;background:rgba(145,132,217,.35);box-shadow:inset 0 0 0 1px rgba(145,132,217,.5);display:flex;align-items:center;justify-content:flex-end;padding:2px;cursor:pointer"><span style="width:16px;height:16px;border-radius:50%;background:#d2cefd"></span></span>
+        </div>
+
+        <div style="flex:1;position:relative;border-radius:14px;background:rgba(29,31,46,.5);background-image:radial-gradient(rgba(233,233,237,.07) 1px,transparent 1px);background-size:28px 28px;overflow:hidden">
+          <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;grid-template-columns:repeat(3,96px);gap:12px 18px">
+            <div style="grid-area:1/2">
+              <div style="aspect-ratio:2/3;border-radius:14px;background:#242737;box-shadow:inset 0 0 0 1px rgba(233,233,237,.14);display:flex;align-items:center;justify-content:center;font-family:'Newsreader',Georgia,serif;font-size:22px;font-weight:300;color:#9397ab;cursor:grab">1</div>
+              <div style="font-size:12px;color:#9397ab;margin-top:8px;text-align:center">Above</div>
+            </div>
+            <div style="grid-area:2/1">
+              <div style="aspect-ratio:2/3;border-radius:14px;background:#242737;box-shadow:inset 0 0 0 1px rgba(233,233,237,.14);display:flex;align-items:center;justify-content:center;font-family:'Newsreader',Georgia,serif;font-size:22px;font-weight:300;color:#9397ab;cursor:grab">2</div>
+              <div style="font-size:12px;color:#9397ab;margin-top:8px;text-align:center">Behind</div>
+            </div>
+            <div style="grid-area:2/2">
+              <div style="aspect-ratio:2/3;border-radius:14px;background:#2b2741;box-shadow:inset 0 0 0 1px rgba(145,132,217,.6),0 0 22px rgba(145,132,217,.28);display:flex;align-items:center;justify-content:center;font-family:'Newsreader',Georgia,serif;font-size:22px;font-weight:300;color:#e7e5fe;cursor:grab">3</div>
+              <div style="font-size:12px;color:#d2cefd;margin-top:8px;text-align:center">The Matter</div>
+            </div>
+            <div style="grid-area:2/3">
+              <div style="aspect-ratio:2/3;border-radius:14px;background:#242737;box-shadow:inset 0 0 0 1px rgba(233,233,237,.14);display:flex;align-items:center;justify-content:center;font-family:'Newsreader',Georgia,serif;font-size:22px;font-weight:300;color:#9397ab;cursor:grab">4</div>
+              <div style="font-size:12px;color:#9397ab;margin-top:8px;text-align:center">Ahead</div>
+            </div>
+            <div style="grid-area:3/2">
+              <div style="aspect-ratio:2/3;border-radius:14px;background:#242737;box-shadow:inset 0 0 0 1px rgba(233,233,237,.14);display:flex;align-items:center;justify-content:center;font-family:'Newsreader',Georgia,serif;font-size:22px;font-weight:300;color:#9397ab;cursor:grab">5</div>
+              <div style="font-size:12px;color:#9397ab;margin-top:8px;text-align:center">Beneath</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <button style="cursor:pointer;white-space:nowrap;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#d2cefd;background:transparent;border:1px solid rgba(145,132,217,.35);border-radius:999px;padding:8px 16px" style-hover="background:rgba(145,132,217,.16)">Add position</button>
+          <span style="font-size:12px;color:#75798c">Drag a card to move it · ⌥-drag to duplicate</span>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;min-height:0;gap:12px;padding-top:12px">
+        <div style="padding:18px;border-radius:14px;background:rgba(29,31,46,.66);display:flex;flex-direction:column;gap:12px">
+          <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;color:#cfd3e5">Position 3</div>
+          <div><div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#75798c;margin-bottom:6px">Name</div><input value="The Matter" style="width:100%;background:rgba(22,24,38,.7);color:#e9e9ed;border:1px solid rgba(233,233,237,.1);border-radius:999px;padding:8px 14px;font-family:'Inter',system-ui,sans-serif;font-size:13px;outline:none"></div>
+          <div>
+            <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#75798c;margin-bottom:6px">Prompt shown in the editor</div>
+            <div style="border-radius:14px;background:rgba(22,24,38,.7);box-shadow:inset 0 0 0 1px rgba(233,233,237,.1);padding:12px 14px;font-size:13px;color:#cfd3e5;min-height:74px">What is actually being asked, beneath the question?</div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+            <span style="font-size:13px;color:#cfd3e5">Allow reversals</span>
+            <span style="width:34px;height:20px;border-radius:999px;background:rgba(145,132,217,.35);box-shadow:inset 0 0 0 1px rgba(145,132,217,.5);display:flex;align-items:center;justify-content:flex-end;padding:2px;cursor:pointer"><span style="width:16px;height:16px;border-radius:50%;background:#d2cefd"></span></span>
+          </div>
+        </div>
+
+        <div style="flex:1;padding:18px;border-radius:14px;background:rgba(29,31,46,.66);display:flex;flex-direction:column;min-height:0">
+          <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;color:#cfd3e5;margin-bottom:12px">Positions</div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <sc-for list="{{ positions }}" as="p" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:10px" style-hover="background:rgba(233,233,237,.05)">
+                <span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#75798c;width:14px">{{ p.n }}</span>
+                <span style="flex:1;font-size:13px;color:#cfd3e5">{{ p.name }}</span>
+                <svg width="14" height="14" viewBox="0 0 256 256" fill="#5a5e70"><path d="M104 60a12 12 0 1 1 12 12 12 12 0 0 1-12-12zm36 12a12 12 0 1 0-12-12 12 12 0 0 0 12 12zm-24 44a12 12 0 1 0 12 12 12 12 0 0 0-12-12zm24 0a12 12 0 1 0 12 12 12 12 0 0 0-12-12zm-24 68a12 12 0 1 0 12 12 12 12 0 0 0-12-12zm24 0a12 12 0 1 0 12 12 12 12 0 0 0-12-12z"></path></svg>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top:auto;padding-top:16px;font-size:12px;color:#75798c">Order sets the draw sequence and the print order.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="5b" style="position:absolute;left:1540px;top:3720px;width:1440px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">5b</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300">Insights — in 3a</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400">Figures set large in the serif; bars drawn as accent line, never flood</span>
+  </div>
+
+  <div style="width:1440px;height:940px;background:radial-gradient(120% 80% at 50% -10%,#232544 0%,#161826 60%);color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;gap:18px;padding:16px 24px">
+      <div style="display:flex;gap:7px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#5d5294"></span>
+      </div>
+      <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;color:#cfd3e5">Tarot Journal</span>
+      <span style="flex:1"></span>
+      <nav style="display:flex;align-items:center;gap:3px;padding:3px;border-radius:999px;background:rgba(35,37,50,.8);box-shadow:inset 0 0 0 1px rgba(233,233,237,.09)">
+        <a href="#5b" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Library</a>
+        <a href="#5b" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Spreads</a>
+        <a href="#5b" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Journal</a>
+        <a href="#5b" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Reference</a>
+        <a href="#5b" style="padding:7px 16px;border-radius:999px;font-size:13px;font-weight:500;color:#e7e5fe;background:rgba(145,132,217,.22);box-shadow:0 0 20px rgba(145,132,217,.25)">Insights</a>
+      </nav>
+      <span style="flex:1"></span>
+      <a href="#5b" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;color:#9397ab;background:rgba(35,37,50,.8)" style-hover="color:#e9e9ed"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48 48 0 0 0-48-48zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32z"></path><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88z"></path></svg></a>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;min-height:0;padding:0 42px 24px;gap:22px">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding-top:12px">
+        <div>
+          <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#968ae0;margin-bottom:10px">214 entries · 1 Jan 2024 – 31 Jul 2026</div>
+          <h1 style="font-family:'Newsreader',Georgia,serif;font-size:46px;font-weight:300;line-height:1.04;margin:0">Insights</h1>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <span style="font-size:12px;padding:7px 14px;border-radius:999px;background:rgba(233,233,237,.07);color:#b2b6ca">All decks ▾</span>
+          <span style="font-size:12px;padding:7px 14px;border-radius:999px;background:rgba(233,233,237,.07);color:#b2b6ca">All querents ▾</span>
+          <div style="display:flex;gap:2px;padding:3px;border-radius:999px;background:rgba(35,37,50,.8);box-shadow:inset 0 0 0 1px rgba(233,233,237,.09)">
+            <span style="font-size:12px;padding:6px 13px;border-radius:999px;color:#9397ab;cursor:pointer" style-hover="color:#e9e9ed">90d</span>
+            <span style="font-size:12px;padding:6px 13px;border-radius:999px;color:#9397ab;cursor:pointer" style-hover="color:#e9e9ed">1y</span>
+            <span style="font-size:12px;padding:6px 13px;border-radius:999px;color:#e7e5fe;background:rgba(145,132,217,.22)">All</span>
+          </div>
+          <button style="cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:9px 18px;white-space:nowrap" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">Export report</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+        <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+          <div style="padding:20px 22px;border-radius:14px;background:rgba(29,31,46,.66)">
+            <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#75798c">{{ s.label }}</div>
+            <div style="font-family:'Newsreader',Georgia,serif;font-size:44px;font-weight:300;line-height:1.1;margin-top:8px;font-variant-numeric:tabular-nums">{{ s.value }}</div>
+            <div style="font-size:12px;color:#9397ab;margin-top:2px">{{ s.note }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:16px;min-height:0">
+        <div style="grid-row:span 2;padding:22px;border-radius:14px;background:rgba(29,31,46,.66);display:flex;flex-direction:column;min-height:0">
+          <div style="display:flex;align-items:baseline;justify-content:space-between">
+            <span style="font-family:'Newsreader',Georgia,serif;font-size:20px;color:#cfd3e5">Cards that keep coming</span>
+            <span style="font-size:12px;color:#75798c">of 214 readings</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px;margin-top:20px">
+            <sc-for list="{{ freq }}" as="f" hint-placeholder-count="8">
+              <div>
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">
+                  <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;color:#e9e9ed">{{ f.name }}</span>
+                  <span style="font-size:12px;color:#9397ab;font-variant-numeric:tabular-nums">{{ f.count }}</span>
+                </div>
+                <div style="height:3px;border-radius:999px;background:rgba(233,233,237,.08);margin-top:8px">
+                  <div style="height:3px;border-radius:999px;background:#9184d9;box-shadow:0 0 14px rgba(145,132,217,.5);width:{{ f.pct }}"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="padding:22px;border-radius:14px;background:rgba(29,31,46,.66);display:flex;flex-direction:column;min-height:0">
+          <div style="display:flex;align-items:baseline;justify-content:space-between">
+            <span style="font-family:'Newsreader',Georgia,serif;font-size:20px;color:#cfd3e5">Cadence</span>
+            <span style="font-size:12px;color:#75798c">readings per month</span>
+          </div>
+          <div style="flex:1;display:flex;align-items:flex-end;gap:9px;margin-top:20px;min-height:0">
+            <sc-for list="{{ cadence }}" as="c" hint-placeholder-count="14">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;justify-content:flex-end;height:100%">
+                <div style="width:100%;border-radius:6px 6px 0 0;background:{{ c.fill }};box-shadow:{{ c.glow }};height:{{ c.h }}"></div>
+                <span style="font-size:10px;color:#5a5e70">{{ c.m }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="padding:22px;border-radius:14px;background:rgba(29,31,46,.66);display:flex;gap:26px;min-height:0">
+          <div style="flex:1;display:flex;flex-direction:column">
+            <span style="font-family:'Newsreader',Georgia,serif;font-size:20px;color:#cfd3e5">Suits drawn</span>
+            <div style="display:flex;flex-direction:column;gap:11px;margin-top:18px">
+              <sc-for list="{{ suits }}" as="s" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <span style="width:74px;font-size:13px;color:#b2b6ca">{{ s.name }}</span>
+                  <div style="flex:1;height:3px;border-radius:999px;background:rgba(233,233,237,.08)"><div style="height:3px;border-radius:999px;background:#9184d9;width:{{ s.pct }}"></div></div>
+                  <span style="font-size:12px;color:#75798c;width:34px;text-align:right;font-variant-numeric:tabular-nums">{{ s.n }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="width:1px;background:linear-gradient(to bottom,transparent,rgba(233,233,237,.12) 48px,rgba(233,233,237,.12) calc(100% - 48px),transparent)"></div>
+          <div style="width:210px;display:flex;flex-direction:column">
+            <span style="font-family:'Newsreader',Georgia,serif;font-size:20px;color:#cfd3e5">Reversals</span>
+            <div style="font-family:'Newsreader',Georgia,serif;font-size:52px;font-weight:300;line-height:1;margin-top:18px;font-variant-numeric:tabular-nums">31<span style="font-size:26px;color:#9397ab">%</span></div>
+            <div style="font-size:12px;color:#9397ab;margin-top:6px">of 1,041 cards drawn</div>
+            <div style="font-size:12px;color:#b5abfc;margin-top:10px">Highest in the Ahead position</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="5c" style="position:absolute;left:3080px;top:3720px;width:1440px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">5c</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300">Settings — in 3a</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400">One column of settings at a readable measure, sections named in the serif</span>
+  </div>
+
+  <div style="width:1440px;height:940px;background:radial-gradient(120% 80% at 50% -10%,#232544 0%,#161826 60%);color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;gap:18px;padding:16px 24px">
+      <div style="display:flex;gap:7px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#5d5294"></span>
+      </div>
+      <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;color:#cfd3e5">Tarot Journal</span>
+      <span style="flex:1"></span>
+      <span style="font-size:12px;color:#75798c">Settings</span>
+      <span style="flex:1"></span>
+      <a href="#5c" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;color:#d2cefd;background:rgba(145,132,217,.2)" style-hover="background:rgba(145,132,217,.3)"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128 50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128z"></path></svg></a>
+    </div>
+
+    <div style="flex:1;display:grid;grid-template-columns:250px 1fr;min-height:0;padding:0 18px 18px;gap:28px">
+      <div style="display:flex;flex-direction:column;gap:3px;padding:18px 12px;border-radius:14px;background:rgba(29,31,46,.66)">
+        <div style="display:flex;align-items:center;gap:11px;padding:10px 14px;border-radius:999px;background:rgba(145,132,217,.16);box-shadow:inset 0 0 0 1px rgba(145,132,217,.32);font-size:13px;font-weight:500;color:#e7e5fe">Reading defaults</div>
+        <sc-for list="{{ settingsNav }}" as="s" hint-placeholder-count="6">
+          <div style="padding:10px 14px;border-radius:999px;font-size:13px;color:#9397ab;cursor:pointer" style-hover="background:rgba(233,233,237,.05);color:#e9e9ed">{{ s }}</div>
+        </sc-for>
+        <div style="margin-top:auto;padding:14px;font-size:12px;color:#5a5e70">Tarot Journal 3.1.0 · local vault</div>
+      </div>
+
+      <div style="min-height:0;overflow:hidden;padding:12px 0 0">
+        <div style="max-width:660px;display:flex;flex-direction:column;gap:26px">
+          <div>
+            <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#968ae0;margin-bottom:10px">Settings</div>
+            <h1 style="font-family:'Newsreader',Georgia,serif;font-size:42px;font-weight:300;line-height:1.04;margin:0">Reading defaults</h1>
+            <p style="font-size:13px;color:#9397ab;margin:12px 0 0;max-width:520px">What a new entry starts with. Anything here can still be changed per reading.</p>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:18px;padding:22px;border-radius:14px;background:rgba(29,31,46,.66)">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:24px">
+              <div><div style="font-size:13px;color:#e9e9ed">Default deck</div><div style="font-size:12px;color:#75798c">Used unless the spread names its own</div></div>
+              <span style="font-size:13px;padding:8px 16px;border-radius:999px;background:rgba(22,24,38,.7);box-shadow:inset 0 0 0 1px rgba(233,233,237,.1);color:#cfd3e5;cursor:pointer" style-hover="background:rgba(233,233,237,.06)">Marseille (Camoin) ▾</span>
+            </div>
+            <div style="height:1px;background:linear-gradient(to right,transparent,rgba(233,233,237,.1) 48px,rgba(233,233,237,.1) calc(100% - 48px),transparent)"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:24px">
+              <div><div style="font-size:13px;color:#e9e9ed">Default spread</div><div style="font-size:12px;color:#75798c">Pre-selected in the new-entry editor</div></div>
+              <span style="font-size:13px;padding:8px 16px;border-radius:999px;background:rgba(22,24,38,.7);box-shadow:inset 0 0 0 1px rgba(233,233,237,.1);color:#cfd3e5;cursor:pointer" style-hover="background:rgba(233,233,237,.06)">Five-Card Cross ▾</span>
+            </div>
+            <div style="height:1px;background:linear-gradient(to right,transparent,rgba(233,233,237,.1) 48px,rgba(233,233,237,.1) calc(100% - 48px),transparent)"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:24px">
+              <div><div style="font-size:13px;color:#e9e9ed">Reversals</div><div style="font-size:12px;color:#75798c">Allow cards to be marked reversed</div></div>
+              <span style="width:38px;height:22px;border-radius:999px;background:rgba(145,132,217,.35);box-shadow:inset 0 0 0 1px rgba(145,132,217,.5);display:flex;align-items:center;justify-content:flex-end;padding:2px;cursor:pointer;flex-shrink:0"><span style="width:18px;height:18px;border-radius:50%;background:#d2cefd"></span></span>
+            </div>
+            <div style="height:1px;background:linear-gradient(to right,transparent,rgba(233,233,237,.1) 48px,rgba(233,233,237,.1) calc(100% - 48px),transparent)"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:24px">
+              <div><div style="font-size:13px;color:#e9e9ed">Ask for a querent</div><div style="font-size:12px;color:#75798c">Off for solo practice</div></div>
+              <span style="width:38px;height:22px;border-radius:999px;background:rgba(233,233,237,.09);box-shadow:inset 0 0 0 1px rgba(233,233,237,.12);display:flex;align-items:center;padding:2px;cursor:pointer;flex-shrink:0"><span style="width:18px;height:18px;border-radius:50%;background:#5a5e70"></span></span>
+            </div>
+          </div>
+
+          <div>
+            <div style="font-family:'Newsreader',Georgia,serif;font-size:22px;color:#cfd3e5;margin-bottom:12px">Print &amp; export</div>
+            <div style="display:flex;flex-direction:column;gap:18px;padding:22px;border-radius:14px;background:rgba(29,31,46,.66)">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:24px">
+                <div><div style="font-size:13px;color:#e9e9ed">Paper size</div><div style="font-size:12px;color:#75798c">Used for PDF export</div></div>
+                <div style="display:flex;gap:2px;padding:3px;border-radius:999px;background:rgba(22,24,38,.7);box-shadow:inset 0 0 0 1px rgba(233,233,237,.1);flex-shrink:0">
+                  <span style="font-size:12px;padding:6px 15px;border-radius:999px;color:#e7e5fe;background:rgba(145,132,217,.22)">Letter</span>
+                  <span style="font-size:12px;padding:6px 15px;border-radius:999px;color:#9397ab;cursor:pointer" style-hover="color:#e9e9ed">A4</span>
+                </div>
+              </div>
+              <div style="height:1px;background:linear-gradient(to right,transparent,rgba(233,233,237,.1) 48px,rgba(233,233,237,.1) calc(100% - 48px),transparent)"></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:24px">
+                <div><div style="font-size:13px;color:#e9e9ed">Include card images</div><div style="font-size:12px;color:#75798c">Off prints names only — kinder to ink</div></div>
+                <span style="width:38px;height:22px;border-radius:999px;background:rgba(145,132,217,.35);box-shadow:inset 0 0 0 1px rgba(145,132,217,.5);display:flex;align-items:center;justify-content:flex-end;padding:2px;cursor:pointer;flex-shrink:0"><span style="width:18px;height:18px;border-radius:50%;background:#d2cefd"></span></span>
+              </div>
+              <div style="height:1px;background:linear-gradient(to right,transparent,rgba(233,233,237,.1) 48px,rgba(233,233,237,.1) calc(100% - 48px),transparent)"></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:24px">
+                <div><div style="font-size:13px;color:#e9e9ed">Vault folder</div><div style="font-size:12px;color:#75798c">~/Documents/Tarot Journal</div></div>
+                <button style="cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#cfd3e5;background:transparent;border:1px solid rgba(233,233,237,.14);border-radius:999px;padding:8px 16px;flex-shrink:0" style-hover="background:rgba(233,233,237,.06)">Change…</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="4a" style="position:absolute;left:0px;top:4960px;width:1440px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">4a</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300">Library — in 3a</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400">Deck shelf left, card grid as the hero surface</span>
+  </div>
+
+  <div style="width:1440px;height:940px;background:radial-gradient(120% 80% at 50% -10%,#232544 0%,#161826 60%);color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;gap:18px;padding:16px 24px">
+      <div style="display:flex;gap:7px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#5d5294"></span>
+      </div>
+      <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;color:#cfd3e5">Tarot Journal</span>
+      <span style="flex:1"></span>
+      <nav style="display:flex;align-items:center;gap:3px;padding:3px;border-radius:999px;background:rgba(35,37,50,.8);box-shadow:inset 0 0 0 1px rgba(233,233,237,.09)">
+        <a href="#4a" style="padding:7px 16px;border-radius:999px;font-size:13px;font-weight:500;color:#e7e5fe;background:rgba(145,132,217,.22);box-shadow:0 0 20px rgba(145,132,217,.25)">Library</a>
+        <a href="#4a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Spreads</a>
+        <a href="#4a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Journal</a>
+        <a href="#4a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Reference</a>
+        <a href="#4a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Insights</a>
+      </nav>
+      <span style="flex:1"></span>
+      <a href="#4a" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;color:#9397ab;background:rgba(35,37,50,.8)" style-hover="color:#e9e9ed"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48 48 0 0 0-48-48zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32z"></path><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88z"></path></svg></a>
+    </div>
+
+    <div style="flex:1;display:grid;grid-template-columns:340px 1fr;min-height:0;padding:0 18px 18px;gap:24px">
+      <div style="display:flex;flex-direction:column;min-height:0;padding:18px;gap:14px;border-radius:14px;background:rgba(29,31,46,.66)">
+        <div style="display:flex;gap:8px">
+          <button style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:10px 16px" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">Import Deck</button>
+        </div>
+        <input placeholder="Search decks" style="width:100%;background:rgba(22,24,38,.7);color:#e9e9ed;border:1px solid rgba(233,233,237,.1);border-radius:999px;padding:10px 16px;font-family:'Inter',system-ui,sans-serif;font-size:13px;outline:none">
+        <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;gap:12px;align-items:center;padding:12px;border-radius:14px;background:rgba(145,132,217,.14);box-shadow:inset 0 0 0 1px rgba(145,132,217,.35)">
+            <div style="width:38px;height:57px;flex-shrink:0;border-radius:6px;background:#2b2741;box-shadow:inset 0 0 0 1px rgba(145,132,217,.4)"></div>
+            <div style="min-width:0">
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:19px;line-height:1.2">Marseille (Camoin)</div>
+              <div style="font-size:12px;color:#b2b6ca;margin-top:3px">Tarot · 78 cards</div>
+            </div>
+          </div>
+          <sc-for list="{{ decks }}" as="d" hint-placeholder-count="5">
+            <div style="display:flex;gap:12px;align-items:center;padding:12px;border-radius:14px" style-hover="background:rgba(233,233,237,.05)">
+              <div style="width:38px;height:57px;flex-shrink:0;border-radius:6px;background:#242737;box-shadow:inset 0 0 0 1px rgba(233,233,237,.1)"></div>
+              <div style="min-width:0">
+                <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;color:#cfd3e5;line-height:1.2">{{ d.name }}</div>
+                <div style="font-size:12px;color:#75798c;margin-top:3px">{{ d.meta }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;min-height:0;gap:14px">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding-top:12px">
+          <div>
+            <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#968ae0;margin-bottom:10px">Deck · Tarot · 1760, restored 1997</div>
+            <h1 style="font-family:'Newsreader',Georgia,serif;font-size:44px;font-weight:300;line-height:1.04;margin:0">Marseille (Camoin)</h1>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0">
+            <button style="cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#cfd3e5;background:transparent;border:1px solid rgba(233,233,237,.14);border-radius:999px;padding:10px 18px;white-space:nowrap" style-hover="background:rgba(233,233,237,.06)">Edit deck</button>
+            <button style="cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:10px 18px;white-space:nowrap" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">Add cards</button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <input placeholder="Search all cards" style="flex:1;min-width:220px;background:rgba(22,24,38,.7);color:#e9e9ed;border:1px solid rgba(233,233,237,.1);border-radius:999px;padding:9px 16px;font-family:'Inter',system-ui,sans-serif;font-size:13px;outline:none">
+          <span style="font-size:12px;padding:6px 14px;border-radius:999px;background:rgba(145,132,217,.2);color:#d2cefd">Major Arcana</span>
+          <span style="font-size:12px;padding:6px 14px;border-radius:999px;background:rgba(233,233,237,.07);color:#b2b6ca">Minor</span>
+          <span style="font-size:12px;padding:6px 14px;border-radius:999px;background:rgba(233,233,237,.07);color:#b2b6ca">Court</span>
+          <span style="font-size:12px;padding:6px 14px;border-radius:999px;background:rgba(233,233,237,.07);color:#b2b6ca">Suit ▾</span>
+          <span style="font-size:12px;color:#75798c;margin-left:4px">22 of 78</span>
+        </div>
+
+        <div style="flex:1;overflow:hidden;padding:18px;border-radius:14px;background:rgba(29,31,46,.5)">
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:16px">
+            <sc-for list="{{ cards }}" as="c" hint-placeholder-count="14">
+              <div>
+                <div style="aspect-ratio:2/3;border-radius:14px;background:#242737;box-shadow:inset 0 0 0 1px rgba(233,233,237,.12);display:flex;align-items:flex-end;padding:9px" style-hover="box-shadow:inset 0 0 0 1px rgba(145,132,217,.6)">
+                  <span style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#9397ab">{{ c.code }}</span>
+                </div>
+                <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;color:#cfd3e5;margin-top:8px;text-align:center">{{ c.name }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="4b" style="position:absolute;left:1540px;top:4960px;width:1440px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">4b</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300">New entry — in 3a</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400">Editor over the dimmed journal; empty slots invite the card</span>
+  </div>
+
+  <div style="width:1440px;height:940px;background:radial-gradient(120% 80% at 50% -10%,#232544 0%,#161826 60%);color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5);position:relative">
+    <div style="position:absolute;inset:0;background:rgba(11,12,20,.72)"></div>
+
+    <div style="position:relative;width:1180px;height:850px;border-radius:14px;background:#1a1c2c;box-shadow:inset 0 0 0 1px rgba(233,233,237,.1),0 30px 70px rgba(0,0,0,.6);display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:24px 28px 18px">
+        <div>
+          <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#968ae0;margin-bottom:8px">New entry · draft</div>
+          <input value="Threshold at the New Moon" style="width:520px;background:transparent;color:#e9e9ed;border:0;border-bottom:1px solid rgba(233,233,237,.14);border-radius:0;padding:4px 0;font-family:'Newsreader',Georgia,serif;font-size:36px;font-weight:300;line-height:1.1;outline:none">
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0">
+          <button style="cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#9397ab;background:transparent;border:1px solid rgba(233,233,237,.14);border-radius:999px;padding:10px 18px;white-space:nowrap" style-hover="background:rgba(233,233,237,.06);color:#e9e9ed">Cancel</button>
+          <button style="cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:10px 20px" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">Save entry</button>
+        </div>
+      </div>
+
+      <div style="flex:1;display:grid;grid-template-columns:1fr 360px;gap:20px;padding:0 28px 24px;min-height:0">
+        <div style="padding:20px;border-radius:14px;background:rgba(29,31,46,.66);display:flex;flex-direction:column;min-height:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px">
+            <span style="font-family:'Newsreader',Georgia,serif;font-size:19px;color:#cfd3e5">Reading 1</span>
+            <div style="display:flex;gap:8px">
+              <span style="font-size:12px;padding:7px 14px;border-radius:999px;background:rgba(22,24,38,.7);box-shadow:inset 0 0 0 1px rgba(233,233,237,.1);color:#cfd3e5">Five-Card Cross ▾</span>
+              <span style="font-size:12px;padding:7px 14px;border-radius:999px;background:rgba(22,24,38,.7);box-shadow:inset 0 0 0 1px rgba(233,233,237,.1);color:#cfd3e5">Marseille (Camoin) ▾</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,132px);gap:16px 22px;justify-content:center">
+            <div style="grid-area:1/2">
+              <div style="aspect-ratio:2/3;border-radius:14px;background:#242737;box-shadow:inset 0 0 0 1px rgba(233,233,237,.12);display:flex;align-items:flex-end;padding:9px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#b2b6ca">XVII The Star</span></div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;color:#9397ab;margin-top:8px;text-align:center">Above</div>
+            </div>
+            <div style="grid-area:2/1">
+              <div style="aspect-ratio:2/3;border-radius:14px;background:rgba(22,24,38,.55);box-shadow:inset 0 0 0 1px rgba(233,233,237,.12);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="box-shadow:inset 0 0 0 1px rgba(145,132,217,.55);background:rgba(145,132,217,.1)">
+                <svg width="22" height="22" viewBox="0 0 256 256" fill="#75798c"><path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8z"></path></svg>
+              </div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;color:#9397ab;margin-top:8px;text-align:center">Behind</div>
+            </div>
+            <div style="grid-area:2/2">
+              <div style="aspect-ratio:2/3;border-radius:14px;background:#2b2741;box-shadow:inset 0 0 0 1px rgba(145,132,217,.6),0 0 20px rgba(145,132,217,.26);display:flex;align-items:flex-end;padding:9px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#d2cefd">XVIII The Moon</span></div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;color:#d2cefd;margin-top:8px;text-align:center">The Matter</div>
+            </div>
+            <div style="grid-area:2/3">
+              <div style="aspect-ratio:2/3;border-radius:14px;background:rgba(22,24,38,.55);box-shadow:inset 0 0 0 1px rgba(233,233,237,.12);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="box-shadow:inset 0 0 0 1px rgba(145,132,217,.55);background:rgba(145,132,217,.1)">
+                <svg width="22" height="22" viewBox="0 0 256 256" fill="#75798c"><path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8z"></path></svg>
+              </div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;color:#9397ab;margin-top:8px;text-align:center">Ahead</div>
+            </div>
+            <div style="grid-area:3/2">
+              <div style="aspect-ratio:2/3;border-radius:14px;background:rgba(22,24,38,.55);box-shadow:inset 0 0 0 1px rgba(233,233,237,.12);display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="box-shadow:inset 0 0 0 1px rgba(145,132,217,.55);background:rgba(145,132,217,.1)">
+                <svg width="22" height="22" viewBox="0 0 256 256" fill="#75798c"><path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8z"></path></svg>
+              </div>
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:14px;color:#9397ab;margin-top:8px;text-align:center">Beneath</div>
+            </div>
+          </div>
+          <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding-top:18px">
+            <button style="cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#d2cefd;background:transparent;border:1px solid rgba(145,132,217,.35);border-radius:999px;padding:8px 16px" style-hover="background:rgba(145,132,217,.16)">Add reading</button>
+            <span style="font-size:12px;color:#75798c">Click a slot to assign a card · ⌥-click marks it reversed</span>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+          <div style="padding:18px;border-radius:14px;background:rgba(29,31,46,.66);display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;gap:10px">
+              <div style="flex:1"><div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#75798c;margin-bottom:6px">Date</div><input value="23 Jul 2026" style="width:100%;background:rgba(22,24,38,.7);color:#e9e9ed;border:1px solid rgba(233,233,237,.1);border-radius:999px;padding:8px 14px;font-family:'Inter',system-ui,sans-serif;font-size:13px;outline:none"></div>
+              <div style="width:110px"><div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#75798c;margin-bottom:6px">Time</div><input value="9:14 PM" style="width:100%;background:rgba(22,24,38,.7);color:#e9e9ed;border:1px solid rgba(233,233,237,.1);border-radius:999px;padding:8px 14px;font-family:'Inter',system-ui,sans-serif;font-size:13px;outline:none"></div>
+            </div>
+            <div><div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#75798c;margin-bottom:6px">Querent</div><input value="Inês R." style="width:100%;background:rgba(22,24,38,.7);color:#e9e9ed;border:1px solid rgba(233,233,237,.1);border-radius:999px;padding:8px 14px;font-family:'Inter',system-ui,sans-serif;font-size:13px;outline:none"></div>
+            <div><div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#75798c;margin-bottom:6px">Reader</div><input value="Self" style="width:100%;background:rgba(22,24,38,.7);color:#e9e9ed;border:1px solid rgba(233,233,237,.1);border-radius:999px;padding:8px 14px;font-family:'Inter',system-ui,sans-serif;font-size:13px;outline:none"></div>
+            <div>
+              <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#75798c;margin-bottom:6px">Tags</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <span style="font-size:11px;padding:4px 11px;border-radius:999px;background:rgba(145,132,217,.2);color:#d2cefd">Threshold ×</span>
+                <span style="font-size:11px;padding:4px 11px;border-radius:999px;background:rgba(233,233,237,.07);color:#b2b6ca">Repeating card ×</span>
+                <span style="font-size:11px;padding:4px 11px;border-radius:999px;border:1px dashed rgba(233,233,237,.18);color:#75798c;cursor:pointer">+ tag</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="flex:1;padding:18px;border-radius:14px;background:rgba(29,31,46,.66);display:flex;flex-direction:column;min-height:0">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <span style="font-family:'Newsreader',Georgia,serif;font-size:18px;color:#cfd3e5">Notes</span>
+              <div style="display:flex;gap:2px;padding:3px;border-radius:999px;background:rgba(22,24,38,.7)">
+                <span style="width:26px;height:26px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#cfd3e5;cursor:pointer" style-hover="background:rgba(233,233,237,.08)">B</span>
+                <span style="width:26px;height:26px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12px;font-style:italic;color:#cfd3e5;cursor:pointer" style-hover="background:rgba(233,233,237,.08)">I</span>
+                <span style="width:26px;height:26px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12px;text-decoration:underline;color:#cfd3e5;cursor:pointer" style-hover="background:rgba(233,233,237,.08)">U</span>
+                <span style="width:26px;height:26px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#cfd3e5;cursor:pointer" style-hover="background:rgba(233,233,237,.08)">•</span>
+              </div>
+            </div>
+            <div style="flex:1;border-radius:14px;background:rgba(22,24,38,.7);box-shadow:inset 0 0 0 1px rgba(233,233,237,.1);padding:14px;font-size:13px;color:#cfd3e5;overflow:hidden">
+              Asked nothing directly — sat with the deck after the lease letter arrived. The Moon in the centre is the third time this month.<span style="display:inline-block;width:1px;height:15px;background:#b5abfc;vertical-align:-3px;margin-left:1px"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="4c" style="position:absolute;left:3080px;top:4960px;width:816px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed;width:816px;flex-wrap:wrap">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">4c</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300">Printed entry</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400;width:100%;padding-top:4px">Letter page — the paper counterpart: same Newsreader and same blurple, on ink-economical paper</span>
+  </div>
+
+  <div style="width:816px;height:1056px;background:#f3f5fe;color:#292b31;font-family:'Inter',system-ui,sans-serif;font-size:11px;line-height:1.6;padding:64px 68px;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid rgba(41,43,49,.2)">
+      <span style="font-family:'Newsreader',Georgia,serif;font-size:14px;color:#595d6c">Tarot Journal</span>
+      <span style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#5d5294">Entry 214 · New Moon in Leo</span>
+    </div>
+
+    <h1 style="font-family:'Newsreader',Georgia,serif;font-size:40px;font-weight:300;line-height:1.08;margin:26px 0 0;letter-spacing:-.005em">Threshold at the New Moon</h1>
+
+    <div style="display:flex;gap:26px;margin-top:14px;font-size:11px;color:#595d6c">
+      <span>23 July 2026, 9:14 PM</span>
+      <span>Querent <span style="color:#292b31">Inês R.</span></span>
+      <span>Reader <span style="color:#292b31">Self</span></span>
+      <span>Lisbon, PT</span>
+    </div>
+
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-top:32px;padding-bottom:8px;border-bottom:1px solid rgba(41,43,49,.2)">
+      <span style="font-family:'Newsreader',Georgia,serif;font-size:17px">Reading 1 — Five-Card Cross</span>
+      <span style="font-size:11px;color:#595d6c">Marseille (Camoin)</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,124px);gap:14px 20px;justify-content:center;margin-top:24px">
+      <div style="grid-area:1/2">
+        <div style="aspect-ratio:2/3;border-radius:4px;background:#e4e7f5;box-shadow:inset 0 0 0 1px rgba(41,43,49,.25);display:flex;align-items:flex-end;padding:7px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:#595d6c">XVII The Star</span></div>
+        <div style="font-family:'Newsreader',Georgia,serif;font-size:12px;color:#595d6c;margin-top:6px;text-align:center">1 · Above</div>
+      </div>
+      <div style="grid-area:2/1">
+        <div style="aspect-ratio:2/3;border-radius:4px;background:#e4e7f5;box-shadow:inset 0 0 0 1px rgba(41,43,49,.25);display:flex;align-items:flex-end;padding:7px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:#595d6c">Six of Cups</span></div>
+        <div style="font-family:'Newsreader',Georgia,serif;font-size:12px;color:#595d6c;margin-top:6px;text-align:center">2 · Behind</div>
+      </div>
+      <div style="grid-area:2/2">
+        <div style="aspect-ratio:2/3;border-radius:4px;background:#e7e5fe;box-shadow:inset 0 0 0 1.5px #5d5294;display:flex;align-items:flex-end;padding:7px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:#423a6a">XVIII The Moon</span></div>
+        <div style="font-family:'Newsreader',Georgia,serif;font-size:12px;color:#5d5294;margin-top:6px;text-align:center">3 · The Matter</div>
+      </div>
+      <div style="grid-area:2/3">
+        <div style="aspect-ratio:2/3;border-radius:4px;background:#e4e7f5;box-shadow:inset 0 0 0 1px rgba(41,43,49,.25);display:flex;align-items:flex-end;padding:7px;transform:rotate(180deg)"><span style="font-family:ui-monospace,Menlo,monospace;font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:#595d6c;transform:rotate(180deg)">Knight of Swords</span></div>
+        <div style="font-family:'Newsreader',Georgia,serif;font-size:12px;color:#595d6c;margin-top:6px;text-align:center">4 · Ahead <span style="font-style:italic;color:#5d5294">reversed</span></div>
+      </div>
+      <div style="grid-area:3/2">
+        <div style="aspect-ratio:2/3;border-radius:4px;background:#e4e7f5;box-shadow:inset 0 0 0 1px rgba(41,43,49,.25);display:flex;align-items:flex-end;padding:7px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:#595d6c">Three of Coins</span></div>
+        <div style="font-family:'Newsreader',Georgia,serif;font-size:12px;color:#595d6c;margin-top:6px;text-align:center">5 · Beneath</div>
+      </div>
+    </div>
+
+    <div style="margin-top:30px;padding-bottom:8px;border-bottom:1px solid rgba(41,43,49,.2);font-family:'Newsreader',Georgia,serif;font-size:17px">Notes</div>
+    <p style="font-size:11.5px;margin:12px 0 0;color:#3f424d">Asked nothing directly — sat with the deck after the lease letter arrived. The Moon in the centre is the third time this month, and I am no longer treating that as coincidence.</p>
+    <p style="font-size:11.5px;margin:8px 0 0;color:#3f424d">Reversed Knight reads as the halted move: the answer is late, not refused.</p>
+
+    <div style="margin-top:24px;padding-bottom:8px;border-bottom:1px solid rgba(41,43,49,.2);font-family:'Newsreader',Georgia,serif;font-size:17px">Follow-up</div>
+    <div style="font-size:10px;color:#75798c;margin-top:12px">26 July 2026, 8:02 AM</div>
+    <p style="font-size:11.5px;margin:3px 0 0;color:#3f424d">Landlord answered — one month later than promised. Knight held.</p>
+
+    <div style="margin-top:auto;display:flex;justify-content:space-between;align-items:baseline;padding-top:16px;border-top:1px solid rgba(41,43,49,.2);font-size:10px;color:#75798c">
+      <span>Marseille (Camoin) · Five-Card Cross</span>
+      <span>1 / 1</span>
+    </div>
+  </div>
+</section>
+
+<section id="3a" style="position:absolute;left:0px;top:6200px;width:1440px">
+  <div style="display:flex;align-items:baseline;gap:14px;padding:0 0 18px 2px;font-family:'Inter',system-ui,sans-serif;color:#e9e9ed">
+    <span style="font-size:13px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:rgba(145,132,217,.18);color:#d2cefd;padding:5px 11px;border-radius:999px">3a</span>
+    <span style="font-family:'Newsreader',Georgia,serif;font-size:31px;font-weight:300;letter-spacing:0">Nocturne · Bloom, set in Newsreader</span>
+    <span style="font-size:13px;color:#9397ab;font-weight:400">2c's layout and pill controls · 2a's serif for titles and headings</span>
+  </div>
+
+  <div style="width:1440px;height:940px;background:radial-gradient(120% 80% at 50% -10%,#232544 0%,#161826 60%);color:#e9e9ed;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6;font-weight:400;display:flex;flex-direction:column;overflow:hidden;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;gap:18px;padding:16px 24px">
+      <div style="display:flex;gap:7px">
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#3f424d"></span>
+        <span style="width:10px;height:10px;border-radius:50%;background:#5d5294"></span>
+      </div>
+      <span style="font-family:'Newsreader',Georgia,serif;font-size:17px;font-weight:400;color:#cfd3e5;letter-spacing:.01em">Tarot Journal</span>
+      <span style="flex:1"></span>
+      <nav style="display:flex;align-items:center;gap:3px;padding:3px;border-radius:999px;background:rgba(35,37,50,.8);box-shadow:inset 0 0 0 1px rgba(233,233,237,.09)">
+        <a href="#3a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Library</a>
+        <a href="#3a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Spreads</a>
+        <a href="#3a" style="padding:7px 16px;border-radius:999px;font-size:13px;font-weight:500;color:#e7e5fe;background:rgba(145,132,217,.22);box-shadow:0 0 20px rgba(145,132,217,.25)">Journal</a>
+        <a href="#3a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Reference</a>
+        <a href="#3a" style="padding:7px 16px;border-radius:999px;font-size:13px;color:#9397ab" style-hover="color:#e9e9ed">Insights</a>
+      </nav>
+      <span style="flex:1"></span>
+      <a href="#3a" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:999px;color:#9397ab;background:rgba(35,37,50,.8)" style-hover="color:#e9e9ed"><svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48 48 0 0 0-48-48zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32zm88-29.84q.06-2.16 0-4.32l14.92-18.64a8 8 0 0 0 1.48-7.06 107.21 107.21 0 0 0-10.88-26.25 8 8 0 0 0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186 40.54a8 8 0 0 0-3.94-6 107.71 107.71 0 0 0-26.25-10.87 8 8 0 0 0-7.06 1.49L130.16 40h-4.32L107.2 25.11a8 8 0 0 0-7.06-1.48A107.6 107.6 0 0 0 73.89 34.51a8 8 0 0 0-3.93 6l-2.64 23.76q-1.56 1.48-3 3L40.54 70a8 8 0 0 0-6 3.94 107.71 107.71 0 0 0-10.87 26.25 8 8 0 0 0 1.49 7.06L40 125.84v4.32L25.11 148.8a8 8 0 0 0-1.48 7.06 107.21 107.21 0 0 0 10.88 26.25 8 8 0 0 0 6 3.93l23.72 2.64q1.49 1.56 3 3L70 215.46a8 8 0 0 0 3.94 6 107.71 107.71 0 0 0 26.25 10.87 8 8 0 0 0 7.06-1.49L125.84 216q2.16.06 4.32 0l18.64 14.92a8 8 0 0 0 7.06 1.48 107.21 107.21 0 0 0 26.25-10.88 8 8 0 0 0 3.93-6l2.64-23.72q1.56-1.48 3-3l23.78-2.65a8 8 0 0 0 6-3.94 107.71 107.71 0 0 0 10.87-26.25 8 8 0 0 0-1.49-7.06zm-16.1-6.5a73.93 73.93 0 0 1 0 8.68 8 8 0 0 0 1.74 5.48l14.19 17.73a91.57 91.57 0 0 1-6.23 15l-22.6 2.56a8 8 0 0 0-5.1 2.64 74.11 74.11 0 0 1-6.14 6.14 8 8 0 0 0-2.64 5.1l-2.51 22.58a91.32 91.32 0 0 1-15 6.23l-17.74-14.19a8 8 0 0 0-5-1.75h-.48a73.93 73.93 0 0 1-8.68 0 8 8 0 0 0-5.48 1.74l-17.78 14.2a91.57 91.57 0 0 1-15-6.23L82.89 187a8 8 0 0 0-2.64-5.1 74.11 74.11 0 0 1-6.14-6.14 8 8 0 0 0-5.1-2.64l-22.58-2.52a91.32 91.32 0 0 1-6.23-15l14.19-17.74a8 8 0 0 0 1.74-5.48 73.93 73.93 0 0 1 0-8.68 8 8 0 0 0-1.74-5.48L40.2 100.45a91.57 91.57 0 0 1 6.23-15L69 82.89a8 8 0 0 0 5.1-2.64 74.11 74.11 0 0 1 6.14-6.14A8 8 0 0 0 82.89 69l2.51-22.57a91.32 91.32 0 0 1 15-6.23l17.74 14.19a8 8 0 0 0 5.48 1.74 73.93 73.93 0 0 1 8.68 0 8 8 0 0 0 5.48-1.74l17.77-14.19a91.57 91.57 0 0 1 15 6.23L173.11 69a8 8 0 0 0 2.64 5.1 74.11 74.11 0 0 1 6.14 6.14 8 8 0 0 0 5.1 2.64l22.58 2.51a91.32 91.32 0 0 1 6.23 15l-14.19 17.74a8 8 0 0 0-1.74 5.53z"></path></svg></a>
+    </div>
+
+    <div style="flex:1;display:grid;grid-template-columns:372px 1fr;min-height:0;gap:0;padding:0 18px 18px">
+      <div style="display:flex;flex-direction:column;min-height:0;padding:18px;gap:14px;border-radius:14px;background:rgba(29,31,46,.66)">
+        <div style="display:flex;gap:8px">
+          <button style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:10px 16px" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">
+            <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8z"></path></svg>New Entry
+          </button>
+          <button style="cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#9397ab;background:transparent;border:1px solid rgba(233,233,237,.14);border-radius:999px;padding:10px 16px" style-hover="background:rgba(233,233,237,.06);color:#e9e9ed">Export</button>
+        </div>
+        <input placeholder="Search entries" style="width:100%;background:rgba(22,24,38,.7);color:#e9e9ed;border:1px solid rgba(233,233,237,.1);border-radius:999px;padding:10px 16px;font-family:'Inter',system-ui,sans-serif;font-size:13px;outline:none">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span style="font-size:11px;padding:4px 11px;border-radius:999px;background:rgba(145,132,217,.2);color:#d2cefd">Threshold</span>
+          <span style="font-size:11px;padding:4px 11px;border-radius:999px;background:rgba(233,233,237,.07);color:#b2b6ca">Shadow work</span>
+          <span style="font-size:11px;padding:4px 11px;border-radius:999px;background:rgba(233,233,237,.07);color:#9397ab">+ 9</span>
+        </div>
+
+        <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:6px;margin-top:4px">
+          <div style="padding:14px 16px;border-radius:14px;background:rgba(145,132,217,.14);box-shadow:inset 0 0 0 1px rgba(145,132,217,.35),0 0 18px rgba(145,132,217,.16)">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:9px">
+              <span style="font-family:'Newsreader',Georgia,serif;font-size:20px;font-weight:400;letter-spacing:0;line-height:1.2">Threshold at the New Moon</span>
+              <span style="font-size:11px;color:#d2cefd;white-space:nowrap">23 Jul</span>
+            </div>
+            <div style="font-size:12px;color:#b2b6ca;margin-top:5px">Five-Card Cross · Marseille (Camoin)</div>
+          </div>
+          <sc-for list="{{ entries }}" as="e" hint-placeholder-count="5">
+            <div style="padding:14px 16px;border-radius:14px" style-hover="background:rgba(233,233,237,.05)">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:9px">
+                <span style="font-family:'Newsreader',Georgia,serif;font-size:19px;font-weight:400;color:#cfd3e5;line-height:1.2">{{ e.title }}</span>
+                <span style="font-size:11px;color:#75798c;white-space:nowrap">{{ e.day }}</span>
+              </div>
+              <div style="font-size:12px;color:#75798c;margin-top:5px">{{ e.meta }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="overflow:hidden;display:flex;flex-direction:column;min-height:0;padding:0 0 0 24px">
+        <div style="padding:12px 0 22px">
+          <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#968ae0;margin-bottom:12px">Entry 214 · New Moon in Leo</div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px">
+            <h1 style="font-family:'Newsreader',Georgia,serif;font-size:46px;font-weight:300;letter-spacing:-.005em;line-height:1.04;margin:0">Threshold at the New Moon</h1>
+            <div style="display:flex;gap:8px;flex-shrink:0">
+              <button style="cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:#cfd3e5;background:transparent;border:1px solid rgba(233,233,237,.14);border-radius:999px;padding:10px 18px;white-space:nowrap" style-hover="background:rgba(233,233,237,.06)">Edit</button>
+              <button style="cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#e7e5fe;background:rgba(145,132,217,.2);border:1px solid rgba(145,132,217,.45);border-radius:999px;padding:10px 18px;white-space:nowrap" style-hover="background:rgba(145,132,217,.32);box-shadow:0 0 22px rgba(145,132,217,.3)">Export PDF</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:30px;margin-top:18px;font-size:13px;color:#9397ab">
+            <span>23 July 2026, 9:14 PM</span>
+            <span>Querent <span style="color:#e9e9ed">Inês R.</span></span>
+            <span>Reader <span style="color:#e9e9ed">Self</span></span>
+            <span>Lisbon, PT</span>
+          </div>
+        </div>
+
+        <div style="flex:1;display:grid;grid-template-columns:1fr 316px;gap:24px;min-height:0">
+          <div style="padding:20px;border-radius:14px;background:rgba(29,31,46,.5)">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px">
+              <span style="font-family:'Newsreader',Georgia,serif;font-size:19px;font-weight:400;color:#cfd3e5">Reading 1 — Five-Card Cross</span>
+              <span style="font-size:12px;color:#75798c">Marseille (Camoin)</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,140px);gap:18px 24px;justify-content:center;transform:{{ cardTransform }};transform-origin:top center">
+              <div style="grid-area:1/2">
+                <div style="aspect-ratio:2/3;border-radius:14px;background:#242737;box-shadow:inset 0 0 0 1px rgba(233,233,237,.12);display:flex;align-items:flex-end;padding:10px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#b2b6ca">XVII The Star</span></div>
+                <sc-if value="{{ showPositionLabels }}" hint-placeholder-val="{{ true }}">
+                  <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;color:#9397ab;margin-top:9px;text-align:center">Above</div>
+                </sc-if>
+              </div>
+              <div style="grid-area:2/1">
+                <div style="aspect-ratio:2/3;border-radius:14px;background:#242737;box-shadow:inset 0 0 0 1px rgba(233,233,237,.12);display:flex;align-items:flex-end;padding:10px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#b2b6ca">Six of Cups</span></div>
+                <sc-if value="{{ showPositionLabels }}" hint-placeholder-val="{{ true }}">
+                  <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;color:#9397ab;margin-top:9px;text-align:center">Behind</div>
+                </sc-if>
+              </div>
+              <div style="grid-area:2/2">
+                <div style="aspect-ratio:2/3;border-radius:14px;background:#2b2741;box-shadow:inset 0 0 0 1px rgba(145,132,217,.6),0 0 20px rgba(145,132,217,.26);display:flex;align-items:flex-end;padding:10px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#d2cefd">XVIII The Moon</span></div>
+                <sc-if value="{{ showPositionLabels }}" hint-placeholder-val="{{ true }}">
+                  <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;color:#d2cefd;margin-top:9px;text-align:center">The Matter</div>
+                </sc-if>
+              </div>
+              <div style="grid-area:2/3">
+                <div style="aspect-ratio:2/3;border-radius:14px;background:#242737;box-shadow:inset 0 0 0 1px rgba(233,233,237,.12);display:flex;align-items:flex-end;padding:10px;transform:rotate(180deg)"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#b2b6ca;transform:rotate(180deg)">Knight of Swords</span></div>
+                <sc-if value="{{ showPositionLabels }}" hint-placeholder-val="{{ true }}">
+                  <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;color:#9397ab;margin-top:9px;text-align:center">Ahead · <span style="color:#b5abfc">reversed</span></div>
+                </sc-if>
+              </div>
+              <div style="grid-area:3/2">
+                <div style="aspect-ratio:2/3;border-radius:14px;background:#242737;box-shadow:inset 0 0 0 1px rgba(233,233,237,.12);display:flex;align-items:flex-end;padding:10px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#b2b6ca">Three of Coins</span></div>
+                <sc-if value="{{ showPositionLabels }}" hint-placeholder-val="{{ true }}">
+                  <div style="font-family:'Newsreader',Georgia,serif;font-size:15px;color:#9397ab;margin-top:9px;text-align:center">Beneath</div>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:12px;overflow:hidden">
+            <div style="padding:18px;border-radius:14px;background:rgba(29,31,46,.5)">
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;color:#cfd3e5">Notes</div>
+              <p style="font-size:13px;margin:10px 0 0;color:#cfd3e5">Asked nothing directly — sat with the deck after the lease letter arrived. The Moon in the centre is the third time this month.</p>
+              <p style="font-size:13px;margin:9px 0 0;color:#cfd3e5">Reversed Knight reads as the halted move: the answer is late, not refused.</p>
+            </div>
+            <div style="padding:18px;border-radius:14px;background:rgba(29,31,46,.5)">
+              <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;color:#cfd3e5">Repeating cards</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+                <span style="font-size:11px;padding:4px 11px;border-radius:999px;background:rgba(145,132,217,.2);color:#d2cefd">The Moon ×3</span>
+                <span style="font-size:11px;padding:4px 11px;border-radius:999px;background:rgba(233,233,237,.07);color:#b2b6ca">Six of Cups ×2</span>
+              </div>
+            </div>
+            <sc-if value="{{ showFollowUp }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:18px;border-radius:14px;background:rgba(29,31,46,.5)">
+                <div style="font-family:'Newsreader',Georgia,serif;font-size:18px;color:#cfd3e5">Follow-up</div>
+                <div style="font-size:11px;color:#75798c;margin-top:10px">26 Jul 2026, 8:02 AM</div>
+                <p style="font-size:13px;margin:4px 0 0;color:#cfd3e5">Landlord answered — one month later than promised. Knight held.</p>
+                <button style="cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-weight:500;font-size:13px;color:#d2cefd;background:transparent;border:1px solid rgba(145,132,217,.35);border-radius:999px;padding:8px 16px;margin-top:12px" style-hover="background:rgba(145,132,217,.16)">Add follow-up</button>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showPositionLabels&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Reading display&quot;},&quot;showFollowUp&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Reading display&quot;},&quot;cardScale&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0.8,&quot;max&quot;:1.3,&quot;step&quot;:0.05,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Reading display&quot;}}">
+const ENTRIES = [
+  { title: 'Clarifier on the studio lease', day: '19 Jul', roman: '19 vii', iso: '2026-07-19', slug: '3-card-line · thoth', meta: 'Three-Card Line · Thoth' },
+  { title: 'Midsummer check-in', day: '12 Jul', roman: '12 vii', iso: '2026-07-12', slug: 'celtic-cross · smith-waite', meta: 'Celtic Cross · Smith–Waite' },
+  { title: 'For E. — career question', day: '04 Jul', roman: '4 vii', iso: '2026-07-04', slug: '5-card-cross · marseille', meta: 'Five-Card Cross · Marseille' },
+  { title: 'Dark moon, no question', day: '28 Jun', roman: '28 vi', iso: '2026-06-28', slug: 'single · lenormand-dondorf', meta: 'Single Card · Lenormand (Dondorf)' },
+  { title: 'Reading for the equinox letter', day: '21 Jun', roman: '21 vi', iso: '2026-06-21', slug: '3-card-line · thoth', meta: 'Three-Card Line · Thoth' },
+];
+
+const DECKS = [
+  { name: 'Smith–Waite Centennial', meta: 'Tarot · 78 cards' },
+  { name: 'Thoth (Weiser)', meta: 'Tarot · 78 cards' },
+  { name: 'Lenormand (Dondorf)', meta: 'Lenormand · 36 cards' },
+  { name: 'Piatnik Playing Cards', meta: 'Playing cards · 54 cards' },
+  { name: 'Wild Unknown', meta: 'Oracle · 78 cards' },
+];
+
+const CARDS = [
+  { code: '00', name: 'The Fool' }, { code: '01', name: 'The Magician' }, { code: '02', name: 'The Popess' },
+  { code: '03', name: 'The Empress' }, { code: '04', name: 'The Emperor' }, { code: '05', name: 'The Pope' },
+  { code: '06', name: 'The Lovers' }, { code: '07', name: 'The Chariot' }, { code: '08', name: 'Justice' },
+  { code: '09', name: 'The Hermit' }, { code: '10', name: 'Wheel of Fortune' }, { code: '11', name: 'Strength' },
+  { code: '12', name: 'The Hanged Man' }, { code: '13', name: 'Arcanum XIII' },
+];
+
+const SPREADS_MINE = [
+  { name: 'Threshold Three', meta: '3 · used 12×' },
+  { name: 'Lease question', meta: '4 · used 3×' },
+  { name: 'Year ahead (mine)', meta: '13 · used 2×' },
+];
+
+const SPREADS_STOCK = [
+  { name: 'Single Card', meta: '1' },
+  { name: 'Three-Card Line', meta: '3' },
+  { name: 'Celtic Cross', meta: '10' },
+  { name: 'Horseshoe', meta: '7' },
+];
+
+const POSITIONS = [
+  { n: '1', name: 'Above' }, { n: '2', name: 'Behind' }, { n: '3', name: 'The Matter' },
+  { n: '4', name: 'Ahead' }, { n: '5', name: 'Beneath' },
+];
+
+const STATS = [
+  { label: 'Entries', value: '214', note: '+6 this month' },
+  { label: 'Cards drawn', value: '1,041', note: 'across 9 decks' },
+  { label: 'Median gap', value: '4d', note: 'between readings' },
+  { label: 'Longest streak', value: '23d', note: 'Mar – Apr 2025' },
+];
+
+const FREQ = [
+  { name: 'XVIII The Moon', count: '31', pct: '100%' },
+  { name: 'Six of Cups', count: '27', pct: '87%' },
+  { name: 'XVII The Star', count: '24', pct: '77%' },
+  { name: 'Knight of Swords', count: '21', pct: '68%' },
+  { name: 'Three of Coins', count: '18', pct: '58%' },
+  { name: 'IX The Hermit', count: '16', pct: '52%' },
+  { name: 'Ace of Batons', count: '14', pct: '45%' },
+  { name: 'XIII Arcanum', count: '11', pct: '35%' },
+];
+
+const CADENCE = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
+  .map((m, i) => {
+    const heights = [38, 52, 34, 61, 44, 70, 55, 40, 66, 78, 58, 47, 64, 88];
+    const last = i === 13;
+    return {
+      m,
+      h: heights[i] + '%',
+      fill: last ? '#9184d9' : 'rgba(145,132,217,.28)',
+      glow: last ? '0 0 18px rgba(145,132,217,.45)' : 'none',
+    };
+  });
+
+const SUITS = [
+  { name: 'Major', pct: '100%', n: '284' },
+  { name: 'Cups', pct: '72%', n: '204' },
+  { name: 'Swords', pct: '66%', n: '187' },
+  { name: 'Batons', pct: '61%', n: '173' },
+  { name: 'Coins', pct: '68%', n: '193' },
+];
+
+const ICON = {
+  card: 'M216 40H40a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V56a16 16 0 0 0-16-16zm0 160H40V56h176z',
+  entry: 'M208 32H72a16 16 0 0 0-16 16v168a8 8 0 0 0 12.24 6.78L128 186.1l59.76 36.68A8 8 0 0 0 200 216V48h8a8 8 0 0 0 0-16z',
+  plus: 'M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8z',
+  spread: 'M104 40H56a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h48a16 16 0 0 0 16-16V56a16 16 0 0 0-16-16zm96 0h-48a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h48a16 16 0 0 0 16-16V56a16 16 0 0 0-16-16z',
+  print: 'M214.67 72H208V40a8 8 0 0 0-8-8H56a8 8 0 0 0-8 8v32h-6.67A25.36 25.36 0 0 0 16 97.33v45.34A25.36 25.36 0 0 0 41.33 168H48v40a8 8 0 0 0 8 8h144a8 8 0 0 0 8-8v-40h6.67A25.36 25.36 0 0 0 240 142.67V97.33A25.36 25.36 0 0 0 214.67 72z',
+};
+
+const PALETTE_GROUPS = [
+  { label: 'Cards', items: [
+    { title: 'XVIII The Moon', meta: 'Marseille · drawn 31×', key: '↵', icon: ICON.card, bg: 'rgba(145,132,217,.14)', iconColor: '#b5abfc', titleColor: '#e9e9ed', keyColor: '#d2cefd', keyBg: 'rgba(145,132,217,.22)' },
+    { title: 'The Moon (Smith–Waite)', meta: 'drawn 6×', key: '', icon: ICON.card, bg: 'transparent', iconColor: '#5a5e70', titleColor: '#cfd3e5', keyColor: '#75798c', keyBg: 'transparent' },
+  ]},
+  { label: 'Entries', items: [
+    { title: 'Threshold at the New Moon', meta: '23 Jul 2026', key: '', icon: ICON.entry, bg: 'transparent', iconColor: '#5a5e70', titleColor: '#cfd3e5', keyColor: '#75798c', keyBg: 'transparent' },
+    { title: 'Dark moon, no question', meta: '28 Jun 2026', key: '', icon: ICON.entry, bg: 'transparent', iconColor: '#5a5e70', titleColor: '#cfd3e5', keyColor: '#75798c', keyBg: 'transparent' },
+  ]},
+  { label: 'Commands', items: [
+    { title: 'New entry with The Moon', meta: '', key: '⌘N', icon: ICON.plus, bg: 'transparent', iconColor: '#5a5e70', titleColor: '#cfd3e5', keyColor: '#9397ab', keyBg: 'rgba(233,233,237,.07)' },
+    { title: 'Filter journal by The Moon', meta: '31 entries', key: '⌘F', icon: ICON.spread, bg: 'transparent', iconColor: '#5a5e70', titleColor: '#cfd3e5', keyColor: '#9397ab', keyBg: 'rgba(233,233,237,.07)' },
+    { title: 'Print reference page for The Moon', meta: '', key: '⌘P', icon: ICON.print, bg: 'transparent', iconColor: '#5a5e70', titleColor: '#cfd3e5', keyColor: '#9397ab', keyBg: 'rgba(233,233,237,.07)' },
+  ]},
+];
+
+const SHORTCUT_GROUPS = [
+  { label: 'Anywhere', items: [
+    { label: 'Command palette', key: '⌘K' },
+    { label: 'New entry', key: '⌘N' },
+    { label: 'Search', key: '⌘F' },
+    { label: 'Shortcuts', key: '?' },
+    { label: 'Settings', key: '⌘,' },
+  ]},
+  { label: 'Journal', items: [
+    { label: 'Next / previous entry', key: 'J / K' },
+    { label: 'Edit entry', key: '⌘E' },
+    { label: 'Add follow-up', key: '⌘⇧F' },
+    { label: 'Export PDF', key: '⌘P' },
+    { label: 'Delete entry', key: '⌘⌫' },
+  ]},
+  { label: 'Editor', items: [
+    { label: 'Assign card to slot', key: '1 – 9' },
+    { label: 'Mark reversed', key: '⌥ + click' },
+    { label: 'Add reading', key: '⌘⇧N' },
+    { label: 'Save', key: '⌘S' },
+    { label: 'Close', key: '⌘W' },
+  ]},
+  { label: 'Library', items: [
+    { label: 'Next / previous deck', key: '⌥ ↑ / ↓' },
+    { label: 'Import deck', key: '⌘I' },
+    { label: 'Card detail', key: '↵' },
+    { label: 'Clear filters', key: '⌘⌥C' },
+  ]},
+  { label: 'Spreads', items: [
+    { label: 'Add position', key: '⌘⇧P' },
+    { label: 'Duplicate position', key: '⌥ + drag' },
+    { label: 'Nudge position', key: 'Arrows' },
+    { label: 'Use spread', key: '⌘↵' },
+  ]},
+  { label: 'View', items: [
+    { label: 'Library / Spreads / Journal', key: '⌘1 – 3' },
+    { label: 'Reference / Insights', key: '⌘4 – 5' },
+    { label: 'Toggle position labels', key: '⌘L' },
+    { label: 'Zoom cards', key: '⌘ + / −' },
+  ]},
+];
+
+const UNSAVED_ITEMS = [
+  'Five cards placed, one marked reversed',
+  '146 words of notes',
+  'Two tags — Threshold, Repeating card',
+];
+
+const DELETE_ITEMS = [
+  { what: 'Readings', n: '2' },
+  { what: 'Cards placed', n: '13' },
+  { what: 'Notes', n: '312 words' },
+  { what: 'Follow-ups', n: '1' },
+];
+
+const FIRST_RUN = [
+  { n: '01', title: 'Import a deck', note: 'A folder of card images, or one of the nine that ship with the app.' },
+  { n: '02', title: 'Record a reading', note: 'Pick a spread, place the cards, write what you noticed.' },
+  { n: '03', title: 'Watch it accumulate', note: 'Repeating cards and cadence appear once there is something to count.' },
+];
+
+const BROKEN_CARDS = (() => {
+  const names = [
+    ['00', 'The Fool', 1], ['01', 'The Magician', 0], ['02', 'The High Priestess', 1],
+    ['03', 'The Empress', 1], ['04', 'The Emperor', 0], ['05', 'The Hierophant', 1],
+    ['06', 'The Lovers', 1], ['07', 'The Chariot', 0], ['08', 'Strength', 1],
+    ['09', 'The Hermit', 1], ['10', 'Wheel of Fortune', 1], ['11', 'Justice', 0],
+    ['12', 'The Hanged Man', 1], ['13', 'Death', 1],
+  ];
+  return names.map(([code, name, missing]) => missing
+    ? { code, name, missing: true, bg: 'transparent', border: '1px dashed rgba(233,233,237,.16)', shadow: 'none', codeColor: '#5a5e70' }
+    : { code, name, missing: false, bg: '#242737', border: '0', shadow: 'inset 0 0 0 1px rgba(233,233,237,.12)', codeColor: '#9397ab' });
+})();
+
+const REFERENCE = [
+  { num: 'XIII', name: 'Arcanum XIII', n: '11' },
+  { num: 'XIV', name: 'Temperance', n: '7' },
+  { num: 'XV', name: 'The Devil', n: '9' },
+  { num: 'XVI', name: 'The Tower', n: '6' },
+  { num: 'XVII', name: 'The Star', n: '24' },
+  { num: 'XIX', name: 'The Sun', n: '13' },
+  { num: 'XX', name: 'Judgement', n: '5' },
+  { num: 'XXI', name: 'The World', n: '10' },
+  { num: '0', name: 'The Fool', n: '12' },
+  { num: 'I', name: 'The Magician', n: '8' },
+  { num: 'II', name: 'The Popess', n: '9' },
+  { num: 'III', name: 'The Empress', n: '7' },
+  { num: 'IV', name: 'The Emperor', n: '6' },
+];
+
+const MOON_KEYWORDS = ['Intuition', 'Night', 'Dream', 'Uncertainty', 'Threshold', 'Tide'];
+
+const MOON_SYMBOLS = [
+  { name: 'Two towers', note: 'the gate you pass without being told where it leads' },
+  { name: 'The crayfish', note: 'what surfaces from the pool unbidden' },
+  { name: 'Falling drops', note: 'in Marseille, dew rising — not rain' },
+];
+
+const MOON_SOURCES = [
+  { who: 'Marseille', what: 'the pull of the tide; things that move without will' },
+  { who: 'Smith–Waite', what: 'the path between the towers, imagination and fear' },
+  { who: 'Thoth', what: 'Pisces; the dark night before dawn' },
+];
+
+const MOON_POSITIONS = [
+  { name: 'The Matter', pct: '100%', n: '12' },
+  { name: 'Beneath', pct: '75%', n: '9' },
+  { name: 'Ahead', pct: '50%', n: '6' },
+  { name: 'Behind', pct: '33%', n: '4' },
+];
+
+const MOON_ENTRIES = [
+  { title: 'Threshold at the New Moon', day: '23 Jul', pos: 'The Matter · Five-Card Cross' },
+  { title: 'Clarifier on the studio lease', day: '19 Jul', pos: 'Beneath · Three-Card Line' },
+  { title: 'Midsummer check-in', day: '12 Jul', pos: 'The Matter · Celtic Cross' },
+  { title: 'For E. — career question', day: '04 Jul', pos: 'Ahead, reversed · Five-Card Cross' },
+  { title: 'Dark moon, no question', day: '28 Jun', pos: 'Single Card' },
+  { title: 'Reading for the equinox letter', day: '21 Jun', pos: 'Behind · Three-Card Line' },
+];
+
+const SETTINGS_NAV = ['Appearance', 'Decks', 'Spreads', 'Print & export', 'Vault & backup', 'Shortcuts'];
+
+class Component extends DCLogic {
+  renderVals() {
+    const scale = this.props.cardScale ?? 1;
+    return {
+      spreadsMine: SPREADS_MINE,
+      spreadsStock: SPREADS_STOCK,
+      positions: POSITIONS,
+      stats: STATS,
+      freq: FREQ,
+      cadence: CADENCE,
+      suits: SUITS,
+      settingsNav: SETTINGS_NAV,
+      reference: REFERENCE,
+      firstRun: FIRST_RUN,
+      paletteGroups: PALETTE_GROUPS,
+      shortcutGroups: SHORTCUT_GROUPS,
+      unsavedItems: UNSAVED_ITEMS,
+      deleteItems: DELETE_ITEMS,
+      brokenCards: BROKEN_CARDS,
+      moonKeywords: MOON_KEYWORDS,
+      moonSymbols: MOON_SYMBOLS,
+      moonSources: MOON_SOURCES,
+      moonPositions: MOON_POSITIONS,
+      moonEntries: MOON_ENTRIES,
+      showPositionLabels: this.props.showPositionLabels ?? true,
+      showFollowUp: this.props.showFollowUp ?? true,
+      cardTransform: scale === 1 ? 'none' : `scale(${scale})`,
+      entries: ENTRIES,
+      decks: DECKS,
+      cards: CARDS,
+    };
+  }
+}
+</script>
+</body>
+</html>

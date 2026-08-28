@@ -170,15 +170,20 @@ def _resolve_profile_chart(db, profile: dict) -> dict | None:
     }
 
 
-def _birth_card_blocks(db, cache, profile: dict, methods: list) -> list:
-    """One hydrated birth-card block per requested method."""
+def _birth_card_context(db, cache, profile: dict, methods: list):
+    """Birth-card template context: one "core" (pattern + Personality/
+    Soul/Teacher/Hidden + dynamic) per requested method, and everything
+    method-independent — Lessons & Opportunities (the Soul number is
+    method-invariant), the zodiacal row, and the year cards — exactly
+    once as `shared`. When both methods produce the same pattern the
+    cores collapse to one with a note that the methods agree."""
     birth_str = profile.get('birth_date')
     if not birth_str:
-        return []
+        return None
     try:
         birth = date.fromisoformat(birth_str)
     except ValueError:
-        return []
+        return None
     _, eight_eleven, court_system = birth_card_prefs(db)
     today = date.today()
     blocks = []
@@ -193,12 +198,43 @@ def _birth_card_blocks(db, cache, profile: dict, methods: list) -> list:
         _collect_card_ids(hydrated['cards'], ids)
         uris = _card_image_uris(db, cache, ids)
         _attach_image_uris(hydrated['cards'], uris)
-        hydrated['reference_year'] = today.year
         hydrated['method_label'] = (
-            'Greer (month + day + full year)' if method == bc.GREER
-            else 'Amberstone (month + day + century + year)')
+            'Greer method (month + day + full year)' if method == bc.GREER
+            else 'Amberstone method (month + day + century + year)')
         blocks.append(hydrated)
-    return blocks
+    if not blocks:
+        return None
+
+    cores = [{
+        'method_label': blk['method_label'],
+        'pattern': blk['pattern'],
+        'personality': blk['personality'],
+        'soul': blk['soul'],
+        'dynamic': blk['dynamic'],
+        'fool_center': blk['fool_center'],
+        'cards': {
+            'personality': blk['cards']['personality'],
+            'soul': blk['cards']['soul'],
+            'teacher': blk['cards']['teacher'],
+            'hidden_factor': blk['cards']['hidden_factor'],
+        },
+    } for blk in blocks]
+    # The pattern determines the whole core (Soul is always shared),
+    # so equal patterns mean identical cards — show them once.
+    if len(cores) == 2 and cores[0]['pattern'] == cores[1]['pattern']:
+        merged = dict(cores[0])
+        merged['method_label'] = (
+            'Greer & Amberstone methods — both give the same cards '
+            'for this birth date')
+        cores = [merged]
+
+    shared = blocks[0]
+    return {
+        'cores': cores,
+        'shared': shared,
+        'reference_year': today.year,
+        'karmic_year': shared['karmic_year'],
+    }
 
 
 def _name_card_block(db, cache, profile: dict) -> dict | None:
@@ -285,10 +321,10 @@ def export_profile_pdf(profile_id):
     if body.get('include_chart'):
         chart_block = _resolve_profile_chart(db, profile)
 
-    birth_blocks = []
+    birth_cards_ctx = None
     if body.get('include_birth_cards'):
         methods = body.get('birth_card_methods') or [bc.GREER]
-        birth_blocks = _birth_card_blocks(db, cache, profile, methods)
+        birth_cards_ctx = _birth_card_context(db, cache, profile, methods)
 
     name_block = None
     if body.get('include_name_cards'):
@@ -297,7 +333,7 @@ def export_profile_pdf(profile_id):
     context = {
         'profile': profile,
         'chart_block': chart_block,
-        'birth_blocks': birth_blocks,
+        'birth_cards': birth_cards_ctx,
         'name_block': name_block,
     }
 
