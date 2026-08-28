@@ -79,6 +79,10 @@ export interface SephiraRef {
   y: number;
   meaning: string;
   minors: MinorCardRef[];
+  /** Tetragrammaton courts, present only on sephiroth 2 / 3 / 6 / 10;
+   *  rank names follow the saved Courts preference. */
+  court_rank?: string;
+  courts?: (NamedCardRef & { rank: string; suit: string })[];
 }
 
 export interface TreePathRef {
@@ -95,6 +99,7 @@ export interface TreePathRef {
 export interface KabbalahData {
   sephiroth: SephiraRef[];
   paths: TreePathRef[];
+  court_system: CourtSystem;
 }
 
 export interface NumberEntry {

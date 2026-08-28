@@ -120,11 +120,6 @@ export default function TreeOfLife({ data, openCard, onOpenArchetype }: TreeOfLi
             );
           })}
         </svg>
-        <p className="ref-detail__note">
-          Paths follow the Golden Dawn letter–trump attributions. The
-          8/11 numbering preference relabels nothing here — letters
-          attach to card identities.
-        </p>
       </div>
 
       <div className="tree-of-life__panel">
@@ -155,6 +150,18 @@ export default function TreeOfLife({ data, openCard, onOpenArchetype }: TreeOfLi
                 <RefTile key={m.name} card={m} caption={m.suit} onOpen={openCard} />
               ))}
             </div>
+            {selectedSephira.courts && (
+              <>
+                <div className="ref-detail__kicker">
+                  Courts — the {selectedSephira.court_rank}s
+                </div>
+                <div className="ref-detail__row">
+                  {selectedSephira.courts.map(c => (
+                    <RefTile key={c.name} card={c} caption={c.suit} onOpen={openCard} />
+                  ))}
+                </div>
+              </>
+            )}
           </>
         )}
 

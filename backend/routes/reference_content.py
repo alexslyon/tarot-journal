@@ -183,18 +183,30 @@ def astrology():
 @reference_content_bp.route('/api/reference/kabbalah')
 def kabbalah():
     db = current_app.config['DB']
-    _, eight_eleven, _court = _prefs(db)
-    major, minor, _ = make_card_hydrators(db, eight_eleven)
+    _, eight_eleven, court_system = _prefs(db)
+    major, minor, by_card_name = make_card_hydrators(db, eight_eleven)
     index = _assignments_index(db)
 
-    sephiroth = [
-        {**s,
-         # The four Minors of the sephira's number: Aces for Kether
-         # down to Tens for Malkuth.
-         'minors': [minor({'rank': s['number'], 'suit': suit})
-                    for suit in bc.SUITS]}
-        for s in rc.SEPHIROTH
-    ]
+    court_ranks = rc.TREE_COURT_RANKS[court_system]
+    sephiroth = []
+    for s in rc.SEPHIROTH:
+        entry = {
+            **s,
+            # The four Minors of the sephira's number: Aces for Kether
+            # down to Tens for Malkuth.
+            'minors': [minor({'rank': s['number'], 'suit': suit})
+                       for suit in bc.SUITS],
+        }
+        # Tetragrammaton courts on 2 / 3 / 6 / 10.
+        rank = court_ranks.get(s['number'])
+        if rank:
+            entry['court_rank'] = rank
+            entry['courts'] = [
+                {'rank': rank, 'suit': suit,
+                 **by_card_name(f'{rank} of {suit}')}
+                for suit in bc.SUITS
+            ]
+        sephiroth.append(entry)
     paths = [
         {**p,
          'trump': major(p['trump'], canonical=True),
@@ -203,7 +215,8 @@ def kabbalah():
                                *_LETTER_ALIASES.get(p['letter'], []))}
         for p in rc.TREE_PATHS
     ]
-    return jsonify({'sephiroth': sephiroth, 'paths': paths})
+    return jsonify({'sephiroth': sephiroth, 'paths': paths,
+                    'court_system': court_system})
 
 
 @reference_content_bp.route('/api/reference/numerology')

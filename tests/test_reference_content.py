@@ -143,6 +143,40 @@ def test_kabbalah_endpoint(client):
     assert path11['trump']['name'] == 'The Fool'
 
 
+def test_tree_courts_follow_court_preference(client):
+    """Tetragrammaton courts on 2/3/6/10, rank names per the saved
+    Courts preference (user ruling: B.O.T.A. reads as Book T titles)."""
+    # Dataset: all three systems present, keys fixed
+    assert set(rc.TREE_COURT_RANKS) == set(bc.COURT_SYSTEMS)
+    for table in rc.TREE_COURT_RANKS.values():
+        assert set(table) == {2, 3, 6, 10}
+        assert table[3] == 'Queen' and table[10] == 'Page'
+
+    data = client.get('/api/reference/kabbalah').get_json()
+    by_number = {s['number']: s for s in data['sephiroth']}
+    assert data['court_system'] == 'golden_dawn'
+    assert by_number[2]['court_rank'] == 'King'
+    assert [c['name'] for c in by_number[6]['courts']] == [
+        'Knight of Wands', 'Knight of Cups', 'Knight of Swords',
+        'Knight of Pentacles']
+    # No courts off the Tetragrammaton four
+    assert 'courts' not in by_number[1] and 'courts' not in by_number[9]
+
+    # Waite figures flip the 2/6 ranks
+    client.put('/api/birth-cards/prefs', json={'court_system': 'golden_dawn_waite'})
+    data = client.get('/api/reference/kabbalah').get_json()
+    by_number = {s['number']: s for s in data['sephiroth']}
+    assert by_number[2]['court_rank'] == 'Knight'
+    assert by_number[6]['court_rank'] == 'King'
+
+    # B.O.T.A. reads as Book T titles on the tree
+    client.put('/api/birth-cards/prefs', json={'court_system': 'bota'})
+    data = client.get('/api/reference/kabbalah').get_json()
+    by_number = {s['number']: s for s in data['sephiroth']}
+    assert by_number[2]['court_rank'] == 'King'
+    assert by_number[6]['court_rank'] == 'Knight'
+
+
 def test_numerology_endpoint(client):
     data = client.get('/api/reference/numerology').get_json()
     entries = {e['number']: e for e in data['entries']}

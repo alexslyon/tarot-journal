@@ -144,6 +144,18 @@ SEPHIROTH = [
      'meaning': 'The manifest world; everything brought into body and matter.'},
 ]
 
+# Court ranks on the Tree, by the Tetragrammaton attribution (father
+# court on Chokmah 2, mother on Binah 3, son on Tiphareth 6, daughter
+# on Malkuth 10), rendered into RWS rank names per court system. User
+# ruling 2026-08-28: the tree follows the saved Courts preference, and
+# B.O.T.A. reads the same as Book T titles. Flat tables, never derived
+# from one another.
+TREE_COURT_RANKS = {
+    'golden_dawn':       {2: 'King', 3: 'Queen', 6: 'Knight', 10: 'Page'},
+    'golden_dawn_waite': {2: 'Knight', 3: 'Queen', 6: 'King', 10: 'Page'},
+    'bota':              {2: 'King', 3: 'Queen', 6: 'Knight', 10: 'Page'},
+}
+
 # The 22 connecting paths, numbered 11-32 by GD convention, each
 # carrying one Hebrew letter and one trump (Golden Dawn attributions;
 # trump numbers use the internal 1-22 convention, The Fool = 22).
