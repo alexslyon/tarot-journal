@@ -336,19 +336,23 @@ class CardsMixin:
                                   cartomancy_type: str) -> int:
         """Create an archetype for every distinct card name in a deck
         that doesn't already exist for the type (matching each card's
-        archetype field when set, its name otherwise). Cards without an
+        archetype field when set, its name otherwise), carrying the
+        card's rank and suit onto the archetype. Existing name-matched
+        archetypes that lack rank AND suit are backfilled, so
+        re-running the seed repairs earlier passes. Cards without an
         archetype tag get one pointing at their new archetype. Returns
         how many archetypes were created."""
         cursor = self.conn.cursor()
         cursor.execute(
-            'SELECT id, name, archetype FROM cards WHERE deck_id = ? '
-            'ORDER BY card_order', (deck_id,))
+            'SELECT id, name, archetype, rank, suit FROM cards '
+            'WHERE deck_id = ? ORDER BY card_order', (deck_id,))
         rows = [r if isinstance(r, dict) else dict(r) for r in cursor.fetchall()]
-        existing = {
-            (r[0] if not isinstance(r, dict) else r['name']).lower()
-            for r in cursor.execute(
-                'SELECT name FROM card_archetypes WHERE cartomancy_type = ?',
-                (cartomancy_type,)).fetchall()}
+        existing = {}
+        for row in cursor.execute(
+                'SELECT id, name, rank, suit FROM card_archetypes '
+                'WHERE cartomancy_type = ?', (cartomancy_type,)).fetchall():
+            e = row if isinstance(row, dict) else dict(row)
+            existing[e['name'].lower()] = e
         created = 0
         seen = set()
         for r in rows:
@@ -356,11 +360,19 @@ class CardsMixin:
             if not label or label.lower() in seen:
                 continue
             seen.add(label.lower())
-            if label.lower() in existing:
+            rank = (r.get('rank') or '').strip() or None
+            suit = (r.get('suit') or '').strip() or None
+            prior = existing.get(label.lower())
+            if prior is not None:
+                if (rank or suit) and not prior.get('rank') and not prior.get('suit'):
+                    cursor.execute(
+                        'UPDATE card_archetypes SET rank = ?, suit = ? WHERE id = ?',
+                        (rank, suit, prior['id']))
                 continue
             cursor.execute(
-                'INSERT INTO card_archetypes (name, cartomancy_type) VALUES (?, ?)',
-                (label, cartomancy_type))
+                'INSERT INTO card_archetypes (name, cartomancy_type, rank, suit) '
+                'VALUES (?, ?, ?, ?)',
+                (label, cartomancy_type, rank, suit))
             created += 1
         # Tag untagged cards with their own name so they resolve.
         cursor.execute(

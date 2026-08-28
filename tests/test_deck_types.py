@@ -115,3 +115,36 @@ def test_archetype_bulk_and_seed_from_deck(client, db):
     # Untagged cards got their archetype tag set
     cards = client.get(f"/api/cards?deck_id={deck['id']}").get_json()
     assert cards and all(c['archetype'] for c in cards)
+
+
+def test_seed_from_deck_carries_rank_and_suit(client, db):
+    """Seeding transfers each card's rank/suit onto its archetype, and
+    re-running backfills archetypes created before the fix."""
+    client.post('/api/types', json={'name': 'Runes'})
+    t = _type_by_name(client, 'Runes')
+    deck = client.post('/api/decks', json={
+        'name': 'Rune Set', 'type_ids': [t['id']]}).get_json()
+    card = client.post('/api/cards', json={
+        'deck_id': deck['id'], 'name': 'Fehu'}).get_json()
+    client.put(f"/api/cards/{card['id']}/metadata",
+               json={'rank': '1', 'suit': "Freyr's Aett"})
+    card2 = client.post('/api/cards', json={
+        'deck_id': deck['id'], 'name': 'Hagalaz'}).get_json()
+    client.put(f"/api/cards/{card2['id']}/metadata",
+               json={'rank': '9', 'suit': "Heimdall's Aett"})
+
+    # Simulate a pre-fix pass: Fehu already exists with no rank/suit
+    client.post('/api/archetypes', json={
+        'cartomancy_type': 'Runes', 'name': 'Fehu'})
+
+    r = client.post('/api/archetypes/seed-from-deck', json={
+        'deck_id': deck['id'], 'cartomancy_type': 'Runes'})
+    assert r.get_json()['created'] == 1   # Hagalaz; Fehu existed
+
+    archs = {a['name']: a for a in
+             client.get('/api/archetypes?cartomancy_type=Runes').get_json()}
+    assert archs['Hagalaz']['rank'] == '9'
+    assert archs['Hagalaz']['suit'] == "Heimdall's Aett"
+    # The pre-existing bare archetype got backfilled
+    assert archs['Fehu']['rank'] == '1'
+    assert archs['Fehu']['suit'] == "Freyr's Aett"
