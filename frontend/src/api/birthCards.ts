@@ -4,7 +4,7 @@ import api from './client';
 
 export type BirthCardMethod = 'greer' | 'amberstone';
 export type EightEleven = 'golden_dawn' | 'marseille';
-export type CourtSystem = 'golden_dawn' | 'bota';
+export type CourtSystem = 'golden_dawn' | 'golden_dawn_waite' | 'bota';
 
 /** A Major Arcana reference, hydrated by the backend. */
 export interface MajorCardRef {

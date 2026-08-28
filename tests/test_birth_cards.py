@@ -333,41 +333,61 @@ def test_api_zodiacal_rulers(client):
 # === Decan court rulers (Golden Dawn vs B.O.T.A.) ===
 
 def test_decan_court_known_cases():
-    # Cancer II (3 of Cups): cardinal water -> Queen of Cups, both systems
-    for system in bc.COURT_SYSTEMS:
-        court = bc.decan_court({'rank': 3, 'suit': 'Cups'}, system)
-        assert court['name'] == 'Queen of Cups', system
-        assert court['span'] == '20° Gemini – 20° Cancer'
-    # Sagittarius I (8 of Wands): mutable fire -> GD King / BOTA Knight
+    """Arc assignments per gd-vs-bota-court-correspondences.md, with
+    Book T ranks rendered by TITLE (Yod King stays King, Prince ->
+    Knight) per the user's ruling: GD = Queen/Knight/King for
+    cardinal/fixed/mutable; BOTA = King/Queen/Knight."""
+    # 20° Gem – 20° Can (Cancer II = 3 of Cups, cardinal water)
+    gd = bc.decan_court({'rank': 3, 'suit': 'Cups'})
+    assert gd['name'] == 'Queen of Cups'
+    assert gd['span'] == '20° Gemini – 20° Cancer'
+    assert bc.decan_court({'rank': 3, 'suit': 'Cups'}, 'bota')['name'] == 'King of Cups'
+    # 20° Sco – 20° Sag (Sag I = 8 of Wands, mutable fire)
     assert bc.decan_court({'rank': 8, 'suit': 'Wands'})['name'] == 'King of Wands'
     assert bc.decan_court({'rank': 8, 'suit': 'Wands'}, 'bota')['name'] == 'Knight of Wands'
-    # Capricorn III (4 of Pentacles): span belongs to the NEXT sign's
-    # court — fixed air Aquarius -> GD Knight / BOTA King of Swords
+    # 20° Cap – 20° Aqu (Cap III = 4 of Pentacles, next sign's court,
+    # fixed air)
     gd = bc.decan_court({'rank': 4, 'suit': 'Pentacles'})
     assert gd['name'] == 'Knight of Swords'
     assert gd['court_sign'] == 'Aquarius'
     assert gd['span'] == '20° Capricorn – 20° Aquarius'
-    assert bc.decan_court({'rank': 4, 'suit': 'Pentacles'}, 'bota')['name'] == 'King of Swords'
+    assert bc.decan_court({'rank': 4, 'suit': 'Pentacles'}, 'bota')['name'] == 'Queen of Swords'
+    # 20° Pis – 20° Ari (Aries I = 2 of Wands, cardinal fire)
+    assert bc.decan_court({'rank': 2, 'suit': 'Wands'})['name'] == 'Queen of Wands'
+    assert bc.decan_court({'rank': 2, 'suit': 'Wands'}, 'bota')['name'] == 'King of Wands'
+    # The Waite-figures GD reading: Queens cardinal, Kings fixed,
+    # Knights mutable
+    assert bc.decan_court({'rank': 2, 'suit': 'Wands'}, 'golden_dawn_waite')['name'] == 'Queen of Wands'
+    assert bc.decan_court({'rank': 4, 'suit': 'Pentacles'}, 'golden_dawn_waite')['name'] == 'King of Swords'
+    assert bc.decan_court({'rank': 8, 'suit': 'Wands'}, 'golden_dawn_waite')['name'] == 'Knight of Wands'
 
 
 def test_decan_court_structure():
     """Across all 36 decans: every span is a real 20-20 court span,
-    each of the 12 courts rules exactly three decans, Queens are
-    system-invariant, and Kings/Knights swap exactly between systems."""
-    gd_counts = {}
+    each of the 12 courts rules exactly three decans in each system,
+    and — because every rank sits on a different modality in the two
+    systems — the assigned rank ALWAYS differs between GD and BOTA."""
+    counts_by_system = {sys: {} for sys in bc.COURT_SYSTEMS}
     for (rank, suit) in bc._DECAN_INDEX:
         ref = {'rank': rank, 'suit': suit}
-        gd = bc.decan_court(ref, 'golden_dawn')
-        bota = bc.decan_court(ref, 'bota')
-        assert gd['suit'] == bota['suit']
-        assert gd['span'] == bota['span']
-        if gd['rank'] == 'Queen':
-            assert bota['rank'] == 'Queen'
-        else:
-            assert {gd['rank'], bota['rank']} == {'King', 'Knight'}
-        gd_counts[gd['name']] = gd_counts.get(gd['name'], 0) + 1
-    assert len(gd_counts) == 12
-    assert all(count == 3 for count in gd_counts.values())
+        results = {sys: bc.decan_court(ref, sys) for sys in bc.COURT_SYSTEMS}
+        # Arcs and suits are identical across every system
+        spans = {r['span'] for r in results.values()}
+        suits = {r['suit'] for r in results.values()}
+        assert len(spans) == 1 and len(suits) == 1
+        # Book T titles vs BOTA: every rank differs
+        assert results['golden_dawn']['rank'] != results['bota']['rank']
+        # The three systems are pairwise-distinct assignments overall
+        for sys, r in results.items():
+            counts_by_system[sys][r['name']] = \
+                counts_by_system[sys].get(r['name'], 0) + 1
+    for counts in counts_by_system.values():
+        assert len(counts) == 12
+        assert all(count == 3 for count in counts.values())
+    # The three tables really are three different assignments
+    tables = [tuple(sorted(bc._COURT_RANK_BY_MODALITY[sys].items()))
+              for sys in bc.COURT_SYSTEMS]
+    assert len(set(tables)) == 3
 
 
 def test_decan_court_rejects_unknown_system():
@@ -376,7 +396,7 @@ def test_decan_court_rejects_unknown_system():
 
 
 def test_api_decan_court(client):
-    # 1929-01-15 -> 4 of Pentacles (Capricorn III)
+    # 1929-01-15 -> 4 of Pentacles (Capricorn III -> Aquarius arc)
     res = client.get('/api/birth-cards?date=1929-01-15')
     data = res.get_json()
     assert data['decan_court']['name'] == 'Knight of Swords'
@@ -384,12 +404,12 @@ def test_api_decan_court(client):
     assert data['court_system'] == 'golden_dawn'
     res = client.get('/api/birth-cards?date=1929-01-15&court_system=bota')
     data = res.get_json()
-    assert data['decan_court']['name'] == 'King of Swords'
+    assert data['decan_court']['name'] == 'Queen of Swords'
     # Prefs roundtrip includes the court system
     res = client.put('/api/birth-cards/prefs', json={'court_system': 'bota'})
     assert res.get_json()['court_system'] == 'bota'
     res = client.get('/api/birth-cards?date=1929-01-15')
-    assert res.get_json()['decan_court']['name'] == 'King of Swords'
+    assert res.get_json()['decan_court']['name'] == 'Queen of Swords'
     assert client.put('/api/birth-cards/prefs',
                       json={'court_system': 'thoth'}).status_code == 400
 

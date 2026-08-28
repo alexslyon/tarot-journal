@@ -222,12 +222,32 @@ DECAN_RULERS = {
 
 # Each non-Page court card rules 20° of one sign through 20° of the
 # next: the last decan of the earlier sign plus the first two of its
-# own. Queens take the cardinal-sign spans in every tradition; the
-# other two ranks differ by naming lineage. Waite renamed the Golden
-# Dawn's fire courts (Book T "Knights") to Kings, while Case's B.O.T.A.
-# kept Knight = fire — so in RWS-named decks the two systems swap
-# King and Knight for the same span.
-COURT_SYSTEMS = ('golden_dawn', 'bota')
+# own. The sixteen arcs are IDENTICAL between systems; what differs is
+# which rank sits on which arc (see gd-vs-bota-court-correspondences.md):
+#
+#   Book T (Golden Dawn): Queen = cardinal, Prince = fixed, King
+#   (mounted) = mutable. Rendering those ranks into RWS names admits
+#   two readings, both offered:
+#     'golden_dawn'       — by TITLE: the Yod King stays King and the
+#                           Prince becomes the Knight, so
+#                           Queen / Knight / King for
+#                           cardinal / fixed / mutable.
+#     'golden_dawn_waite' — by FIGURE: the mounted Book T King is the
+#                           RWS Knight and the enthroned Prince the
+#                           RWS King, so Queen / King / Knight.
+#
+#   Case (B.O.T.A., Oracle of Tarot 1933) moved the letters: King =
+#   cardinal, Queen = fixed, Knight = mutable.
+#
+# Flat tables, per the reference doc; never derive one system from
+# another.
+COURT_SYSTEMS = ('golden_dawn', 'golden_dawn_waite', 'bota')
+
+_COURT_RANK_BY_MODALITY = {
+    'golden_dawn':       {'cardinal': 'Queen', 'fixed': 'Knight', 'mutable': 'King'},
+    'golden_dawn_waite': {'cardinal': 'Queen', 'fixed': 'King', 'mutable': 'Knight'},
+    'bota':              {'cardinal': 'King', 'fixed': 'Queen', 'mutable': 'Knight'},
+}
 
 _SUIT_BY_SIGN_INDEX = ['Wands', 'Pentacles', 'Swords', 'Cups']    # fire/earth/air/water
 _MODALITY_BY_SIGN_INDEX = ['cardinal', 'fixed', 'mutable']
@@ -238,9 +258,9 @@ _DECAN_INDEX = {(rank, suit): i for i, (_, _, rank, suit) in enumerate(DECANS)}
 def decan_court(ref: dict, system: str = 'golden_dawn') -> dict:
     """The court card ruling a decan Minor's span, in RWS rank names.
 
-    system='golden_dawn': Waite's rendering of Book T (mutable -> King,
-    fixed -> Knight). system='bota': Case's naming (mutable -> Knight,
-    fixed -> King). Queens (cardinal) are identical in both.
+    golden_dawn (Book T titles): cardinal Queen, fixed Knight, mutable King.
+    golden_dawn_waite (figures): cardinal Queen, fixed King, mutable Knight.
+    bota (Case):                 cardinal King, fixed Queen, mutable Knight.
     """
     if system not in COURT_SYSTEMS:
         raise ValueError(f'Unknown court system: {system!r}')
@@ -252,12 +272,7 @@ def decan_court(ref: dict, system: str = 'golden_dawn') -> dict:
     court_sign = _SIGN_ORDER[court_sign_i]
     suit = _SUIT_BY_SIGN_INDEX[court_sign_i % 4]
     modality = _MODALITY_BY_SIGN_INDEX[court_sign_i % 3]
-    if modality == 'cardinal':
-        rank = 'Queen'
-    elif modality == 'fixed':
-        rank = 'Knight' if system == 'golden_dawn' else 'King'
-    else:  # mutable — the fire/"mounted" court of Book T
-        rank = 'King' if system == 'golden_dawn' else 'Knight'
+    rank = _COURT_RANK_BY_MODALITY[system][modality]
     prev_sign = _SIGN_ORDER[(court_sign_i - 1) % 12]
     return {
         'rank': rank,

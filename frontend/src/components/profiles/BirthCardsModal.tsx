@@ -162,7 +162,8 @@ export default function BirthCardsModal({
                     value={data.court_system ?? 'golden_dawn'}
                     onChange={(e) => changeCourtSystem(e.target.value as CourtSystem)}
                   >
-                    <option value="golden_dawn">Golden Dawn</option>
+                    <option value="golden_dawn">Golden Dawn (Book T titles)</option>
+                    <option value="golden_dawn_waite">Golden Dawn (Waite figures)</option>
                     <option value="bota">B.O.T.A.</option>
                   </select>
                 </label>
