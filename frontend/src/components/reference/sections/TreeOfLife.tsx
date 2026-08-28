@@ -143,16 +143,30 @@ export default function TreeOfLife({ data, openCard }: TreeOfLifeProps) {
               <span>Association: <strong>{selectedSephira.planet}</strong></span>
             </div>
             <p className="ref-detail__themes">{selectedSephira.meaning}</p>
-            {selectedSephira.cards ? (
+            {(selectedSephira.cards?.length || selectedSephira.court_cards?.length) ? (
               <>
-                <div className="ref-detail__kicker">
-                  Cards on {selectedSephira.name}
-                </div>
-                <div className="ref-detail__row">
-                  {selectedSephira.cards.map(c => (
-                    <RefTile key={c.archetype_id ?? c.name} card={c} onOpen={openCard} />
-                  ))}
-                </div>
+                {selectedSephira.cards && selectedSephira.cards.length > 0 && (
+                  <>
+                    <div className="ref-detail__kicker">
+                      Cards on {selectedSephira.name}
+                    </div>
+                    <div className="ref-detail__row">
+                      {selectedSephira.cards.map(c => (
+                        <RefTile key={c.archetype_id ?? c.name} card={c} onOpen={openCard} />
+                      ))}
+                    </div>
+                  </>
+                )}
+                {selectedSephira.court_cards && selectedSephira.court_cards.length > 0 && (
+                  <>
+                    <div className="ref-detail__kicker">Courts</div>
+                    <div className="ref-detail__row">
+                      {selectedSephira.court_cards.map(c => (
+                        <RefTile key={c.archetype_id ?? c.name} card={c} onOpen={openCard} />
+                      ))}
+                    </div>
+                  </>
+                )}
               </>
             ) : (
               <>

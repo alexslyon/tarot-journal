@@ -84,8 +84,10 @@ export interface SephiraRef {
   court_rank?: string;
   courts?: (NamedCardRef & { rank: string; suit: string })[];
   /** The tree's own system's cards for this sephira, when it assigns
-   *  them — these replace the rank-derived minors and courts. */
+   *  them — these replace the rank-derived minors and courts. Pips
+   *  and courts arrive pre-split. */
   cards?: NamedCardRef[];
+  court_cards?: NamedCardRef[];
 }
 
 export interface TreePathRef {

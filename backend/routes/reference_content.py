@@ -44,6 +44,16 @@ _LETTER_ALIASES = {
 }
 
 
+# Court rank words across deck traditions, for splitting a sephira's
+# system-assigned cards into pips and courts in the panel.
+_COURT_WORDS = {'king', 'queen', 'knight', 'page', 'prince', 'princess',
+                'knave', 'dame', 'cavalier', 'valet'}
+
+
+def _is_court_name(name):
+    return name.split(' ', 1)[0].lower() in _COURT_WORDS
+
+
 # Sephira attributions live in the same hebrew_letter field (values
 # like 'כֶּתֶר / Kether'); alternate romanizations for matching them.
 _SEPHIRA_ALIASES = {
@@ -244,15 +254,19 @@ def kabbalah():
         # When the tree's system assigns cards to this sephira itself
         # (hebrew_letter values like 'כֶּתֶר / Kether'), those cards ARE
         # the sephira's cards — they replace the rank-derived minors
-        # and preference courts in the panel.
-        system_cards = _assigned(index, 'hebrew_letter', s['name'],
+        # and preference courts in the panel, split pips from courts.
+        system_cards = [
+            {'archetype_id': ref['archetype_id'], 'name': ref['name'],
+             'card_id': by_card_name(ref['name'])['card_id']}
+            for ref in _assigned(index, 'hebrew_letter', s['name'],
                                  *_SEPHIRA_ALIASES.get(s['name'], []))
-        if system_cards:
-            entry['cards'] = [
-                {'archetype_id': ref['archetype_id'], 'name': ref['name'],
-                 'card_id': by_card_name(ref['name'])['card_id']}
-                for ref in system_cards
-            ]
+        ]
+        pips = [c for c in system_cards if not _is_court_name(c['name'])]
+        court_cards = [c for c in system_cards if _is_court_name(c['name'])]
+        if pips:
+            entry['cards'] = pips
+        if court_cards:
+            entry['court_cards'] = court_cards
         sephiroth.append(entry)
     paths = []
     for p in rc.TREE_PATHS:

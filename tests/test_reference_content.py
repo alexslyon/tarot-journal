@@ -259,6 +259,28 @@ def test_tree_matches_combined_letter_values(client):
     assert by_number[2]['court_rank'] == 'King'
 
 
+def test_sephira_cards_split_pips_from_courts(client):
+    """A sephira's system-assigned cards arrive as separate pip and
+    court lists so the viewer can segregate them."""
+    sid = client.post('/api/correspondence-systems', json={
+        'name': 'ZZ Split Test', 'cartomancy_type': 'Tarot'}).get_json()['id']
+    ids = {}
+    for name in ('Two of ZZTest', 'King of ZZTest', 'Queen of ZZTest'):
+        ids[name] = client.post('/api/archetypes', json={
+            'cartomancy_type': 'Tarot', 'name': name}).get_json()['id']
+    client.put(f'/api/correspondence-systems/{sid}/assignments', json={
+        'assignments': [
+            {'archetype_id': aid, 'field_name': 'hebrew_letter',
+             'field_value': 'חׇכְמָה / Chokmah'}
+            for aid in ids.values()
+        ]})
+    data = client.get(f'/api/reference/kabbalah?system_id={sid}').get_json()
+    chokmah = next(s for s in data['sephiroth'] if s['number'] == 2)
+    assert [c['name'] for c in chokmah['cards']] == ['Two of ZZTest']
+    assert {c['name'] for c in chokmah['court_cards']} == {
+        'King of ZZTest', 'Queen of ZZTest'}
+
+
 def test_kabbalah_trees_config(client):
     """Tree-tab config round-trips through settings with validation."""
     assert client.get('/api/reference/kabbalah/trees').get_json() == {'trees': []}
