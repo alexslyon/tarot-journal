@@ -222,6 +222,43 @@ def test_kabbalah_tree_tabs(client):
     assert aleph['trump']['name'] == 'The Fool'
 
 
+def test_tree_matches_combined_letter_values(client):
+    """The seeded systems store hebrew_letter values as 'glyph / name'
+    ('צ / Tsadi', 'ה / He', even 'ח/ Chet' with a missing space) and
+    put sephira attributions ('כֶּתֶר / Kether') in the same field.
+    Both must land on the tree: the Thoth Emperor/Star swap on the
+    paths, sephira cards replacing the rank-derived panel."""
+    sid = client.post('/api/correspondence-systems', json={
+        'name': 'ZZ Combined Values', 'cartomancy_type': 'Tarot'}).get_json()['id']
+    ids = {}
+    for name in ('ZZ Star', 'ZZ Emperor', 'ZZ Chariot', 'ZZ Ace'):
+        ids[name] = client.post('/api/archetypes', json={
+            'cartomancy_type': 'Tarot', 'name': name}).get_json()['id']
+    client.put(f'/api/correspondence-systems/{sid}/assignments', json={
+        'assignments': [
+            {'archetype_id': ids['ZZ Star'], 'field_name': 'hebrew_letter',
+             'field_value': 'ה / He'},
+            {'archetype_id': ids['ZZ Emperor'], 'field_name': 'hebrew_letter',
+             'field_value': 'צ / Tsadi'},
+            {'archetype_id': ids['ZZ Chariot'], 'field_name': 'hebrew_letter',
+             'field_value': 'ח/ Chet'},
+            {'archetype_id': ids['ZZ Ace'], 'field_name': 'hebrew_letter',
+             'field_value': 'כֶּתֶר / Kether'},
+        ]})
+
+    data = client.get(f'/api/reference/kabbalah?system_id={sid}').get_json()
+    by_letter = {p['letter']: p for p in data['paths']}
+    assert [c['name'] for c in by_letter['Heh']['letter_cards']] == ['ZZ Star']
+    assert [c['name'] for c in by_letter['Tzaddi']['letter_cards']] == ['ZZ Emperor']
+    assert [c['name'] for c in by_letter['Cheth']['letter_cards']] == ['ZZ Chariot']
+
+    by_number = {s['number']: s for s in data['sephiroth']}
+    assert [c['name'] for c in by_number[1]['cards']] == ['ZZ Ace']
+    # Sephiroth the system doesn't cover keep the rank-derived panel
+    assert 'cards' not in by_number[2]
+    assert by_number[2]['court_rank'] == 'King'
+
+
 def test_kabbalah_trees_config(client):
     """Tree-tab config round-trips through settings with validation."""
     assert client.get('/api/reference/kabbalah/trees').get_json() == {'trees': []}

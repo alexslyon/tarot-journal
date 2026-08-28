@@ -44,6 +44,17 @@ _LETTER_ALIASES = {
 }
 
 
+# Sephira attributions live in the same hebrew_letter field (values
+# like 'כֶּתֶר / Kether'); alternate romanizations for matching them.
+_SEPHIRA_ALIASES = {
+    'Kether': ['keter'], 'Chokmah': ['chochmah', 'hokmah', 'chokma'],
+    'Binah': [], 'Chesed': ['hesed'], 'Geburah': ['gevurah'],
+    'Tiphareth': ['tiphereth', 'tiferet', 'tifereth'],
+    'Netzach': ['netsach'], 'Hod': [], 'Yesod': [],
+    'Malkuth': ['malchut', 'malkut'],
+}
+
+
 def _span_text(start, end):
     """'(3, 21), (4, 20)' -> 'Mar 21 – Apr 20'."""
     return (f'{_MONTHS[start[0]]} {start[1]} – '
@@ -71,11 +82,24 @@ def _assignments_index(db):
         if r['archetype_id'] in seen[key]:
             continue
         seen[key].add(r['archetype_id'])
-        index[key].append({
+        ref = {
             'archetype_id': r['archetype_id'],
             'name': r['archetype_name'],
             'cartomancy_type': r['cartomancy_type'],
-        })
+        }
+        index[key].append(ref)
+        # hebrew_letter values are often stored as combined
+        # 'glyph / name' strings ('צ / Tsadi', 'כֶּתֶר / Kether') —
+        # index each part separately so bare names and glyphs match.
+        if r['field_name'] == 'hebrew_letter' and '/' in value:
+            for part in value.split('/'):
+                part = part.strip().lower()
+                if not part or part == value.lower():
+                    continue
+                pkey = (r['field_name'], part)
+                if r['archetype_id'] not in seen[pkey]:
+                    seen[pkey].add(r['archetype_id'])
+                    index[pkey].append(ref)
         # Decan values ('Jupiter in Libra') also count toward their
         # sign and planet.
         if r['field_name'] == 'decan':
@@ -216,6 +240,18 @@ def kabbalah():
                 {'rank': rank, 'suit': suit,
                  **by_card_name(f'{rank} of {suit}')}
                 for suit in bc.SUITS
+            ]
+        # When the tree's system assigns cards to this sephira itself
+        # (hebrew_letter values like 'כֶּתֶר / Kether'), those cards ARE
+        # the sephira's cards — they replace the rank-derived minors
+        # and preference courts in the panel.
+        system_cards = _assigned(index, 'hebrew_letter', s['name'],
+                                 *_SEPHIRA_ALIASES.get(s['name'], []))
+        if system_cards:
+            entry['cards'] = [
+                {'archetype_id': ref['archetype_id'], 'name': ref['name'],
+                 'card_id': by_card_name(ref['name'])['card_id']}
+                for ref in system_cards
             ]
         sephiroth.append(entry)
     paths = []

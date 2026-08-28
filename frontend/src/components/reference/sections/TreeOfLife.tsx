@@ -143,22 +143,37 @@ export default function TreeOfLife({ data, openCard }: TreeOfLifeProps) {
               <span>Association: <strong>{selectedSephira.planet}</strong></span>
             </div>
             <p className="ref-detail__themes">{selectedSephira.meaning}</p>
-            <div className="ref-detail__kicker">Minors of {selectedSephira.number}</div>
-            <div className="ref-detail__row">
-              {selectedSephira.minors.map(m => (
-                <RefTile key={m.name} card={m} caption={m.suit} onOpen={openCard} />
-              ))}
-            </div>
-            {selectedSephira.courts && (
+            {selectedSephira.cards ? (
               <>
                 <div className="ref-detail__kicker">
-                  Courts — the {selectedSephira.court_rank}s
+                  Cards on {selectedSephira.name}
                 </div>
                 <div className="ref-detail__row">
-                  {selectedSephira.courts.map(c => (
-                    <RefTile key={c.name} card={c} caption={c.suit} onOpen={openCard} />
+                  {selectedSephira.cards.map(c => (
+                    <RefTile key={c.archetype_id ?? c.name} card={c} onOpen={openCard} />
                   ))}
                 </div>
+              </>
+            ) : (
+              <>
+                <div className="ref-detail__kicker">Minors of {selectedSephira.number}</div>
+                <div className="ref-detail__row">
+                  {selectedSephira.minors.map(m => (
+                    <RefTile key={m.name} card={m} caption={m.suit} onOpen={openCard} />
+                  ))}
+                </div>
+                {selectedSephira.courts && (
+                  <>
+                    <div className="ref-detail__kicker">
+                      Courts — the {selectedSephira.court_rank}s
+                    </div>
+                    <div className="ref-detail__row">
+                      {selectedSephira.courts.map(c => (
+                        <RefTile key={c.name} card={c} caption={c.suit} onOpen={openCard} />
+                      ))}
+                    </div>
+                  </>
+                )}
               </>
             )}
           </>
