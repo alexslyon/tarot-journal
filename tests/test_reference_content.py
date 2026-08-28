@@ -191,6 +191,54 @@ def test_numerology_endpoint(client):
     assert entries['10']['minors'][0]['name'] == 'Ten of Wands'
 
 
+def test_kabbalah_tree_tabs(client):
+    """Configured trees: the letter's card comes from the system's
+    hebrew_letter assignment (a Thoth-style Tzaddi swap shows through)
+    and images come from the tree's own deck, not the default deck."""
+    # A system whose Tzaddi is The Emperor (Thoth-style swap)
+    sid = client.post('/api/correspondence-systems', json={
+        'name': 'ZZ Thoth Style', 'cartomancy_type': 'Tarot'}).get_json()['id']
+    arch = client.post('/api/archetypes', json={
+        'cartomancy_type': 'Tarot', 'name': 'ZZ Emperor'}).get_json()['id']
+    client.put(f'/api/correspondence-systems/{sid}/assignments', json={
+        'assignments': [{'archetype_id': arch, 'field_name': 'hebrew_letter',
+                         'field_value': 'Tzaddi'}]})
+    # A deck holding that card, for the image lookup
+    types = client.get('/api/types').get_json()
+    tarot = next(t for t in types if t['name'] == 'Tarot')
+    deck = client.post('/api/decks', json={
+        'name': 'ZZ Tree Deck', 'type_ids': [tarot['id']]}).get_json()
+    card = client.post('/api/cards', json={
+        'deck_id': deck['id'], 'name': 'ZZ Emperor'}).get_json()
+
+    data = client.get(
+        f"/api/reference/kabbalah?system_id={sid}&deck_id={deck['id']}").get_json()
+    tzaddi = next(p for p in data['paths'] if p['letter'] == 'Tzaddi')
+    assert [c['name'] for c in tzaddi['letter_cards']] == ['ZZ Emperor']
+    assert tzaddi['letter_cards'][0]['card_id'] == card['id']
+    # Unassigned letters stay bare; the canonical trump is still there
+    aleph = data['paths'][0]
+    assert aleph['letter_cards'] == []
+    assert aleph['trump']['name'] == 'The Fool'
+
+
+def test_kabbalah_trees_config(client):
+    """Tree-tab config round-trips through settings with validation."""
+    assert client.get('/api/reference/kabbalah/trees').get_json() == {'trees': []}
+    trees = [{'label': 'Golden Dawn', 'system_id': 1, 'deck_id': 2},
+             {'label': 'Thoth', 'system_id': 3, 'deck_id': 4}]
+    r = client.put('/api/reference/kabbalah/trees', json={'trees': trees})
+    assert r.status_code == 200
+    assert client.get('/api/reference/kabbalah/trees').get_json() == {'trees': trees}
+    # Validation: missing label / ids rejected
+    assert client.put('/api/reference/kabbalah/trees', json={
+        'trees': [{'label': ' ', 'system_id': 1, 'deck_id': 2}]}).status_code == 400
+    assert client.put('/api/reference/kabbalah/trees', json={
+        'trees': [{'label': 'X', 'system_id': 1}]}).status_code == 400
+    # Bad writes leave the stored config untouched
+    assert client.get('/api/reference/kabbalah/trees').get_json() == {'trees': trees}
+
+
 def test_chakras_endpoint(client):
     data = client.get('/api/reference/chakras').get_json()
     assert len(data['chakras']) == 7
@@ -228,7 +276,7 @@ def test_correspondence_cross_references(client):
 
     kab = client.get(f'/api/reference/kabbalah?system_id={sid}').get_json()
     aleph = kab['paths'][0]
-    assert [a['name'] for a in aleph['assigned']] == ['ZZ Test Card A']
+    assert [a['name'] for a in aleph['letter_cards']] == ['ZZ Test Card A']
 
     num = client.get(f'/api/reference/numerology?system_id={sid}').get_json()
     seven = next(e for e in num['entries'] if e['number'] == '7')

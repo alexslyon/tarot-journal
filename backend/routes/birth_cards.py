@@ -53,11 +53,12 @@ def tarot_archetype_ids(db):
     return by_rank, by_name
 
 
-def default_tarot_card_ids(db):
-    """Map archetype name (lowercased) -> card id in the user's default
-    Tarot deck, so the UI can show real card images. Empty if no
-    default deck is set."""
-    deck_id = db.get_default_deck('Tarot')
+def default_tarot_card_ids(db, deck_id=None):
+    """Map archetype name (lowercased) -> card id for images, from the
+    given deck, or the user's default Tarot deck when none is named.
+    Empty if neither exists."""
+    if deck_id is None:
+        deck_id = db.get_default_deck('Tarot')
     if not deck_id:
         return {}
     cursor = db.conn.cursor()
@@ -73,10 +74,11 @@ def default_tarot_card_ids(db):
     return out
 
 
-def make_card_hydrators(db, eight_eleven='golden_dawn'):
+def make_card_hydrators(db, eight_eleven='golden_dawn', deck_id=None):
     """Build (major, minor, by_card_name) hydrator functions that attach
-    display names, archetype ids, and (when a default Tarot deck is set)
-    card ids for images. Shared with the reference-content routes.
+    display names, archetype ids, and card ids for images — from
+    deck_id when given, else the default Tarot deck. Shared with the
+    reference-content routes.
 
     major(n, canonical=True) keeps the canonical Golden Dawn name even
     under the Marseille 8/11 preference — astrological/kabbalistic
@@ -84,7 +86,7 @@ def make_card_hydrators(db, eight_eleven='golden_dawn'):
     numbering toggle deliberately doesn't rename those.
     """
     by_rank, by_name = tarot_archetype_ids(db)
-    card_ids = default_tarot_card_ids(db)
+    card_ids = default_tarot_card_ids(db, deck_id)
 
     def major(n, canonical=False):
         if n is None:

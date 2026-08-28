@@ -14,6 +14,7 @@ hebrew_letter / numerology / chakra fields). Cross-references are
 computed, never stored here.
 """
 
+import json
 from collections import defaultdict
 from datetime import date
 
@@ -23,6 +24,7 @@ import birth_cards as bc
 import reference_content as rc
 from database.correspondences import parse_decan
 from backend.routes.birth_cards import make_card_hydrators, _prefs
+from backend.utils import require_json
 
 reference_content_bp = Blueprint('reference_content', __name__)
 
@@ -182,9 +184,18 @@ def astrology():
 
 @reference_content_bp.route('/api/reference/kabbalah')
 def kabbalah():
+    """The Tree of Life. With ?system_id= and ?deck_id= (a configured
+    tree tab), each path's cards come from that correspondence system's
+    hebrew_letter assignments — so a Thoth-style system's Emperor/Star
+    letter swap shows up — and images come from the named deck. Without
+    them, canonical GD attributions and the default Tarot deck."""
     db = current_app.config['DB']
     _, eight_eleven, court_system = _prefs(db)
-    major, minor, by_card_name = make_card_hydrators(db, eight_eleven)
+    try:
+        deck_id = int(request.args.get('deck_id', ''))
+    except ValueError:
+        deck_id = None
+    major, minor, by_card_name = make_card_hydrators(db, eight_eleven, deck_id)
     index = _assignments_index(db)
 
     court_ranks = rc.TREE_COURT_RANKS[court_system]
@@ -207,16 +218,62 @@ def kabbalah():
                 for suit in bc.SUITS
             ]
         sephiroth.append(entry)
-    paths = [
-        {**p,
-         'trump': major(p['trump'], canonical=True),
-         'assigned': _assigned(index, 'hebrew_letter',
-                               p['letter'], p['glyph'],
-                               *_LETTER_ALIASES.get(p['letter'], []))}
-        for p in rc.TREE_PATHS
-    ]
+    paths = []
+    for p in rc.TREE_PATHS:
+        # The system's own cards for this letter (hebrew_letter field,
+        # alias spellings included), with images from the tree's deck.
+        letter_cards = [
+            {'archetype_id': ref['archetype_id'], 'name': ref['name'],
+             'card_id': by_card_name(ref['name'])['card_id']}
+            for ref in _assigned(index, 'hebrew_letter',
+                                 p['letter'], p['glyph'],
+                                 *_LETTER_ALIASES.get(p['letter'], []))
+        ]
+        paths.append({
+            **p,
+            'trump': major(p['trump'], canonical=True),
+            'letter_cards': letter_cards,
+        })
     return jsonify({'sephiroth': sephiroth, 'paths': paths,
                     'court_system': court_system})
+
+
+# === Configured tree tabs (label + correspondence system + deck) ===
+
+TREES_KEY = 'kabbalah_trees'
+
+
+@reference_content_bp.route('/api/reference/kabbalah/trees')
+def get_kabbalah_trees():
+    raw = current_app.config['DB'].get_setting(TREES_KEY)
+    try:
+        trees = json.loads(raw) if raw else []
+    except ValueError:
+        trees = []
+    return jsonify({'trees': trees if isinstance(trees, list) else []})
+
+
+@reference_content_bp.route('/api/reference/kabbalah/trees', methods=['PUT'])
+@require_json
+def set_kabbalah_trees(data):
+    trees = data.get('trees')
+    if not isinstance(trees, list):
+        return jsonify({'error': 'trees must be a list'}), 400
+    cleaned = []
+    for t in trees:
+        if not isinstance(t, dict):
+            return jsonify({'error': 'each tree must be an object'}), 400
+        label = (t.get('label') or '').strip()
+        system_id = t.get('system_id')
+        deck_id = t.get('deck_id')
+        if not label:
+            return jsonify({'error': 'each tree needs a label'}), 400
+        if not isinstance(system_id, int) or not isinstance(deck_id, int):
+            return jsonify({'error': 'each tree needs system_id and deck_id'}), 400
+        cleaned.append({'label': label, 'system_id': system_id,
+                        'deck_id': deck_id})
+    current_app.config['DB'].set_setting(TREES_KEY, json.dumps(cleaned))
+    return jsonify({'trees': cleaned})
 
 
 @reference_content_bp.route('/api/reference/numerology')

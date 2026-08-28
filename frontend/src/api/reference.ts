@@ -92,14 +92,37 @@ export interface TreePathRef {
   letter: string;
   glyph: string;
   value: number;
+  /** Canonical GD trump — the fallback when the tree's system doesn't
+   *  assign this letter. */
   trump: MajorCardRef;
-  assigned: AssignedRef[];
+  /** The tree's correspondence system's cards for this letter
+   *  (hebrew_letter assignments), images from the tree's deck. */
+  letter_cards: NamedCardRef[];
 }
 
 export interface KabbalahData {
   sephiroth: SephiraRef[];
   paths: TreePathRef[];
   court_system: CourtSystem;
+}
+
+/** A configured Tree of Life tab: correspondence system + image deck. */
+export interface KabbalahTreeConfig {
+  label: string;
+  system_id: number;
+  deck_id: number;
+}
+
+export async function getKabbalahTrees(): Promise<{ trees: KabbalahTreeConfig[] }> {
+  const res = await api.get('/api/reference/kabbalah/trees');
+  return res.data;
+}
+
+export async function setKabbalahTrees(
+  trees: KabbalahTreeConfig[],
+): Promise<{ trees: KabbalahTreeConfig[] }> {
+  const res = await api.put('/api/reference/kabbalah/trees', { trees });
+  return res.data;
 }
 
 export interface NumberEntry {
@@ -131,8 +154,15 @@ export async function getAstrologyReference(systemId?: number | null): Promise<A
   return res.data;
 }
 
-export async function getKabbalahReference(systemId?: number | null): Promise<KabbalahData> {
-  const res = await api.get(`/api/reference/kabbalah${qs(systemId)}`);
+export async function getKabbalahReference(
+  systemId?: number | null,
+  deckId?: number | null,
+): Promise<KabbalahData> {
+  const params = new URLSearchParams();
+  if (systemId) params.set('system_id', String(systemId));
+  if (deckId) params.set('deck_id', String(deckId));
+  const q = params.toString();
+  const res = await api.get(`/api/reference/kabbalah${q ? `?${q}` : ''}`);
   return res.data;
 }
 

@@ -3,3 +3,39 @@
   color: var(--tj-text-muted);
   margin-left: 4px;
 }
+
+.kabbalah__tabs {
+  align-items: center;
+}
+
+.kabbalah__tab-action {
+  color: var(--tj-text-faint);
+  font-size: var(--tj-size-small);
+}
+
+.kabbalah__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.kabbalah__form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-muted);
+}
+
+.kabbalah__form-error {
+  color: var(--danger);
+  font-size: var(--tj-size-small);
+  margin: 0;
+}
+
+.kabbalah__form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}

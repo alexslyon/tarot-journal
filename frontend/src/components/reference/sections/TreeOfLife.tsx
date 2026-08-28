@@ -7,7 +7,7 @@
  */
 import { useMemo, useState } from 'react';
 import type { KabbalahData, SephiraRef, TreePathRef } from '../../../api/reference';
-import { AssignedCards, RefTile } from './referenceShared';
+import { RefTile } from './referenceShared';
 import './TreeOfLife.css';
 
 // Chart-space -> SVG-space
@@ -29,10 +29,9 @@ type Selection =
 interface TreeOfLifeProps {
   data: KabbalahData;
   openCard: (cardId: number) => void;
-  onOpenArchetype?: (id: number, cartomancyType: string) => void;
 }
 
-export default function TreeOfLife({ data, openCard, onOpenArchetype }: TreeOfLifeProps) {
+export default function TreeOfLife({ data, openCard }: TreeOfLifeProps) {
   const [selection, setSelection] = useState<Selection>(null);
 
   const byNumber = useMemo(
@@ -181,13 +180,23 @@ export default function TreeOfLife({ data, openCard, onOpenArchetype }: TreeOfLi
               </span>
             </div>
             <div className="ref-detail__row">
-              <RefTile
-                card={selectedPath.trump}
-                caption={`${selectedPath.letter}'s trump`}
-                onOpen={openCard}
-              />
+              {selectedPath.letter_cards.length > 0 ? (
+                selectedPath.letter_cards.map(c => (
+                  <RefTile
+                    key={c.archetype_id ?? c.name}
+                    card={c}
+                    caption={`${selectedPath.letter}'s card`}
+                    onOpen={openCard}
+                  />
+                ))
+              ) : (
+                <RefTile
+                  card={selectedPath.trump}
+                  caption={`${selectedPath.letter}'s trump`}
+                  onOpen={openCard}
+                />
+              )}
             </div>
-            <AssignedCards refs={selectedPath.assigned} onOpenArchetype={onOpenArchetype} />
           </>
         )}
       </div>
