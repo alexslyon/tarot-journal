@@ -809,6 +809,38 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
   // ── Apply ──────────────────────────────────────────────────
   // Only writable rows count — a checked row with no reachable target
   // must not inflate the Apply button's promise.
+  // Review list in canonical card order (the archetype list's order,
+  // deck order in deck-only imports), so gaps in a book's coverage
+  // are visible at a glance; unmatched names keep arrival order at
+  // the end. Sorting is render-only — merge logic is name-keyed.
+  const archOrder = useMemo(
+    () => new Map(archetypes.map((a, i) => [a.id, i])), [archetypes]);
+  const deckOrder = useMemo(
+    () => new Map(deckCards.map((c, i) => [c.id, i])), [deckCards]);
+  const sortedProposals = useMemo(() => {
+    const key = (p: Proposal, i: number) => {
+      if (p.archetypeId != null && archOrder.has(p.archetypeId)) {
+        return archOrder.get(p.archetypeId)!;
+      }
+      if (p.cardId != null && deckOrder.has(p.cardId)) {
+        return deckOrder.get(p.cardId)!;
+      }
+      return 1_000_000 + i;
+    };
+    return proposals
+      .map((p, i) => ({ p, k: key(p, i) }))
+      .sort((a, b) => a.k - b.k)
+      .map(x => x.p);
+  }, [proposals, archOrder, deckOrder]);
+  const sortedCombos = useMemo(() => {
+    const pos = (id: number | undefined) =>
+      id != null && archOrder.has(id) ? archOrder.get(id)! : 1_000_000;
+    return [...combos].sort((a, b) =>
+      pos(a.archetypeIds[0]) - pos(b.archetypeIds[0])
+      || pos(a.archetypeIds[1]) - pos(b.archetypeIds[1])
+      || pos(a.archetypeIds[2]) - pos(b.archetypeIds[2]));
+  }, [combos, archOrder]);
+
   const checkedProposals = proposals.filter(p => p.checked && isWritable(p));
   const checkedCombos = combos.filter(c =>
     c.checked && c.archetypeIds.every(id => id != null));
@@ -1165,9 +1197,9 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
                   Proposals will appear here once the model has read the material.
                 </p>
               )}
-              {proposals.map((p, i) => (
+              {sortedProposals.map((p) => (
                 <ProposalRow
-                  key={`${p.card}-${i}`}
+                  key={p.card.toLowerCase()}
                   proposal={p}
                   selectedFields={selectedFields}
                   cardFieldNames={deckId !== '' ? cardFieldNames : []}
@@ -1183,27 +1215,30 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
                     archetypes.find(a => a.id === p.archetypeId)?.name
                     ?? deckCards.find(c => c.id === p.cardId)?.name}
                   onToggle={() => updateProposals(prev =>
-                    prev.map((x, j) => j === i ? { ...x, checked: !x.checked } : x))}
+                    prev.map(x => x.card.toLowerCase() === p.card.toLowerCase()
+                      ? { ...x, checked: !x.checked } : x))}
                   onAssign={(id) => {
                     if (hasArchetypeTargets) {
                       const arch = archetypes.find(a => a.id === id);
                       const key = (arch?.name || '').toLowerCase();
                       const card = deckCards.find(c =>
                         (c.archetype || '').toLowerCase() === key || c.name.toLowerCase() === key);
-                      updateProposals(prev => prev.map((x, j) => j === i
-                        ? { ...x, archetypeId: id, cardId: card?.id ?? x.cardId, checked: true }
-                        : x));
+                      updateProposals(prev => prev.map(x =>
+                        x.card.toLowerCase() === p.card.toLowerCase()
+                          ? { ...x, archetypeId: id, cardId: card?.id ?? x.cardId, checked: true }
+                          : x));
                     } else {
                       const card = deckCards.find(c => c.id === id);
                       const key = (card?.archetype || card?.name || '').toLowerCase();
                       const archetypeId = archetypes.find(a => a.name.toLowerCase() === key)?.id;
-                      updateProposals(prev => prev.map((x, j) => j === i
-                        ? { ...x, cardId: id, archetypeId: archetypeId ?? x.archetypeId, checked: true }
-                        : x));
+                      updateProposals(prev => prev.map(x =>
+                        x.card.toLowerCase() === p.card.toLowerCase()
+                          ? { ...x, cardId: id, archetypeId: archetypeId ?? x.archetypeId, checked: true }
+                          : x));
                     }
                   }}
                   onEditField={(label, value) => updateProposals(prev =>
-                    prev.map((x, j) => j === i
+                    prev.map(x => x.card.toLowerCase() === p.card.toLowerCase()
                       ? { ...x, fields: { ...x.fields, [label]: value } }
                       : x))}
                 />
@@ -1219,36 +1254,16 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
                       <button onClick={() => updateCombos(p => p.map(x => ({ ...x, checked: false })))}>None</button>
                     </span>
                   </div>
-                  {combos.map((c, i) => {
-                    const unmatched = c.cards.filter((_, j) => c.archetypeIds[j] == null);
-                    return (
-                      <div key={`combo-${i}`} className="scribe__combo-row">
-                        <label className="scribe__combo-row-main">
-                          <input
-                            type="checkbox"
-                            checked={c.checked}
-                            disabled={unmatched.length > 0}
-                            onChange={() => updateCombos(prev =>
-                              prev.map((x, j) => j === i ? { ...x, checked: !x.checked } : x))}
-                          />
-                          <span className="scribe__combo-cards">
-                            {c.cards.map((name, j) =>
-                              `${name}${c.reversed?.[j] ? ' (rev)' : ''}`).join(' + ')}
-                          </span>
-                        </label>
-                        <div className="scribe__combo-meaning" title={c.meaning}>{c.meaning}</div>
-                        {unmatched.length > 0 && (
-                          <div className="scribe__combo-warn">
-                            Unmatched: {unmatched.join(', ')} — ask the model to
-                            use the app's archetype names for these.
-                          </div>
-                        )}
-                        {c.flags && c.flags.length > 0 && (
-                          <div className="scribe__combo-warn">{c.flags.join(' · ')}</div>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {sortedCombos.map((c, i) => (
+                    <ComboRow
+                      key={`combo-${i}`}
+                      combo={c}
+                      onToggle={() => updateCombos(prev =>
+                        prev.map(x => x === c ? { ...x, checked: !x.checked } : x))}
+                      onEditMeaning={(text) => updateCombos(prev =>
+                        prev.map(x => x === c ? { ...x, meaning: text } : x))}
+                    />
+                  ))}
                 </>
               )}
             </div>
@@ -1339,7 +1354,7 @@ function ProposalRow({
           <span key={i} className="scribe__badge scribe__badge--flag">{f}</span>
         ))}
         <button className="scribe__expand" onClick={() => setExpanded(e => !e)}>
-          {expanded ? 'Hide' : 'Show'}
+          {expanded ? 'Hide' : 'Show / edit'}
         </button>
       </div>
       {expanded && (
@@ -1388,6 +1403,71 @@ function ProposalRow({
             </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+function ComboRow({ combo: c, onToggle, onEditMeaning }: {
+  combo: ComboProposal;
+  onToggle: () => void;
+  onEditMeaning: (text: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const unmatched = c.cards.filter((_, j) => c.archetypeIds[j] == null);
+  return (
+    <div className="scribe__combo-row">
+      <label className="scribe__combo-row-main">
+        <input
+          type="checkbox"
+          checked={c.checked}
+          disabled={unmatched.length > 0}
+          onChange={onToggle}
+        />
+        <span className="scribe__combo-cards">
+          {c.cards.map((name, j) =>
+            `${name}${c.reversed?.[j] ? ' (rev)' : ''}`).join(' + ')}
+        </span>
+        {!editing && (
+          <button
+            type="button"
+            className="scribe__field-edit-btn"
+            onClick={(e) => { e.preventDefault(); setEditing(true); setDraft(c.meaning); }}
+          >
+            Edit
+          </button>
+        )}
+      </label>
+      {editing ? (
+        <div className="scribe__field-edit">
+          <textarea
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            rows={Math.min(8, Math.max(3, draft.split('\n').length + 1))}
+            autoFocus
+          />
+          <div className="scribe__field-edit-actions">
+            <button
+              className="primary"
+              onClick={() => { onEditMeaning(draft); setEditing(false); }}
+            >
+              Save
+            </button>
+            <button onClick={() => setEditing(false)}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <div className="scribe__combo-meaning" title={c.meaning}>{c.meaning}</div>
+      )}
+      {unmatched.length > 0 && (
+        <div className="scribe__combo-warn">
+          Unmatched: {unmatched.join(', ')} — ask the model to
+          use the app's archetype names for these.
+        </div>
+      )}
+      {c.flags && c.flags.length > 0 && (
+        <div className="scribe__combo-warn">{c.flags.join(' · ')}</div>
       )}
     </div>
   );
