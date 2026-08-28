@@ -85,3 +85,20 @@
   box-shadow: inset 0 0 0 1px rgb(var(--tj-accent-rgb) / 32%);
   color: var(--tj-text-accent);
 }
+
+/* Back / forward history buttons */
+.tab-nav__history {
+  display: inline-flex;
+  gap: 6px;
+  margin-right: 10px;
+}
+
+.tab-nav__icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  color: var(--tj-text-muted);
+}
+
+.tab-nav__icon-btn:disabled:hover {
+  color: var(--tj-text-muted);
+}

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
@@ -43,6 +43,41 @@ interface SettingsDeepLinkPayload {
   archetypeId?: number;
 }
 
+/** One place the user has been: a tab plus whatever deep-link narrows
+ *  it (a deck, an entry, an archetype, a reference or settings
+ *  section, a journal card filter). The back/forward history is a
+ *  stack of these. */
+interface AppLocation {
+  tab: TabId;
+  deckId?: number;
+  spreadId?: number;
+  entryId?: number;
+  archetype?: { id: number; cartomancyType: string };
+  referenceSection?: ReferenceSectionId;
+  settingsSection?: string;
+  /** Carried for replay but not part of location identity. */
+  settingsPayload?: SettingsDeepLinkPayload;
+  journalCardFilter?: string;
+}
+
+function locationKey(loc: AppLocation): string {
+  return JSON.stringify([
+    loc.tab, loc.deckId ?? null, loc.spreadId ?? null, loc.entryId ?? null,
+    loc.archetype?.id ?? null, loc.referenceSection ?? null,
+    loc.settingsSection ?? null, loc.journalCardFilter ?? null,
+  ]);
+}
+
+const HISTORY_LIMIT = 100;
+
+/** A deep-link that can also express "nothing selected": the token
+ *  makes every application distinct, so re-applying the same id (or
+ *  clearing) after the user wandered off still takes effect. */
+export interface SelectionLink {
+  id: number | null;
+  token: number;
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('library');
   const [settingsSection, setSettingsSection] = useState<string | undefined>();
@@ -52,41 +87,116 @@ export default function App() {
   // filtered to entries containing a card. Lives here because it's
   // set from the Library tab and consumed by the Journal tab.
   const [journalCardFilter, setJournalCardFilter] = useState<string | null>(null);
-  // ⌘K command palette + the deep-links it sets: each tab consumes
-  // its pending id in an effect, then clears it via the callback.
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [pendingDeckId, setPendingDeckId] = useState<number | null>(null);
+  // Deep-links into tabs. Library and Journal use token-bearing
+  // SelectionLinks (history can restore or clear a selection); the
+  // others keep the consume-and-clear pending pattern.
+  const [deckLink, setDeckLink] = useState<SelectionLink | null>(null);
+  const [entryLink, setEntryLink] = useState<SelectionLink | null>(null);
   const [pendingSpreadId, setPendingSpreadId] = useState<number | null>(null);
-  const [pendingEntryId, setPendingEntryId] = useState<number | null>(null);
   const [pendingArchetype, setPendingArchetype] =
     useState<{ id: number; cartomancyType: string } | null>(null);
   const [referenceSection, setReferenceSection] =
     useState<ReferenceSectionId | undefined>();
+  const linkToken = useRef(0);
+
+  // === Browser-style history ===
+  const [history, setHistory] = useState<{ stack: AppLocation[]; cursor: number }>({
+    stack: [{ tab: 'library' }],
+    cursor: 0,
+  });
+
+  /** Append a location (drops any forward branch). No-op when it
+   *  matches where we already are — selections applied FROM history
+   *  report back through the same paths and must not re-push. */
+  const record = useCallback((loc: AppLocation) => {
+    setHistory(h => {
+      if (locationKey(h.stack[h.cursor]) === locationKey(loc)) return h;
+      const stack = [...h.stack.slice(0, h.cursor + 1), loc].slice(-HISTORY_LIMIT);
+      return { stack, cursor: stack.length - 1 };
+    });
+  }, []);
+
+  /** Make the app show a location: switch tab and re-fire its deep
+   *  link through the normal pending/link plumbing. */
+  const applyLocation = useCallback((loc: AppLocation) => {
+    setActiveTab(loc.tab);
+    switch (loc.tab) {
+      case 'library':
+        setDeckLink({ id: loc.deckId ?? null, token: ++linkToken.current });
+        break;
+      case 'journal':
+        setJournalCardFilter(loc.journalCardFilter ?? null);
+        setEntryLink({ id: loc.entryId ?? null, token: ++linkToken.current });
+        break;
+      case 'spreads':
+        if (loc.spreadId != null) setPendingSpreadId(loc.spreadId);
+        break;
+      case 'reference':
+        if (loc.archetype) setPendingArchetype(loc.archetype);
+        else if (loc.referenceSection) setReferenceSection(loc.referenceSection);
+        break;
+      case 'settings':
+        if (loc.settingsSection) {
+          setSettingsSection(loc.settingsSection);
+          setSettingsPayload(loc.settingsPayload);
+        }
+        break;
+      default:
+        break;
+    }
+  }, []);
 
   // Switching top-level tabs unmounts the current tab's editors, so a
   // dirty non-modal editor (e.g. a half-designed spread) would lose
-  // its work silently. Every tab-switch path goes through this guard.
-  const guardedSwitchTab = useCallback(async (tab: TabId): Promise<boolean> => {
+  // its work silently. Every navigation path goes through this guard.
+  const confirmLeave = useCallback(async (tab: TabId): Promise<boolean> => {
     if (tab !== activeTab && hasDirtyEditors()) {
-      const discard = await confirmDialog({
+      return confirmDialog({
         title: 'Unsaved Changes',
         message: 'You have unsaved changes. Switch tabs and discard them?',
         confirmLabel: 'Discard & Switch',
       });
-      if (!discard) return false;
     }
-    setActiveTab(tab);
     return true;
   }, [activeTab]);
 
-  const handleFindCardInJournal = useCallback(async (cardName: string) => {
-    if (await guardedSwitchTab('journal')) {
-      setJournalCardFilter(cardName);
-    }
-  }, [guardedSwitchTab]);
+  /** Guarded navigation: record + apply. */
+  const navigate = useCallback(async (loc: AppLocation): Promise<boolean> => {
+    if (!(await confirmLeave(loc.tab))) return false;
+    record(loc);
+    applyLocation(loc);
+    return true;
+  }, [confirmLeave, record, applyLocation]);
 
-  const handleClearCardFilter = useCallback(() => setJournalCardFilter(null), []);
+  const canGoBack = history.cursor > 0;
+  const canGoForward = history.cursor < history.stack.length - 1;
+
+  const goBack = useCallback(async () => {
+    if (history.cursor <= 0) return;
+    const target = history.stack[history.cursor - 1];
+    if (!(await confirmLeave(target.tab))) return;
+    setHistory(h => ({ ...h, cursor: Math.max(0, h.cursor - 1) }));
+    applyLocation(target);
+  }, [history, confirmLeave, applyLocation]);
+
+  const goForward = useCallback(async () => {
+    if (history.cursor >= history.stack.length - 1) return;
+    const target = history.stack[history.cursor + 1];
+    if (!(await confirmLeave(target.tab))) return;
+    setHistory(h => ({ ...h, cursor: Math.min(h.stack.length - 1, h.cursor + 1) }));
+    applyLocation(target);
+  }, [history, confirmLeave, applyLocation]);
+
+  const handleFindCardInJournal = useCallback(async (cardName: string) => {
+    await navigate({ tab: 'journal', journalCardFilter: cardName });
+  }, [navigate]);
+
+  const handleClearCardFilter = useCallback(() => {
+    setJournalCardFilter(null);
+    record({ tab: 'journal' });
+  }, [record]);
 
   // Block app quit / reload while any editor has unsaved changes.
   useEffect(() => {
@@ -95,8 +205,8 @@ export default function App() {
 
   // Cmd+N (Ctrl+N elsewhere) starts a new journal entry from any tab —
   // the app's single most common action. Cmd+K opens the command
-  // palette. Both are ignored while any dialog is open so they can't
-  // stack on top of one in progress (Cmd+K closes its own palette).
+  // palette. Cmd+[ / Cmd+] walk the navigation history. All are
+  // ignored while a dialog is open.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // "?" (no modifiers beyond Shift) shows the shortcuts cheat
@@ -128,60 +238,68 @@ export default function App() {
       } else if (key === 'n') {
         if (document.querySelector('.modal-overlay, .confirm-dialog__overlay')) return;
         e.preventDefault();
-        guardedSwitchTab('journal').then((switched) => {
-          if (switched) setPendingNewEntry(true);
-        });
+        (async () => {
+          if (activeTab !== 'journal' && !(await navigate({ tab: 'journal' }))) return;
+          setPendingNewEntry(true);
+        })();
+      } else if (key === '[' || key === ']') {
+        if (document.querySelector('.modal-overlay, .confirm-dialog__overlay')) return;
+        e.preventDefault();
+        if (key === '[') goBack(); else goForward();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [guardedSwitchTab]);
+  }, [activeTab, navigate, goBack, goForward]);
 
   // Command palette selections land here.
   const handlePaletteAction = useCallback(async (action: PaletteAction) => {
     switch (action.type) {
       case 'tab':
-        await guardedSwitchTab(action.tab);
+        if (action.tab !== activeTab) await navigate({ tab: action.tab });
         break;
       case 'settings':
-        if (await guardedSwitchTab('settings')) setSettingsSection(action.section);
+        await navigate({ tab: 'settings', settingsSection: action.section });
         break;
       case 'new-entry':
-        if (await guardedSwitchTab('journal')) setPendingNewEntry(true);
+        if (activeTab !== 'journal' && !(await navigate({ tab: 'journal' }))) break;
+        setPendingNewEntry(true);
         break;
       case 'shortcuts':
         setShortcutsOpen(true);
         break;
       case 'deck':
-        if (await guardedSwitchTab('library')) setPendingDeckId(action.id);
+        await navigate({ tab: 'library', deckId: action.id });
         break;
       case 'spread':
-        if (await guardedSwitchTab('spreads')) setPendingSpreadId(action.id);
+        await navigate({ tab: 'spreads', spreadId: action.id });
         break;
       case 'entry':
-        if (await guardedSwitchTab('journal')) setPendingEntryId(action.id);
+        await navigate({ tab: 'journal', entryId: action.id });
         break;
       case 'archetype':
-        if (await guardedSwitchTab('reference')) {
-          setPendingArchetype({ id: action.id, cartomancyType: action.cartomancyType });
-        }
+        await navigate({
+          tab: 'reference',
+          archetype: { id: action.id, cartomancyType: action.cartomancyType },
+        });
         break;
       case 'reference':
-        if (await guardedSwitchTab('reference')) {
-          setReferenceSection(action.section as ReferenceSectionId);
-        }
+        await navigate({
+          tab: 'reference',
+          referenceSection: action.section as ReferenceSectionId,
+        });
         break;
     }
-  }, [guardedSwitchTab]);
+  }, [activeTab, navigate]);
 
   const handleNewEntryHandled = useCallback(() => setPendingNewEntry(false), []);
 
   const handleTabChange = useCallback(async (tab: TabId, section?: string) => {
-    if (!(await guardedSwitchTab(tab))) return;
-    if (tab === 'settings' && section) {
-      setSettingsSection(section);
-    }
-  }, [guardedSwitchTab]);
+    // Clicking the tab you're on is a no-op (re-applying would clear
+    // the tab's current selection).
+    if (tab === activeTab && !section) return;
+    await navigate({ tab, settingsSection: section });
+  }, [activeTab, navigate]);
 
   const handleSettingsSectionViewed = useCallback(() => {
     setSettingsSection(undefined);
@@ -190,24 +308,51 @@ export default function App() {
 
   const handleNavigateToSettings = useCallback(
     (section: string, payload?: SettingsDeepLinkPayload) => {
-      setSettingsPayload(payload);
-      handleTabChange('settings', section);
+      navigate({ tab: 'settings', settingsSection: section, settingsPayload: payload });
     },
-    [handleTabChange],
+    [navigate],
   );
+
+  const handleOpenArchetype = useCallback((id: number, cartomancyType: string) => {
+    navigate({ tab: 'reference', archetype: { id, cartomancyType } });
+  }, [navigate]);
+
+  // Selections reported by the tabs so history can restore them.
+  const handleDeckSelected = useCallback((id: number | null) => {
+    record({ tab: 'library', deckId: id ?? undefined });
+  }, [record]);
+
+  const handleEntrySelected = useCallback((id: number | null) => {
+    record({
+      tab: 'journal',
+      entryId: id ?? undefined,
+      journalCardFilter: journalCardFilter ?? undefined,
+    });
+  }, [record, journalCardFilter]);
+
+  const handleReferenceSectionChange = useCallback((section: ReferenceSectionId) => {
+    record({ tab: 'reference', referenceSection: section });
+  }, [record]);
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <ToastProvider>
           <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-            <TabNav activeTab={activeTab} onTabChange={handleTabChange} />
+            <TabNav
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              canGoBack={canGoBack}
+              canGoForward={canGoForward}
+              onBack={goBack}
+              onForward={goForward}
+            />
             <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
               {activeTab === 'library' && (
                 <LibraryTab
                   onFindCardInJournal={handleFindCardInJournal}
-                  pendingDeckId={pendingDeckId}
-                  onPendingDeckHandled={() => setPendingDeckId(null)}
+                  deckLink={deckLink}
+                  onDeckSelected={handleDeckSelected}
                 />
               )}
               {activeTab === 'spreads' && (
@@ -223,8 +368,8 @@ export default function App() {
                   cardFilter={journalCardFilter}
                   onClearCardFilter={handleClearCardFilter}
                   onFindCardInJournal={handleFindCardInJournal}
-                  pendingEntryId={pendingEntryId}
-                  onPendingEntryHandled={() => setPendingEntryId(null)}
+                  entryLink={entryLink}
+                  onEntrySelected={handleEntrySelected}
                 />
               )}
               {activeTab === 'profiles' && <ProfilesTab />}
@@ -235,6 +380,8 @@ export default function App() {
                   onPendingArchetypeHandled={() => setPendingArchetype(null)}
                   initialSection={referenceSection}
                   onSectionViewed={() => setReferenceSection(undefined)}
+                  onSectionChange={handleReferenceSectionChange}
+                  onOpenArchetype={handleOpenArchetype}
                 />
               )}
               {activeTab === 'insights' && <StatsTab />}

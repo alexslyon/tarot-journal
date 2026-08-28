@@ -17,9 +17,11 @@ interface JournalTabProps {
   cardFilter?: string | null;
   onClearCardFilter?: () => void;
   onFindCardInJournal?: (cardName: string) => void;
-  /** Entry to select on mount (set by the command palette) */
-  pendingEntryId?: number | null;
-  onPendingEntryHandled?: () => void;
+  /** Entry to show (or clear), set by the palette and by back/forward
+   *  history; the token makes each application take effect. */
+  entryLink?: { id: number | null; token: number } | null;
+  /** Report user entry selections so history can restore them. */
+  onEntrySelected?: (id: number | null) => void;
 }
 
 export default function JournalTab({
@@ -28,10 +30,16 @@ export default function JournalTab({
   cardFilter,
   onClearCardFilter,
   onFindCardInJournal,
-  pendingEntryId,
-  onPendingEntryHandled,
+  entryLink,
+  onEntrySelected,
 }: JournalTabProps) {
   const [selectedEntryId, setSelectedEntryId] = useState<number | null>(null);
+
+  /** User-driven selection: update state and tell the history. */
+  const selectEntry = (id: number | null) => {
+    setSelectedEntryId(id);
+    onEntrySelected?.(id);
+  };
   // Ids of entries currently visible in the list (list order: newest
   // first) — lets the viewer offer Newer/Older navigation.
   const [visibleIds, setVisibleIds] = useState<number[]>([]);
@@ -62,13 +70,14 @@ export default function JournalTab({
     }
   }, [pendingNewEntry, onNewEntryHandled]);
 
-  // Command-palette deep link: open the requested entry (the viewer
-  // fetches it by id, so it needn't be in the visible list page).
+  // Deep link (palette or history): show — or clear — an entry (the
+  // viewer fetches by id, so it needn't be in the visible list page).
+  // Applied directly, not via selectEntry: history applications must
+  // not re-record themselves.
   useEffect(() => {
-    if (pendingEntryId == null) return;
-    setSelectedEntryId(pendingEntryId);
-    onPendingEntryHandled?.();
-  }, [pendingEntryId, onPendingEntryHandled]);
+    if (!entryLink) return;
+    setSelectedEntryId(entryLink.id);
+  }, [entryLink]);
 
   const handleEdit = (entryId: number) => {
     setEditingEntryId(entryId);
@@ -77,7 +86,7 @@ export default function JournalTab({
   };
 
   const handleDeleted = () => {
-    setSelectedEntryId(null);
+    selectEntry(null);
   };
 
   return (
@@ -86,7 +95,7 @@ export default function JournalTab({
         <Panel defaultSize="30%" minSize="20%">
           <EntryList
             selectedEntryId={selectedEntryId}
-            onSelectEntry={setSelectedEntryId}
+            onSelectEntry={selectEntry}
             onNewEntry={handleNewEntry}
             onExport={() => setShowExport(true)}
             onImport={() => setShowImport(true)}
@@ -115,7 +124,7 @@ export default function JournalTab({
                   const idx = visibleIds.indexOf(selectedEntryId);
                   return idx >= 0 && idx < visibleIds.length - 1 ? visibleIds[idx + 1] : null;
                 })()}
-                onNavigateEntry={setSelectedEntryId}
+                onNavigateEntry={selectEntry}
               />
             ) : (
               <div className="journal-tab__placeholder">
@@ -131,7 +140,7 @@ export default function JournalTab({
         templateEntryId={templateEntryId}
         open={showEditor}
         onClose={() => setShowEditor(false)}
-        onSaved={(id) => setSelectedEntryId(id)}
+        onSaved={(id) => selectEntry(id)}
       />
 
       {showExport && (

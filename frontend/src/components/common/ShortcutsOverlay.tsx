@@ -21,6 +21,8 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
     rows: [
       [`${MOD} K`, 'Open the command palette'],
       [`${MOD} N`, 'New journal entry'],
+      [`${MOD} [`, 'Back (navigation history)'],
+      [`${MOD} ]`, 'Forward'],
       ['?', 'Show this cheat sheet'],
       ['Esc', 'Close dialogs'],
     ],

@@ -19,28 +19,41 @@ import './LibraryTab.css';
 interface LibraryTabProps {
   /** Jump to the Journal tab filtered to entries containing a card */
   onFindCardInJournal?: (cardName: string) => void;
-  /** Deck to select on mount (set by the command palette) */
-  pendingDeckId?: number | null;
-  onPendingDeckHandled?: () => void;
+  /** Deck to show (or clear), set by the palette and by back/forward
+   *  history; the token makes each application take effect. */
+  deckLink?: { id: number | null; token: number } | null;
+  /** Report user deck selections so history can restore them. */
+  onDeckSelected?: (id: number | null) => void;
 }
 
 export default function LibraryTab({
   onFindCardInJournal,
-  pendingDeckId,
-  onPendingDeckHandled,
+  deckLink,
+  onDeckSelected,
 }: LibraryTabProps) {
   const [selectedDeck, setSelectedDeck] = useState<Deck | null>(null);
 
-  // Command-palette deep link: select the requested deck once loaded.
+  // Deep link (palette or history): select — or clear — the deck.
+  // Applied directly, not via selectDeck: history applications must
+  // not re-record themselves.
   useEffect(() => {
-    if (pendingDeckId == null) return;
+    if (!deckLink) return;
+    if (deckLink.id == null) {
+      setSelectedDeck(null);
+      return;
+    }
     let cancelled = false;
-    getDeck(pendingDeckId)
+    getDeck(deckLink.id)
       .then(deck => { if (!cancelled) setSelectedDeck(deck); })
-      .catch(() => {})
-      .finally(() => onPendingDeckHandled?.());
+      .catch(() => {});
     return () => { cancelled = true; };
-  }, [pendingDeckId, onPendingDeckHandled]);
+  }, [deckLink]);
+
+  /** User-driven selection: update state and tell the history. */
+  const selectDeck = useCallback((deck: Deck | null) => {
+    setSelectedDeck(deck);
+    onDeckSelected?.(deck?.id ?? null);
+  }, [onDeckSelected]);
   const [viewingCardId, setViewingCardId] = useState<number | null>(null);
   const [editingCardId, setEditingCardId] = useState<number | null>(null);
   const [editingDeckId, setEditingDeckId] = useState<number | null>(null);
@@ -114,7 +127,7 @@ export default function LibraryTab({
         <Panel defaultSize="30%" minSize="20%">
           <DeckList
             selectedDeckId={deckId}
-            onSelectDeck={setSelectedDeck}
+            onSelectDeck={selectDeck}
             onEditDeck={setEditingDeckId}
             onImport={() => setShowImport(true)}
           />
@@ -173,7 +186,7 @@ export default function LibraryTab({
         deckId={editingDeckId}
         onClose={() => setEditingDeckId(null)}
         onSaved={() => {}}
-        onDeleted={() => setSelectedDeck(null)}
+        onDeleted={() => selectDeck(null)}
       />
 
       {showBatchEdit && (
@@ -190,7 +203,7 @@ export default function LibraryTab({
           onClose={() => setShowImport(false)}
           onImported={async (deckId) => {
             const deck = await getDeck(deckId);
-            setSelectedDeck(deck);
+            selectDeck(deck);
           }}
         />
       )}

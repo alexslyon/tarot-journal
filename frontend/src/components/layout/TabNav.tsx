@@ -5,6 +5,10 @@ export type TabId = 'library' | 'spreads' | 'journal' | 'profiles' | 'reference'
 interface TabNavProps {
   activeTab: TabId;
   onTabChange: (tab: TabId, section?: string) => void;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  onBack?: () => void;
+  onForward?: () => void;
 }
 
 const TABS: { id: TabId; label: string }[] = [
@@ -19,9 +23,42 @@ const TABS: { id: TabId; label: string }[] = [
 /** The title bar: wordmark left, the nav pill track centered, the
  *  settings gear right — the app's common chrome in the Nocturne
  *  design. */
-export default function TabNav({ activeTab, onTabChange }: TabNavProps) {
+export default function TabNav({
+  activeTab,
+  onTabChange,
+  canGoBack,
+  canGoForward,
+  onBack,
+  onForward,
+}: TabNavProps) {
   return (
     <header className="tab-nav">
+      <div className="tab-nav__history">
+        <button
+          className="tab-nav__icon-btn"
+          onClick={onBack}
+          disabled={!canGoBack}
+          title="Back (⌘[)"
+          aria-label="Back"
+        >
+          {/* Phosphor caret-left */}
+          <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+            <path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/>
+          </svg>
+        </button>
+        <button
+          className="tab-nav__icon-btn"
+          onClick={onForward}
+          disabled={!canGoForward}
+          title="Forward (⌘])"
+          aria-label="Forward"
+        >
+          {/* Phosphor caret-right */}
+          <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+            <path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/>
+          </svg>
+        </button>
+      </div>
       <div className="tab-nav__brand">Tarot Journal</div>
       <div className="tab-nav__spacer" />
       <nav className="tab-nav__track">

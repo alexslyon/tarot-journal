@@ -46,9 +46,14 @@ interface ReferenceTabProps {
   /** External request to open a specific reference section (deep link). */
   initialSection?: ReferenceSectionId;
   onSectionViewed?: () => void;
-  /** Archetype to select on arrival (set by the command palette). */
+  /** Archetype to select on arrival (palette or in-app cross-link). */
   pendingArchetype?: { id: number; cartomancyType: string } | null;
   onPendingArchetypeHandled?: () => void;
+  /** Report sidebar section changes so history can restore them. */
+  onSectionChange?: (section: ReferenceSectionId) => void;
+  /** Cross-links from the content sections ("in your correspondences"
+   *  chips) — routed through the App so they land in history. */
+  onOpenArchetype?: (id: number, cartomancyType: string) => void;
 }
 
 export default function ReferenceTab({
@@ -57,13 +62,10 @@ export default function ReferenceTab({
   onSectionViewed,
   pendingArchetype,
   onPendingArchetypeHandled,
+  onSectionChange,
+  onOpenArchetype,
 }: ReferenceTabProps) {
   const [activeSection, setActiveSection] = useState<ReferenceSectionId>('archetypes');
-  // "In your correspondences" chips in the content sections jump to
-  // the Archetypes viewer — same mechanism as the palette's deep link,
-  // but originating inside this tab.
-  const [localArchetype, setLocalArchetype] =
-    useState<{ id: number; cartomancyType: string } | null>(null);
 
   // A pending archetype always lands on the Archetypes section.
   useEffect(() => {
@@ -78,8 +80,11 @@ export default function ReferenceTab({
   }, [initialSection, onSectionViewed]);
 
   const openArchetype = (id: number, cartomancyType: string) => {
-    setLocalArchetype({ id, cartomancyType });
-    setActiveSection('archetypes');
+    if (onOpenArchetype) {
+      onOpenArchetype(id, cartomancyType);
+    } else {
+      setActiveSection('archetypes');
+    }
   };
 
   return (
@@ -89,7 +94,10 @@ export default function ReferenceTab({
           <button
             key={section.id}
             className={`reference-layout__nav-item ${activeSection === section.id ? 'reference-layout__nav-item--active' : ''}`}
-            onClick={() => setActiveSection(section.id)}
+            onClick={() => {
+              setActiveSection(section.id);
+              onSectionChange?.(section.id);
+            }}
           >
             {section.label}
           </button>
@@ -98,11 +106,8 @@ export default function ReferenceTab({
       <div className="reference-layout__content">
         {activeSection === 'archetypes' && (
           <ArchetypesViewer
-            pendingArchetype={pendingArchetype ?? localArchetype}
-            onPendingArchetypeHandled={() => {
-              setLocalArchetype(null);
-              onPendingArchetypeHandled?.();
-            }}
+            pendingArchetype={pendingArchetype}
+            onPendingArchetypeHandled={() => onPendingArchetypeHandled?.()}
             onNavigateToSettings={
               onNavigateToSettings
                 ? (section, payload) => onNavigateToSettings(section, payload)
