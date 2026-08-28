@@ -161,7 +161,8 @@ def save_config(db, data: dict) -> None:
 
 def chat(config: dict, messages: list, system: str | None = None,
          max_tokens: int = DEFAULT_MAX_TOKENS,
-         cache_conversation: bool = True) -> dict:
+         cache_conversation: bool = True,
+         thinking: bool = False) -> dict:
     """Send a conversation. Returns {'text': str, 'truncated': bool} —
     truncated means the reply hit max_tokens and is cut off mid-thought,
     which callers should surface rather than silently accept.
@@ -176,7 +177,8 @@ def chat(config: dict, messages: list, system: str | None = None,
         raise LLMError("No model configured. Set one in Settings → AI.")
     if provider == 'anthropic':
         return _chat_anthropic(config, model, messages, system, max_tokens,
-                               cache_conversation)
+                               cache_conversation, thinking)
+    # Non-Anthropic providers: the thinking request is quietly ignored.
     return _chat_openai_style(config, model, messages, system, max_tokens)
 
 
@@ -192,7 +194,7 @@ def test_connection(config: dict) -> str:
 # ── Anthropic (official SDK) ─────────────────────────────────────────
 
 def _chat_anthropic(config, model, messages, system, max_tokens,
-                    cache_conversation=True) -> dict:
+                    cache_conversation=True, thinking=False) -> dict:
     import anthropic
 
     if not config.get('api_key'):
@@ -216,16 +218,35 @@ def _chat_anthropic(config, model, messages, system, max_tokens,
     # One-shot requests skip this (cache writes cost +25%).
     if converted and cache_conversation:
         _mark_cache_breakpoint(converted[-1])
-    try:
+    def _run(with_thinking: bool):
+        call_kwargs = dict(kwargs)
+        if with_thinking:
+            # Adaptive extended thinking — used for the Scribe's audit
+            # and refinement turns, where cross-referencing the whole
+            # book pays off. Claude 4.6+ models accept it; older ones
+            # fall back below.
+            call_kwargs['thinking'] = {'type': 'adaptive'}
         # Streaming keeps long extractions from hitting HTTP timeouts;
         # get_final_message() collects the whole reply for us.
         with client.messages.stream(
             model=model,
             max_tokens=max_tokens,
             messages=converted,
-            **kwargs,
+            **call_kwargs,
         ) as stream:
-            response = stream.get_final_message()
+            return stream.get_final_message()
+
+    try:
+        try:
+            response = _run(thinking)
+        except anthropic.BadRequestError as e:
+            # A model that predates adaptive thinking rejects the
+            # parameter — retry once without rather than failing.
+            if thinking and 'thinking' in str(e).lower():
+                logger.info('model %s rejected thinking; retrying without', model)
+                response = _run(False)
+            else:
+                raise
     except anthropic.AuthenticationError:
         raise LLMError("Anthropic rejected the API key. Check it in Settings → AI.")
     except anthropic.NotFoundError:

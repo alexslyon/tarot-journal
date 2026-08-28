@@ -84,7 +84,11 @@ Name-matching guide — sources often use variant names; map them to the app's a
 - Justice and Strength swap numbers between traditions (8/11) — match by NAME, not number, unless the deck is known to renumber.
 - Suits: Coins / Disks / Discs / Deniers → Pentacles; Rods / Staves / Staffs / Batons / Scepters → Wands; Chalices / Goblets / Coupes → Cups; Blades / Épées → Swords.
 - Courts: Knave / Valet / Princess (Thoth) → Page; Prince (Thoth) → Knight. In Thoth-lineage decks the mounted "Knight" is the senior court → King (so Thoth Knight → King, Prince → Knight, Princess → Page); the user's instructions win if they say otherwise.
-- When the source numbers its cards, use the number to confirm the match; when a rendering is ambiguous or a name maps to no archetype even through these aliases, keep the source's name and flag it as before.`;
+- When the source numbers its cards, use the number to confirm the match; when a rendering is ambiguous or a name maps to no archetype even through these aliases, keep the source's name and flag it as before.
+
+Coverage and field mapping — the two most common extraction failures, so treat these as hard rules:
+- Target field names are DESTINATIONS, not headings to find verbatim. The book's own headings rarely match them; decide by MEANING which target field each piece of text belongs to. A passage about the card upside-down belongs to the reversed-meanings field whatever the book calls it (Shadow, Ill-Dignified, a mere dash); a run of comma-separated words is keywords even with no heading at all; advice, timing, or symbolism may be signalled only by layout (italics, indentation, a table column). Content that fits a target field must never be dropped just because the book didn't label it with that field's name — when unsure between two fields, pick the best fit and flag the choice.
+- Before replying for a part, scan it END TO END and identify every card it covers — including cards under variant names, several cards sharing one paragraph or table row, and cards mentioned out of order. Then extract each one. Never stop at the cards that are easy to spot.`;
 
 /** Fill the Scribe template's placeholders and append any per-import
  *  user instructions. */

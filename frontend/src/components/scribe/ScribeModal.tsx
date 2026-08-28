@@ -594,6 +594,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     if (!failedUnits.length) {
       const afterRepair = await completeFlaggedCards(history);
       await auditFieldCoverage(afterRepair ?? history);
+      await auditMissingCards(messagesRef.current);
       // Notes typed during the run steered the remaining parts as they
       // went out; now that the full material is stitched, give them a
       // proper full-context turn. (With failed parts pending, notes
@@ -622,7 +623,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
           `${combined}\n\n(Sent while extraction was still running — later parts already saw it as guidance. ` +
           'Now that all material is above, apply anything still needed to the proposals — re-send only ' +
           'changed cards — and answer any questions.)',
-      }]);
+      }], { thinking: true });
     }
   };
 
@@ -647,7 +648,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
         'these cards with its complete field content assembled from all relevant parts. ' +
         'For every card you resolve, include "flags": [] (or a flag stating what is genuinely ' +
         'missing from the source, if the text truly ends mid-sentence in the book itself).',
-    }]);
+    }], { thinking: true });
   };
 
   /** One-shot follow-up: when some target fields were filled for far
@@ -684,14 +685,57 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
         'under a different field name. If the source has the content, re-send the affected cards with ' +
         'those fields added, using the exact target field names (only changed cards, as usual). ' +
         'If the source genuinely does not provide this information, say so briefly — never invent content.',
+    }], { thinking: true });
+  };
+
+  /** One-shot follow-up: cards from the app's archetype list that got
+   *  NO proposal at all. Books hide cards under variant names, shared
+   *  paragraphs, or out-of-order sections — a by-name checklist makes
+   *  the model account for each one instead of stopping at what it
+   *  noticed on the first pass. */
+  const auditMissingCards = async (history: LlmMessage[]) => {
+    const props = proposalsRef.current;
+    if (props.length < 3 || archetypes.length === 0) return;
+    const matchedIds = new Set(props.map(p => p.archetypeId).filter(Boolean));
+    const namedLower = new Set(props.map(p => p.card.toLowerCase()));
+    const missing = archetypes.filter(a =>
+      !matchedIds.has(a.id) && !namedLower.has(a.name.toLowerCase()));
+    if (!missing.length) return;
+    const names = missing.map(a => a.name);
+    if (names.length > archetypes.length / 2) {
+      // Probably an intentionally partial source (one chapter, a
+      // keywords sheet) — report instead of interrogating.
+      setDisplayMessages(prev => [...prev, {
+        role: 'user',
+        text: `Coverage: ${props.length} of ${archetypes.length} ${ctype} cards have content; the rest don't appear to be in this source.`,
+      }]);
+      return;
+    }
+    setDisplayMessages(prev => [...prev, {
+      role: 'user',
+      text: `Auto-check: ${names.length} card${names.length === 1 ? ' has' : 's have'} no content yet — ${names.join(', ')}. Asking the model to re-scan…`,
     }]);
+    await callModel([...history, {
+      role: 'user',
+      content:
+        `Coverage check against the app's full ${ctype} card list — these cards have NO extracted content yet: ${names.join(', ')}. ` +
+        'Re-scan ALL the source parts above specifically for them. They may appear under variant or translated names ' +
+        '(apply the name-matching guide), share a paragraph or table row with other cards, or sit outside the main ' +
+        'card-by-card section. Extract every one of them the source actually covers, mapped to the app\'s archetype ' +
+        'names. For any of these cards the source genuinely does not cover, list it in one line of prose — never invent content.',
+    }], { thinking: true });
   };
 
   // ── Chat plumbing ──────────────────────────────────────────
 
   /** One model round-trip: send history, show the reply, merge any
-   *  proposals. Returns the new history, or null on failure. */
-  const callModel = async (history: LlmMessage[]): Promise<LlmMessage[] | null> => {
+   *  proposals. Returns the new history, or null on failure.
+   *  thinking=true turns on extended reasoning — used for the audit
+   *  and refinement turns, which cross-reference the whole book. */
+  const callModel = async (
+    history: LlmMessage[],
+    opts?: { thinking?: boolean },
+  ): Promise<LlmMessage[] | null> => {
     setBusyTracked(true);
     try {
       const { text: reply, truncated } = await llmChat({
@@ -699,6 +743,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
         messages: history,
         system: systemPromptRef.current,
         max_tokens: 64000,
+        thinking: opts?.thinking,
       });
       const { visible, parsed, parsedCombos } = splitReply(reply);
       const newHistory: LlmMessage[] = [...history, { role: 'assistant', content: reply }];
@@ -756,7 +801,7 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
       return;
     }
     setDisplayMessages(prev => [...prev, { role: 'user', text }]);
-    await callModel([...messagesRef.current, { role: 'user', content: text }]);
+    await callModel([...messagesRef.current, { role: 'user', content: text }], { thinking: true });
     // Anything typed while that reply generated gets its turn now.
     await flushQueuedNotes();
   };

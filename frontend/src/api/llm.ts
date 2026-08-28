@@ -73,6 +73,10 @@ export async function llmChat(data: {
   /** false = one-shot request whose content will never be re-sent;
    *  skips the prompt-cache write surcharge on the conversation. */
   cache?: boolean;
+  /** Adaptive extended thinking (Anthropic models; ignored elsewhere,
+   *  gracefully dropped on models that predate it). Costs extra output
+   *  tokens — reserve for turns that cross-reference lots of context. */
+  thinking?: boolean;
 }): Promise<{ text: string; truncated: boolean }> {
   // A maxed-out (64k-token) reply can take over 15 minutes to
   // generate; the wait ceiling must sit above the worst case, or the
