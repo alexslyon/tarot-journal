@@ -352,6 +352,36 @@ def test_suits_and_ranks_endpoints(client):
     assert 'ranks' not in num
     assert num['suit_types'][0] == 'Tarot'
 
+
+def test_lenormand_insets(client):
+    """Lenormand joins the suited types through its curated
+    playing-card insets (the archetypes' rank field holds the 1-36
+    card number, not a playing-card rank)."""
+    import reference_content as ref
+    # Dataset integrity: 36 insets tiling 4 suits x 9 ranks exactly
+    assert len(ref.LENORMAND_INSETS) == 36
+    combos = set(ref.LENORMAND_INSETS.values())
+    assert len(combos) == 36
+    for suit in ('Hearts', 'Clubs', 'Spades', 'Diamonds'):
+        ranks = {r for r, s in combos if s == suit}
+        assert ranks == {'Ace', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+                         'Jack', 'Queen', 'King'}
+
+    data = client.get('/api/reference/suits').get_json()
+    assert 'Lenormand' in data['types']
+
+    data = client.get('/api/reference/suits?type=Lenormand').get_json()
+    hearts = next(s for s in data['suits'] if s['name'] == 'Hearts')
+    pips = {c['name']: c['rank'] for c in hearts['pips']}
+    assert pips['Rider'] == 'Nine'
+    assert pips['Man'] == 'Ace'
+    courts = {c['name']: c['rank'] for c in hearts['courts']}
+    assert courts == {'Heart': 'Jack', 'Stork': 'Queen', 'House': 'King'}
+
+    ranks = client.get('/api/reference/ranks?type=Lenormand').get_json()
+    aces = next(r for r in ranks['ranks'] if r['rank'] == 'Ace')
+    assert {c['name'] for c in aces['cards']} == {'Ring', 'Man', 'Woman', 'Sun'}
+
     # Both new entity kinds accept notes
     src = client.post('/api/reference/sources', json={
         'name': 'ZZ Suit Source', 'cartomancy_types': ['Tarot']}).get_json()['id']

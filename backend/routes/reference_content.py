@@ -386,7 +386,8 @@ def _is_court_rank(label):
 
 def _suit_types(db):
     """Deck types whose archetypes carry suits (Major Arcana excluded),
-    Tarot first, the rest alphabetical."""
+    plus Lenormand via its curated playing-card insets. Tarot first,
+    the rest alphabetical."""
     cursor = db.conn.cursor()
     cursor.execute(
         "SELECT DISTINCT cartomancy_type FROM card_archetypes "
@@ -394,6 +395,14 @@ def _suit_types(db):
         "AND suit != 'Major Arcana' ORDER BY cartomancy_type")
     names = [r if isinstance(r, str) else dict(r)['cartomancy_type']
              for r in cursor.fetchall()]
+    # Lenormand archetypes store the card number (1-36) in rank, no
+    # suit — its playing-card insets are curated (LENORMAND_INSETS).
+    if 'Lenormand' not in names:
+        cursor.execute(
+            "SELECT 1 FROM card_archetypes "
+            "WHERE cartomancy_type = 'Lenormand' LIMIT 1")
+        if cursor.fetchone():
+            names = sorted(names + ['Lenormand'])
     if 'Tarot' in names:
         names = ['Tarot'] + [n for n in names if n != 'Tarot']
     return names
@@ -401,24 +410,40 @@ def _suit_types(db):
 
 def _suited_archetypes(db, cartomancy_type):
     """The type's suited archetypes, hydrated with card ids from the
-    type's default deck, plus a display rank label."""
+    type's default deck, plus a display rank label. Lenormand's
+    rank/suit come from the curated inset table keyed by card number."""
     from backend.routes.birth_cards import default_tarot_card_ids
     deck_id = db.get_default_deck(cartomancy_type)
     card_ids = default_tarot_card_ids(db, deck_id) if deck_id else {}
     cursor = db.conn.cursor()
-    cursor.execute(
-        "SELECT id, name, rank, suit FROM card_archetypes "
-        "WHERE cartomancy_type = ? AND suit IS NOT NULL "
-        "AND TRIM(suit) != '' AND suit != 'Major Arcana'",
-        (cartomancy_type,))
+    if cartomancy_type == 'Lenormand':
+        cursor.execute(
+            "SELECT id, name, rank, suit FROM card_archetypes "
+            "WHERE cartomancy_type = 'Lenormand'")
+    else:
+        cursor.execute(
+            "SELECT id, name, rank, suit FROM card_archetypes "
+            "WHERE cartomancy_type = ? AND suit IS NOT NULL "
+            "AND TRIM(suit) != '' AND suit != 'Major Arcana'",
+            (cartomancy_type,))
     out = []
     for row in cursor.fetchall():
         r = row if isinstance(row, dict) else dict(row)
-        label = _rank_label(r)
+        if cartomancy_type == 'Lenormand':
+            try:
+                number = int(r['rank'])
+            except (TypeError, ValueError):
+                continue
+            inset = rc.LENORMAND_INSETS.get(number)
+            if not inset:
+                continue
+            label, suit = inset
+        else:
+            label, suit = _rank_label(r), r['suit']
         out.append({
             'archetype_id': r['id'],
             'name': r['name'],
-            'suit': r['suit'],
+            'suit': suit,
             'rank': label,
             'card_id': card_ids.get(r['name'].lower()),
         })

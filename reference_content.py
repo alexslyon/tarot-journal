@@ -209,6 +209,50 @@ SUIT_INFO = [
 # the Numerology & Ranks section beside the numbers.
 COURT_RANKS = ['Page', 'Knight', 'Queen', 'King']
 
+# The classic 36-card Lenormand playing-card insets, by card number.
+# The archetypes' rank field holds the Lenormand number (1-36), so the
+# inset attributions live here instead: number -> (rank word, suit).
+# Standard Petit Lenormand set (each suit: Ace + Six through Ten +
+# Jack, Queen, King).
+LENORMAND_INSETS = {
+    1: ('Nine', 'Hearts'),      # Rider
+    2: ('Six', 'Diamonds'),     # Clover
+    3: ('Ten', 'Spades'),       # Ship
+    4: ('King', 'Hearts'),      # House
+    5: ('Seven', 'Hearts'),     # Tree
+    6: ('King', 'Clubs'),       # Clouds
+    7: ('Queen', 'Clubs'),      # Snake
+    8: ('Nine', 'Diamonds'),    # Coffin
+    9: ('Queen', 'Spades'),     # Bouquet
+    10: ('Jack', 'Diamonds'),   # Scythe
+    11: ('Jack', 'Clubs'),      # Whip
+    12: ('Seven', 'Diamonds'),  # Birds
+    13: ('Jack', 'Spades'),     # Child
+    14: ('Nine', 'Clubs'),      # Fox
+    15: ('Ten', 'Clubs'),       # Bear
+    16: ('Six', 'Hearts'),      # Stars
+    17: ('Queen', 'Hearts'),    # Stork
+    18: ('Ten', 'Hearts'),      # Dog
+    19: ('Six', 'Spades'),      # Tower
+    20: ('Eight', 'Spades'),    # Garden
+    21: ('Eight', 'Clubs'),     # Mountain
+    22: ('Queen', 'Diamonds'),  # Crossroads
+    23: ('Seven', 'Clubs'),     # Mice
+    24: ('Jack', 'Hearts'),     # Heart
+    25: ('Ace', 'Clubs'),       # Ring
+    26: ('Ten', 'Diamonds'),    # Book
+    27: ('Seven', 'Spades'),    # Letter
+    28: ('Ace', 'Hearts'),      # Man
+    29: ('Ace', 'Spades'),      # Woman
+    30: ('King', 'Spades'),     # Lily
+    31: ('Ace', 'Diamonds'),    # Sun
+    32: ('Eight', 'Hearts'),    # Moon
+    33: ('Eight', 'Diamonds'),  # Key
+    34: ('King', 'Diamonds'),   # Fish
+    35: ('Nine', 'Spades'),     # Anchor
+    36: ('Six', 'Clubs'),       # Cross
+}
+
 
 # === Chakras ===
 

@@ -11,7 +11,19 @@ import QueryError from '../../common/QueryError';
 import { getSuitsReference } from '../../../api/reference';
 import { RefTile, useCardPeek } from './referenceShared';
 import EntityNotes from './EntityNotes';
+import type { SuitCardRef } from '../../../api/reference';
 import '../ReferenceTab.css';
+
+/** Caption a tile with its rank when the card's own name doesn't
+ *  already carry it (Lenormand's Rider is a Nine; "Nine of Hearts"
+ *  needs no caption). */
+function rankCaption(card: SuitCardRef): string | undefined {
+  const rank = card.rank == null ? '' : String(card.rank);
+  if (!rank || card.name.toLowerCase().includes(rank.toLowerCase())) {
+    return undefined;
+  }
+  return rank;
+}
 
 export default function SuitsSection() {
   const [type, setType] = useState<string | null>(null);
@@ -86,7 +98,7 @@ export default function SuitsSection() {
               <div className="ref-detail__kicker">Pips</div>
               <div className="ref-detail__row">
                 {suit.pips.map(card => (
-                  <RefTile key={card.name} card={card} onOpen={openCard} />
+                  <RefTile key={card.name} card={card} caption={rankCaption(card)} onOpen={openCard} />
                 ))}
               </div>
 
@@ -95,7 +107,7 @@ export default function SuitsSection() {
                   <div className="ref-detail__kicker">Courts</div>
                   <div className="ref-detail__row">
                     {suit.courts.map(card => (
-                      <RefTile key={card.name} card={card} onOpen={openCard} />
+                      <RefTile key={card.name} card={card} caption={rankCaption(card)} onOpen={openCard} />
                     ))}
                   </div>
                 </>
