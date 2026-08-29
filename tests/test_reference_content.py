@@ -354,9 +354,8 @@ def test_suits_and_ranks_endpoints(client):
 
 
 def test_lenormand_insets(client):
-    """Lenormand joins the suited types through its curated
-    playing-card insets (the archetypes' rank field holds the 1-36
-    card number, not a playing-card rank)."""
+    """Petit Lenormand archetypes carry the standard playing-card
+    inset rank/suit, so the type joins the suited tabs naturally."""
     import reference_content as ref
     # Dataset integrity: 36 insets tiling 4 suits x 9 ranks exactly
     assert len(ref.LENORMAND_INSETS) == 36
@@ -368,9 +367,10 @@ def test_lenormand_insets(client):
                          'Jack', 'Queen', 'King'}
 
     data = client.get('/api/reference/suits').get_json()
-    assert 'Lenormand' in data['types']
+    assert 'Petit Lenormand' in data['types']
+    assert 'Lenormand' not in data['types']
 
-    data = client.get('/api/reference/suits?type=Lenormand').get_json()
+    data = client.get('/api/reference/suits?type=Petit Lenormand').get_json()
     hearts = next(s for s in data['suits'] if s['name'] == 'Hearts')
     pips = {c['name']: c['rank'] for c in hearts['pips']}
     assert pips['Rider'] == 'Nine'
@@ -378,11 +378,43 @@ def test_lenormand_insets(client):
     courts = {c['name']: c['rank'] for c in hearts['courts']}
     assert courts == {'Heart': 'Jack', 'Stork': 'Queen', 'House': 'King'}
 
-    ranks = client.get('/api/reference/ranks?type=Lenormand').get_json()
+    ranks = client.get('/api/reference/ranks?type=Petit Lenormand').get_json()
     aces = next(r for r in ranks['ranks'] if r['rank'] == 'Ace')
     assert {c['name'] for c in aces['cards']} == {'Ring', 'Man', 'Woman', 'Sun'}
 
-    # Both new entity kinds accept notes
+
+def test_petit_lenormand_rename_migration(tmp_path):
+    """An existing DB with the old 'Lenormand' type name and 1-36
+    archetype ranks gets renamed and inset-backfilled on reopen."""
+    from database import Database
+    path = str(tmp_path / 'migrate.db')
+    db = Database(db_path=path)
+    cur = db.conn.cursor()
+    # Simulate the pre-rename state: old name, card numbers in rank
+    cur.execute("UPDATE cartomancy_types SET name='Lenormand' "
+                "WHERE name='Petit Lenormand'")
+    cur.execute("UPDATE card_archetypes SET cartomancy_type='Lenormand' "
+                "WHERE cartomancy_type='Petit Lenormand'")
+    cur.execute("UPDATE card_archetypes SET rank='1', suit=NULL "
+                "WHERE cartomancy_type='Lenormand' AND name='Rider'")
+    cur.execute("DELETE FROM settings WHERE key='petit_lenormand_rename_done'")
+    db._commit()
+    db.close()
+
+    db = Database(db_path=path)
+    cur = db.conn.cursor()
+    assert cur.execute("SELECT COUNT(*) FROM cartomancy_types "
+                       "WHERE name='Lenormand'").fetchone()[0] == 0
+    row = cur.execute(
+        "SELECT rank, suit FROM card_archetypes "
+        "WHERE cartomancy_type='Petit Lenormand' AND name='Rider'"
+    ).fetchone()
+    assert (row[0], row[1]) == ('Nine', 'Hearts')
+    db.close()
+
+
+def test_suit_and_rank_entity_notes(client):
+    """Both suit and rank entity kinds accept source notes."""
     src = client.post('/api/reference/sources', json={
         'name': 'ZZ Suit Source', 'cartomancy_types': ['Tarot']}).get_json()['id']
     for kind, key in (('suit', 'Wands'), ('rank', 'Queen')):

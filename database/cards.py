@@ -424,7 +424,7 @@ class CardsMixin:
 
         if cartomancy_type == 'Tarot':
             return self._parse_tarot_card_name(card_name, card_name_lower)
-        elif cartomancy_type == 'Lenormand':
+        elif cartomancy_type == 'Petit Lenormand':
             return self._parse_lenormand_card_name(card_name, card_name_lower)
         elif cartomancy_type == 'Playing Cards':
             return self._parse_playing_card_name(card_name, card_name_lower)

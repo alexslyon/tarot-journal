@@ -126,7 +126,7 @@ def apply_proposals():
     Body: {"writes": [
         {"target": "archetype", "archetype_id": 1, "field_id": 2, "content": "..."},
         {"target": "card", "card_id": 5, "field_name": "Keywords", "content": "..."},
-        {"target": "combination", "cartomancy_type": "Lenormand",
+        {"target": "combination", "cartomancy_type": "Petit Lenormand",
          "archetype_ids": [1, 2], "reversed": [false, false],
          "content": "...", "source_id": 3}
     ]}

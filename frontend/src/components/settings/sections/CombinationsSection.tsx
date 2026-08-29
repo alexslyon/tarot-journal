@@ -22,7 +22,7 @@ import './CombinationsSection.css';
 /** Cartomancy types the Combinations feature supports. */
 export const SUPPORTED_COMBINATION_TYPES = [
   'Tarot',
-  'Lenormand',
+  'Petit Lenormand',
   'Playing Cards',
   'Kipper',
   'Vera Sibilla Italiana / Sibilla della Zingara', 'Sibylle des Salons / Sibilla Indovina',
@@ -52,7 +52,7 @@ export default function CombinationsSection({
   const { showToast } = useToast();
 
   const [cartomancyType, setCartomancyType] =
-    useState<CombinationCartomancyType>('Lenormand');
+    useState<CombinationCartomancyType>('Petit Lenormand');
   const [card1Id, setCard1Id] = useState<number | null>(null);
   const [card2Id, setCard2Id] = useState<number | null>(null);
   const [card1Rev, setCard1Rev] = useState(false);

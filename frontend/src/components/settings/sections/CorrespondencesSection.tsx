@@ -30,7 +30,7 @@ import { detectGroupPatterns, patternsByCategory, type PatternCategorySection } 
 import { getCartomancyTypes } from '../../../api/decks';
 import type { CartomancyType } from '../../../types';
 import { displayArchetypeName, archetypeSortKey, displayArchetypeRank, displayGroupLabel } from '../../../utils/tarotNaming';
-import { lenormandDefaultNumerology, PIP_RANK_TO_NUMBER } from '../../../utils/lenormand';
+import { lenormandDefaultNumerology, LENORMAND_NUMBERS, PIP_RANK_TO_NUMBER } from '../../../utils/lenormand';
 import { tarotPipNumerology, tarotPipDecan } from '../../../utils/tarotPips';
 import { getBulkGroups, getBulkCategories, filterArchetypesByGroup } from '../../../utils/bulkGroups';
 import { expandNumerologyOnAdd } from '../../../utils/numerology';
@@ -201,11 +201,14 @@ export default function CorrespondencesSection() {
         // playing-card pip rank (skipped for court cards) as numerology values.
         // Run sequentially — parallel PUTs race against SQLite's write lock
         // and some writes get dropped silently.
-        if (newCartomancyType === 'Lenormand') {
+        if (newCartomancyType === 'Petit Lenormand') {
           try {
-            const lenArchetypes = await getArchetypes('Lenormand');
+            const lenArchetypes = await getArchetypes('Petit Lenormand');
             for (const a of lenArchetypes) {
-              const values = lenormandDefaultNumerology(a.name, a.rank);
+              // The 1-36 number comes from the canonical table — the
+              // archetype rank field holds the playing-card inset.
+              const values = lenormandDefaultNumerology(
+                a.name, LENORMAND_NUMBERS[a.name] ?? null);
               if (values.length === 0) continue;
               await setAssignmentValues(newId, a.id, 'numerology', values);
             }

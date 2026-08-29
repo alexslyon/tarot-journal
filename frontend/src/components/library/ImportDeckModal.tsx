@@ -92,7 +92,7 @@ export default function ImportDeckModal({ onClose, onImported }: ImportDeckModal
 
   // Get current suit keys based on deck type
   const getSuitKeys = useCallback(() => {
-    if (deckType === 'Lenormand' || deckType === 'Playing Cards') {
+    if (deckType === 'Petit Lenormand' || deckType === 'Playing Cards') {
       return PLAYING_SUITS;
     }
     return TAROT_SUITS;

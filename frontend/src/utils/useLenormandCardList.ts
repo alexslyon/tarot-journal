@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getDefaults } from '../api/settings';
 import { getCards } from '../api/cards';
 import { getArchetypes, type Archetype } from '../api/correspondences';
+import { LENORMAND_NUMBERS } from './lenormand';
 import type { Card } from '../types';
 
 export interface LenormandCardEntry {
@@ -33,7 +34,7 @@ export function useLenormandCardList(): {
     queryFn: getDefaults,
   });
   const defaultDeckId =
-    (defaults?.default_decks && defaults.default_decks['Lenormand']) || null;
+    (defaults?.default_decks && defaults.default_decks['Petit Lenormand']) || null;
 
   const { data: deckCards = [] } = useQuery<Card[]>({
     queryKey: ['cards', defaultDeckId],
@@ -42,15 +43,17 @@ export function useLenormandCardList(): {
   });
 
   const { data: archetypes = [] } = useQuery<Archetype[]>({
-    queryKey: ['archetypes', 'Lenormand'],
-    queryFn: () => getArchetypes('Lenormand'),
+    queryKey: ['archetypes', 'Petit Lenormand'],
+    queryFn: () => getArchetypes('Petit Lenormand'),
   });
 
   const cardList = useMemo<LenormandCardEntry[]>(() => {
-    // archetype name -> canonical rank
+    // archetype name -> canonical number. The rank field carries the
+    // playing-card inset these days; the 1-36 numbering comes from the
+    // canonical table (numeric ranks kept as a legacy fallback).
     const archetypeToRank = new Map<string, number>();
     for (const a of archetypes) {
-      const n = parseInt(a.rank || '0', 10);
+      const n = parseInt(LENORMAND_NUMBERS[a.name] ?? a.rank ?? '0', 10);
       if (n >= 1 && n <= 36) archetypeToRank.set(a.name, n);
     }
     // canonical archetype name lookup keyed by rank (for fallback name)

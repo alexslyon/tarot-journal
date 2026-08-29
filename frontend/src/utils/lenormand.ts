@@ -42,6 +42,19 @@ export const LENORMAND_PLAYING_CARD: Record<string, { suit: string; rank: string
   'Cross':      { suit: 'Clubs',    rank: 'Six' },
 };
 
+/** Canonical Petit Lenormand card numbers by archetype name. The
+ * archetypes' rank field now holds the playing-card inset rank, so the
+ * 1-36 numbering lives here. */
+export const LENORMAND_NUMBERS: Record<string, string> = Object.fromEntries(
+  [
+    'Rider', 'Clover', 'Ship', 'House', 'Tree', 'Clouds', 'Snake', 'Coffin',
+    'Bouquet', 'Scythe', 'Whip', 'Birds', 'Child', 'Fox', 'Bear', 'Stars',
+    'Stork', 'Dog', 'Tower', 'Garden', 'Mountain', 'Crossroads', 'Mice',
+    'Heart', 'Ring', 'Book', 'Letter', 'Man', 'Woman', 'Lily', 'Sun', 'Moon',
+    'Key', 'Fish', 'Anchor', 'Cross',
+  ].map((name, i) => [name, String(i + 1)]),
+);
+
 /** Playing card rank → numerology number. Court cards (Jack, Queen, King)
  * are omitted because they have no numeric equivalent. */
 export const PIP_RANK_TO_NUMBER: Record<string, string> = {

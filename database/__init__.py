@@ -138,7 +138,7 @@ def create_default_spreads(db: Database):
                 {"x": 260, "y": 80, "label": "3", "width": cw, "height": ch}
             ],
             "A simple Lenormand three-card line",
-            "Lenormand"
+            "Petit Lenormand"
         )
 
         # Lenormand 5-card — 20px gaps
@@ -152,7 +152,7 @@ def create_default_spreads(db: Database):
                 {"x": 420, "y": 80, "label": "5", "width": cw, "height": ch}
             ],
             "A five-card Lenormand line",
-            "Lenormand"
+            "Petit Lenormand"
         )
 
         # Lenormand 9-card (3x3) — 20px gaps
@@ -170,7 +170,7 @@ def create_default_spreads(db: Database):
                 {"x": 260, "y": 300, "label": "9", "width": cw, "height": ch}
             ],
             "A 3x3 Lenormand grid with card 5 as significator",
-            "Lenormand"
+            "Petit Lenormand"
         )
 
 

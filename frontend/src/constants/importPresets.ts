@@ -51,7 +51,7 @@ export const DEFAULT_SUIT_NAMES: Record<string, Record<string, string>> = {
     swords: "Swords",
     pentacles: "Pentacles",
   },
-  Lenormand: {
+  'Petit Lenormand': {
     hearts: "Hearts",
     diamonds: "Diamonds",
     clubs: "Clubs",

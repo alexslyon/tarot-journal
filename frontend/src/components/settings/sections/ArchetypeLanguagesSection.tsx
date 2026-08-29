@@ -26,7 +26,7 @@ import './ArchetypeLanguagesSection.css';
 import { confirmDialog } from '../../common/ConfirmDialog';
 
 const SUPPORTED_TYPES = [
-  'Tarot', 'Lenormand', 'Playing Cards', 'Kipper', 'I Ching',
+  'Tarot', 'Petit Lenormand', 'Playing Cards', 'Kipper', 'I Ching',
   'Playing Cards (Spanish)', 'Oracle Belline', 'Vera Sibilla Italiana / Sibilla della Zingara', 'Sibylle des Salons / Sibilla Indovina',
 ];
 

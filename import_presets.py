@@ -1415,14 +1415,14 @@ BUILTIN_PRESETS = {
         "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
     "Lenormand (36 cards)": {
-        "type": "Lenormand",
+        "type": "Petit Lenormand",
         "mappings": STANDARD_LENORMAND,
         "description": "Standard 36-card Lenormand deck",
         "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"},
         "card_back_patterns": DEFAULT_CARD_BACK_PATTERNS
     },
     "Grand Lenormand (54 cards)": {
-        "type": "Lenormand",
+        "type": "Petit Lenormand",
         "mappings": GRAND_LENORMAND,
         "description": "Grand Jeu de Mlle Lenormand (Astro-Mythological). 52 playing-card-based cards with Greek mythology scenes + 2 Consultant cards. Five groups: Golden Fleece, Trojan War, Hermetic Science, Zodiac, The Unforeseen.",
         "suit_names": {"hearts": "Hearts", "diamonds": "Diamonds", "clubs": "Clubs", "spades": "Spades"},
@@ -1869,7 +1869,7 @@ class ImportPresets:
         if preset_type == 'Tarot':
             return self._get_tarot_metadata(card_name, sort_order, custom_suit_names, preset_name,
                                             custom_court_names, archetype_mapping)
-        elif preset_type == 'Lenormand':
+        elif preset_type == 'Petit Lenormand':
             is_grand = preset_name and 'grand' in preset_name.lower()
             if is_grand:
                 return self._get_grand_lenormand_metadata(card_name, sort_order)
@@ -1923,7 +1923,7 @@ class ImportPresets:
                 return self._get_etteilla_metadata_by_position(sort_order)
             # Standard RWS / Thoth / Pre-Golden Dawn Tarot.
             return self._get_tarot_metadata_by_position(sort_order, preset_name)
-        elif preset_type == 'Lenormand':
+        elif preset_type == 'Petit Lenormand':
             is_grand = preset_name and 'grand' in preset_name.lower()
             if is_grand:
                 return self._get_grand_lenormand_metadata(placeholder_name, sort_order)
@@ -3310,7 +3310,7 @@ class ImportPresets:
                 if 1 <= extracted_num <= 64:
                     return extracted_num
             # For Lenormand, validate range 1-36 (Petit) or 1-54 (Grand)
-            elif preset_type == 'Lenormand':
+            elif preset_type == 'Petit Lenormand':
                 is_grand = preset_name and 'grand' in preset_name.lower()
                 max_card = 54 if is_grand else 36
                 if 1 <= extracted_num <= max_card:

@@ -6,7 +6,7 @@ from functools import wraps
 from flask import request, jsonify
 
 # Preferred display order for cartomancy types
-TYPE_ORDER = ['Tarot', 'Lenormand', 'Oracle', 'Playing Cards', 'Kipper', 'I Ching']
+TYPE_ORDER = ['Tarot', 'Petit Lenormand', 'Oracle', 'Playing Cards', 'Kipper', 'I Ching']
 
 # Maximum allowed length for text fields (prevents abuse on a local app)
 MAX_NAME_LENGTH = 200

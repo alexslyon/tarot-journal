@@ -95,7 +95,7 @@ const LENORMAND_BULK_GROUPS: BulkGroup[] = [
 const GROUPS_BY_TYPE: Record<string, BulkGroup[]> = {
   'Tarot': TAROT_BULK_GROUPS,
   'Playing Cards': PLAYING_CARDS_BULK_GROUPS,
-  'Lenormand': LENORMAND_BULK_GROUPS,
+  'Petit Lenormand': LENORMAND_BULK_GROUPS,
 };
 
 export function getBulkGroups(

@@ -22,7 +22,7 @@ export default function CombinationsViewer() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [cartomancyType, setCartomancyType] =
-    useState<CombinationCartomancyType>('Lenormand');
+    useState<CombinationCartomancyType>('Petit Lenormand');
   const [card1Id, setCard1Id] = useState<number | null>(null);
   const [card2Id, setCard2Id] = useState<number | null>(null);
   const [card1Rev, setCard1Rev] = useState(false);

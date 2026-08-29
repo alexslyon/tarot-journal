@@ -17,7 +17,7 @@ from app_config import get_config
 # the next launch, the in-app Deck Types manager only allows renaming
 # and deleting types NOT in this list.
 DEFAULT_TYPE_NAMES = [
-    'Tarot', 'Lenormand', 'Kipper', 'Playing Cards', 'Oracle', 'I Ching',
+    'Tarot', 'Petit Lenormand', 'Kipper', 'Playing Cards', 'Oracle', 'I Ching',
     'Playing Cards (Spanish)', 'Oracle Belline',
     'Vera Sibilla Italiana / Sibilla della Zingara',
     'Sibylle des Salons / Sibilla Indovina',
@@ -747,6 +747,49 @@ class CoreMixin:
                 except sqlite3.OperationalError:
                     pass
             self.set_setting('vera_sibilla_zingara_rename_done', 'true')
+
+        # One-time rename: "Lenormand" → "Petit Lenormand" (distinguishes
+        # the classic 36-card deck from Grand Jeu Lenormand). Same shape
+        # as the rename blocks above. Afterwards, the archetypes' 1-36
+        # card number in the rank field gives way to the playing-card
+        # inset rank + suit (the number stays recoverable from the
+        # curated inset table and the seeded id order).
+        if self.get_setting('petit_lenormand_rename_done') != 'true':
+            renames = [
+                ('cartomancy_types', 'name'),
+                ('card_archetypes', 'cartomancy_type'),
+                ('spreads', 'cartomancy_type'),
+                ('entries', 'cartomancy_type'),
+                ('correspondence_systems', 'cartomancy_type'),
+                ('reference_sources', 'cartomancy_type'),
+                ('source_cartomancy_types', 'cartomancy_type'),
+                ('source_fields', 'cartomancy_type'),
+                ('archetype_combinations', 'cartomancy_type'),
+            ]
+            for table, column in renames:
+                try:
+                    cursor.execute(
+                        f"UPDATE {table} SET {column} = 'Petit Lenormand' "
+                        f"WHERE {column} = 'Lenormand'"
+                    )
+                except sqlite3.OperationalError:
+                    pass
+            # The default-deck setting is keyed by the type name.
+            cursor.execute(
+                "UPDATE settings SET key = 'default_deck_petit lenormand' "
+                "WHERE key = 'default_deck_lenormand' AND NOT EXISTS "
+                "(SELECT 1 FROM settings WHERE key = 'default_deck_petit lenormand')"
+            )
+            # Backfill inset rank + suit onto archetypes still carrying
+            # their card number in rank.
+            import reference_content as _rc
+            for number, (rank_word, suit) in _rc.LENORMAND_INSETS.items():
+                cursor.execute(
+                    "UPDATE card_archetypes SET rank = ?, suit = ? "
+                    "WHERE cartomancy_type = 'Petit Lenormand' AND rank = ?",
+                    (rank_word, suit, str(number))
+                )
+            self.set_setting('petit_lenormand_rename_done', 'true')
 
         # One-time removal: the "Grand Etteilla Tarot" cartomancy type
         # was retired. Its import preset now lives under the Tarot
@@ -1923,7 +1966,7 @@ class CoreMixin:
             for row in cursor.fetchall():
                 name = (row['name'] or '').lower()
                 if 'lenormand' in name or 'kipper' in name:
-                    ctype = 'Lenormand' if 'lenormand' in name else 'Kipper'
+                    ctype = 'Petit Lenormand' if 'lenormand' in name else 'Kipper'
                 elif 'iching' in name or 'i ching' in name or 'hexagram' in name:
                     ctype = 'I Ching'
                 elif 'playing card' in name:
@@ -2140,8 +2183,13 @@ class CoreMixin:
             ('Woman', '29'), ('Lily', '30'), ('Sun', '31'), ('Moon', '32'),
             ('Key', '33'), ('Fish', '34'), ('Anchor', '35'), ('Cross', '36')
         ]
-        for name, rank in lenormand_cards:
-            archetypes.append((name, 'Lenormand', rank, None, 'lenormand'))
+        # Rank/suit hold the traditional playing-card inset; the 1-36
+        # number is the seeded order (and the inset table's key).
+        import reference_content as _rc
+        for name, number in lenormand_cards:
+            inset_rank, inset_suit = _rc.LENORMAND_INSETS[int(number)]
+            archetypes.append(
+                (name, 'Petit Lenormand', inset_rank, inset_suit, 'lenormand'))
 
         # Playing Cards (54)
         playing_ranks = ['Ace', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven',
