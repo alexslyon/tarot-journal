@@ -18,6 +18,7 @@ from .reference_sources import ReferenceSourcesMixin
 from .combinations import CombinationsMixin
 from .archetype_languages import ArchetypeLanguagesMixin
 from .archetype_source_entries import ArchetypeSourceEntriesMixin
+from .entity_notes import EntityNotesMixin
 from .charts import ChartsMixin
 from .prompt_presets import PromptPresetsMixin
 
@@ -37,6 +38,7 @@ class Database(
     CombinationsMixin,
     ArchetypeLanguagesMixin,
     ArchetypeSourceEntriesMixin,
+    EntityNotesMixin,
     ChartsMixin,
     PromptPresetsMixin,
 ):

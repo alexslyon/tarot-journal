@@ -18,6 +18,7 @@ import {
   useReferenceSystem,
 } from './referenceShared';
 import DecanWheel from './DecanWheel';
+import EntityNotes from './EntityNotes';
 import '../ReferenceTab.css';
 
 const COURT_SYSTEM_LABELS: Record<CourtSystem, string> = {
@@ -116,7 +117,6 @@ export default function AstrologySection({ onOpenArchetype }: AstrologySectionPr
                   {sign.modern_ruler && <> (modern: {sign.modern_ruler})</>}
                 </span>
               </div>
-              <p className="ref-detail__themes">{sign.themes}</p>
 
               <div className="ref-detail__kicker">Trump</div>
               <div className="ref-detail__row">
@@ -163,6 +163,7 @@ export default function AstrologySection({ onOpenArchetype }: AstrologySectionPr
               </p>
 
               <AssignedCards refs={sign.assigned} onOpenArchetype={onOpenArchetype} />
+              <EntityNotes kind="sign" entityKey={sign.name} label={sign.name} />
             </div>
           )}
         </>
@@ -196,7 +197,6 @@ export default function AstrologySection({ onOpenArchetype }: AstrologySectionPr
               <div className="ref-detail__meta">
                 <span>Rules <strong>{planet.rules.join(' & ')}</strong></span>
               </div>
-              <p className="ref-detail__themes">{planet.themes}</p>
 
               {planet.trump && (
                 <>
@@ -237,6 +237,7 @@ export default function AstrologySection({ onOpenArchetype }: AstrologySectionPr
               )}
 
               <AssignedCards refs={planet.assigned} onOpenArchetype={onOpenArchetype} />
+              <EntityNotes kind="planet" entityKey={planet.name} label={planet.name} />
             </div>
           )}
         </>

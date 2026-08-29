@@ -298,6 +298,59 @@ def test_kabbalah_trees_config(client):
     assert client.get('/api/reference/kabbalah/trees').get_json() == {'trees': trees}
 
 
+def test_entity_notes_crud(client):
+    """Source texts on reference entities: upsert per (entity, source),
+    blank content deletes, invalid kinds and unknown sources rejected."""
+    sid = client.post('/api/reference/sources', json={
+        'name': 'ZZ Astrology Book', 'cartomancy_types': ['Tarot'],
+    }).get_json()['id']
+
+    r = client.put('/api/reference/entity-notes', json={
+        'kind': 'sign', 'key': 'Leo', 'source_id': sid,
+        'content': '<p>The lion.</p>'})
+    assert r.status_code == 200
+    notes = client.get(
+        '/api/reference/entity-notes?kind=sign&key=Leo').get_json()['notes']
+    assert len(notes) == 1
+    assert notes[0]['source_name'] == 'ZZ Astrology Book'
+    assert notes[0]['content'] == '<p>The lion.</p>'
+
+    # Upsert replaces; other entities unaffected
+    client.put('/api/reference/entity-notes', json={
+        'kind': 'sign', 'key': 'Leo', 'source_id': sid,
+        'content': '<p>Revised.</p>'})
+    notes = client.get(
+        '/api/reference/entity-notes?kind=sign&key=Leo').get_json()['notes']
+    assert [n['content'] for n in notes] == ['<p>Revised.</p>']
+    assert client.get(
+        '/api/reference/entity-notes?kind=sign&key=Aries'
+    ).get_json()['notes'] == []
+    # Same source can annotate a different kind
+    client.put('/api/reference/entity-notes', json={
+        'kind': 'sephira', 'key': 'Geburah', 'source_id': sid,
+        'content': '<p>Severity.</p>'})
+    assert len(client.get(
+        '/api/reference/entity-notes?kind=sephira&key=Geburah'
+    ).get_json()['notes']) == 1
+
+    # Blank content deletes
+    client.put('/api/reference/entity-notes', json={
+        'kind': 'sign', 'key': 'Leo', 'source_id': sid, 'content': '  '})
+    assert client.get(
+        '/api/reference/entity-notes?kind=sign&key=Leo'
+    ).get_json()['notes'] == []
+
+    # Validation
+    assert client.put('/api/reference/entity-notes', json={
+        'kind': 'geese', 'key': 'Leo', 'source_id': sid,
+        'content': 'x'}).status_code == 400
+    assert client.put('/api/reference/entity-notes', json={
+        'kind': 'sign', 'key': 'Leo', 'source_id': 999999,
+        'content': 'x'}).status_code == 404
+    assert client.get(
+        '/api/reference/entity-notes?kind=geese&key=Leo').status_code == 400
+
+
 def test_chakra_matching_real_value_formats(client):
     """Chakra values as the seeded systems store them — slash-joined
     ordinal / IAST Sanskrit / common name — and bare IAST spellings

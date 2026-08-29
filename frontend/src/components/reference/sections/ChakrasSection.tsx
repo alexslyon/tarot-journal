@@ -11,6 +11,7 @@ import {
   ReferenceSystemPicker,
   useReferenceSystem,
 } from './referenceShared';
+import EntityNotes from './EntityNotes';
 import '../ReferenceTab.css';
 
 interface ChakrasSectionProps {
@@ -51,8 +52,8 @@ export default function ChakrasSection({ onOpenArchetype }: ChakrasSectionProps)
           <div className="ref-detail__meta">
             <span>{chakra.location}</span>
           </div>
-          <p className="ref-detail__themes">{chakra.themes}</p>
           <AssignedCards refs={chakra.assigned} onOpenArchetype={onOpenArchetype} />
+          <EntityNotes kind="chakra" entityKey={chakra.name} label={chakra.name} />
         </div>
       ))}
     </div>

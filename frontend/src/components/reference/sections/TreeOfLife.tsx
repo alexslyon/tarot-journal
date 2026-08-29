@@ -8,6 +8,7 @@
 import { useMemo, useState } from 'react';
 import type { KabbalahData, SephiraRef, TreePathRef } from '../../../api/reference';
 import { RefTile } from './referenceShared';
+import EntityNotes from './EntityNotes';
 import './TreeOfLife.css';
 
 // Chart-space -> SVG-space
@@ -142,7 +143,6 @@ export default function TreeOfLife({ data, openCard }: TreeOfLifeProps) {
               <span>{PILLAR_LABELS[selectedSephira.pillar]}</span>
               <span>Association: <strong>{selectedSephira.planet}</strong></span>
             </div>
-            <p className="ref-detail__themes">{selectedSephira.meaning}</p>
             {(selectedSephira.cards?.length || selectedSephira.court_cards?.length) ? (
               <>
                 {selectedSephira.cards && selectedSephira.cards.length > 0 && (
@@ -190,6 +190,11 @@ export default function TreeOfLife({ data, openCard }: TreeOfLifeProps) {
                 )}
               </>
             )}
+            <EntityNotes
+              kind="sephira"
+              entityKey={selectedSephira.name}
+              label={selectedSephira.name}
+            />
           </>
         )}
 
@@ -226,6 +231,11 @@ export default function TreeOfLife({ data, openCard }: TreeOfLifeProps) {
                 />
               )}
             </div>
+            <EntityNotes
+              kind="path"
+              entityKey={selectedPath.letter}
+              label={`Path ${selectedPath.path} (${selectedPath.letter})`}
+            />
           </>
         )}
       </div>

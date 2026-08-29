@@ -1201,6 +1201,28 @@ class CoreMixin:
             'ON archetype_source_entries(field_id)'
         )
 
+        # Per-(reference entity, source) notes: source texts attached
+        # to non-card reference entities — signs, planets, sephiroth,
+        # tree paths, chakras, numerology numbers. One content blob
+        # per source per entity; blank content = no row (same
+        # "absent = hidden" rule as archetype source entries).
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS entity_source_notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entity_kind TEXT NOT NULL,
+                entity_key TEXT NOT NULL,
+                source_id INTEGER NOT NULL,
+                content TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (source_id) REFERENCES reference_sources(id) ON DELETE CASCADE,
+                UNIQUE (entity_kind, entity_key, source_id)
+            )
+        ''')
+        cursor.execute(
+            'CREATE INDEX IF NOT EXISTS idx_entity_source_notes_entity '
+            'ON entity_source_notes(entity_kind, entity_key)'
+        )
+
         # Combinations of two archetypes (any cartomancy type), each with
         # a list of authored meanings. Replaces the older Lenormand-only
         # tables (lenormand_combinations + lenormand_meanings). card_1 /

@@ -15,6 +15,7 @@ import {
   useCardPeek,
   useReferenceSystem,
 } from './referenceShared';
+import EntityNotes from './EntityNotes';
 import '../ReferenceTab.css';
 
 interface NumerologySectionProps {
@@ -73,10 +74,7 @@ export default function NumerologySection({ onOpenArchetype }: NumerologySection
         <div key={`${entry.system ?? ''}-${entry.number}`} className="ref-detail" style={{ marginBottom: 16 }}>
           <div className="ref-detail__header">
             <span className="ref-detail__glyph">{entry.number}</span>
-            <h3 className="ref-detail__title">{entry.title}</h3>
           </div>
-          <p className="ref-detail__themes">{entry.meaning}</p>
-          <p className="ref-detail__note">{entry.tarot_connection}</p>
 
           {(entry.majors?.length || entry.minors?.length) ? (
             <div className="ref-detail__row" style={{ marginTop: 12 }}>
@@ -90,6 +88,7 @@ export default function NumerologySection({ onOpenArchetype }: NumerologySection
           ) : null}
 
           <AssignedCards refs={entry.assigned} onOpenArchetype={onOpenArchetype} />
+          <EntityNotes kind="number" entityKey={entry.number} label={`number ${entry.number}`} />
         </div>
       ))}
 

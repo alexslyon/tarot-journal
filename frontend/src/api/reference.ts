@@ -184,3 +184,40 @@ export async function getChakrasReference(
   const res = await api.get(`/api/reference/chakras${qs(systemId)}`);
   return res.data;
 }
+
+// === Entity source notes (texts from reference sources attached to
+//     signs / planets / sephiroth / paths / chakras / numbers) ===
+
+export type EntityKind = 'sign' | 'planet' | 'sephira' | 'path' | 'chakra' | 'number';
+
+export interface EntityNote {
+  id: number;
+  entity_kind: EntityKind;
+  entity_key: string;
+  source_id: number;
+  source_name: string;
+  content: string;
+  updated_at: string;
+}
+
+export async function getEntityNotes(
+  kind: EntityKind,
+  key: string,
+): Promise<{ notes: EntityNote[] }> {
+  const res = await api.get('/api/reference/entity-notes', {
+    params: { kind, key },
+  });
+  return res.data;
+}
+
+export async function setEntityNote(
+  kind: EntityKind,
+  key: string,
+  sourceId: number,
+  content: string,
+): Promise<{ notes: EntityNote[] }> {
+  const res = await api.put('/api/reference/entity-notes', {
+    kind, key, source_id: sourceId, content,
+  });
+  return res.data;
+}

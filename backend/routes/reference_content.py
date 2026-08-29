@@ -24,6 +24,7 @@ from flask import Blueprint, jsonify, request, current_app
 import birth_cards as bc
 import reference_content as rc
 from database.correspondences import parse_decan
+from database.entity_notes import ENTITY_KINDS
 from backend.routes.birth_cards import make_card_hydrators, _prefs
 from backend.utils import require_json
 
@@ -385,3 +386,35 @@ def chakras():
                                f'{_CHAKRA_ORDINALS[i]} Chakra')}
         for i, c in enumerate(rc.CHAKRAS)
     ]})
+
+
+# === Entity source notes (signs / planets / sephiroth / paths /
+#     chakras / numbers × reference sources) ===
+
+@reference_content_bp.route('/api/reference/entity-notes')
+def get_entity_notes():
+    kind = request.args.get('kind', '')
+    key = request.args.get('key', '')
+    if kind not in ENTITY_KINDS or not key:
+        return jsonify({'error': f'kind must be one of {ENTITY_KINDS}, '
+                                 'key required'}), 400
+    db = current_app.config['DB']
+    return jsonify({'notes': db.get_entity_notes(kind, key)})
+
+
+@reference_content_bp.route('/api/reference/entity-notes', methods=['PUT'])
+@require_json
+def set_entity_note(data):
+    kind = data.get('kind', '')
+    key = (data.get('key') or '').strip()
+    source_id = data.get('source_id')
+    if kind not in ENTITY_KINDS or not key:
+        return jsonify({'error': f'kind must be one of {ENTITY_KINDS}, '
+                                 'key required'}), 400
+    if not isinstance(source_id, int):
+        return jsonify({'error': 'source_id required'}), 400
+    db = current_app.config['DB']
+    if not db.get_reference_source(source_id):
+        return jsonify({'error': 'No such reference source'}), 404
+    db.set_entity_note(kind, key, source_id, data.get('content') or '')
+    return jsonify({'notes': db.get_entity_notes(kind, key)})
