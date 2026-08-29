@@ -15,6 +15,7 @@ computed, never stored here.
 """
 
 import json
+import unicodedata
 from collections import defaultdict
 from datetime import date
 
@@ -71,9 +72,24 @@ def _span_text(start, end):
             f'{_MONTHS[end[0]]} {end[1]}')
 
 
+def _norm(value):
+    """Matching key: casefold and strip combining marks, so IAST
+    Sanskrit ('Mūlādhāra') matches plain spellings ('Muladhara') and
+    pointed Hebrew matches unpointed."""
+    decomposed = unicodedata.normalize('NFD', value.strip().lower())
+    return ''.join(ch for ch in decomposed if not unicodedata.combining(ch))
+
+
+# Fields whose values are often stored as slash-joined alternatives
+# ('צ / Tsadi', 'Fifth Chakra / Viśuddha / Throat Chakra') — each part
+# is indexed separately so any one spelling matches.
+_SLASH_JOINED_FIELDS = ('hebrew_letter', 'chakra')
+
+
 def _assignments_index(db):
-    """Group the chosen system's assignments by (field, value.lower())
-    -> [archetype refs]. Returns None when no system was requested."""
+    """Group the chosen system's assignments by (field, normalized
+    value) -> [archetype refs]. Returns None when no system was
+    requested."""
     raw = request.args.get('system_id')
     if not raw:
         return None
@@ -88,7 +104,7 @@ def _assignments_index(db):
         value = (r.get('field_value') or '').strip()
         if not value:
             continue
-        key = (r['field_name'], value.lower())
+        key = (r['field_name'], _norm(value))
         if r['archetype_id'] in seen[key]:
             continue
         seen[key].add(r['archetype_id'])
@@ -98,13 +114,13 @@ def _assignments_index(db):
             'cartomancy_type': r['cartomancy_type'],
         }
         index[key].append(ref)
-        # hebrew_letter values are often stored as combined
-        # 'glyph / name' strings ('צ / Tsadi', 'כֶּתֶר / Kether') —
-        # index each part separately so bare names and glyphs match.
-        if r['field_name'] == 'hebrew_letter' and '/' in value:
+        # Slash-joined values ('צ / Tsadi', 'First Chakra / Mūlādhāra /
+        # Root Chakra') index each part separately, so any one
+        # spelling matches.
+        if r['field_name'] in _SLASH_JOINED_FIELDS and '/' in value:
             for part in value.split('/'):
-                part = part.strip().lower()
-                if not part or part == value.lower():
+                part = _norm(part)
+                if not part or part == key[1]:
                     continue
                 pkey = (r['field_name'], part)
                 if r['archetype_id'] not in seen[pkey]:
@@ -130,7 +146,7 @@ def _assigned(index, field, *values):
         return []
     out, have = [], set()
     for v in values:
-        for ref in index.get((field, v.lower()), []):
+        for ref in index.get((field, _norm(v)), []):
             if ref['archetype_id'] not in have:
                 have.add(ref['archetype_id'])
                 out.append(ref)
@@ -354,13 +370,18 @@ def numerology():
     return jsonify({'entries': entries})
 
 
+_CHAKRA_ORDINALS = ['First', 'Second', 'Third', 'Fourth',
+                    'Fifth', 'Sixth', 'Seventh']
+
+
 @reference_content_bp.route('/api/reference/chakras')
 def chakras():
     db = current_app.config['DB']
     index = _assignments_index(db)
     return jsonify({'chakras': [
         {**c,
-         'assigned': _assigned(index, 'chakra', c['name'],
-                               c['sanskrit'], f"{c['name']} Chakra")}
-        for c in rc.CHAKRAS
+         'assigned': _assigned(index, 'chakra', c['name'], c['sanskrit'],
+                               f"{c['name']} Chakra",
+                               f'{_CHAKRA_ORDINALS[i]} Chakra')}
+        for i, c in enumerate(rc.CHAKRAS)
     ]})

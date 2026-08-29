@@ -298,6 +298,30 @@ def test_kabbalah_trees_config(client):
     assert client.get('/api/reference/kabbalah/trees').get_json() == {'trees': trees}
 
 
+def test_chakra_matching_real_value_formats(client):
+    """Chakra values as the seeded systems store them — slash-joined
+    ordinal / IAST Sanskrit / common name — and bare IAST spellings
+    both land on the right chakra."""
+    sid = client.post('/api/correspondence-systems', json={
+        'name': 'ZZ Chakra Test', 'cartomancy_type': 'Tarot'}).get_json()['id']
+    a1 = client.post('/api/archetypes', json={
+        'cartomancy_type': 'Tarot', 'name': 'ZZ Chakra Card A'}).get_json()['id']
+    a2 = client.post('/api/archetypes', json={
+        'cartomancy_type': 'Tarot', 'name': 'ZZ Chakra Card B'}).get_json()['id']
+    client.put(f'/api/correspondence-systems/{sid}/assignments', json={
+        'assignments': [
+            {'archetype_id': a1, 'field_name': 'chakra',
+             'field_value': 'Fifth Chakra / Viśuddha / Throat Chakra'},
+            {'archetype_id': a2, 'field_name': 'chakra',
+             'field_value': 'Mūlādhāra'},
+        ]})
+    data = client.get(f'/api/reference/chakras?system_id={sid}').get_json()
+    by_name = {c['name']: c for c in data['chakras']}
+    assert [a['name'] for a in by_name['Throat']['assigned']] == ['ZZ Chakra Card A']
+    assert [a['name'] for a in by_name['Root']['assigned']] == ['ZZ Chakra Card B']
+    assert by_name['Heart']['assigned'] == []
+
+
 def test_chakras_endpoint(client):
     data = client.get('/api/reference/chakras').get_json()
     assert len(data['chakras']) == 7
