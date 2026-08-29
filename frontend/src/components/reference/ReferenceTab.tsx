@@ -4,6 +4,7 @@ import CombinationsViewer from './sections/CombinationsViewer';
 import ArchetypesViewer from './sections/ArchetypesViewer';
 import AstrologySection from './sections/AstrologySection';
 import KabbalahSection from './sections/KabbalahSection';
+import SuitsSection from './sections/SuitsSection';
 import NumerologySection from './sections/NumerologySection';
 import ChakrasSection from './sections/ChakrasSection';
 import './ReferenceTab.css';
@@ -14,6 +15,7 @@ export type ReferenceSectionId =
   | 'combinations'
   | 'astrology'
   | 'kabbalah'
+  | 'suits'
   | 'numerology'
   | 'chakras';
 
@@ -23,7 +25,8 @@ export const REFERENCE_SECTIONS: { id: ReferenceSectionId; label: string }[] = [
   { id: 'combinations', label: 'Combinations' },
   { id: 'astrology', label: 'Astrology' },
   { id: 'kabbalah', label: 'Kabbalah' },
-  { id: 'numerology', label: 'Numerology' },
+  { id: 'suits', label: 'Suits' },
+  { id: 'numerology', label: 'Numerology & Ranks' },
   { id: 'chakras', label: 'Chakras' },
 ];
 
@@ -132,6 +135,9 @@ export default function ReferenceTab({
         )}
         {activeSection === 'kabbalah' && (
           <KabbalahSection />
+        )}
+        {activeSection === 'suits' && (
+          <SuitsSection onOpenArchetype={openArchetype} />
         )}
         {activeSection === 'numerology' && (
           <NumerologySection onOpenArchetype={openArchetype} />

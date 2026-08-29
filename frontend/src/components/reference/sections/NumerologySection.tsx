@@ -44,10 +44,10 @@ export default function NumerologySection({ onOpenArchetype }: NumerologySection
 
   return (
     <div className="reference-section">
-      <h2 className="reference-section__title">Numerology</h2>
+      <h2 className="reference-section__title">Numerology &amp; Ranks</h2>
       <p className="reference-section__hint">
-        Number meanings as they thread through the Majors, the pips, and
-        numerological practice. The app uses two reductions: birth and
+        Numbers as they thread through the Majors and the pips, and the
+        court ranks below them. The app uses two reductions: birth and
         year cards reduce to 22 at most (every trump stays reachable),
         while classic numerology reduces to a single digit (the digital
         root).
@@ -91,6 +91,25 @@ export default function NumerologySection({ onOpenArchetype }: NumerologySection
           <EntityNotes kind="number" entityKey={entry.number} label={`number ${entry.number}`} />
         </div>
       ))}
+
+      {(data?.ranks?.length ?? 0) > 0 && (
+        <>
+          <div className="reference-section__subtitle">Court Ranks</div>
+          {data!.ranks.map(rank => (
+            <div key={rank.rank} className="ref-detail" style={{ marginBottom: 16 }}>
+              <div className="ref-detail__header">
+                <h3 className="ref-detail__title">{rank.rank}s</h3>
+              </div>
+              <div className="ref-detail__row">
+                {rank.cards.map(card => (
+                  <RefTile key={card.name} card={card} caption={card.suit} onOpen={openCard} />
+                ))}
+              </div>
+              <EntityNotes kind="rank" entityKey={rank.rank} label={`the ${rank.rank}s`} />
+            </div>
+          ))}
+        </>
+      )}
 
       {cardModal}
     </div>

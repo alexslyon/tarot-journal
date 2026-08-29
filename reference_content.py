@@ -185,6 +185,31 @@ TREE_PATHS = [
 ]
 
 
+# === Suits ===
+
+# Structural data only (no editorial prose — descriptions come from
+# the user's reference sources as entity notes). Golden Dawn elemental
+# attributions; playing-card counterparts are the common mapping.
+SUIT_INFO = [
+    {'name': 'Wands', 'element': 'Fire', 'glyph': '🜂',
+     'alt_names': ['Rods', 'Staves', 'Batons', 'Clubs'],
+     'playing_card': 'Clubs'},
+    {'name': 'Cups', 'element': 'Water', 'glyph': '🜄',
+     'alt_names': ['Chalices', 'Vessels', 'Hearts'],
+     'playing_card': 'Hearts'},
+    {'name': 'Swords', 'element': 'Air', 'glyph': '🜁',
+     'alt_names': ['Blades', 'Spades'],
+     'playing_card': 'Spades'},
+    {'name': 'Pentacles', 'element': 'Earth', 'glyph': '🜃',
+     'alt_names': ['Coins', 'Disks', 'Diamonds'],
+     'playing_card': 'Diamonds'},
+]
+
+# Court ranks, low to high in RWS convention. Rank entities live in
+# the Numerology & Ranks section beside the numbers.
+COURT_RANKS = ['Page', 'Knight', 'Queen', 'King']
+
+
 # === Chakras ===
 
 # Root to crown. `color` is a plain CSS color used only as a small

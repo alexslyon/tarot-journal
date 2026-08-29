@@ -343,11 +343,39 @@ def set_kabbalah_trees(data):
     return jsonify({'trees': cleaned})
 
 
+@reference_content_bp.route('/api/reference/suits')
+def suits():
+    """The four Tarot suits: element, alternate names, and the suit's
+    fourteen cards (pips and courts separately), hydrated from the
+    default Tarot deck. ?system_id= adds the cards the system's
+    element field assigns to the suit's element."""
+    db = current_app.config['DB']
+    _, eight_eleven, _court = _prefs(db)
+    _major, minor, by_card_name = make_card_hydrators(db, eight_eleven)
+    index = _assignments_index(db)
+
+    out = []
+    for suit in rc.SUIT_INFO:
+        pips = [minor({'rank': r, 'suit': suit['name']}) for r in range(1, 11)]
+        courts = [
+            {'rank': rank, 'suit': suit['name'],
+             **by_card_name(f"{rank} of {suit['name']}")}
+            for rank in rc.COURT_RANKS
+        ]
+        out.append({
+            **suit,
+            'pips': pips,
+            'courts': courts,
+            'assigned': _assigned(index, 'element', suit['element']),
+        })
+    return jsonify({'suits': out})
+
+
 @reference_content_bp.route('/api/reference/numerology')
 def numerology():
     db = current_app.config['DB']
     _, eight_eleven, _court = _prefs(db)
-    major, minor, _ = make_card_hydrators(db, eight_eleven)
+    major, minor, by_card_name = make_card_hydrators(db, eight_eleven)
     index = _assignments_index(db)
 
     entries = []
@@ -368,7 +396,19 @@ def numerology():
             out['minors'] = [minor({'rank': n, 'suit': s}) for s in bc.SUITS]
         out['assigned'] = _assigned(index, 'numerology', entry['number'])
         entries.append(out)
-    return jsonify({'entries': entries})
+
+    # Court ranks sit beside the numbers ("Numerology & Ranks"): each
+    # rank with its four courts.
+    ranks = [
+        {'rank': rank,
+         'cards': [
+             {'rank': rank, 'suit': suit,
+              **by_card_name(f'{rank} of {suit}')}
+             for suit in bc.SUITS
+         ]}
+        for rank in rc.COURT_RANKS
+    ]
+    return jsonify({'entries': entries, 'ranks': ranks})
 
 
 _CHAKRA_ORDINALS = ['First', 'Second', 'Third', 'Fourth',

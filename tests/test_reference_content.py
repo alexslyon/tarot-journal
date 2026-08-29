@@ -298,6 +298,48 @@ def test_kabbalah_trees_config(client):
     assert client.get('/api/reference/kabbalah/trees').get_json() == {'trees': trees}
 
 
+def test_suits_and_ranks_endpoints(client):
+    """Suits: four suits with elements, ten pips and four courts each,
+    element cross-refs. Numerology adds the court-rank groups."""
+    data = client.get('/api/reference/suits').get_json()
+    assert [s['name'] for s in data['suits']] == [
+        'Wands', 'Cups', 'Swords', 'Pentacles']
+    wands = data['suits'][0]
+    assert wands['element'] == 'Fire'
+    assert [p['name'] for p in wands['pips']][:2] == ['Ace of Wands', 'Two of Wands']
+    assert len(wands['pips']) == 10
+    assert [c['name'] for c in wands['courts']] == [
+        'Page of Wands', 'Knight of Wands', 'Queen of Wands', 'King of Wands']
+
+    # Element cross-refs via a system
+    sid = client.post('/api/correspondence-systems', json={
+        'name': 'ZZ Suit Test', 'cartomancy_type': 'Tarot'}).get_json()['id']
+    aid = client.post('/api/archetypes', json={
+        'cartomancy_type': 'Tarot', 'name': 'ZZ Fiery Card'}).get_json()['id']
+    client.put(f'/api/correspondence-systems/{sid}/assignments', json={
+        'assignments': [{'archetype_id': aid, 'field_name': 'element',
+                         'field_value': 'Fire'}]})
+    data = client.get(f'/api/reference/suits?system_id={sid}').get_json()
+    assert [a['name'] for a in data['suits'][0]['assigned']] == ['ZZ Fiery Card']
+    assert data['suits'][1]['assigned'] == []
+
+    num = client.get('/api/reference/numerology').get_json()
+    assert [r['rank'] for r in num['ranks']] == ['Page', 'Knight', 'Queen', 'King']
+    assert [c['name'] for c in num['ranks'][3]['cards']] == [
+        'King of Wands', 'King of Cups', 'King of Swords', 'King of Pentacles']
+
+    # Both new entity kinds accept notes
+    src = client.post('/api/reference/sources', json={
+        'name': 'ZZ Suit Source', 'cartomancy_types': ['Tarot']}).get_json()['id']
+    for kind, key in (('suit', 'Wands'), ('rank', 'Queen')):
+        r = client.put('/api/reference/entity-notes', json={
+            'kind': kind, 'key': key, 'source_id': src, 'content': '<p>x</p>'})
+        assert r.status_code == 200
+        assert len(client.get(
+            f'/api/reference/entity-notes?kind={kind}&key={key}'
+        ).get_json()['notes']) == 1
+
+
 def test_entity_notes_crud(client):
     """Source texts on reference entities: upsert per (entity, source),
     blank content deletes, invalid kinds and unknown sources rejected."""

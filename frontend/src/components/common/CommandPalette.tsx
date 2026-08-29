@@ -86,7 +86,8 @@ const SETTINGS_ITEMS: PaletteItem[] = ([
 const REFERENCE_ITEMS: PaletteItem[] = ([
   ['astrology', 'Astrology'],
   ['kabbalah', 'Kabbalah'],
-  ['numerology', 'Numerology'],
+  ['suits', 'Suits'],
+  ['numerology', 'Numerology & Ranks'],
   ['chakras', 'Chakras'],
 ] as [string, string][]).map(([section, label]) => ({
   key: `reference-${section}`,

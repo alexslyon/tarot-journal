@@ -11,7 +11,8 @@ they have no table of their own, the reference datasets are static.
 
 from datetime import datetime
 
-ENTITY_KINDS = ('sign', 'planet', 'sephira', 'path', 'chakra', 'number')
+ENTITY_KINDS = ('sign', 'planet', 'sephira', 'path', 'chakra', 'number',
+                'suit', 'rank')
 
 
 class EntityNotesMixin:
