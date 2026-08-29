@@ -1,47 +1,50 @@
 /**
- * Suits reference: the four Tarot suits — element, alternate names,
- * the suit's pips and courts as clickable tiles, cards the chosen
- * correspondence system assigns to the suit's element, and source
- * texts per suit.
+ * Suits reference, one tab per deck type that has suits. Tarot shows
+ * the curated four (elements, alternate names, playing-card
+ * counterparts); other types derive their suits and cards from their
+ * archetypes, with images from that type's default deck. Pips and
+ * courts render separately; each suit takes source texts.
  */
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import QueryError from '../../common/QueryError';
 import { getSuitsReference } from '../../../api/reference';
-import {
-  AssignedCards,
-  ReferenceSystemPicker,
-  RefTile,
-  useCardPeek,
-  useReferenceSystem,
-} from './referenceShared';
+import { RefTile, useCardPeek } from './referenceShared';
 import EntityNotes from './EntityNotes';
 import '../ReferenceTab.css';
 
-interface SuitsSectionProps {
-  onOpenArchetype?: (id: number, cartomancyType: string) => void;
-}
-
-export default function SuitsSection({ onOpenArchetype }: SuitsSectionProps) {
-  const [suitName, setSuitName] = useState('Wands');
-  const { systems, systemId, setSystemId } = useReferenceSystem();
+export default function SuitsSection() {
+  const [type, setType] = useState<string | null>(null);
+  const [suitName, setSuitName] = useState<string | null>(null);
   const { openCard, cardModal } = useCardPeek();
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['reference-suits', systemId],
-    queryFn: () => getSuitsReference(systemId),
+    queryKey: ['reference-suits', type],
+    queryFn: () => getSuitsReference(type),
+    placeholderData: keepPreviousData,
   });
 
-  const suit = data?.suits.find(s => s.name === suitName);
+  const suits = data?.suits ?? [];
+  const suit = suits.find(s => s.name === suitName) ?? suits[0];
 
   return (
     <div className="reference-section">
       <h2 className="reference-section__title">Suits</h2>
-      <p className="reference-section__hint">
-        The four Tarot suits with their Golden Dawn elements and
-        playing-card counterparts.
-      </p>
-      <ReferenceSystemPicker systems={systems} systemId={systemId} onChange={setSystemId} />
+
+      {data && (
+        <div className="ref-subtabs">
+          {data.types.map(t => (
+            <button
+              key={t}
+              type="button"
+              className={`ref-subtabs__tab ${t === data.type ? 'ref-subtabs__tab--active' : ''}`}
+              onClick={() => { setType(t); setSuitName(null); }}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
 
       {isLoading && <p className="reference-section__hint">Loading…</p>}
       {isError && <QueryError what="suits reference" onRetry={() => refetch()} />}
@@ -49,14 +52,14 @@ export default function SuitsSection({ onOpenArchetype }: SuitsSectionProps) {
       {data && (
         <>
           <div className="ref-selector">
-            {data.suits.map(s => (
+            {suits.map(s => (
               <button
                 key={s.name}
                 type="button"
-                className={`ref-selector__item ${s.name === suitName ? 'ref-selector__item--active' : ''}`}
+                className={`ref-selector__item ${s.name === suit?.name ? 'ref-selector__item--active' : ''}`}
                 onClick={() => setSuitName(s.name)}
               >
-                <span className="ref-selector__glyph">{s.glyph}</span>
+                {s.glyph && <span className="ref-selector__glyph">{s.glyph}</span>}
                 <span className="ref-selector__name">{s.name}</span>
               </button>
             ))}
@@ -65,14 +68,20 @@ export default function SuitsSection({ onOpenArchetype }: SuitsSectionProps) {
           {suit && (
             <div className="ref-detail">
               <div className="ref-detail__header">
-                <span className="ref-detail__glyph">{suit.glyph}</span>
+                {suit.glyph && <span className="ref-detail__glyph">{suit.glyph}</span>}
                 <h3 className="ref-detail__title">{suit.name}</h3>
-                <span className="ref-detail__dates">{suit.element}</span>
+                {suit.element && <span className="ref-detail__dates">{suit.element}</span>}
               </div>
-              <div className="ref-detail__meta">
-                <span>Also called <strong>{suit.alt_names.join(', ')}</strong></span>
-                <span>Playing cards: <strong>{suit.playing_card}</strong></span>
-              </div>
+              {(suit.alt_names || suit.playing_card) && (
+                <div className="ref-detail__meta">
+                  {suit.alt_names && (
+                    <span>Also called <strong>{suit.alt_names.join(', ')}</strong></span>
+                  )}
+                  {suit.playing_card && (
+                    <span>Playing cards: <strong>{suit.playing_card}</strong></span>
+                  )}
+                </div>
+              )}
 
               <div className="ref-detail__kicker">Pips</div>
               <div className="ref-detail__row">
@@ -81,14 +90,17 @@ export default function SuitsSection({ onOpenArchetype }: SuitsSectionProps) {
                 ))}
               </div>
 
-              <div className="ref-detail__kicker">Courts</div>
-              <div className="ref-detail__row">
-                {suit.courts.map(card => (
-                  <RefTile key={card.name} card={card} onOpen={openCard} />
-                ))}
-              </div>
+              {suit.courts.length > 0 && (
+                <>
+                  <div className="ref-detail__kicker">Courts</div>
+                  <div className="ref-detail__row">
+                    {suit.courts.map(card => (
+                      <RefTile key={card.name} card={card} onOpen={openCard} />
+                    ))}
+                  </div>
+                </>
+              )}
 
-              <AssignedCards refs={suit.assigned} onOpenArchetype={onOpenArchetype} />
               <EntityNotes kind="suit" entityKey={suit.name} label={suit.name} />
             </div>
           )}

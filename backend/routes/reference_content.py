@@ -343,39 +343,160 @@ def set_kabbalah_trees(data):
     return jsonify({'trees': cleaned})
 
 
+# Rank labels across deck traditions: display order plus which are
+# courts (order >= 11). Unknown labels sort after these.
+_RANK_ORDER = {
+    'ace': 1, 'as': 1, 'one': 1, 'uno': 1,
+    'two': 2, 'dos': 2, 'three': 3, 'tres': 3, 'four': 4, 'cuatro': 4,
+    'five': 5, 'cinco': 5, 'six': 6, 'seis': 6, 'seven': 7, 'siete': 7,
+    'eight': 8, 'ocho': 8, 'nine': 9, 'nueve': 9, 'ten': 10, 'diez': 10,
+    'page': 11, 'jack': 11, 'sota': 11, 'fante': 11, 'knave': 11,
+    'valet': 11, 'princess': 11,
+    'knight': 12, 'caballo': 12, 'cavallo': 12, 'cavalier': 12, 'prince': 12,
+    'queen': 13, 'dame': 13, 'regina': 13, 'reina': 13,
+    'king': 14, 'rey': 14, 're': 14, 'roi': 14,
+}
+
+
+def _rank_label(row):
+    """Display rank: the rank field when it's a word label ('Ace',
+    'Sota'); Tarot stores numeric sort codes, so fall back to the
+    leading word of an 'X of Y' name."""
+    rank = (row.get('rank') or '').strip()
+    if rank and not rank.isdigit():
+        return rank
+    name = row.get('name') or ''
+    if ' of ' in name:
+        return name.split(' of ', 1)[0]
+    return rank or '?'
+
+
+def _rank_sort_key(label):
+    low = label.lower()
+    if low in _RANK_ORDER:
+        return (_RANK_ORDER[low], '')
+    if low.isdigit():
+        return (int(low), '')
+    return (99, low)
+
+
+def _is_court_rank(label):
+    return _RANK_ORDER.get(label.lower(), 0) >= 11
+
+
+def _suit_types(db):
+    """Deck types whose archetypes carry suits (Major Arcana excluded),
+    Tarot first, the rest alphabetical."""
+    cursor = db.conn.cursor()
+    cursor.execute(
+        "SELECT DISTINCT cartomancy_type FROM card_archetypes "
+        "WHERE suit IS NOT NULL AND TRIM(suit) != '' "
+        "AND suit != 'Major Arcana' ORDER BY cartomancy_type")
+    names = [r if isinstance(r, str) else dict(r)['cartomancy_type']
+             for r in cursor.fetchall()]
+    if 'Tarot' in names:
+        names = ['Tarot'] + [n for n in names if n != 'Tarot']
+    return names
+
+
+def _suited_archetypes(db, cartomancy_type):
+    """The type's suited archetypes, hydrated with card ids from the
+    type's default deck, plus a display rank label."""
+    from backend.routes.birth_cards import default_tarot_card_ids
+    deck_id = db.get_default_deck(cartomancy_type)
+    card_ids = default_tarot_card_ids(db, deck_id) if deck_id else {}
+    cursor = db.conn.cursor()
+    cursor.execute(
+        "SELECT id, name, rank, suit FROM card_archetypes "
+        "WHERE cartomancy_type = ? AND suit IS NOT NULL "
+        "AND TRIM(suit) != '' AND suit != 'Major Arcana'",
+        (cartomancy_type,))
+    out = []
+    for row in cursor.fetchall():
+        r = row if isinstance(row, dict) else dict(row)
+        label = _rank_label(r)
+        out.append({
+            'archetype_id': r['id'],
+            'name': r['name'],
+            'suit': r['suit'],
+            'rank': label,
+            'card_id': card_ids.get(r['name'].lower()),
+        })
+    out.sort(key=lambda c: (_rank_sort_key(c['rank']), c['name']))
+    return out
+
+
+def _resolve_suit_type(db):
+    """The ?type= param validated against the suited types; Tarot (or
+    the first suited type) when absent or unknown."""
+    types = _suit_types(db)
+    ctype = request.args.get('type')
+    if ctype not in types:
+        ctype = 'Tarot' if 'Tarot' in types or not types else types[0]
+    return types, ctype
+
+
 @reference_content_bp.route('/api/reference/suits')
 def suits():
-    """The four Tarot suits: element, alternate names, and the suit's
-    fourteen cards (pips and courts separately), hydrated from the
-    default Tarot deck. ?system_id= adds the cards the system's
-    element field assigns to the suit's element."""
+    """Suits per deck type. Tarot gets the curated four (elements,
+    alternate names, playing-card counterparts) hydrated from the
+    default Tarot deck; every other suited type derives its suits and
+    cards from its archetypes, images from its own default deck. Pips
+    and courts arrive split."""
     db = current_app.config['DB']
-    _, eight_eleven, _court = _prefs(db)
-    _major, minor, by_card_name = make_card_hydrators(db, eight_eleven)
-    index = _assignments_index(db)
+    types, ctype = _resolve_suit_type(db)
 
-    out = []
-    for suit in rc.SUIT_INFO:
-        pips = [minor({'rank': r, 'suit': suit['name']}) for r in range(1, 11)]
-        courts = [
-            {'rank': rank, 'suit': suit['name'],
-             **by_card_name(f"{rank} of {suit['name']}")}
-            for rank in rc.COURT_RANKS
-        ]
-        out.append({
-            **suit,
-            'pips': pips,
-            'courts': courts,
-            'assigned': _assigned(index, 'element', suit['element']),
-        })
-    return jsonify({'suits': out})
+    if ctype == 'Tarot':
+        _, eight_eleven, _court = _prefs(db)
+        _major, minor, by_card_name = make_card_hydrators(db, eight_eleven)
+        out = []
+        for suit in rc.SUIT_INFO:
+            pips = [minor({'rank': r, 'suit': suit['name']})
+                    for r in range(1, 11)]
+            courts = [
+                {'rank': rank, 'suit': suit['name'],
+                 **by_card_name(f"{rank} of {suit['name']}")}
+                for rank in rc.COURT_RANKS
+            ]
+            out.append({**suit, 'pips': pips, 'courts': courts})
+    else:
+        cards = _suited_archetypes(db, ctype)
+        suit_names = sorted({c['suit'] for c in cards})
+        out = []
+        for suit_name in suit_names:
+            of_suit = [c for c in cards if c['suit'] == suit_name]
+            out.append({
+                'name': suit_name,
+                'pips': [c for c in of_suit if not _is_court_rank(c['rank'])],
+                'courts': [c for c in of_suit if _is_court_rank(c['rank'])],
+            })
+    return jsonify({'types': types, 'type': ctype, 'suits': out})
+
+
+@reference_content_bp.route('/api/reference/ranks')
+def ranks():
+    """Rank groups per suited deck type: each distinct rank with its
+    cards across the suits, in traditional rank order."""
+    db = current_app.config['DB']
+    types, ctype = _resolve_suit_type(db)
+    cards = _suited_archetypes(db, ctype)
+    groups: dict = {}
+    for c in cards:
+        groups.setdefault(c['rank'], []).append(c)
+    ordered = sorted(groups, key=_rank_sort_key)
+    return jsonify({
+        'types': types,
+        'type': ctype,
+        'ranks': [{'rank': label, 'cards': groups[label]}
+                  for label in ordered],
+    })
 
 
 @reference_content_bp.route('/api/reference/numerology')
 def numerology():
     db = current_app.config['DB']
     _, eight_eleven, _court = _prefs(db)
-    major, minor, by_card_name = make_card_hydrators(db, eight_eleven)
+    major, minor, _by_card_name = make_card_hydrators(db, eight_eleven)
     index = _assignments_index(db)
 
     entries = []
@@ -397,18 +518,10 @@ def numerology():
         out['assigned'] = _assigned(index, 'numerology', entry['number'])
         entries.append(out)
 
-    # Court ranks sit beside the numbers ("Numerology & Ranks"): each
-    # rank with its four courts.
-    ranks = [
-        {'rank': rank,
-         'cards': [
-             {'rank': rank, 'suit': suit,
-              **by_card_name(f'{rank} of {suit}')}
-             for suit in bc.SUITS
-         ]}
-        for rank in rc.COURT_RANKS
-    ]
-    return jsonify({'entries': entries, 'ranks': ranks})
+    # The Numerology & Ranks section's per-type rank tabs come from
+    # /api/reference/ranks; the type list rides along here so the UI
+    # can render its tabs from one request.
+    return jsonify({'entries': entries, 'suit_types': _suit_types(db)})
 
 
 _CHAKRA_ORDINALS = ['First', 'Second', 'Third', 'Fourth',

@@ -299,9 +299,13 @@ def test_kabbalah_trees_config(client):
 
 
 def test_suits_and_ranks_endpoints(client):
-    """Suits: four suits with elements, ten pips and four courts each,
-    element cross-refs. Numerology adds the court-rank groups."""
+    """Suits and ranks per deck type: Tarot curated, other suited
+    types derived from their archetypes; type tabs list every deck
+    type whose archetypes carry suits, Tarot first."""
     data = client.get('/api/reference/suits').get_json()
+    assert data['type'] == 'Tarot'
+    assert data['types'][0] == 'Tarot'
+    assert 'Playing Cards' in data['types']
     assert [s['name'] for s in data['suits']] == [
         'Wands', 'Cups', 'Swords', 'Pentacles']
     wands = data['suits'][0]
@@ -311,22 +315,42 @@ def test_suits_and_ranks_endpoints(client):
     assert [c['name'] for c in wands['courts']] == [
         'Page of Wands', 'Knight of Wands', 'Queen of Wands', 'King of Wands']
 
-    # Element cross-refs via a system
-    sid = client.post('/api/correspondence-systems', json={
-        'name': 'ZZ Suit Test', 'cartomancy_type': 'Tarot'}).get_json()['id']
-    aid = client.post('/api/archetypes', json={
-        'cartomancy_type': 'Tarot', 'name': 'ZZ Fiery Card'}).get_json()['id']
-    client.put(f'/api/correspondence-systems/{sid}/assignments', json={
-        'assignments': [{'archetype_id': aid, 'field_name': 'element',
-                         'field_value': 'Fire'}]})
-    data = client.get(f'/api/reference/suits?system_id={sid}').get_json()
-    assert [a['name'] for a in data['suits'][0]['assigned']] == ['ZZ Fiery Card']
-    assert data['suits'][1]['assigned'] == []
+    # A derived type: suits and pip/court split come from archetypes
+    data = client.get('/api/reference/suits?type=Playing Cards').get_json()
+    assert data['type'] == 'Playing Cards'
+    by_name = {s['name']: s for s in data['suits']}
+    hearts = by_name['Hearts']
+    assert [p['name'] for p in hearts['pips']][:2] == [
+        'Ace of Hearts', 'Two of Hearts']
+    assert [c['name'] for c in hearts['courts']] == [
+        'Jack of Hearts', 'Queen of Hearts', 'King of Hearts']
+    # No curated extras off Tarot
+    assert 'element' not in hearts
 
+    # An unknown type falls back to Tarot
+    assert client.get(
+        '/api/reference/suits?type=Nonsense').get_json()['type'] == 'Tarot'
+
+    # Ranks: Tarot rank labels derive from names (stored ranks are
+    # sort codes); derived types use their word ranks
+    ranks = client.get('/api/reference/ranks').get_json()
+    assert ranks['type'] == 'Tarot'
+    labels = [r['rank'] for r in ranks['ranks']]
+    assert labels[:3] == ['Ace', 'Two', 'Three']
+    assert labels[-4:] == ['Page', 'Knight', 'Queen', 'King']
+    king = next(r for r in ranks['ranks'] if r['rank'] == 'King')
+    assert {c['name'] for c in king['cards']} == {
+        'King of Wands', 'King of Cups', 'King of Swords', 'King of Pentacles'}
+
+    ranks = client.get(
+        '/api/reference/ranks?type=Playing Cards (Spanish)').get_json()
+    labels = [r['rank'] for r in ranks['ranks']]
+    assert labels[-3:] == ['Sota', 'Caballo', 'Rey']
+
+    # Numerology no longer bundles ranks; it lists the type tabs
     num = client.get('/api/reference/numerology').get_json()
-    assert [r['rank'] for r in num['ranks']] == ['Page', 'Knight', 'Queen', 'King']
-    assert [c['name'] for c in num['ranks'][3]['cards']] == [
-        'King of Wands', 'King of Cups', 'King of Swords', 'King of Pentacles']
+    assert 'ranks' not in num
+    assert num['suit_types'][0] == 'Tarot'
 
     # Both new entity kinds accept notes
     src = client.post('/api/reference/sources', json={

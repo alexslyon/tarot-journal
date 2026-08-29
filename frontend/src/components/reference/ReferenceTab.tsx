@@ -136,12 +136,8 @@ export default function ReferenceTab({
         {activeSection === 'kabbalah' && (
           <KabbalahSection />
         )}
-        {activeSection === 'suits' && (
-          <SuitsSection onOpenArchetype={openArchetype} />
-        )}
-        {activeSection === 'numerology' && (
-          <NumerologySection onOpenArchetype={openArchetype} />
-        )}
+        {activeSection === 'suits' && <SuitsSection />}
+        {activeSection === 'numerology' && <NumerologySection />}
         {activeSection === 'chakras' && (
           <ChakrasSection onOpenArchetype={openArchetype} />
         )}

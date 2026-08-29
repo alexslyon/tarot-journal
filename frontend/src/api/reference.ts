@@ -141,20 +141,24 @@ export interface NumberEntry {
   assigned: AssignedRef[];
 }
 
+/** A card in a suit/rank grouping — Tarot pips come from the curated
+ *  hydrators, everything else from the type's archetypes. */
+export type SuitCardRef = NamedCardRef & { rank?: number | string; suit?: string };
+
 export interface SuitRef {
   name: string;
-  element: string;
-  glyph: string;
-  alt_names: string[];
-  playing_card: string;
-  pips: MinorCardRef[];
-  courts: (NamedCardRef & { rank: string; suit: string })[];
-  assigned: AssignedRef[];
+  /** Curated extras, present on the Tarot suits only. */
+  element?: string;
+  glyph?: string;
+  alt_names?: string[];
+  playing_card?: string;
+  pips: SuitCardRef[];
+  courts: SuitCardRef[];
 }
 
 export interface RankRef {
   rank: string;
-  cards: (NamedCardRef & { rank: string; suit: string })[];
+  cards: SuitCardRef[];
 }
 
 export interface ChakraRef {
@@ -187,17 +191,33 @@ export async function getKabbalahReference(
   return res.data;
 }
 
-export async function getNumerologyReference(
-  systemId?: number | null,
-): Promise<{ entries: NumberEntry[]; ranks: RankRef[] }> {
-  const res = await api.get(`/api/reference/numerology${qs(systemId)}`);
+export async function getNumerologyReference(): Promise<{
+  entries: NumberEntry[];
+  suit_types: string[];
+}> {
+  const res = await api.get('/api/reference/numerology');
   return res.data;
 }
 
-export async function getSuitsReference(
-  systemId?: number | null,
-): Promise<{ suits: SuitRef[] }> {
-  const res = await api.get(`/api/reference/suits${qs(systemId)}`);
+export async function getSuitsReference(type?: string | null): Promise<{
+  types: string[];
+  type: string;
+  suits: SuitRef[];
+}> {
+  const res = await api.get('/api/reference/suits', {
+    params: type ? { type } : {},
+  });
+  return res.data;
+}
+
+export async function getRanksReference(type?: string | null): Promise<{
+  types: string[];
+  type: string;
+  ranks: RankRef[];
+}> {
+  const res = await api.get('/api/reference/ranks', {
+    params: type ? { type } : {},
+  });
   return res.data;
 }
 
