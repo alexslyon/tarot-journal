@@ -14,7 +14,7 @@
  * Layout: each source is a collapsible row. Expanding reveals the
  * full metadata + field-manager UI inline.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getReferenceSources,
@@ -30,15 +30,13 @@ import {
 } from '../../../api/referenceSources';
 import { useToast } from '../../../context/ToastContext';
 import ScribeModal from '../../scribe/ScribeModal';
-import type { ReferenceSource, SourceField } from '../../../types';
+import { getCartomancyTypes } from '../../../api/decks';
+import { orderTypeNames } from '../../../utils/typeOrder';
+import type { CartomancyType, ReferenceSource, SourceField } from '../../../types';
 import '../SettingsTab.css';
 import './ReferenceSourcesSection.css';
 import { confirmDialog } from '../../common/ConfirmDialog';
 
-const SUPPORTED_TYPES = [
-  'Tarot', 'Petit Lenormand', 'Playing Cards', 'Kipper', 'I Ching',
-  'Playing Cards (Spanish)', 'Oracle Belline', 'Vera Sibilla Italiana / Sibilla della Zingara', 'Sibylle des Salons / Sibilla Indovina',
-];
 
 export default function ReferenceSourcesSection() {
   const queryClient = useQueryClient();
@@ -48,6 +46,15 @@ export default function ReferenceSourcesSection() {
     queryKey: ['reference-sources'],
     queryFn: () => getReferenceSources(),
   });
+  // Every deck type — built-in or user-created — can take sources.
+  const { data: allTypes = [] } = useQuery<CartomancyType[]>({
+    queryKey: ['cartomancy-types'],
+    queryFn: getCartomancyTypes,
+  });
+  const supportedTypes = useMemo(
+    () => orderTypeNames(allTypes.map(t => t.name)),
+    [allTypes],
+  );
   // Any cache touching source-shaped data needs to refetch when the
   // source list / metadata changes. The Archetype Notes page reads
   // from these same caches.
@@ -144,7 +151,7 @@ export default function ReferenceSourcesSection() {
             />
             <label className="settings-tab__label">Cartomancy Types</label>
             <div className="reference-sources__type-grid">
-              {SUPPORTED_TYPES.map(t => (
+              {supportedTypes.map(t => (
                 <label key={t} className="reference-sources__type-toggle">
                   <input
                     type="checkbox"
@@ -306,6 +313,14 @@ function SourceEditor({
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const { data: allTypes = [] } = useQuery<CartomancyType[]>({
+    queryKey: ['cartomancy-types'],
+    queryFn: getCartomancyTypes,
+  });
+  const supportedTypes = useMemo(
+    () => orderTypeNames(allTypes.map(t => t.name)),
+    [allTypes],
+  );
 
   // Hydrate from the source row on mount + on source-id change.
   const [name, setName] = useState(source.name);
@@ -382,7 +397,7 @@ function SourceEditor({
       <div className="reference-sources__field">
         <label className="settings-tab__label">Cartomancy Types</label>
         <div className="reference-sources__type-grid">
-          {SUPPORTED_TYPES.map(t => (
+          {supportedTypes.map(t => (
             <label key={t} className="reference-sources__type-toggle">
               <input
                 type="checkbox"

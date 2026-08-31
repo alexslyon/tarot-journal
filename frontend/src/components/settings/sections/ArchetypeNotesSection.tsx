@@ -20,6 +20,7 @@ import {
 } from '../../../api/referenceSources';
 import { getArchetypes, type Archetype } from '../../../api/correspondences';
 import { getCartomancyTypes } from '../../../api/decks';
+import { orderTypes } from '../../../utils/typeOrder';
 import RichTextEditor from '../../common/RichTextEditor';
 import { useToast } from '../../../context/ToastContext';
 import type {
@@ -31,10 +32,6 @@ import type {
 import '../SettingsTab.css';
 import './ArchetypeNotesSection.css';
 
-const SUPPORTED_TYPES = [
-  'Tarot', 'Petit Lenormand', 'Playing Cards', 'Kipper', 'I Ching',
-  'Playing Cards (Spanish)', 'Oracle Belline', 'Vera Sibilla Italiana / Sibilla della Zingara', 'Sibylle des Salons / Sibilla Indovina',
-];
 
 interface Props {
   /** Deep link from the Reference viewer's "Edit in Settings →".
@@ -53,7 +50,7 @@ export default function ArchetypeNotesSection({
     queryFn: getCartomancyTypes,
   });
   const supportedTypes = useMemo(
-    () => types.filter(t => SUPPORTED_TYPES.includes(t.name)),
+    () => orderTypes(types),
     [types],
   );
 
@@ -63,12 +60,12 @@ export default function ArchetypeNotesSection({
   // then switching to that type. The archetype itself is honoured
   // separately via `initialArchetypeId` passed down to the editor.
   const { data: archetypeForDeepLink } = useQuery({
-    queryKey: ['archetype-for-deep-link', initialArchetypeId],
+    queryKey: ['archetype-for-deep-link', initialArchetypeId, supportedTypes.length],
     queryFn: async () => {
       if (!initialArchetypeId) return null;
       const all = await Promise.all(
-        SUPPORTED_TYPES.map(t =>
-          getArchetypes(t).then(rows => ({ type: t, rows })),
+        supportedTypes.map(t =>
+          getArchetypes(t.name).then(rows => ({ type: t.name, rows })),
         ),
       );
       for (const { type, rows } of all) {

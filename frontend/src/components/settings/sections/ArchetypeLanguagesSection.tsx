@@ -15,6 +15,7 @@ import {
 } from '../../../api/archetypeLanguages';
 import { getArchetypes, type Archetype } from '../../../api/correspondences';
 import { getCartomancyTypes } from '../../../api/decks';
+import { orderTypes } from '../../../utils/typeOrder';
 import { useToast } from '../../../context/ToastContext';
 import type {
   ArchetypeLanguage,
@@ -25,10 +26,6 @@ import '../SettingsTab.css';
 import './ArchetypeLanguagesSection.css';
 import { confirmDialog } from '../../common/ConfirmDialog';
 
-const SUPPORTED_TYPES = [
-  'Tarot', 'Petit Lenormand', 'Playing Cards', 'Kipper', 'I Ching',
-  'Playing Cards (Spanish)', 'Oracle Belline', 'Vera Sibilla Italiana / Sibilla della Zingara', 'Sibylle des Salons / Sibilla Indovina',
-];
 
 interface Props {
   initialArchetypeId?: number;
@@ -48,7 +45,7 @@ export default function ArchetypeLanguagesSection({
     queryFn: getCartomancyTypes,
   });
   const supportedTypes = useMemo(
-    () => types.filter(t => SUPPORTED_TYPES.includes(t.name)),
+    () => orderTypes(types),
     [types],
   );
   const [cartomancyType, setCartomancyType] = useState('Tarot');
