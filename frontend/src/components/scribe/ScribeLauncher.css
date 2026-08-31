@@ -16,6 +16,8 @@
   align-items: flex-start;
   gap: 4px;
   text-align: left;
+  /* The global button style is nowrap; descriptions must wrap. */
+  white-space: normal;
   padding: 12px 14px;
   border: 1px solid var(--tj-hairline-strong);
   border-radius: var(--tj-radius-row);
@@ -46,6 +48,7 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 10px;
+  white-space: normal;
   padding: 8px 12px;
   border: 1px solid var(--tj-hairline);
   border-radius: var(--tj-radius-row);
