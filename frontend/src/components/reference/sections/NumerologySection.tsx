@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import QueryError from '../../common/QueryError';
 import { getNumerologyReference, getRanksReference } from '../../../api/reference';
+import SearchCombobox from '../../common/SearchCombobox';
 import { RefTile, useCardPeek } from './referenceShared';
 import EntityNotes from './EntityNotes';
 import '../ReferenceTab.css';
@@ -46,24 +47,20 @@ export default function NumerologySection() {
       <h2 className="reference-section__title">Numerology &amp; Ranks</h2>
 
       {data && (
-        <div className="ref-subtabs">
-          <button
-            type="button"
-            className={`ref-subtabs__tab ${rankType === null ? 'ref-subtabs__tab--active' : ''}`}
-            onClick={() => setRankType(null)}
-          >
-            Numerology
-          </button>
-          {data.suit_types.map(t => (
-            <button
-              key={t}
-              type="button"
-              className={`ref-subtabs__tab ${rankType === t ? 'ref-subtabs__tab--active' : ''}`}
-              onClick={() => setRankType(t)}
-            >
-              {t}
-            </button>
-          ))}
+        <div className="ref-type-picker">
+          <span className="ref-type-picker__label">Show</span>
+          <SearchCombobox
+            options={[
+              { id: 0, label: 'Numerology' },
+              ...data.suit_types.map((t, i) => ({ id: i + 1, label: `${t} ranks` })),
+            ]}
+            value={rankType === null ? 0 : data.suit_types.indexOf(rankType) + 1}
+            onSelect={(option) => {
+              if (!option) return;
+              setRankType(option.id === 0 ? null : data.suit_types[option.id - 1]);
+            }}
+            placeholder="Numerology or a deck type's ranks…"
+          />
         </div>
       )}
 

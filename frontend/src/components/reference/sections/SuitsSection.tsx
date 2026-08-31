@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import QueryError from '../../common/QueryError';
 import { getSuitsReference } from '../../../api/reference';
+import SearchCombobox from '../../common/SearchCombobox';
 import { RefTile, useCardPeek } from './referenceShared';
 import EntityNotes from './EntityNotes';
 import type { SuitCardRef } from '../../../api/reference';
@@ -44,17 +45,18 @@ export default function SuitsSection() {
       <h2 className="reference-section__title">Suits</h2>
 
       {data && (
-        <div className="ref-subtabs">
-          {data.types.map(t => (
-            <button
-              key={t}
-              type="button"
-              className={`ref-subtabs__tab ${t === data.type ? 'ref-subtabs__tab--active' : ''}`}
-              onClick={() => { setType(t); setSuitName(null); }}
-            >
-              {t}
-            </button>
-          ))}
+        <div className="ref-type-picker">
+          <span className="ref-type-picker__label">Deck type</span>
+          <SearchCombobox
+            options={data.types.map((t, i) => ({ id: i, label: t }))}
+            value={data.types.indexOf(data.type)}
+            onSelect={(option) => {
+              if (!option) return;
+              setType(option.label);
+              setSuitName(null);
+            }}
+            placeholder="Choose a deck type…"
+          />
         </div>
       )}
 
@@ -71,7 +73,6 @@ export default function SuitsSection() {
                 className={`ref-selector__item ${s.name === suit?.name ? 'ref-selector__item--active' : ''}`}
                 onClick={() => setSuitName(s.name)}
               >
-                {s.glyph && <span className="ref-selector__glyph">{s.glyph}</span>}
                 <span className="ref-selector__name">{s.name}</span>
               </button>
             ))}

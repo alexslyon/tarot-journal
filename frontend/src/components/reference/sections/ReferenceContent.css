@@ -10,6 +10,26 @@
   margin-bottom: 12px;
 }
 
+/* Deck-type picker: label + searchable dropdown above a section */
+.ref-type-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 420px;
+  margin-bottom: 16px;
+}
+
+.ref-type-picker__label {
+  flex-shrink: 0;
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-muted);
+}
+
+.ref-type-picker .search-combobox {
+  flex: 1;
+  min-width: 0;
+}
+
 /* Selector rail: the row/grid of glyph buttons that picks an entity */
 .ref-selector {
   display: flex;
