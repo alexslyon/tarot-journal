@@ -12,9 +12,11 @@ import QueryError from '../../common/QueryError';
 import { getNumerologyReference, getRanksReference } from '../../../api/reference';
 import SearchCombobox from '../../common/SearchCombobox';
 import EntityNotes from './EntityNotes';
+import EntityScribeModal from '../../scribe/EntityScribeModal';
 import '../ReferenceTab.css';
 
 export default function NumerologySection() {
+  const [scribeOpen, setScribeOpen] = useState(false);
   const [numerologySystem, setNumerologySystem] = useState<string | null>(null);
   // null = the Numerology view; a string = that deck type's ranks.
   const [rankType, setRankType] = useState<string | null>(null);
@@ -43,7 +45,12 @@ export default function NumerologySection() {
 
   return (
     <div className="reference-section">
-      <h2 className="reference-section__title">Numerology &amp; Ranks</h2>
+      <div className="ref-section-head">
+        <h2 className="reference-section__title">Numerology &amp; Ranks</h2>
+        <button type="button" className="ref-scribe-btn" onClick={() => setScribeOpen(true)}>
+          Import from source (Scribe)
+        </button>
+      </div>
 
       {data && (
         <div className="ref-type-picker">
@@ -114,6 +121,14 @@ export default function NumerologySection() {
             </div>
           ))}
         </>
+      )}
+      {scribeOpen && (
+        <EntityScribeModal
+          open
+          onClose={() => setScribeOpen(false)}
+          initialKind={rankType ? 'rank' : 'number'}
+          initialType={rankType}
+        />
       )}
     </div>
   );

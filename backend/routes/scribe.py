@@ -128,7 +128,9 @@ def apply_proposals():
         {"target": "card", "card_id": 5, "field_name": "Keywords", "content": "..."},
         {"target": "combination", "cartomancy_type": "Petit Lenormand",
          "archetype_ids": [1, 2], "reversed": [false, false],
-         "content": "...", "source_id": 3}
+         "content": "...", "source_id": 3},
+        {"target": "entity_note", "kind": "suit", "key": "Tarot::Wands",
+         "source_id": 3, "content": "<p>...</p>"}
     ]}
 
     Card writes upsert by field name: update the card's existing custom
@@ -136,6 +138,9 @@ def apply_proposals():
     Combination writes append a meaning to the (2- or 3-card) pair,
     skipping exact-duplicate meaning text so re-running an import
     doesn't stack copies; skips are counted separately from errors.
+    Entity-note writes merge into the one (entity, source) note: set
+    it when empty, skip when the note already contains the text,
+    append otherwise — a re-run never duplicates and never clobbers.
     """
     db = current_app.config['DB']
     data = request.get_json() or {}
@@ -160,6 +165,12 @@ def apply_proposals():
                 else:
                     skipped += 1
                 continue
+            elif target == 'entity_note':
+                if _merge_entity_note(db, w, content):
+                    applied += 1
+                else:
+                    skipped += 1
+                continue
             else:
                 raise ValueError(f"unknown target {target!r}")
             applied += 1
@@ -167,6 +178,40 @@ def apply_proposals():
             errors.append({'index': i, 'error': str(e)})
 
     return jsonify({'applied': applied, 'skipped': skipped, 'errors': errors})
+
+
+def _merge_entity_note(db, w: dict, content: str) -> bool:
+    """Merge Scribe content into the single (entity, source) note.
+    Empty note: set it. Note already containing the text: skip
+    (returns False). Otherwise: append, so a manual note or an earlier
+    chapter's text is never clobbered."""
+    from database.entity_notes import ENTITY_KINDS
+
+    if not content:
+        raise ValueError('entity note content is empty')
+    kind = w.get('kind')
+    key = (w.get('key') or '').strip()
+    if kind not in ENTITY_KINDS or not key:
+        raise ValueError(f'entity note needs kind (one of {ENTITY_KINDS}) and key')
+    source_id = int(w['source_id'])
+    if not db.get_reference_source(source_id):
+        raise ValueError(f'no reference source {source_id}')
+
+    existing = next(
+        (n for n in db.get_entity_notes(kind, key)
+         if n['source_id'] == source_id), None)
+    if existing:
+        old = existing['content'] or ''
+        # Containment check on normalized text so a re-run with the
+        # same extraction (possibly re-wrapped) doesn't stack copies.
+        def _norm(html):
+            import re
+            return re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', html)).strip().lower()
+        if _norm(content) and _norm(content) in _norm(old):
+            return False
+        content = old + content
+    db.set_entity_note(kind, key, source_id, content)
+    return True
 
 
 def _add_combination_meaning_deduped(db, w: dict, content: str) -> bool:

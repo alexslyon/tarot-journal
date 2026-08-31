@@ -3,6 +3,7 @@
  * color as a small accent and the cards the chosen correspondence
  * system's chakra field assigns.
  */
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import QueryError from '../../common/QueryError';
 import { getChakrasReference } from '../../../api/reference';
@@ -12,6 +13,7 @@ import {
   useReferenceSystem,
 } from './referenceShared';
 import EntityNotes from './EntityNotes';
+import EntityScribeModal from '../../scribe/EntityScribeModal';
 import '../ReferenceTab.css';
 
 interface ChakrasSectionProps {
@@ -19,6 +21,7 @@ interface ChakrasSectionProps {
 }
 
 export default function ChakrasSection({ onOpenArchetype }: ChakrasSectionProps) {
+  const [scribeOpen, setScribeOpen] = useState(false);
   const { systems, systemId, setSystemId } = useReferenceSystem();
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -28,7 +31,12 @@ export default function ChakrasSection({ onOpenArchetype }: ChakrasSectionProps)
 
   return (
     <div className="reference-section">
-      <h2 className="reference-section__title">Chakras</h2>
+      <div className="ref-section-head">
+        <h2 className="reference-section__title">Chakras</h2>
+        <button type="button" className="ref-scribe-btn" onClick={() => setScribeOpen(true)}>
+          Import from source (Scribe)
+        </button>
+      </div>
       <p className="reference-section__hint">
         The seven energy centers, root to crown. Cards appear where your
         chosen correspondence system's chakra field assigns them.
@@ -56,6 +64,9 @@ export default function ChakrasSection({ onOpenArchetype }: ChakrasSectionProps)
           <EntityNotes kind="chakra" entityKey={chakra.name} label={chakra.name} />
         </div>
       ))}
+      {scribeOpen && (
+        <EntityScribeModal open onClose={() => setScribeOpen(false)} initialKind="chakra" />
+      )}
     </div>
   );
 }

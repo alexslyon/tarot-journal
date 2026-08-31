@@ -22,6 +22,7 @@ import { getDecks } from '../../../api/decks';
 import type { CorrespondenceSystem, Deck } from '../../../types';
 import { useCardPeek } from './referenceShared';
 import TreeOfLife from './TreeOfLife';
+import EntityScribeModal from '../../scribe/EntityScribeModal';
 import '../ReferenceTab.css';
 import './KabbalahSection.css';
 
@@ -35,6 +36,7 @@ interface TreeModalState {
 export default function KabbalahSection() {
   const queryClient = useQueryClient();
   const { openCard, cardModal } = useCardPeek();
+  const [scribeOpen, setScribeOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [modal, setModal] = useState<TreeModalState | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -119,7 +121,12 @@ export default function KabbalahSection() {
 
   return (
     <div className="reference-section">
-      <h2 className="reference-section__title">Kabbalah</h2>
+      <div className="ref-section-head">
+        <h2 className="reference-section__title">Kabbalah</h2>
+        <button type="button" className="ref-scribe-btn" onClick={() => setScribeOpen(true)}>
+          Import from source (Scribe)
+        </button>
+      </div>
       <p className="reference-section__hint">
         The Tree of Life: ten sephiroth joined by twenty-two paths, one
         Hebrew letter per path. Each tab builds the tree from one of
@@ -180,6 +187,9 @@ export default function KabbalahSection() {
       {data && <TreeOfLife data={data} openCard={openCard} />}
 
       {cardModal}
+      {scribeOpen && (
+        <EntityScribeModal open onClose={() => setScribeOpen(false)} initialKind="sephira" />
+      )}
 
       {modal && (
         <Modal

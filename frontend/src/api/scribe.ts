@@ -50,6 +50,15 @@ export type ScribeWrite =
       reversed?: boolean[];
       content: string;
       source_id?: number | null;
+    }
+  | {
+      target: 'entity_note';
+      /** Entity kind ('sign' | 'sephira' | 'suit' | ...). */
+      kind: string;
+      /** Entity key — deck-type-scoped for suits/ranks ('Tarot::Wands'). */
+      key: string;
+      source_id: number;
+      content: string;
     };
 
 export async function applyScribeWrites(writes: ScribeWrite[]): Promise<{

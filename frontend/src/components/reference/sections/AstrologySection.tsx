@@ -19,6 +19,7 @@ import {
 } from './referenceShared';
 import DecanWheel from './DecanWheel';
 import EntityNotes from './EntityNotes';
+import EntityScribeModal from '../../scribe/EntityScribeModal';
 import '../ReferenceTab.css';
 
 const COURT_SYSTEM_LABELS: Record<CourtSystem, string> = {
@@ -32,6 +33,7 @@ interface AstrologySectionProps {
 }
 
 export default function AstrologySection({ onOpenArchetype }: AstrologySectionProps) {
+  const [scribeOpen, setScribeOpen] = useState(false);
   const [tab, setTab] = useState<'signs' | 'planets' | 'wheel'>('signs');
   const [signName, setSignName] = useState('Aries');
   const [planetName, setPlanetName] = useState('Sun');
@@ -52,7 +54,12 @@ export default function AstrologySection({ onOpenArchetype }: AstrologySectionPr
 
   return (
     <div className="reference-section">
-      <h2 className="reference-section__title">Astrology</h2>
+      <div className="ref-section-head">
+        <h2 className="reference-section__title">Astrology</h2>
+        <button type="button" className="ref-scribe-btn" onClick={() => setScribeOpen(true)}>
+          Import from source (Scribe)
+        </button>
+      </div>
       <p className="reference-section__hint">
         Golden Dawn attributions: each sign and classical planet has its
         trump, each decan its Minor. Symbolic reference only — for live
@@ -248,6 +255,13 @@ export default function AstrologySection({ onOpenArchetype }: AstrologySectionPr
       )}
 
       {cardModal}
+      {scribeOpen && (
+        <EntityScribeModal
+          open
+          onClose={() => setScribeOpen(false)}
+          initialKind={tab === 'planets' ? 'planet' : 'sign'}
+        />
+      )}
     </div>
   );
 }

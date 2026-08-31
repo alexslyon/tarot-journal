@@ -910,3 +910,40 @@ def test_combinations_by_source(client):
     assert rows[0]['meaning'] == 'Unattributed note.'
 
     assert client.get('/api/combinations/by-source').status_code == 400
+
+
+def test_apply_entity_note_merge_semantics(client):
+    """Scribe entity-note writes: set when empty, append when the note
+    holds other text, skip when it already contains the content."""
+    src = client.post('/api/reference/sources', json={
+        'name': 'ZZ Entity Import', 'cartomancy_types': ['Tarot'],
+    }).get_json()['id']
+
+    def write(content):
+        return client.post('/api/scribe/apply', json={'writes': [
+            {'target': 'entity_note', 'kind': 'suit', 'key': 'Tarot::Wands',
+             'source_id': src, 'content': content}]}).get_json()
+
+    r = write('<p>Fire and will.</p>')
+    assert (r['applied'], r['skipped']) == (1, 0)
+    # Identical content again (even re-wrapped) is skipped
+    r = write('<p>Fire and  will.</p>')
+    assert (r['applied'], r['skipped']) == (0, 1)
+    # New content appends rather than clobbering
+    r = write('<p>The suit of growth.</p>')
+    assert (r['applied'], r['skipped']) == (1, 0)
+    notes = client.get(
+        '/api/reference/entity-notes?kind=suit&key=Tarot::Wands'
+    ).get_json()['notes']
+    assert len(notes) == 1
+    assert 'Fire and will' in notes[0]['content']
+    assert 'suit of growth' in notes[0]['content']
+
+    # Bad rows error without stopping the batch
+    r = client.post('/api/scribe/apply', json={'writes': [
+        {'target': 'entity_note', 'kind': 'geese', 'key': 'X',
+         'source_id': src, 'content': 'x'},
+        {'target': 'entity_note', 'kind': 'rank', 'key': 'Tarot::Queen',
+         'source_id': src, 'content': '<p>ok</p>'}]}).get_json()
+    assert r['applied'] == 1
+    assert len(r['errors']) == 1

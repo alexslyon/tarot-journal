@@ -1,0 +1,144 @@
+/* Entity Scribe — setup form + two-pane review (chat | proposals) */
+
+.entity-scribe__setup {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.entity-scribe__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-muted);
+}
+
+.entity-scribe__material {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px;
+  border: 1px solid var(--tj-hairline);
+  border-radius: var(--tj-radius-row);
+  color: var(--tj-text);
+}
+
+.entity-scribe__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.entity-scribe__review {
+  display: flex;
+  gap: 16px;
+  height: 70vh;
+  min-height: 420px;
+}
+
+.entity-scribe__chat {
+  flex: 1 1 40%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.entity-scribe__log {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 6px;
+}
+
+.entity-scribe__msg {
+  padding: 8px 12px;
+  border-radius: var(--tj-radius-row);
+  font-size: var(--tj-size-small);
+  white-space: pre-wrap;
+  color: var(--tj-text);
+}
+
+.entity-scribe__msg--user {
+  background: rgb(var(--tj-accent-rgb) / 12%);
+  align-self: flex-end;
+  max-width: 90%;
+}
+
+.entity-scribe__msg--assistant {
+  background: var(--tj-panel);
+  align-self: flex-start;
+  max-width: 95%;
+}
+
+.entity-scribe__chatbar {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.entity-scribe__chatbar input {
+  flex: 1;
+  min-width: 0;
+}
+
+.entity-scribe__panel {
+  flex: 1 1 60%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--tj-hairline);
+  padding-left: 16px;
+}
+
+.entity-scribe__panel-head {
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-muted);
+  margin-bottom: 8px;
+}
+
+.entity-scribe__rows {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 6px;
+}
+
+.entity-scribe__row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.entity-scribe__row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.entity-scribe__row textarea {
+  width: 100%;
+  resize: vertical;
+  font-size: var(--tj-size-small);
+}
+
+.entity-scribe__unmatched {
+  font-size: var(--tj-size-small);
+  color: var(--danger);
+}
+
+.entity-scribe__flags {
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-faint);
+}
+
+.entity-scribe__empty {
+  color: var(--tj-text-faint);
+  font-size: var(--tj-size-small);
+}

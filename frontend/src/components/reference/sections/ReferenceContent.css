@@ -10,6 +10,30 @@
   margin-bottom: 12px;
 }
 
+/* Section title row with the Scribe-import button */
+.ref-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.ref-scribe-btn {
+  flex-shrink: 0;
+  border: 1px dashed var(--tj-hairline-strong);
+  background: none;
+  border-radius: var(--tj-radius-pill);
+  padding: 5px 14px;
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-muted);
+  cursor: pointer;
+}
+
+.ref-scribe-btn:hover {
+  color: var(--tj-text);
+  border-color: var(--tj-text-faint);
+}
+
 /* Deck-type picker: label + searchable dropdown above a section */
 .ref-type-picker {
   display: flex;

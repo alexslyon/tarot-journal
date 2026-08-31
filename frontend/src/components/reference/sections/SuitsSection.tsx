@@ -11,9 +11,11 @@ import QueryError from '../../common/QueryError';
 import { getSuitsReference } from '../../../api/reference';
 import SearchCombobox from '../../common/SearchCombobox';
 import EntityNotes from './EntityNotes';
+import EntityScribeModal from '../../scribe/EntityScribeModal';
 import '../ReferenceTab.css';
 
 export default function SuitsSection() {
+  const [scribeOpen, setScribeOpen] = useState(false);
   const [type, setType] = useState<string | null>(null);
   const [suitName, setSuitName] = useState<string | null>(null);
 
@@ -28,7 +30,12 @@ export default function SuitsSection() {
 
   return (
     <div className="reference-section">
-      <h2 className="reference-section__title">Suits</h2>
+      <div className="ref-section-head">
+        <h2 className="reference-section__title">Suits</h2>
+        <button type="button" className="ref-scribe-btn" onClick={() => setScribeOpen(true)}>
+          Import from source (Scribe)
+        </button>
+      </div>
 
       {data && (
         <div className="ref-type-picker">
@@ -88,6 +95,14 @@ export default function SuitsSection() {
             </div>
           )}
         </>
+      )}
+      {scribeOpen && (
+        <EntityScribeModal
+          open
+          onClose={() => setScribeOpen(false)}
+          initialKind="suit"
+          initialType={data?.type ?? null}
+        />
       )}
     </div>
   );
