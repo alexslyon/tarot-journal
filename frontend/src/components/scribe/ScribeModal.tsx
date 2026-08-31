@@ -51,6 +51,9 @@ interface ScribeModalProps {
   deck?: Deck;
   open: boolean;
   onClose: () => void;
+  /** Combinations-focused launch: extract-combinations starts checked
+   *  and no fields are preselected (the user can still add some). */
+  combinationsOnly?: boolean;
 }
 
 // Material and ExtractionUnit now live in scribeShared (used by both
@@ -96,7 +99,7 @@ const INCOMPLETE_FLAG = /cut\s*off|incomplete|truncat|continu/i;
 const UNIT_ATTEMPTS = 2;
 const RETRY_DELAY_MS = 3_000;
 
-export default function ScribeModal({ source, deck, open, onClose }: ScribeModalProps) {
+export default function ScribeModal({ source, deck, open, onClose, combinationsOnly }: ScribeModalProps) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
@@ -227,10 +230,11 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
   const cardFieldsWithGaps = deckFieldDefs.filter(f =>
     cardFieldFilled(f.field_name) < (deckCoverage?.card_count ?? 0));
 
-  // Default: all source fields selected
+  // Default: all source fields selected (none in a combinations-only
+  // launch — the user can still opt fields in).
   useEffect(() => {
-    setSelectedFieldIds(fields.map(f => f.id));
-  }, [fields]);
+    setSelectedFieldIds(combinationsOnly ? [] : fields.map(f => f.id));
+  }, [fields, combinationsOnly]);
 
 
   // Reset everything when the modal opens fresh
@@ -249,7 +253,8 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
     setSelectedCardFields([]);
     setCardFieldsText('');
     setCustomInstructions('');
-  }, [open, source?.id, deck?.id, availableTypes]); // eslint-disable-line react-hooks/exhaustive-deps
+    setExtractCombos(!!combinationsOnly);
+  }, [open, source?.id, deck?.id, availableTypes, combinationsOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Deck mode: preselect the deck's existing field definitions.
   // Defined AFTER the reset effect (effects run in order) and keyed
