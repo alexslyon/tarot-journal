@@ -414,16 +414,22 @@ def test_petit_lenormand_rename_migration(tmp_path):
 
 
 def test_suit_and_rank_entity_notes(client):
-    """Both suit and rank entity kinds accept source notes."""
+    """Suit and rank notes are deck-type-scoped ('<type>::<name>'
+    keys) — the same suit name in two traditions holds separate
+    notes."""
     src = client.post('/api/reference/sources', json={
         'name': 'ZZ Suit Source', 'cartomancy_types': ['Tarot']}).get_json()['id']
-    for kind, key in (('suit', 'Wands'), ('rank', 'Queen')):
+    for kind, key in (('suit', 'Tarot::Wands'), ('rank', 'Tarot::Queen')):
         r = client.put('/api/reference/entity-notes', json={
             'kind': kind, 'key': key, 'source_id': src, 'content': '<p>x</p>'})
         assert r.status_code == 200
         assert len(client.get(
             f'/api/reference/entity-notes?kind={kind}&key={key}'
         ).get_json()['notes']) == 1
+    # Another type's same-named suit is a separate entity
+    assert client.get(
+        '/api/reference/entity-notes?kind=suit&key=Petit Lenormand::Wands'
+    ).get_json()['notes'] == []
 
 
 def test_entity_notes_crud(client):

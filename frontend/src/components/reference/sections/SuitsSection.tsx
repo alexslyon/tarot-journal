@@ -114,7 +114,13 @@ export default function SuitsSection() {
                 </>
               )}
 
-              <EntityNotes kind="suit" entityKey={suit.name} label={suit.name} />
+              {/* Keyed by deck type as well — Clubs in Petit Lenormand
+                  is a different subject than Clubs in Vera Sibilla. */}
+              <EntityNotes
+                kind="suit"
+                entityKey={`${data.type}::${suit.name}`}
+                label={`${suit.name} in ${data.type}`}
+              />
             </div>
           )}
         </>

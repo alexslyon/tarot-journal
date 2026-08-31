@@ -7,6 +7,11 @@ archetype source entries' "absent = hidden" rule: blank content
 deletes the row. Entities are identified by (kind, key) string pairs
 ('sign' / 'Leo', 'sephira' / 'Geburah', 'chakra' / 'Root', ...) —
 they have no table of their own, the reference datasets are static.
+
+Suit and rank keys are additionally scoped by deck type as
+'<cartomancy_type>::<name>' ('Petit Lenormand::Clubs',
+'Tarot::King') — the same suit name means different things in
+different traditions. The other kinds are universal and stay bare.
 """
 
 from datetime import datetime

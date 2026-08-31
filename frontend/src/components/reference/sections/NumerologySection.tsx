@@ -124,7 +124,12 @@ export default function NumerologySection() {
                   <RefTile key={card.name} card={card} caption={card.suit} onOpen={openCard} />
                 ))}
               </div>
-              <EntityNotes kind="rank" entityKey={rank.rank} label={`the rank ${rank.rank}`} />
+              {/* Rank notes are deck-type-scoped, like suit notes. */}
+              <EntityNotes
+                kind="rank"
+                entityKey={`${rankType}::${rank.rank}`}
+                label={`the ${rank.rank} rank in ${rankType}`}
+              />
             </div>
           ))}
         </>
