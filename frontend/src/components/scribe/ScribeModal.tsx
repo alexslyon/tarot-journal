@@ -25,10 +25,20 @@ import { getSourceFields, getSourceEntries } from '../../api/referenceSources';
 import { getArchetypes, type Archetype } from '../../api/correspondences';
 import { getDecks, getDeckCustomFields, getDeckFieldCoverage, type DeckFieldCoverage } from '../../api/decks';
 import { getCards } from '../../api/cards';
-import { extractSourceText, convertSourceImage, applyScribeWrites, type ScribeWrite } from '../../api/scribe';
+import { applyScribeWrites, type ScribeWrite } from '../../api/scribe';
+import {
+  MAX_SOURCE_CHARS,
+  ScribeChatPane,
+  ScribeMaterialsField,
+  buildUnits,
+  readScribeFiles,
+  splitUnit,
+  type ExtractionUnit,
+  type Material,
+} from './scribeShared';
 import { getReversedCombinationTypes } from '../../api/combinations';
 import { useActivePrompt, renderScribePrompt } from '../../utils/assistantPrompts';
-import { llmChat, getLlmConfig, type LlmMessage, type LlmMessagePart } from '../../api/llm';
+import { llmChat, getLlmConfig, type LlmMessage } from '../../api/llm';
 import type { ReferenceSource, SourceField, Card, Deck, DeckCustomField } from '../../types';
 import './ScribeModal.css';
 
@@ -43,28 +53,8 @@ interface ScribeModalProps {
   onClose: () => void;
 }
 
-/** One extraction request: a chunk of book text, or a group of page
- *  photos. Each unit is sent as its own message in the conversation.
- *  text/images keep the raw material so a unit whose reply overflows
- *  the output limit can be split in half and re-queued. */
-interface ExtractionUnit {
-  label: string;
-  parts: LlmMessagePart[];
-  text?: string;
-  images?: Material[];
-}
-
-// ── Source material the user has added ───────────────────────
-interface Material {
-  id: number;
-  filename: string;
-  kind: 'text' | 'image';
-  text?: string;       // extracted text (ebooks)
-  data?: string;       // base64 (images)
-  mediaType?: string;
-  charCount?: number;
-  warning?: string | null;
-}
+// Material and ExtractionUnit now live in scribeShared (used by both
+// Scribe modes).
 
 // ── One proposal row parsed from the model's JSON ────────────
 interface Proposal {
@@ -95,27 +85,9 @@ interface ComboProposal {
   checked: boolean;
 }
 
-// Ceiling on total source text per session. Extraction itself has no
-// real limit (each part is its own small request); this guards the
-// refinement chat, whose stitched conversation holds the whole book
-// and must fit the big models' 1M-token context. ~3M chars ≈ 750k
-// tokens, leaving room for the extraction replies alongside it.
-const MAX_SOURCE_CHARS = 3_000_000;
-// The APP drives batching, not the model: long books are cut into
-// parts of this size and each part is one small, fast request. Sized
-// so even a part that is wall-to-wall card text produces a reply
-// under the 64k output limit; a part that still overflows gets split
-// in half and re-queued automatically.
-const CHUNK_CHARS = 90_000;
-const IMAGES_PER_UNIT = 8;
 // Parts are independent, so several can extract at once — wall-clock
 // time divides accordingly. Kept modest to stay under API rate limits.
 const CONCURRENT_PARTS = 3;
-// Chunks overlap so a card cut at one part's end appears whole at the
-// next part's start; the merge keeps whichever version is longer.
-// Sized for books with long per-card essays (several pages ≈ 8k chars);
-// anything longer still gets caught by the automatic completion pass.
-const CHUNK_OVERLAP = 8_000;
 // Flags the model uses when a card's text was cut off at a boundary —
 // these trigger the automatic completion pass after extraction.
 const INCOMPLETE_FLAG = /cut\s*off|incomplete|truncat|continu/i;
@@ -123,10 +95,6 @@ const INCOMPLETE_FLAG = /cut\s*off|incomplete|truncat|continu/i;
 // failures (empty replies, overloads) usually clear on the second try.
 const UNIT_ATTEMPTS = 2;
 const RETRY_DELAY_MS = 3_000;
-// Downscale photos so a stack of LWB pages doesn't blow request limits.
-const IMAGE_MAX_EDGE = 2000;
-
-let materialIdCounter = 1;
 
 export default function ScribeModal({ source, deck, open, onClose }: ScribeModalProps) {
   const queryClient = useQueryClient();
@@ -315,7 +283,6 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
   }, [selectedCardFields, cardFieldsText]);
 
   const selectedFields = fields.filter(f => selectedFieldIds.includes(f.id));
-  const totalChars = materials.reduce((n, m) => n + (m.charCount || 0), 0);
 
   // What kinds of writes this session can actually perform. A row is
   // only truly "matched" if it can reach at least one write target —
@@ -350,61 +317,12 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
   const fieldsWithGaps = fields.filter(f =>
     (fieldCoverage.get(f.id) ?? 0) < archetypes.length);
 
-  // ── File intake ────────────────────────────────────────────
+  // ── File intake (shared with the entity Scribe) ────────────
   const handleAddFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     setExtracting(true);
-    for (const file of Array.from(files)) {
-      try {
-        // HEIC/HEIF (iPhone photos) sometimes arrive with no MIME
-        // type at all — catch them by extension so they take the
-        // image path rather than the ebook-text one.
-        const isImage = file.type.startsWith('image/')
-          || /\.(heic|heif)$/i.test(file.name);
-        if (isImage) {
-          let data: string, mediaType: string;
-          try {
-            // Fast path: decode in the browser (JPEG, PNG, WebP…).
-            ({ data, mediaType } = await readImageDownscaled(file));
-          } catch {
-            // Chromium can't decode this format (HEIC, mainly) —
-            // the backend converts it via Pillow or macOS sips.
-            const converted = await convertSourceImage(file);
-            data = converted.data;
-            mediaType = converted.media_type;
-          }
-          setMaterials(prev => [...prev, {
-            id: materialIdCounter++, filename: file.name, kind: 'image',
-            data, mediaType,
-          }]);
-        } else {
-          const result = await extractSourceText(file);
-          if (result.images?.length) {
-            // Scanned PDF: the backend rendered its pages to images —
-            // add one material per page for the vision model to read.
-            setMaterials(prev => [...prev,
-              ...result.images.map((img, i) => ({
-                id: materialIdCounter++,
-                filename: `${result.filename} · p${i + 1}`,
-                kind: 'image' as const,
-                data: img.data,
-                mediaType: img.media_type,
-              })),
-            ]);
-            if (result.warning) showToast(result.warning, 'success');
-          } else {
-            setMaterials(prev => [...prev, {
-              id: materialIdCounter++, filename: result.filename, kind: 'text',
-              text: result.text, charCount: result.char_count,
-              warning: result.warning,
-            }]);
-          }
-        }
-      } catch (err: unknown) {
-        const e = err as { response?: { data?: { error?: string } } };
-        showToast(e.response?.data?.error || `Couldn't read ${file.name}.`);
-      }
-    }
+    const added = await readScribeFiles(files, showToast);
+    setMaterials(prev => [...prev, ...added]);
     setExtracting(false);
   };
 
@@ -1067,45 +985,12 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
             )}
           </div>
 
-          <div className="scribe__field">
-            <label>Source material</label>
-            <div className="scribe__materials">
-              {materials.map(m => (
-                <div key={m.id} className="scribe__material">
-                  <span className="scribe__material-name">
-                    {m.kind === 'image' ? '🖼 ' : '📄 '}{m.filename}
-                  </span>
-                  {m.charCount != null && (
-                    <span className="scribe__material-meta">
-                      {Math.round(m.charCount / 1000)}k characters
-                    </span>
-                  )}
-                  <button
-                    className="scribe__material-remove"
-                    onClick={() => setMaterials(prev => prev.filter(x => x.id !== m.id))}
-                    aria-label={`Remove ${m.filename}`}
-                  >×</button>
-                  {m.warning && <div className="scribe__warning">{m.warning}</div>}
-                </div>
-              ))}
-            </div>
-            <label className="scribe__file-btn">
-              {extracting ? 'Reading…' : '+ Add files'}
-              <input
-                type="file"
-                multiple
-                accept=".epub,.pdf,.mobi,.azw,.azw3,.txt,.md,.html,.htm,.heic,.heif,image/*"
-                onChange={e => { handleAddFiles(e.target.files); e.target.value = ''; }}
-                disabled={extracting}
-                hidden
-              />
-            </label>
-            <p className="scribe__hint">
-              Books: EPUB, PDF, MOBI/AZW, or plain text. Photos of book
-              pages work too (needs a vision-capable model).
-              {totalChars > 0 && ` Loaded ${Math.round(totalChars / 1000)}k characters.`}
-            </p>
-          </div>
+          <ScribeMaterialsField
+            materials={materials}
+            onRemove={(id) => setMaterials(prev => prev.filter(x => x.id !== id))}
+            onAddFiles={handleAddFiles}
+            extracting={extracting}
+          />
 
           <div className="scribe__field">
             <label className="scribe__combo-toggle">
@@ -1147,39 +1032,23 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
 
       {stage === 'chat' && (
         <div className="scribe__workspace">
-          <div className="scribe__chat">
-            <div className="scribe__chat-log">
-              {displayMessages.map((m, i) => (
-                <div key={i} className={`scribe__msg scribe__msg--${m.role}`}>
-                  {m.text}
-                </div>
-              ))}
-              {busy && <div className="scribe__msg scribe__msg--assistant scribe__msg--busy">Working…</div>}
-              {pendingUnits.length > 0 && !busy && (
-                <button
-                  className="scribe__resume"
-                  onClick={() => runExtraction(pendingUnits, messages)}
-                >
-                  Resume extraction ({pendingUnits.length} part{pendingUnits.length === 1 ? '' : 's'} left)
-                </button>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-            <div className="scribe__chat-input">
-              <textarea
-                value={chatInput}
-                placeholder={busy
-                  ? 'Still working — messages sent now will guide the remaining parts…'
-                  : 'Ask for corrections or changes… (Enter to send, Shift+Enter for a new line)'}
-                onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
-                }}
-                rows={2}
-              />
-              <button onClick={handleSend} disabled={!chatInput.trim()}>Send</button>
-            </div>
-          </div>
+          <ScribeChatPane
+            messages={displayMessages}
+            busy={busy}
+            chatInput={chatInput}
+            onChatInput={setChatInput}
+            onSend={handleSend}
+            endRef={chatEndRef}
+          >
+            {pendingUnits.length > 0 && !busy && (
+              <button
+                className="scribe__resume"
+                onClick={() => runExtraction(pendingUnits, messages)}
+              >
+                Resume extraction ({pendingUnits.length} part{pendingUnits.length === 1 ? '' : 's'} left)
+              </button>
+            )}
+          </ScribeChatPane>
 
           <div className="scribe__review">
             <div className="scribe__review-head">
@@ -1712,138 +1581,4 @@ function mergeCombos(
   return result;
 }
 
-function makeTextUnit(label: string, text: string): ExtractionUnit {
-  return {
-    label,
-    text,
-    parts: [{
-      type: 'text',
-      text: `Source material — ${label}. Extract the card content found in this part now:\n\n${text}`,
-    }],
-  };
-}
-
-function makeImageUnit(label: string, group: Material[]): ExtractionUnit {
-  return {
-    label,
-    images: group,
-    parts: [
-      {
-        type: 'text',
-        text: `Source material — ${label}. Extract the card content found in these page photos now:`,
-      },
-      ...group.map(m => ({
-        type: 'image' as const,
-        media_type: m.mediaType,
-        data: m.data,
-      })),
-    ],
-  };
-}
-
-/** Cut the source material into extraction units: text files split at
- *  paragraph boundaries into CHUNK_CHARS pieces, photos in groups. */
-function buildUnits(materials: Material[]): ExtractionUnit[] {
-  const units: ExtractionUnit[] = [];
-  let used = 0;
-  for (const m of materials) {
-    if (m.kind !== 'text' || !m.text) continue;
-    let text = m.text;
-    if (used + text.length > MAX_SOURCE_CHARS) {
-      text = text.slice(0, Math.max(0, MAX_SOURCE_CHARS - used));
-    }
-    used += text.length;
-    if (!text) continue;
-    const chunks = splitIntoChunks(text);
-    chunks.forEach((chunk, i) => {
-      const label = chunks.length > 1
-        ? `${m.filename} (part ${i + 1} of ${chunks.length})`
-        : m.filename;
-      units.push(makeTextUnit(label, chunk));
-    });
-  }
-  const images = materials.filter(m => m.kind === 'image' && m.data);
-  for (let i = 0; i < images.length; i += IMAGES_PER_UNIT) {
-    const group = images.slice(i, i + IMAGES_PER_UNIT);
-    const label = images.length > IMAGES_PER_UNIT
-      ? `photos ${i + 1}–${i + group.length} of ${images.length}`
-      : `${group.length} photo${group.length === 1 ? '' : 's'}`;
-    units.push(makeImageUnit(label, group));
-  }
-  return units;
-}
-
-/** Halve a unit whose reply overflowed the output limit, so each half
- *  yields a reply that fits. Returns null when it can't be split
- *  smaller (tiny text, single photo). */
-function splitUnit(unit: ExtractionUnit): ExtractionUnit[] | null {
-  if (unit.text && unit.text.length > 20_000) {
-    const halves = splitIntoChunks(
-      unit.text, Math.ceil(unit.text.length / 2) + CHUNK_OVERLAP);
-    if (halves.length < 2) return null;
-    return halves.map((h, i) =>
-      makeTextUnit(`${unit.label} · piece ${i + 1} of ${halves.length}`, h));
-  }
-  if (unit.images && unit.images.length > 1) {
-    const mid = Math.ceil(unit.images.length / 2);
-    return [unit.images.slice(0, mid), unit.images.slice(mid)].map((g, i) =>
-      makeImageUnit(`${unit.label} · piece ${i + 1} of 2`, g));
-  }
-  return null;
-}
-
-function splitIntoChunks(text: string, max = CHUNK_CHARS): string[] {
-  if (text.length <= max) return [text];
-  const chunks: string[] = [];
-  let pos = 0;
-  for (;;) {
-    let end = Math.min(pos + max, text.length);
-    if (end < text.length) {
-      // Prefer breaking at a paragraph gap so cards aren't split
-      // mid-sentence more than necessary.
-      const gap = text.lastIndexOf('\n\n', end);
-      if (gap > pos + max * 0.5) end = gap;
-    }
-    chunks.push(text.slice(pos, end));
-    if (end >= text.length) break;
-    // Step back so the next chunk re-covers the boundary region.
-    pos = Math.max(end - CHUNK_OVERLAP, pos + 1);
-  }
-  return chunks;
-}
-
-// ── Image reading (downscale in-browser) ─────────────────────
-
-async function readImageDownscaled(file: File): Promise<{ data: string; mediaType: string }> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const el = new Image();
-      el.onload = () => resolve(el);
-      el.onerror = () => reject(new Error('unreadable image'));
-      el.src = url;
-    });
-    const scale = Math.min(1, IMAGE_MAX_EDGE / Math.max(img.width, img.height));
-    if (scale === 1 && (file.type === 'image/jpeg' || file.type === 'image/png')) {
-      const data = await fileToBase64(file);
-      return { data, mediaType: file.type };
-    }
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(img.width * scale);
-    canvas.height = Math.round(img.height * scale);
-    canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-    return { data: dataUrl.split(',')[1], mediaType: 'image/jpeg' };
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve((reader.result as string).split(',')[1]);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
+// buildUnits / splitUnit / image reading moved to scribeShared.

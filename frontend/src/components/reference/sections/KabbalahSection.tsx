@@ -22,7 +22,7 @@ import { getDecks } from '../../../api/decks';
 import type { CorrespondenceSystem, Deck } from '../../../types';
 import { useCardPeek } from './referenceShared';
 import TreeOfLife from './TreeOfLife';
-import EntityScribeModal from '../../scribe/EntityScribeModal';
+import ScribeLauncher from '../../scribe/ScribeLauncher';
 import '../ReferenceTab.css';
 import './KabbalahSection.css';
 
@@ -188,7 +188,7 @@ export default function KabbalahSection() {
 
       {cardModal}
       {scribeOpen && (
-        <EntityScribeModal open onClose={() => setScribeOpen(false)} initialKind="sephira" />
+        <ScribeLauncher open onClose={() => setScribeOpen(false)} context={{ mode: 'entities', kind: 'sephira' }} />
       )}
 
       {modal && (

@@ -7,6 +7,7 @@ import { installQuitGuard, hasDirtyEditors } from './utils/dirtyGuard';
 import { confirmDialog } from './components/common/ConfirmDialog';
 import TabNav, { type TabId } from './components/layout/TabNav';
 import CommandPalette, { type PaletteAction } from './components/common/CommandPalette';
+import ScribeLauncher from './components/scribe/ScribeLauncher';
 import ShortcutsOverlay from './components/common/ShortcutsOverlay';
 import LibraryTab from './components/library/LibraryTab';
 import JournalTab from './components/journal/JournalTab';
@@ -89,6 +90,7 @@ export default function App() {
   const [journalCardFilter, setJournalCardFilter] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [scribeOpen, setScribeOpen] = useState(false);
   // Deep-links into tabs. Library and Journal use token-bearing
   // SelectionLinks (history can restore or clear a selection); the
   // others keep the consume-and-clear pending pattern.
@@ -268,6 +270,9 @@ export default function App() {
       case 'shortcuts':
         setShortcutsOpen(true);
         break;
+      case 'scribe':
+        setScribeOpen(true);
+        break;
       case 'deck':
         await navigate({ tab: 'library', deckId: action.id });
         break;
@@ -404,6 +409,9 @@ export default function App() {
             open={shortcutsOpen}
             onClose={() => setShortcutsOpen(false)}
           />
+          {scribeOpen && (
+            <ScribeLauncher open onClose={() => setScribeOpen(false)} />
+          )}
           <ConfirmDialogHost />
         </ToastProvider>
       </ThemeProvider>

@@ -19,7 +19,7 @@ import {
 } from './referenceShared';
 import DecanWheel from './DecanWheel';
 import EntityNotes from './EntityNotes';
-import EntityScribeModal from '../../scribe/EntityScribeModal';
+import ScribeLauncher from '../../scribe/ScribeLauncher';
 import '../ReferenceTab.css';
 
 const COURT_SYSTEM_LABELS: Record<CourtSystem, string> = {
@@ -256,10 +256,10 @@ export default function AstrologySection({ onOpenArchetype }: AstrologySectionPr
 
       {cardModal}
       {scribeOpen && (
-        <EntityScribeModal
+        <ScribeLauncher
           open
           onClose={() => setScribeOpen(false)}
-          initialKind={tab === 'planets' ? 'planet' : 'sign'}
+          context={{ mode: 'entities', kind: tab === 'planets' ? 'planet' : 'sign' }}
         />
       )}
     </div>

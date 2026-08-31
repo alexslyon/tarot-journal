@@ -11,7 +11,7 @@ import QueryError from '../../common/QueryError';
 import { getSuitsReference } from '../../../api/reference';
 import SearchCombobox from '../../common/SearchCombobox';
 import EntityNotes from './EntityNotes';
-import EntityScribeModal from '../../scribe/EntityScribeModal';
+import ScribeLauncher from '../../scribe/ScribeLauncher';
 import '../ReferenceTab.css';
 
 export default function SuitsSection() {
@@ -97,11 +97,10 @@ export default function SuitsSection() {
         </>
       )}
       {scribeOpen && (
-        <EntityScribeModal
+        <ScribeLauncher
           open
           onClose={() => setScribeOpen(false)}
-          initialKind="suit"
-          initialType={data?.type ?? null}
+          context={{ mode: 'entities', kind: 'suit', deckType: data?.type ?? null }}
         />
       )}
     </div>

@@ -1,35 +1,10 @@
-/* Entity Scribe — setup form + two-pane review (chat | proposals) */
+/* Entity Scribe — the entries review panel (setup, materials, and the
+   chat pane use the shared scribe__ styles from ScribeModal.css). */
 
-.entity-scribe__setup {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.entity-scribe__field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: var(--tj-size-small);
-  color: var(--tj-text-muted);
-}
-
-.entity-scribe__material {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 10px;
-  border: 1px solid var(--tj-hairline);
-  border-radius: var(--tj-radius-row);
-  color: var(--tj-text);
-}
-
-.entity-scribe__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 6px;
+.entity-scribe__paste {
+  width: 100%;
+  resize: vertical;
+  margin-top: 8px;
 }
 
 .entity-scribe__review {
@@ -39,50 +14,8 @@
   min-height: 420px;
 }
 
-.entity-scribe__chat {
+.entity-scribe__review .scribe__chat {
   flex: 1 1 40%;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.entity-scribe__log {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-right: 6px;
-}
-
-.entity-scribe__msg {
-  padding: 8px 12px;
-  border-radius: var(--tj-radius-row);
-  font-size: var(--tj-size-small);
-  white-space: pre-wrap;
-  color: var(--tj-text);
-}
-
-.entity-scribe__msg--user {
-  background: rgb(var(--tj-accent-rgb) / 12%);
-  align-self: flex-end;
-  max-width: 90%;
-}
-
-.entity-scribe__msg--assistant {
-  background: var(--tj-panel);
-  align-self: flex-start;
-  max-width: 95%;
-}
-
-.entity-scribe__chatbar {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.entity-scribe__chatbar input {
-  flex: 1;
   min-width: 0;
 }
 
@@ -141,4 +74,11 @@
 .entity-scribe__empty {
   color: var(--tj-text-faint);
   font-size: var(--tj-size-small);
+}
+
+.entity-scribe__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
 }

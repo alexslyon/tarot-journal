@@ -13,7 +13,7 @@ import {
   useReferenceSystem,
 } from './referenceShared';
 import EntityNotes from './EntityNotes';
-import EntityScribeModal from '../../scribe/EntityScribeModal';
+import ScribeLauncher from '../../scribe/ScribeLauncher';
 import '../ReferenceTab.css';
 
 interface ChakrasSectionProps {
@@ -65,7 +65,7 @@ export default function ChakrasSection({ onOpenArchetype }: ChakrasSectionProps)
         </div>
       ))}
       {scribeOpen && (
-        <EntityScribeModal open onClose={() => setScribeOpen(false)} initialKind="chakra" />
+        <ScribeLauncher open onClose={() => setScribeOpen(false)} context={{ mode: 'entities', kind: 'chakra' }} />
       )}
     </div>
   );

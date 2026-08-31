@@ -1,15 +1,17 @@
 /**
- * The Entity Scribe — imports source texts onto reference ENTITIES
- * (signs, planets, sephiroth, tree paths, chakras, numbers, suits,
- * ranks) rather than cards. A leaner sibling of the card Scribe,
- * sharing its services: server-side text extraction, the LLM chat
- * endpoint, the fenced-JSON reply protocol, and the batched apply.
+ * The Scribe's reference-entries mode — imports source texts onto
+ * reference ENTITIES (signs, planets, sephiroth, tree paths, chakras,
+ * numbers, suits, ranks) rather than cards. Shares its machinery and
+ * visual language with the card mode (ScribeModal) via scribeShared:
+ * material intake (ebooks, text, page photos, scanned PDFs), unit
+ * chunking, and the chat pane.
  *
  * One entity kind per import (deliberate — a chapter on the suits, a
- * chapter on the sephiroth): pick the kind (and deck type for
- * suits/ranks), the reference source the texts belong to, add
- * material, review per-entity proposals, apply. Applied notes merge
- * into each entity's one note per source (append, never clobber).
+ * chapter on the sephiroth). Replies use an "entries" JSON key,
+ * disjoint from card mode's "proposals"/"combinations", so a future
+ * merged mode could emit all three in one block (option-2 door).
+ * Applied notes merge into each entity's one note per source (append,
+ * never clobber — the backend's entity_note target).
  */
 import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -22,9 +24,20 @@ import {
   getSuitsReference,
   type EntityKind,
 } from '../../api/reference';
-import { extractSourceText, applyScribeWrites, type ScribeWrite } from '../../api/scribe';
+import { applyScribeWrites, type ScribeWrite } from '../../api/scribe';
 import { llmChat, type LlmMessage } from '../../api/llm';
 import type { ReferenceSource } from '../../types';
+import {
+  ScribeChatPane,
+  ScribeMaterialsField,
+  buildUnits,
+  makePastedMaterial,
+  readScribeFiles,
+  splitUnit,
+  type ExtractionUnit,
+  type Material,
+} from './scribeShared';
+import './ScribeModal.css';
 import './EntityScribeModal.css';
 
 interface EntityScribeModalProps {
@@ -36,7 +49,7 @@ interface EntityScribeModalProps {
   initialType?: string | null;
 }
 
-const KIND_LABELS: Record<EntityKind, string> = {
+export const ENTITY_KIND_LABELS: Record<EntityKind, string> = {
   sign: 'Astrology — signs',
   planet: 'Astrology — planets',
   sephira: 'Kabbalah — sephiroth',
@@ -108,15 +121,7 @@ interface EntityProposal {
   checked: boolean;
 }
 
-const CHUNK_CHARS = 90_000;
-const CHUNK_OVERLAP = 4_000;
-let materialId = 1;
-
-interface TextMaterial {
-  id: number;
-  label: string;
-  text: string;
-}
+const EXTRACT_SUBJECT = 'reference content';
 
 export default function EntityScribeModal({
   open,
@@ -132,7 +137,7 @@ export default function EntityScribeModal({
   const [deckType, setDeckType] = useState<string | null>(initialType ?? null);
   const [sourceId, setSourceId] = useState<number | ''>('');
   const [instructions, setInstructions] = useState('');
-  const [materials, setMaterials] = useState<TextMaterial[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [pasteText, setPasteText] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [stage, setStage] = useState<'setup' | 'review'>('setup');
@@ -192,55 +197,36 @@ export default function EntityScribeModal({
   const [proposals, setProposals] = useState<EntityProposal[]>([]);
   const proposalsRef = useRef<EntityProposal[]>([]);
   const systemPromptRef = useRef('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const updateProposals = (fn: (cur: EntityProposal[]) => EntityProposal[]) => {
     proposalsRef.current = fn(proposalsRef.current);
     setProposals(proposalsRef.current);
   };
 
-  // ── Materials ─────────────────────────────────────────────
+  // ── Materials (shared intake — ebooks, text, photos) ──────
   const addFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     setExtracting(true);
-    try {
-      for (const file of Array.from(files)) {
-        try {
-          const result = await extractSourceText(file);
-          if (result.text.trim()) {
-            setMaterials(m => [...m, {
-              id: materialId++, label: result.filename, text: result.text,
-            }]);
-          } else {
-            showToast(`${file.name}: no text found (scanned/image files aren't supported here)`, 'error');
-          }
-          if (result.warning) showToast(result.warning, 'warning');
-        } catch (e) {
-          showToast(`${file.name}: ${e instanceof Error ? e.message : 'extraction failed'}`, 'error');
-        }
-      }
-    } finally {
-      setExtracting(false);
-    }
+    const added = await readScribeFiles(files, showToast);
+    setMaterials(m => [...m, ...added]);
+    setExtracting(false);
   };
 
   const addPaste = () => {
     if (!pasteText.trim()) return;
-    setMaterials(m => [...m, {
-      id: materialId++,
-      label: `Pasted text (${pasteText.trim().length.toLocaleString()} chars)`,
-      text: pasteText.trim(),
-    }]);
+    setMaterials(m => [...m, makePastedMaterial(pasteText.trim())]);
     setPasteText('');
   };
 
   // ── Prompt + extraction ───────────────────────────────────
   const buildSystemPrompt = () => {
     const sourceName = sources.find(s => s.id === sourceId)?.name ?? 'the source';
-    const kindLabel = KIND_LABELS[kind] + (typed && resolvedType ? ` (${resolvedType})` : '');
+    const kindLabel = ENTITY_KIND_LABELS[kind] + (typed && resolvedType ? ` (${resolvedType})` : '');
     const extra = instructions.trim()
       ? `\n\nInstructions from the user for THIS import — follow them; the JSON output format is always required:\n${instructions.trim()}`
       : '';
-    return `You are the Scribe, an assistant inside a personal tarot/cartomancy journal app. Your job is to transcribe reference text from source material into per-entry notes. You transcribe and organize — you never invent content.
+    return `You are the Scribe, an assistant inside a personal tarot/cartomancy journal app. Your job is to transcribe reference text from source material (book text or photographed pages) into per-entry notes. You transcribe and organize — you never invent content.
 
 This import covers ONE list of entries: ${kindLabel}.
 The app's entries are, exactly: ${entities.join(', ')}
@@ -249,7 +235,7 @@ Source being imported: ${sourceName}
 How to respond — these rules are strict, the app parses your output:
 - Extracted content goes ONLY inside a fenced code block tagged json, one block per reply, in this exact shape:
 \`\`\`json
-{"proposals": [{"entry": "<entry name>", "content": "<text>", "flags": []}]}
+{"entries": [{"entry": "<entry name>", "content": "<text>", "flags": []}]}
 \`\`\`
 - Use the app's entry names exactly as listed whenever you are confident of the match (sources use variant spellings — Keter/Kether, Tsadi/Tzaddi, Mūlādhāra/Root — map them silently). If a passage matches no listed entry, keep the source's own name and add a flag explaining.
 - The app MERGES each block into a running list keyed by entry: send only entries you are adding or changing in this reply, and always send an entry's COMPLETE text (the new block replaces the old for that entry).
@@ -264,8 +250,10 @@ How to respond — these rules are strict, the app parses your output:
     if (!match) return;
     try {
       const parsed = JSON.parse(match[1]);
+      // "entries" is the canonical key; "proposals" accepted defensively.
       const rows: { entry?: unknown; content?: unknown; flags?: unknown }[] =
-        Array.isArray(parsed?.proposals) ? parsed.proposals : [];
+        Array.isArray(parsed?.entries) ? parsed.entries
+          : Array.isArray(parsed?.proposals) ? parsed.proposals : [];
       updateProposals(cur => {
         const next = [...cur];
         for (const row of rows) {
@@ -294,46 +282,47 @@ How to respond — these rules are strict, the app parses your output:
   };
 
   const stripJson = (text: string) =>
-    text.replace(/```json[\s\S]*?```/g, '(proposals updated)').trim();
+    text.replace(/```json[\s\S]*?```/g, '(entries updated)').trim();
+
+  const runUnits = async (units: ExtractionUnit[], startHistory: LlmMessage[]) => {
+    // Sequential with split-on-overflow: entity sources are chapters,
+    // not whole books, so the card mode's concurrency isn't needed.
+    let history = [...startHistory];
+    const queue = [...units];
+    while (queue.length > 0) {
+      const unit = queue.shift()!;
+      const userMsg: LlmMessage = { role: 'user', content: unit.parts };
+      setDisplay(d => [...d, { role: 'user', text: `📄 ${unit.label}` }]);
+      const reply = await llmChat({
+        messages: [...history, userMsg],
+        system: systemPromptRef.current,
+        feature: 'scribe',
+        max_tokens: 64000,
+      });
+      if (reply.truncated) {
+        const halves = splitUnit(unit, EXTRACT_SUBJECT);
+        if (halves) {
+          setDisplay(d => [...d, {
+            role: 'assistant',
+            text: `${unit.label} overflowed — splitting it in two and retrying.`,
+          }]);
+          queue.unshift(...halves);
+          continue;
+        }
+      }
+      parseReply(reply.text);
+      setDisplay(d => [...d, { role: 'assistant', text: stripJson(reply.text) }]);
+      history = [...history, userMsg, { role: 'assistant', content: reply.text }];
+      setMessages(history);
+    }
+  };
 
   const startExtraction = async () => {
-    const system = buildSystemPrompt();
-    systemPromptRef.current = system;
+    systemPromptRef.current = buildSystemPrompt();
     setStage('review');
     setBusy(true);
     try {
-      // Chunk all materials into parts, then extract sequentially.
-      const parts: { label: string; text: string }[] = [];
-      for (const m of materials) {
-        if (m.text.length <= CHUNK_CHARS) {
-          parts.push({ label: m.label, text: m.text });
-        } else {
-          for (let i = 0, n = 1; i < m.text.length; i += CHUNK_CHARS - CHUNK_OVERLAP, n++) {
-            parts.push({
-              label: `${m.label} (part ${n})`,
-              text: m.text.slice(i, i + CHUNK_CHARS),
-            });
-          }
-        }
-      }
-      let history: LlmMessage[] = [];
-      for (const part of parts) {
-        const userMsg: LlmMessage = {
-          role: 'user',
-          content: `Source material — ${part.label}:\n\n${part.text}`,
-        };
-        setDisplay(d => [...d, { role: 'user', text: `📄 ${part.label}` }]);
-        const reply = await llmChat({
-          messages: [...history, userMsg],
-          system,
-          feature: 'scribe',
-          max_tokens: 64000,
-        });
-        parseReply(reply.text);
-        setDisplay(d => [...d, { role: 'assistant', text: stripJson(reply.text) }]);
-        history = [...history, userMsg, { role: 'assistant', content: reply.text }];
-        setMessages(history);
-      }
+      await runUnits(buildUnits(materials, EXTRACT_SUBJECT), []);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Extraction failed', 'error');
     } finally {
@@ -406,34 +395,34 @@ How to respond — these rules are strict, the app parses your output:
       open={open}
       onClose={onClose}
       title="Scribe — Reference Entries"
-      width={stage === 'setup' ? 560 : 1100}
+      width={stage === 'setup' ? 620 : 1100}
     >
       {stage === 'setup' && (
-        <div className="entity-scribe__setup">
-          <label className="entity-scribe__field">
-            <span>What is this source about?</span>
+        <div className="scribe__setup">
+          <div className="scribe__field">
+            <label>What is this source about?</label>
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value as EntityKind)}
             >
-              {(Object.keys(KIND_LABELS) as EntityKind[]).map(k => (
-                <option key={k} value={k}>{KIND_LABELS[k]}</option>
+              {(Object.keys(ENTITY_KIND_LABELS) as EntityKind[]).map(k => (
+                <option key={k} value={k}>{ENTITY_KIND_LABELS[k]}</option>
               ))}
             </select>
-          </label>
+          </div>
           {typed && (
-            <label className="entity-scribe__field">
-              <span>Deck type</span>
+            <div className="scribe__field">
+              <label>Deck type</label>
               <select
                 value={resolvedType ?? ''}
                 onChange={(e) => setDeckType(e.target.value)}
               >
                 {suitTypes.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
-            </label>
+            </div>
           )}
-          <label className="entity-scribe__field">
-            <span>Reference source these texts belong to</span>
+          <div className="scribe__field">
+            <label>Reference source these texts belong to</label>
             <select
               value={sourceId === '' ? '' : String(sourceId)}
               onChange={(e) => setSourceId(e.target.value === '' ? '' : Number(e.target.value))}
@@ -441,50 +430,38 @@ How to respond — these rules are strict, the app parses your output:
               <option value="">Choose a source…</option>
               {sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-          </label>
+          </div>
 
-          <div className="entity-scribe__field">
-            <span>Source material</span>
-            {materials.map(m => (
-              <div key={m.id} className="entity-scribe__material">
-                <span>{m.label}</span>
-                <button
-                  type="button"
-                  onClick={() => setMaterials(list => list.filter(x => x.id !== m.id))}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <input
-              type="file"
-              multiple
-              accept=".epub,.pdf,.mobi,.azw,.azw3,.txt,.md,.html,.rtf"
-              onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }}
-            />
+          <ScribeMaterialsField
+            materials={materials}
+            onRemove={(id) => setMaterials(list => list.filter(x => x.id !== id))}
+            onAddFiles={addFiles}
+            extracting={extracting}
+          >
             <textarea
+              className="entity-scribe__paste"
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
               placeholder="…or paste text here"
-              rows={4}
+              rows={3}
             />
             {pasteText.trim() && (
               <button type="button" onClick={addPaste}>Add pasted text</button>
             )}
-          </div>
+          </ScribeMaterialsField>
 
-          <label className="entity-scribe__field">
-            <span>Instructions for this import (optional)</span>
+          <div className="scribe__field">
+            <label>Instructions for this import (optional)</label>
             <textarea
+              className="scribe__instructions"
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
               placeholder="e.g. only chapters 3–4 are about the suits; keep the author's headings"
               rows={2}
             />
-          </label>
+          </div>
 
-          <div className="entity-scribe__actions">
-            <ModalCancelButton>Cancel</ModalCancelButton>
+          <div className="scribe__actions">
             <button
               type="button"
               className="primary"
@@ -493,41 +470,27 @@ How to respond — these rules are strict, the app parses your output:
             >
               {extracting ? 'Reading files…' : 'Start extraction'}
             </button>
+            <ModalCancelButton>Cancel</ModalCancelButton>
           </div>
         </div>
       )}
 
       {stage === 'review' && (
         <div className="entity-scribe__review">
-          <div className="entity-scribe__chat">
-            <div className="entity-scribe__log">
-              {display.map((m, i) => (
-                <div key={i} className={`entity-scribe__msg entity-scribe__msg--${m.role}`}>
-                  {m.text}
-                </div>
-              ))}
-              {busy && <div className="entity-scribe__msg entity-scribe__msg--assistant">…</div>}
-            </div>
-            <div className="entity-scribe__chatbar">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') sendChat(); }}
-                placeholder="Refine: 'you merged Geburah into Chesed', 'keep the epigraphs'…"
-                disabled={busy}
-              />
-              <button type="button" onClick={sendChat} disabled={busy || !chatInput.trim()}>
-                Send
-              </button>
-            </div>
-          </div>
+          <ScribeChatPane
+            messages={display}
+            busy={busy}
+            chatInput={chatInput}
+            onChatInput={setChatInput}
+            onSend={sendChat}
+            endRef={chatEndRef}
+          />
 
           <div className="entity-scribe__panel">
             <div className="entity-scribe__panel-head">
-              <strong>{proposals.length}</strong>&nbsp;proposals ·{' '}
+              <strong>{proposals.length}</strong>&nbsp;entries proposed ·{' '}
               {entities.length - new Set(proposals.map(p => p.resolved).filter(Boolean)).size}{' '}
-              entries uncovered
+              uncovered
             </div>
             <div className="entity-scribe__rows">
               {proposals.map((p, i) => (
@@ -565,7 +528,7 @@ How to respond — these rules are strict, the app parses your output:
                 </div>
               ))}
               {proposals.length === 0 && !busy && (
-                <p className="entity-scribe__empty">No proposals yet.</p>
+                <p className="entity-scribe__empty">No entries proposed yet.</p>
               )}
             </div>
             <div className="entity-scribe__actions">

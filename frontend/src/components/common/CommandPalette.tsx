@@ -23,6 +23,7 @@ export type PaletteAction =
   | { type: 'settings'; section: string }
   | { type: 'reference'; section: string }
   | { type: 'new-entry' }
+  | { type: 'scribe' }
   | { type: 'shortcuts' }
   | { type: 'deck'; id: number }
   | { type: 'archetype'; id: number; cartomancyType: string }
@@ -103,6 +104,12 @@ const ACTION_ITEMS: PaletteItem[] = [
     label: 'New journal entry',
     hint: '⌘N',
     action: { type: 'new-entry' },
+  },
+  {
+    key: 'action-scribe',
+    group: 'Actions',
+    label: 'Open the Scribe (import a source)',
+    action: { type: 'scribe' },
   },
   {
     key: 'action-shortcuts',
