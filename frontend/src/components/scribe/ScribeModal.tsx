@@ -910,13 +910,20 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
                 </label>
               );
             })}
-            {fields.length > 1 && fieldsWithGaps.length > 0 && fieldsWithGaps.length < fields.length && (
-              <button
-                className="scribe__gaps-btn"
-                onClick={() => setSelectedFieldIds(fieldsWithGaps.map(f => f.id))}
-              >
-                Select only fields with gaps ({fieldsWithGaps.length})
-              </button>
+            {fields.length > 1 && (
+              <div className="scribe__select-shortcuts">
+                <button onClick={() => setSelectedFieldIds(fields.map(f => f.id))}>
+                  Check all
+                </button>
+                <button onClick={() => setSelectedFieldIds([])}>
+                  Uncheck all
+                </button>
+                {fieldsWithGaps.length > 0 && (
+                  <button onClick={() => setSelectedFieldIds(fieldsWithGaps.map(f => f.id))}>
+                    Only fields with gaps ({fieldsWithGaps.length})
+                  </button>
+                )}
+              </div>
             )}
           </div>
           )}
@@ -959,14 +966,20 @@ export default function ScribeModal({ source, deck, open, onClose }: ScribeModal
                     </label>
                   );
                 })}
-                {deckFieldDefs.length > 1 && cardFieldsWithGaps.length > 0
-                  && cardFieldsWithGaps.length < deckFieldDefs.length && (
-                  <button
-                    className="scribe__gaps-btn"
-                    onClick={() => setSelectedCardFields(cardFieldsWithGaps.map(f => f.field_name))}
-                  >
-                    Select only fields with gaps ({cardFieldsWithGaps.length})
-                  </button>
+                {deckFieldDefs.length > 1 && (
+                  <div className="scribe__select-shortcuts">
+                    <button onClick={() => setSelectedCardFields(deckFieldDefs.map(f => f.field_name))}>
+                      Check all
+                    </button>
+                    <button onClick={() => setSelectedCardFields([])}>
+                      Uncheck all
+                    </button>
+                    {cardFieldsWithGaps.length > 0 && (
+                      <button onClick={() => setSelectedCardFields(cardFieldsWithGaps.map(f => f.field_name))}>
+                        Only fields with gaps ({cardFieldsWithGaps.length})
+                      </button>
+                    )}
+                  </div>
                 )}
                 <input
                   type="text"

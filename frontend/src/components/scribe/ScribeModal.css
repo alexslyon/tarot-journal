@@ -344,11 +344,17 @@
   color: var(--text-dim);
 }
 
-.scribe__gaps-btn {
-  align-self: flex-start;
+/* Check all / uncheck all / gaps-only shortcuts above field lists */
+.scribe__select-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.scribe__select-shortcuts button {
   font-size: var(--font-size-small);
   padding: 2px 10px;
-  margin-top: 2px;
 }
 
 .scribe__msg--note {
