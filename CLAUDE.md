@@ -51,7 +51,7 @@ Interpret readings or substitute for human intuition in cartomancy
 
 ## Git Workflow
 
-- **Always confirm with the user before pushing to GitHub** - commit changes when asked, but wait for explicit approval before running `git push`
+- **Push automatically after committing** — no need to ask for approval before `git push` (user decision 2026-08-30; previously pushes required explicit approval)
 
 ## Architecture
 
