@@ -1,23 +1,22 @@
 /**
- * Numerology & Ranks. First tab: the open-ended number list — however
- * many entries exist (master numbers or a second system later), they
- * render in list order, with a system picker only once entries carry
- * more than one system tag. The other tabs, one per deck type that
- * has suits, group that type's cards by rank.
+ * Numerology & Ranks — a reference-text section. The dropdown picks
+ * between Numerology (the open-ended number list: however many
+ * entries exist, they render in list order, with a system picker only
+ * once entries carry more than one system tag) and each suited deck
+ * type's ranks. Every entry is a heading plus its source texts — no
+ * card grids.
  */
 import { useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import QueryError from '../../common/QueryError';
 import { getNumerologyReference, getRanksReference } from '../../../api/reference';
 import SearchCombobox from '../../common/SearchCombobox';
-import { RefTile, useCardPeek } from './referenceShared';
 import EntityNotes from './EntityNotes';
 import '../ReferenceTab.css';
 
 export default function NumerologySection() {
-  const { openCard, cardModal } = useCardPeek();
   const [numerologySystem, setNumerologySystem] = useState<string | null>(null);
-  // null = the Numerology tab; a string = that deck type's rank tab.
+  // null = the Numerology view; a string = that deck type's ranks.
   const [rankType, setRankType] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -52,14 +51,14 @@ export default function NumerologySection() {
           <SearchCombobox
             options={[
               { id: 0, label: 'Numerology' },
-              ...data.suit_types.map((t, i) => ({ id: i + 1, label: `${t} ranks` })),
+              ...data.suit_types.map((t, i) => ({ id: i + 1, label: t })),
             ]}
             value={rankType === null ? 0 : data.suit_types.indexOf(rankType) + 1}
             onSelect={(option) => {
               if (!option) return;
               setRankType(option.id === 0 ? null : data.suit_types[option.id - 1]);
             }}
-            placeholder="Numerology or a deck type's ranks…"
+            placeholder="Numerology or a deck type…"
           />
         </div>
       )}
@@ -93,18 +92,6 @@ export default function NumerologySection() {
               <div className="ref-detail__header">
                 <span className="ref-detail__glyph">{entry.number}</span>
               </div>
-
-              {(entry.majors?.length || entry.minors?.length) ? (
-                <div className="ref-detail__row" style={{ marginTop: 12 }}>
-                  {(entry.majors ?? []).map(m => (
-                    <RefTile key={`M${m.number}`} card={m} onOpen={openCard} />
-                  ))}
-                  {(entry.minors ?? []).map(m => (
-                    <RefTile key={m.name} card={m} onOpen={openCard} />
-                  ))}
-                </div>
-              ) : null}
-
               <EntityNotes kind="number" entityKey={entry.number} label={`number ${entry.number}`} />
             </div>
           ))}
@@ -119,12 +106,6 @@ export default function NumerologySection() {
               <div className="ref-detail__header">
                 <h3 className="ref-detail__title">{rank.rank}</h3>
               </div>
-              <div className="ref-detail__row">
-                {rank.cards.map(card => (
-                  <RefTile key={card.name} card={card} caption={card.suit} onOpen={openCard} />
-                ))}
-              </div>
-              {/* Rank notes are deck-type-scoped, like suit notes. */}
               <EntityNotes
                 kind="rank"
                 entityKey={`${rankType}::${rank.rank}`}
@@ -134,8 +115,6 @@ export default function NumerologySection() {
           ))}
         </>
       )}
-
-      {cardModal}
     </div>
   );
 }
