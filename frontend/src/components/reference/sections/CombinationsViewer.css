@@ -269,3 +269,11 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+
+/* "n more meanings with reversals" discoverability hint */
+.combinations-view__other-reversals {
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-muted);
+  font-style: italic;
+  margin: 4px 0 8px;
+}

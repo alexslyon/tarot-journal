@@ -56,6 +56,38 @@ class CombinationsMixin:
 
     # === Read ===
 
+    def count_other_reversal_meanings(
+        self,
+        cartomancy_type: str,
+        archetype_1_id: int,
+        archetype_2_id: int,
+        archetype_1_reversed: bool = False,
+        archetype_2_reversed: bool = False,
+        archetype_3_id: int = None,
+        archetype_3_reversed: bool = False,
+    ) -> int:
+        """Meanings this same (ordered) pair/triad holds under OTHER
+        reversal states — powers the viewer's "n more meanings with
+        reversals" hint so reversed combinations aren't invisible."""
+        cursor = self.conn.cursor()
+        row = cursor.execute(
+            '''
+            SELECT COUNT(*) FROM combination_meanings m
+            JOIN archetype_combinations c ON c.id = m.combination_id
+            WHERE c.cartomancy_type = ?
+              AND c.archetype_1_id = ? AND c.archetype_2_id = ?
+              AND c.archetype_3_id IS ?
+              AND NOT (c.archetype_1_reversed = ?
+                       AND c.archetype_2_reversed = ?
+                       AND c.archetype_3_reversed = ?)
+            ''',
+            (cartomancy_type, archetype_1_id, archetype_2_id,
+             archetype_3_id,
+             int(bool(archetype_1_reversed)), int(bool(archetype_2_reversed)),
+             int(bool(archetype_3_reversed)) if archetype_3_id else 0)
+        ).fetchone()
+        return row[0]
+
     def get_combination_meanings(
         self,
         cartomancy_type: str,

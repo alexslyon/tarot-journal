@@ -98,6 +98,30 @@ export async function reorderCombinationMeanings(
 /** Partner archetypes that already have authored meanings, keyed by
  *  archetype id (string) → meaning count. Drives the "n meanings"
  *  hints in the combination pickers. */
+/** Meanings the same pair/triad holds under OTHER reversal states. */
+export async function getOtherReversalCount(
+  cartomancyType: string,
+  card1: number,
+  card2: number,
+  card1Reversed = false,
+  card2Reversed = false,
+  card3: number | null = null,
+  card3Reversed = false,
+): Promise<number> {
+  const res = await api.get('/api/combinations/meanings/other-reversals', {
+    params: {
+      cartomancy_type: cartomancyType,
+      card_1: card1,
+      card_2: card2,
+      ...(card1Reversed ? { card_1_reversed: '1' } : {}),
+      ...(card2Reversed ? { card_2_reversed: '1' } : {}),
+      ...(card3 != null ? { card_3: card3 } : {}),
+      ...(card3Reversed ? { card_3_reversed: '1' } : {}),
+    },
+  });
+  return res.data.count;
+}
+
 export async function getCombinationPartners(params: {
   cartomancyType: string;
   card1: number;

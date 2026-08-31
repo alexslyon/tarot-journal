@@ -947,3 +947,30 @@ def test_apply_entity_note_merge_semantics(client):
          'source_id': src, 'content': '<p>ok</p>'}]}).get_json()
     assert r['applied'] == 1
     assert len(r['errors']) == 1
+
+
+def test_other_reversal_count_hint(client):
+    """The viewer's "n more meanings with reversals" hint counts the
+    same pair's meanings under other reversal states."""
+    a1 = client.post('/api/archetypes', json={
+        'cartomancy_type': 'Tarot', 'name': 'ZZ Hint A'}).get_json()['id']
+    a2 = client.post('/api/archetypes', json={
+        'cartomancy_type': 'Tarot', 'name': 'ZZ Hint B'}).get_json()['id']
+    client.post('/api/scribe/apply', json={'writes': [
+        {'target': 'combination', 'cartomancy_type': 'Tarot',
+         'archetype_ids': [a1, a2], 'reversed': [True, False],
+         'content': 'Reversed meaning one.'},
+        {'target': 'combination', 'cartomancy_type': 'Tarot',
+         'archetype_ids': [a1, a2], 'reversed': [True, True],
+         'content': 'Both reversed.'},
+        {'target': 'combination', 'cartomancy_type': 'Tarot',
+         'archetype_ids': [a1, a2], 'content': 'Upright meaning.'}]})
+
+    def count(qs=''):
+        return client.get(
+            f'/api/combinations/meanings/other-reversals?cartomancy_type=Tarot'
+            f'&card_1={a1}&card_2={a2}{qs}').get_json()['count']
+
+    assert count() == 2                            # viewing upright
+    assert count('&card_1_reversed=1') == 2        # viewing rev+upright
+    assert count('&card_1_reversed=1&card_2_reversed=1') == 2

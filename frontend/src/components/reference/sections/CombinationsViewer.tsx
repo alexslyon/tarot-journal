@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getCombinationMeanings, getCombinationPartners, getCombinationsBySource, getReversedCombinationTypes } from '../../../api/combinations';
+import { getCombinationMeanings, getCombinationPartners, getCombinationsBySource, getOtherReversalCount, getReversedCombinationTypes } from '../../../api/combinations';
 import { MeaningsEditor } from '../../combinations/MeaningsEditor';
 import { useToast } from '../../../context/ToastContext';
 import { getReferenceSources } from '../../../api/referenceSources';
@@ -81,6 +81,18 @@ export default function CombinationsViewer() {
   });
   const invalidateMeanings = () =>
     queryClient.invalidateQueries({ queryKey: meaningsKey });
+
+  // Reversed combinations are distinct combinations, so meanings under
+  // other reversal states are invisible until the toggles match — this
+  // count powers the "n more meanings with reversals" hint.
+  const { data: otherReversalCount = 0 } = useQuery<number>({
+    queryKey: ['combination-other-reversals', ...meaningsKey.slice(1)],
+    queryFn: () => getOtherReversalCount(
+      cartomancyType, card1Id!, card2Id!, card1Rev, card2Rev, effCard3, card3Rev),
+    enabled: reversalsEnabled && card1Id != null && card2Id != null
+      && card1Id !== card2Id
+      && (!triad || (card3Id != null && card3Id !== card1Id && card3Id !== card2Id)),
+  });
 
   // Inline editing — the meat of authoring happens right here, no
   // Settings round-trip. Editing state resets when the pair changes.
@@ -263,6 +275,12 @@ export default function CombinationsViewer() {
             showToast={showToast}
           />
         </div>
+      )}
+
+      {bothSelected && !editing && otherReversalCount > 0 && (
+        <p className="combinations-view__other-reversals">
+          {otherReversalCount} more meaning{otherReversalCount === 1 ? '' : 's'} with reversals
+        </p>
       )}
 
       {bothSelected && !editing && meanings.length === 0 && (
