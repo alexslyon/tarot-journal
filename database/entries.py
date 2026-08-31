@@ -12,31 +12,42 @@ class EntriesMixin:
     # === Spreads ===
     def get_spreads(self):
         cursor = self.conn.cursor()
-        cursor.execute('SELECT * FROM spreads ORDER BY name')
+        cursor.execute('''
+            SELECT s.*, rs.name AS source_name FROM spreads s
+            LEFT JOIN reference_sources rs ON rs.id = s.source_id
+            ORDER BY s.name
+        ''')
         return cursor.fetchall()
 
     def get_spread(self, spread_id: int):
         cursor = self.conn.cursor()
-        cursor.execute('SELECT * FROM spreads WHERE id = ?', (spread_id,))
+        cursor.execute('''
+            SELECT s.*, rs.name AS source_name FROM spreads s
+            LEFT JOIN reference_sources rs ON rs.id = s.source_id
+            WHERE s.id = ?
+        ''', (spread_id,))
         return cursor.fetchone()
 
     def add_spread(self, name: str, positions: list, description: str = None,
                    cartomancy_type: str = None, allowed_deck_types: list = None,
-                   default_deck_id: int = None, deck_slots: list = None):
+                   default_deck_id: int = None, deck_slots: list = None,
+                   source_id: int = None):
         """
         positions is a list of dicts: [{"x": 0, "y": 0, "label": "Past"}, ...]
         cartomancy_type: 'Tarot', 'Lenormand', 'Oracle', etc. (deprecated, for backwards compat)
         allowed_deck_types: list of cartomancy type names allowed for this spread, e.g. ['Tarot', 'Oracle']
         default_deck_id: ID of the default deck for this spread (overrides global default)
         deck_slots: list of deck slots for multi-deck spreads, e.g. [{"key": "A", "cartomancy_type": "Tarot"}]
+        source_id: reference source the spread is attributed to
         """
         cursor = self.conn.cursor()
         cursor.execute(
-            'INSERT INTO spreads (name, description, positions, cartomancy_type, allowed_deck_types, default_deck_id, deck_slots) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO spreads (name, description, positions, cartomancy_type, allowed_deck_types, default_deck_id, deck_slots, source_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             (name, description, json.dumps(positions), cartomancy_type,
              json.dumps(allowed_deck_types) if allowed_deck_types else None,
              default_deck_id,
-             json.dumps(deck_slots) if deck_slots else None)
+             json.dumps(deck_slots) if deck_slots else None,
+             source_id)
         )
         self._commit()
         return cursor.lastrowid
@@ -44,8 +55,12 @@ class EntriesMixin:
     def update_spread(self, spread_id: int, name: str = None, positions: list = None,
                       description: str = None, allowed_deck_types: list = None,
                       default_deck_id: int = None, clear_default_deck: bool = False,
-                      deck_slots: list = None, archived: bool = None):
+                      deck_slots: list = None, archived: bool = None,
+                      source_id: int = None, clear_source: bool = False):
         cursor = self.conn.cursor()
+        if source_id is not None or clear_source:
+            cursor.execute('UPDATE spreads SET source_id = ? WHERE id = ?',
+                           (source_id, spread_id))
         if name:
             cursor.execute('UPDATE spreads SET name = ? WHERE id = ?', (name, spread_id))
         if positions:

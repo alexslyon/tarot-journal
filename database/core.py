@@ -343,6 +343,10 @@ class CoreMixin:
         if 'allowed_deck_types' not in columns:
             cursor.execute('ALTER TABLE spreads ADD COLUMN allowed_deck_types TEXT')
 
+        # Migration: attribute a spread to a reference source
+        if 'source_id' not in columns:
+            cursor.execute('ALTER TABLE spreads ADD COLUMN source_id INTEGER')
+
         # Migration: add default_deck_id column for spread-specific default deck
         if 'default_deck_id' not in columns:
             cursor.execute('ALTER TABLE spreads ADD COLUMN default_deck_id INTEGER REFERENCES decks(id)')

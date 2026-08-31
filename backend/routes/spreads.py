@@ -85,6 +85,7 @@ def add_spread(data):
         allowed_deck_types=data.get('allowed_deck_types'),
         default_deck_id=data.get('default_deck_id'),
         deck_slots=data.get('deck_slots'),
+        source_id=data.get('source_id'),
     )
     return jsonify({'id': spread_id}), 201
 
@@ -103,6 +104,9 @@ def update_spread(spread_id, data):
         clear_default_deck=data.get('clear_default_deck', False),
         deck_slots=data.get('deck_slots'),
         archived=data.get('archived'),
+        # A present-but-null source_id clears the attribution.
+        source_id=data.get('source_id'),
+        clear_source='source_id' in data and data.get('source_id') is None,
     )
     return jsonify({'ok': True})
 
@@ -134,6 +138,7 @@ def clone_spread(spread_id):
         description=original.get('description'),
         cartomancy_type=original.get('cartomancy_type'),
         allowed_deck_types=original.get('allowed_deck_types'),
+        source_id=original.get('source_id'),
         default_deck_id=original.get('default_deck_id'),
         deck_slots=original.get('deck_slots'),
     )

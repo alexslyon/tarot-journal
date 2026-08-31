@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getSpreadTags } from '../../api/tags';
-import type { Tag } from '../../types';
+import { getReferenceSources } from '../../api/referenceSources';
+import type { ReferenceSource, Tag } from '../../types';
 import { useDirtyGuard } from '../../utils/dirtyGuard';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { createSpread, updateSpread, deleteSpread, cloneSpread, setSpreadTags, getSpreads } from '../../api/spreads';
@@ -45,6 +46,10 @@ export default function SpreadsTab({
 
   // All spread tags, for turning selected tag ids back into tag
   // objects after a save (and keeping the viewer chips fresh).
+  const { data: allSources = [] } = useQuery<ReferenceSource[]>({
+    queryKey: ['reference-sources'],
+    queryFn: () => getReferenceSources(),
+  });
   const { data: allSpreadTags = [] } = useQuery<Tag[]>({
     queryKey: ['spread-tags'],
     queryFn: getSpreadTags,
@@ -58,6 +63,7 @@ export default function SpreadsTab({
   const [defaultDeckId, setDefaultDeckId] = useState<number | null>(null);
   const [deckSlots, setDeckSlots] = useState<DeckSlot[]>([]);
   const [tagIds, setTagIds] = useState<number[]>([]);
+  const [sourceId, setSourceId] = useState<number | null>(null);
   const [descOpen, setDescOpen] = useState(false);
   const [viewerShowLabels, setViewerShowLabels] = useState(false);
 
@@ -88,8 +94,9 @@ export default function SpreadsTab({
     const baseTagIds = (selectedSpread.tags ?? []).map(t => t.id);
     if (tagIds.length !== baseTagIds.length) return true;
     if (!tagIds.every(id => baseTagIds.includes(id))) return true;
+    if ((sourceId ?? null) !== (selectedSpread.source_id ?? null)) return true;
     return false;
-  }, [isNew, editing, selectedSpread, name, description, positions, allowedDeckTypes, defaultDeckId, deckSlots, tagIds]);
+  }, [isNew, editing, selectedSpread, name, description, positions, allowedDeckTypes, defaultDeckId, deckSlots, tagIds, sourceId]);
   useDirtyGuard(isDirty);
 
   // Populate form when a spread is selected
@@ -120,6 +127,7 @@ export default function SpreadsTab({
         setDeckSlots([]);
       }
       setTagIds((selectedSpread.tags ?? []).map(t => t.id));
+      setSourceId(selectedSpread.source_id ?? null);
       setSelectedIndex(null);
     }
   }, [selectedSpread, isNew]);
@@ -159,6 +167,7 @@ export default function SpreadsTab({
     // Default to one deck slot with Tarot type
     setDeckSlots([{ key: 'A', cartomancy_type: 'Tarot', cartomancy_types: ['Tarot'], label: 'Main Deck' }]);
     setTagIds([]);
+    setSourceId(null);
     setSelectedIndex(null);
   };
 
@@ -215,6 +224,7 @@ export default function SpreadsTab({
           allowed_deck_types: allowedDeckTypes.length > 0 ? allowedDeckTypes : undefined,
           default_deck_id: defaultDeckId,
           deck_slots: deckSlots.length > 0 ? deckSlots : undefined,
+          source_id: sourceId,
         });
         if (tagIds.length > 0) await setSpreadTags(result.id, tagIds);
         setIsNew(false);
@@ -228,6 +238,7 @@ export default function SpreadsTab({
           allowed_deck_types: allowedDeckTypes,
           default_deck_id: defaultDeckId,
           deck_slots: deckSlots,
+          source_id: sourceId,
           tags: savedTags,
           created_at: new Date().toISOString(),
         };
@@ -241,6 +252,7 @@ export default function SpreadsTab({
           default_deck_id: defaultDeckId,
           clear_default_deck: defaultDeckId === null && selectedSpread.default_deck_id !== null,
           deck_slots: deckSlots.length > 0 ? deckSlots : null,
+          source_id: sourceId,
         });
         await setSpreadTags(selectedSpread.id, tagIds);
         setSelectedSpread({
@@ -251,6 +263,7 @@ export default function SpreadsTab({
           allowed_deck_types: allowedDeckTypes,
           default_deck_id: defaultDeckId,
           deck_slots: deckSlots,
+          source_id: sourceId,
           tags: savedTags,
         });
       }
@@ -305,6 +318,15 @@ export default function SpreadsTab({
                 </span>
               ))}
             </div>
+          )}
+          {selectedSpread.source_id != null && (
+            <p className="spreads-tab__viewer-source">
+              From{' '}
+              <strong>
+                {allSources.find(src => src.id === selectedSpread.source_id)?.name
+                  ?? selectedSpread.source_name ?? 'a reference source'}
+              </strong>
+            </p>
           )}
           {selectedSpread.archived ? (
             <p className="spreads-tab__archived-note">
@@ -382,10 +404,12 @@ export default function SpreadsTab({
             description={description}
             deckSlots={deckSlots}
             tagIds={tagIds}
+            sourceId={sourceId}
             onNameChange={setName}
             onDescriptionChange={setDescription}
             onDeckSlotsChange={setDeckSlots}
             onTagIdsChange={setTagIds}
+            onSourceIdChange={setSourceId}
           />
         </div>
 

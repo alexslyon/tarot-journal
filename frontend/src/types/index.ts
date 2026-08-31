@@ -80,6 +80,9 @@ export interface Spread {
    *  the list's Archived group; never deleted (old entries keep
    *  rendering with them). */
   archived?: number;
+  /** Reference source the spread is attributed to. */
+  source_id?: number | null;
+  source_name?: string | null;
   /** Spread tags (own namespace, like deck tags) — attached by the list endpoint. */
   tags?: Tag[];
   created_at: string;

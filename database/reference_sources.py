@@ -170,15 +170,11 @@ class ReferenceSourcesMixin:
         nulled out) to preserve the meaning text. Source fields and
         entries cascade away with the source via FK."""
         cursor = self.conn.cursor()
-        if reassign_to is not None:
+        new_value = reassign_to  # None = clear the attribution
+        for table in ('combination_meanings', 'spreads'):
             cursor.execute(
-                'UPDATE combination_meanings SET source_id = ? WHERE source_id = ?',
-                (reassign_to, source_id)
-            )
-        else:
-            cursor.execute(
-                'UPDATE combination_meanings SET source_id = NULL WHERE source_id = ?',
-                (source_id,)
+                f'UPDATE {table} SET source_id = ? WHERE source_id = ?',
+                (new_value, source_id)
             )
         cursor.execute('DELETE FROM reference_sources WHERE id = ?', (source_id,))
         self._commit()

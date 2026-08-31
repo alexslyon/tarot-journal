@@ -59,6 +59,7 @@ def export_spreads():
         cursor.execute('SELECT * FROM spreads')
     rows = [row_to_dict(r) for r in cursor.fetchall()]
     tags_by_spread = db.get_tags_for_spreads()
+    source_names = {s['id']: s['name'] for s in db.get_reference_sources()}
 
     spreads = []
     for r in rows:
@@ -70,6 +71,7 @@ def export_spreads():
             'allowed_deck_types': _parse_json_column(r.get('allowed_deck_types')),
             'deck_slots': _parse_json_column(r.get('deck_slots')),
             'archived': bool(r.get('archived')),
+            'source': source_names.get(r.get('source_id')),
             'tags': [{'name': t['name'], 'color': t['color']}
                      for t in tags_by_spread.get(r['id'], [])],
         })
@@ -99,10 +101,13 @@ def import_spreads(data):
     tag_ids_by_name = {
         row_to_dict(t)['name'].lower(): row_to_dict(t)['id']
         for t in db.get_spread_tags()}
+    source_ids_by_name = {
+        s['name'].lower(): s['id'] for s in db.get_reference_sources()}
 
     imported = 0
     skipped = []
     tags_created = 0
+    sources_created = 0
     for s in spreads:
         name = (s.get('name') or '').strip()
         positions = s.get('positions')
@@ -112,6 +117,21 @@ def import_spreads(data):
         if name.lower() in existing_names:
             skipped.append(name)
             continue
+        # Source attribution travels by name: match an existing
+        # reference source (case-insensitive), create it when missing
+        # (typed by the spread's deck types, Tarot as a last resort).
+        source_id = None
+        source_name = (s.get('source') or '').strip()
+        if source_name:
+            source_id = source_ids_by_name.get(source_name.lower())
+            if source_id is None:
+                types = s.get('allowed_deck_types') or (
+                    [s['cartomancy_type']] if s.get('cartomancy_type') else ['Tarot'])
+                source_id = db.create_reference_source(
+                    source_name, cartomancy_types=types)
+                source_ids_by_name[source_name.lower()] = source_id
+                sources_created += 1
+
         spread_id = db.add_spread(
             name=name,
             positions=positions,
@@ -119,6 +139,7 @@ def import_spreads(data):
             cartomancy_type=s.get('cartomancy_type'),
             allowed_deck_types=s.get('allowed_deck_types'),
             deck_slots=s.get('deck_slots'),
+            source_id=source_id,
         )
         if s.get('archived'):
             db.update_spread(spread_id, archived=True)
@@ -142,6 +163,7 @@ def import_spreads(data):
         'imported': imported,
         'skipped': skipped,
         'tags_created': tags_created,
+        'sources_created': sources_created,
     })
 
 

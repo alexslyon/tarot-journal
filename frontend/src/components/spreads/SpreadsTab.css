@@ -213,3 +213,10 @@
   color: #fff;
   font-size: var(--font-size-small);
 }
+
+/* Reference-source attribution in the spread viewer */
+.spreads-tab__viewer-source {
+  font-size: var(--tj-size-small);
+  color: var(--tj-text-muted);
+  margin: 0 0 8px;
+}

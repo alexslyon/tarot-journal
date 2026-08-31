@@ -19,6 +19,7 @@ export async function createSpread(data: {
   allowed_deck_types?: string[];
   default_deck_id?: number | null;
   deck_slots?: DeckSlot[];
+  source_id?: number | null;
 }): Promise<{ id: number }> {
   const res = await api.post('/api/spreads', data);
   return res.data;
@@ -33,6 +34,8 @@ export async function updateSpread(spreadId: number, data: {
   clear_default_deck?: boolean;
   deck_slots?: DeckSlot[] | null;
   archived?: boolean;
+  /** Present-but-null clears the attribution. */
+  source_id?: number | null;
 }): Promise<void> {
   await api.put(`/api/spreads/${spreadId}`, data);
 }

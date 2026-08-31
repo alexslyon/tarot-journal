@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCartomancyTypes } from '../../api/decks';
 import { getSpreadTags, addSpreadTag } from '../../api/tags';
+import { getReferenceSources } from '../../api/referenceSources';
 import { useToast } from '../../context/ToastContext';
 import RichTextEditor from '../common/RichTextEditor';
 import { ensureHtml, slotTypes } from '../../utils/formatting';
-import type { DeckSlot, Tag } from '../../types';
+import type { DeckSlot, ReferenceSource, Tag } from '../../types';
 import './SpreadProperties.css';
 
 interface SpreadPropertiesProps {
@@ -13,10 +14,13 @@ interface SpreadPropertiesProps {
   description: string;
   deckSlots: DeckSlot[];
   tagIds: number[];
+  /** Reference source the spread is attributed to (null = none). */
+  sourceId: number | null;
   onNameChange: (name: string) => void;
   onDescriptionChange: (desc: string) => void;
   onDeckSlotsChange: (slots: DeckSlot[]) => void;
   onTagIdsChange: (ids: number[]) => void;
+  onSourceIdChange: (id: number | null) => void;
 }
 
 export default function SpreadProperties({
@@ -24,10 +28,12 @@ export default function SpreadProperties({
   description,
   deckSlots,
   tagIds,
+  sourceId,
   onNameChange,
   onDescriptionChange,
   onDeckSlotsChange,
   onTagIdsChange,
+  onSourceIdChange,
 }: SpreadPropertiesProps) {
   const { data: types = [] } = useQuery({
     queryKey: ['cartomancy-types'],
@@ -36,6 +42,10 @@ export default function SpreadProperties({
   const { data: allTags = [] } = useQuery<Tag[]>({
     queryKey: ['spread-tags'],
     queryFn: getSpreadTags,
+  });
+  const { data: sources = [] } = useQuery<ReferenceSource[]>({
+    queryKey: ['reference-sources'],
+    queryFn: () => getReferenceSources(),
   });
 
   const toggleTag = (tagId: number) => {
@@ -161,6 +171,24 @@ export default function SpreadProperties({
             + Add Deck Slot
           </button>
         </div>
+      </div>
+
+      <div className="spread-props__field">
+        <label className="spread-props__label">Source</label>
+        <div className="spread-props__hint">
+          Attribute this spread to the reference source it comes from
+          (manage sources in Settings → Reference Sources).
+        </div>
+        <select
+          value={sourceId === null ? '' : String(sourceId)}
+          onChange={(e) =>
+            onSourceIdChange(e.target.value === '' ? null : Number(e.target.value))}
+        >
+          <option value="">No source</option>
+          {sources.map(s => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
       </div>
 
       <div className="spread-props__field">

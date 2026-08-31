@@ -77,3 +77,70 @@ def test_profiles_export_subset(client, db):
     db.add_profile('Not Me')
     data = client.get(f'/api/profiles/export?ids={a}').get_json()
     assert [p['name'] for p in data['profiles']] == ['Only Me']
+
+
+def test_spread_source_attribution(client):
+    """Spreads can be attributed to a reference source: set, hydrated
+    with the name, cleared with an explicit null, survives cloning,
+    nulled when the source is deleted."""
+    sid = client.post('/api/reference/sources', json={
+        'name': 'ZZ Spread Book', 'cartomancy_types': ['Tarot'],
+    }).get_json()['id']
+    spread = client.post('/api/spreads', json={
+        'name': 'ZZ Attributed Spread',
+        'positions': [{'x': 0, 'y': 0, 'label': '1'}],
+        'source_id': sid,
+    }).get_json()
+
+    got = client.get(f"/api/spreads/{spread['id']}").get_json()
+    assert got['source_id'] == sid
+    assert got['source_name'] == 'ZZ Spread Book'
+
+    # Clone carries the attribution
+    clone = client.post(f"/api/spreads/{spread['id']}/clone", json={}).get_json()
+    assert client.get(f"/api/spreads/{clone['id']}").get_json()['source_id'] == sid
+
+    # Updating without mentioning source_id leaves it alone
+    client.put(f"/api/spreads/{spread['id']}", json={'name': 'ZZ Attributed Spread'})
+    assert client.get(f"/api/spreads/{spread['id']}").get_json()['source_id'] == sid
+    # Explicit null clears it
+    client.put(f"/api/spreads/{spread['id']}", json={'source_id': None})
+    assert client.get(f"/api/spreads/{spread['id']}").get_json()['source_id'] is None
+
+    # Deleting the source nulls remaining attributions (the clone's)
+    client.put(f"/api/spreads/{spread['id']}", json={'source_id': sid})
+    client.delete(f'/api/reference/sources/{sid}')
+    assert client.get(f"/api/spreads/{spread['id']}").get_json()['source_id'] is None
+
+
+def test_spread_share_carries_source(client):
+    """Share export names the source; import matches an existing source
+    or creates one typed by the spread's deck types."""
+    sid = client.post('/api/reference/sources', json={
+        'name': 'ZZ Travelling Book', 'cartomancy_types': ['Tarot'],
+    }).get_json()['id']
+    spread = client.post('/api/spreads', json={
+        'name': 'ZZ Travelling Spread',
+        'positions': [{'x': 0, 'y': 0, 'label': '1'}],
+        'allowed_deck_types': ['Tarot'],
+        'source_id': sid,
+    }).get_json()
+
+    export = client.get(f"/api/spreads/export?ids={spread['id']}").get_json()
+    assert export['spreads'][0]['source'] == 'ZZ Travelling Book'
+
+    # Re-import under a new name: source matched by name, not recreated
+    export['spreads'][0]['name'] = 'ZZ Travelled Spread'
+    r = client.post('/api/spreads/import', json={'data': export}).get_json()
+    assert (r['imported'], r['sources_created']) == (1, 0)
+    imported = next(s for s in client.get('/api/spreads').get_json()
+                    if s['name'] == 'ZZ Travelled Spread')
+    assert imported['source_id'] == sid
+
+    # Unknown source name: created on the fly
+    export['spreads'][0]['name'] = 'ZZ Twice Travelled'
+    export['spreads'][0]['source'] = 'ZZ Brand New Book'
+    r = client.post('/api/spreads/import', json={'data': export}).get_json()
+    assert (r['imported'], r['sources_created']) == (1, 1)
+    names = {s['name'] for s in client.get('/api/reference/sources').get_json()}
+    assert 'ZZ Brand New Book' in names
