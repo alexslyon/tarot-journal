@@ -68,7 +68,10 @@ export interface BreakdownData {
 // Pure helpers — rank/suit categorization per cartomancy type
 // ───────────────────────────────────────────────────────────────────────
 
-const TAROT_MINOR_OF_RE = /^(.+?) of (.+)$/;
+// Anchored to real Minor ranks so Majors whose names contain " of "
+// ("Wheel of Fortune") don't parse as rank "Wheel", suit "Fortune".
+const TAROT_MINOR_OF_RE =
+  /^(Ace|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Page|Knight|Queen|King|Prince|Princess|Knave) of (.+)$/i;
 
 /**
  * Derive the rank/suit values to count this card under in the breakdown.
