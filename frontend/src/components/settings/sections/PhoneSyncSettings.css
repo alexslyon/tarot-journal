@@ -1,0 +1,32 @@
+.phone-sync__paired-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-primary);
+  font-size: var(--font-size-body);
+}
+
+.phone-sync__code-box {
+  margin-top: 10px;
+}
+
+.phone-sync__code {
+  display: inline-block;
+  font-size: calc(var(--font-size-body) * 2);
+  letter-spacing: 0.35em;
+  padding: 8px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color, var(--bg-secondary));
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.phone-sync__restart-note {
+  color: var(--accent);
+}
+
+.phone-sync__error {
+  color: var(--danger);
+  font-size: var(--font-size-small);
+}

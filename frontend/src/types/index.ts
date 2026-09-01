@@ -22,6 +22,8 @@ export interface Deck {
   card_back_image: string | null;
   booklet_info: string | null;
   correspondence_system_id: number | null;
+  /** Favorited decks are the subset synced to the phone companion. */
+  favorite?: number;
   created_at: string;
   // Joined fields from get_deck():
   cartomancy_type?: string;

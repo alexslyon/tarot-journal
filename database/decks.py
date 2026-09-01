@@ -158,8 +158,12 @@ class DecksMixin:
     def update_deck(self, deck_id: int, name: str = None, image_folder: str = None, suit_names: dict = None,
                     court_names: dict = None, date_published: str = None, publisher: str = None,
                     credits: str = None, notes: str = None, card_back_image: str = None,
-                    booklet_info: str = None, correspondence_system_id=None):
+                    booklet_info: str = None, correspondence_system_id=None,
+                    favorite: bool = None):
         cursor = self.conn.cursor()
+        if favorite is not None:
+            cursor.execute('UPDATE decks SET favorite = ? WHERE id = ?',
+                           (1 if favorite else 0, deck_id))
         if name:
             cursor.execute('UPDATE decks SET name = ? WHERE id = ?', (name, deck_id))
         if image_folder:

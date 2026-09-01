@@ -190,3 +190,32 @@
   text-align: center;
   color: var(--text-dim);
 }
+
+/* Favorite star (phone-companion sync subset) */
+.deck-list__row {
+  position: relative;
+}
+
+.deck-list__fav {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-dim);
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.deck-list__row:hover .deck-list__fav,
+.deck-list__fav--on {
+  opacity: 1;
+}
+
+.deck-list__fav--on {
+  color: #d9a54a;
+}

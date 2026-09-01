@@ -13,6 +13,7 @@ import type { Profile, Deck, CartomancyType } from '../../../types';
 import SearchCombobox from '../../common/SearchCombobox';
 import '../SettingsTab.css';
 import IndicationColorsSettings from './IndicationColorsSettings';
+import PhoneSyncSettings from './PhoneSyncSettings';
 
 const BASE_SIZES = { size_title: 22, size_heading: 14, size_body: 13, size_small: 11 };
 
@@ -214,8 +215,9 @@ export default function GeneralSection() {
         </div>
       </section>
 
-      {/* Astrology Section */}
       <IndicationColorsSettings />
+
+      <PhoneSyncSettings />
 
       <section className="settings-tab__section">
         <h3 className="settings-tab__section-title">Astrology Charts</h3>

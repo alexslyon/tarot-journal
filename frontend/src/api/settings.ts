@@ -122,3 +122,30 @@ export async function updateIndicationColors(
 ): Promise<void> {
   await api.put('/api/settings/indication-colors', { colors });
 }
+
+// === Phone sync ===
+
+export interface PhoneSyncStatus {
+  enabled: boolean;
+  paired: boolean;
+  device_name: string | null;
+  pairing_code_active: boolean;
+}
+
+export async function getPhoneSyncStatus(): Promise<PhoneSyncStatus> {
+  const res = await api.get('/api/sync/status');
+  return res.data;
+}
+
+export async function setPhoneSyncEnabled(enabled: boolean): Promise<void> {
+  await api.put('/api/sync/enabled', { enabled });
+}
+
+export async function startPhonePairing(): Promise<{ code: string; expires_in: number }> {
+  const res = await api.post('/api/sync/pairing/start');
+  return res.data;
+}
+
+export async function unpairPhone(): Promise<void> {
+  await api.post('/api/sync/unpair');
+}

@@ -6,6 +6,8 @@ across the three tag types. Each tag type has its own table (tags,
 deck_tags, card_tags) and junction table.
 """
 
+from datetime import datetime
+
 
 class TagsMixin:
     """Mixin providing tag operations for entries, decks, and cards."""
@@ -104,6 +106,12 @@ class TagsMixin:
 
     def set_entry_tags(self, entry_id: int, tag_ids: list):
         self._set_tags_for_entity('entry_tags', 'entry_id', entry_id, tag_ids)
+        # Tag changes are part of the entry aggregate for phone sync.
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'UPDATE journal_entries SET updated_at = ? WHERE id = ?',
+            (datetime.now().isoformat(), entry_id))
+        self._commit()
 
     # ── Deck Tags ──────────────────────────────────────────────
 
@@ -156,6 +164,10 @@ class TagsMixin:
             'INSERT OR IGNORE INTO deck_tag_assignments (deck_id, tag_id) VALUES (?, ?)',
             (deck_id, tag_id)
         )
+        # Tag changes are part of the entry aggregate for phone sync.
+        cursor.execute(
+            'UPDATE journal_entries SET updated_at = ? WHERE id = ?',
+            (datetime.now().isoformat(), entry_id))
         self._commit()
 
     def remove_tag_from_deck(self, deck_id: int, tag_id: int):

@@ -279,6 +279,10 @@ class CoreMixin:
             cursor.execute('ALTER TABLE decks ADD COLUMN credits TEXT')
         if 'notes' not in columns:
             cursor.execute('ALTER TABLE decks ADD COLUMN notes TEXT')
+        if 'favorite' not in columns:
+            # Phone-sync prep: favorited decks are the subset whose
+            # images sync to the iOS companion.
+            cursor.execute('ALTER TABLE decks ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0')
         if 'card_back_image' not in columns:
             cursor.execute('ALTER TABLE decks ADD COLUMN card_back_image TEXT')
         if 'booklet_info' not in columns:
@@ -385,6 +389,11 @@ class CoreMixin:
             cursor.execute('ALTER TABLE journal_entries ADD COLUMN location_name TEXT')
         if 'location_lat' not in columns:
             cursor.execute('ALTER TABLE journal_entries ADD COLUMN location_lat REAL')
+        if 'sync_uuid' not in columns:
+            # Phone-sync prep: phone-created entries carry a client
+            # UUID so offline pushes are idempotent. Desktop-created
+            # entries leave it NULL.
+            cursor.execute('ALTER TABLE journal_entries ADD COLUMN sync_uuid TEXT')
         if 'location_lon' not in columns:
             cursor.execute('ALTER TABLE journal_entries ADD COLUMN location_lon REAL')
         if 'breakdown_settings' not in columns:

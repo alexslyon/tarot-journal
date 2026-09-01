@@ -258,6 +258,14 @@ class EntriesMixin:
         self._commit()
 
     # === Entry Readings ===
+    def _touch_entry(self, cursor, entry_id: int):
+        """Bump the parent entry's updated_at — the entry aggregate is
+        the phone-sync unit, so child writes (readings, tags,
+        querents, follow-ups) must move the parent's timestamp."""
+        cursor.execute(
+            'UPDATE journal_entries SET updated_at = ? WHERE id = ?',
+            (datetime.now().isoformat(), entry_id))
+
     def get_entry_readings(self, entry_id: int):
         cursor = self.conn.cursor()
         cursor.execute(
@@ -277,12 +285,14 @@ class EntriesMixin:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (entry_id, spread_id, spread_name, deck_id, deck_name,
               cartomancy_type, json.dumps(cards_used) if cards_used else None, position_order, notes))
+        self._touch_entry(cursor, entry_id)
         self._commit()
         return cursor.lastrowid
 
     def delete_entry_readings(self, entry_id: int):
         cursor = self.conn.cursor()
         cursor.execute('DELETE FROM entry_readings WHERE entry_id = ?', (entry_id,))
+        self._touch_entry(cursor, entry_id)
         self._commit()
 
     def replace_entry_readings(self, entry_id: int, readings: list) -> list:
@@ -311,6 +321,7 @@ class EntriesMixin:
                       json.dumps(cards_used) if cards_used else None,
                       r.get('position_order', i), r.get('notes')))
                 new_ids.append(cursor.lastrowid)
+            self._touch_entry(cursor, entry_id)
         return new_ids
 
     # === Follow-up Notes ===
@@ -331,12 +342,21 @@ class EntriesMixin:
             INSERT INTO follow_up_notes (entry_id, content, created_at)
             VALUES (?, ?, ?)
         ''', (entry_id, content, datetime.now().isoformat()))
+        self._touch_entry(cursor, entry_id)
         self._commit()
         return cursor.lastrowid
+
+    def _touch_note_entry(self, cursor, note_id: int):
+        row = cursor.execute(
+            'SELECT entry_id FROM follow_up_notes WHERE id = ?', (note_id,)
+        ).fetchone()
+        if row:
+            self._touch_entry(cursor, row[0] if not isinstance(row, dict) else row['entry_id'])
 
     def update_follow_up_note(self, note_id: int, content: str):
         """Update a follow-up note's content"""
         cursor = self.conn.cursor()
+        self._touch_note_entry(cursor, note_id)
         cursor.execute('''
             UPDATE follow_up_notes SET content = ? WHERE id = ?
         ''', (content, note_id))
@@ -345,6 +365,7 @@ class EntriesMixin:
     def delete_follow_up_note(self, note_id: int):
         """Delete a follow-up note"""
         cursor = self.conn.cursor()
+        self._touch_note_entry(cursor, note_id)
         cursor.execute('DELETE FROM follow_up_notes WHERE id = ?', (note_id,))
         self._commit()
 
@@ -370,6 +391,7 @@ class EntriesMixin:
                     INSERT INTO entry_querents (entry_id, profile_id, position)
                     VALUES (?, ?, ?)
                 ''', (entry_id, profile_id, position))
+            self._touch_entry(cursor, entry_id)
             # Also update the legacy querent_id column (first querent or NULL)
             legacy_querent_id = profile_ids[0] if profile_ids else None
             cursor.execute('''

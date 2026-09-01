@@ -38,8 +38,8 @@ How Wi-Fi sync works in practice:
 
 The full scan library (multi-GB, ~15 MB per card for some decks) must not go to the phone. Plan:
 
-- Desktop generates **phone-sized derivatives** (~500×750 JPEG, tens of KB each) for favorited decks only — the existing `thumbnail_cache.py` already does almost exactly this.
-- A 78-card deck at that size is ~5–8 MB; even ten favorite decks stay well under 100 MB.
+- Desktop generates **phone-sized derivatives** for favorited decks only — the existing `thumbnail_cache.py` already does almost exactly this. *(Size decision 2026-09-02: not a minimal thumbnail — large enough to look good full-screen on the phone: ~1000×1500 JPEG, roughly 150–300 KB per card.)*
+- A 78-card deck at that size is ~15–25 MB; ten favorite decks stay in the low hundreds of MB — fine for a modern phone.
 - Derivatives are fetched over the Wi-Fi sync connection, keyed to card
   IDs. *(Correction 2026-09-02: an earlier draft said "via iCloud" —
   leftover from before the Wi-Fi-first decision.)*
@@ -138,8 +138,9 @@ Gaps the original draft missed, now designed in:
    confirm/repair `updated_at` bumping on every entry write path
    (SQLite trigger as a safety net).
 3. **Phone derivatives** — phone-size preset in `thumbnail_cache`,
-   `/api/sync/card-image/<id>` endpoint, batch pre-generation for
-   favorited decks (background, on favorite-toggle and on sync).
+   `/api/sync/card-image/<id>` endpoint; derivatives generate lazily on
+   first request and persist in the cache (first sync of a new
+   favorite deck is ~30s slower, then never again).
 4. **Sync API v1 (read-only)** —
    `/api/sync/manifest` (per-table counts + max updated_at, so the
    phone skips unchanged tables), `/api/sync/snapshot/<table>` for the

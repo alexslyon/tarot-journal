@@ -14,7 +14,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, request
 from flask_cors import CORS
 
 from backend.config import CORS_ORIGINS
@@ -90,6 +90,11 @@ def create_app():
     # Register route blueprints
     from backend.routes import register_blueprints
     register_blueprints(app)
+
+    # Phone-sync LAN guard: non-loopback callers may only reach the
+    # token-protected /api/sync/ routes. See backend/routes/sync.py.
+    from backend.routes.sync import install_lan_guard
+    install_lan_guard(app)
 
     # Serve the built React frontend (production mode)
     if os.path.isdir(FRONTEND_DIST):

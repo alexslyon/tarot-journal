@@ -25,6 +25,9 @@ class ThumbnailCache:
 
     THUMBNAIL_SIZE = tuple(_cfg.get("images", "thumbnail_size", [300, 450]))
     PREVIEW_SIZE = tuple(_cfg.get("images", "preview_size", [500, 750]))
+    # Phone-companion derivative: big enough to look good full-screen
+    # on a modern iPhone, far smaller than the raw scans.
+    PHONE_SIZE = tuple(_cfg.get("images", "phone_size", [1000, 1500]))
 
     def __init__(self, cache_dir: str = None):
         if cache_dir is None:

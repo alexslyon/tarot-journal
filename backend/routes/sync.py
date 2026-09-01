@@ -1,0 +1,309 @@
+"""
+Phone-companion sync endpoints (Phase 0 of the iOS companion plan).
+
+Protocol overview:
+  - /api/sync/manifest        — per-table counts + max timestamps, so
+    the phone can skip unchanged tables entirely.
+  - /api/sync/snapshot/<t>    — full snapshot of a small table
+    (deletions come free: the phone mirrors the snapshot).
+  - /api/sync/entries         — journal entries as whole aggregates
+    (entry + readings + tags + querents + follow-ups), delta by the
+    parent's updated_at, plus a full ID list for pruning deletions.
+  - /api/sync/source-entries  — archetype source texts, same delta
+    pattern.
+  - /api/sync/card-image/<id> — phone-sized derivative (favorited
+    decks only), generated lazily and cached.
+
+Security model: the app normally listens on loopback only. When the
+"phone sync" setting is on, run.py binds the LAN as well — and an
+app-wide guard (backend/app.py) rejects every NON-loopback request
+outside /api/sync/. Within /api/sync/, non-loopback callers must
+present the bearer token obtained by pairing: the desktop shows a
+short-lived 6-digit code (loopback-only endpoint), the phone exchanges
+it once for a long-lived token whose hash is stored in settings.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import secrets
+import time
+
+from flask import Blueprint, abort, current_app, jsonify, request, send_file
+
+from backend.security import is_safe_path, is_valid_image_path
+from backend.utils import require_json, row_to_dict
+
+sync_bp = Blueprint('sync', __name__)
+
+SYNC_ENABLED_KEY = 'phone_sync_enabled'
+SYNC_TOKEN_HASH_KEY = 'phone_sync_token_hash'
+SYNC_DEVICE_KEY = 'phone_sync_device_name'
+PAIRING_TTL_SECONDS = 300
+
+LOOPBACK_ADDRS = ('127.0.0.1', '::1')
+
+
+def is_loopback() -> bool:
+    return (request.remote_addr or '') in LOOPBACK_ADDRS
+
+
+def _token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+
+def sync_request_authorized(db) -> bool:
+    """Loopback callers are implicitly trusted (same machine); LAN
+    callers must present the paired bearer token."""
+    if is_loopback():
+        return True
+    stored = db.get_setting(SYNC_TOKEN_HASH_KEY)
+    if not stored:
+        return False
+    auth = request.headers.get('Authorization', '')
+    if not auth.startswith('Bearer '):
+        return False
+    supplied = auth[len('Bearer '):].strip()
+    return bool(supplied) and secrets.compare_digest(
+        _token_hash(supplied), stored)
+
+
+def _require_auth():
+    if not sync_request_authorized(current_app.config['DB']):
+        abort(401)
+
+
+def install_lan_guard(app):
+    """App-wide guard: when run.py binds the LAN (phone sync enabled),
+    every non-loopback request outside /api/sync/ is refused, so the
+    desktop API surface never opens to the network."""
+    @app.before_request
+    def _lan_guard():
+        if not is_loopback() and not (request.path or '').startswith('/api/sync/'):
+            return jsonify({'error': 'LAN access is limited to phone sync'}), 403
+
+
+# ── Pairing & status ─────────────────────────────────────────
+
+@sync_bp.route('/api/sync/status')
+def sync_status():
+    """Loopback-only status for the Settings UI."""
+    if not is_loopback():
+        abort(403)
+    db = current_app.config['DB']
+    pairing = current_app.config.get('PHONE_PAIRING')
+    return jsonify({
+        'enabled': db.get_setting(SYNC_ENABLED_KEY) == 'true',
+        'paired': bool(db.get_setting(SYNC_TOKEN_HASH_KEY)),
+        'device_name': db.get_setting(SYNC_DEVICE_KEY),
+        'pairing_code_active': bool(
+            pairing and pairing['expires'] > time.time()),
+    })
+
+
+@sync_bp.route('/api/sync/enabled', methods=['PUT'])
+@require_json
+def set_sync_enabled(data):
+    """Toggle the LAN listener setting (takes effect on next app
+    start — binding happens at startup)."""
+    if not is_loopback():
+        abort(403)
+    db = current_app.config['DB']
+    db.set_setting(SYNC_ENABLED_KEY, 'true' if data.get('enabled') else 'false')
+    return jsonify({'enabled': data.get('enabled', False),
+                    'restart_required': True})
+
+
+@sync_bp.route('/api/sync/pairing/start', methods=['POST'])
+def start_pairing():
+    """Generate a short-lived 6-digit pairing code (shown in Settings)."""
+    if not is_loopback():
+        abort(403)
+    code = f'{secrets.randbelow(1_000_000):06d}'
+    current_app.config['PHONE_PAIRING'] = {
+        'code': code,
+        'expires': time.time() + PAIRING_TTL_SECONDS,
+    }
+    return jsonify({'code': code, 'expires_in': PAIRING_TTL_SECONDS})
+
+
+@sync_bp.route('/api/sync/pair', methods=['POST'])
+@require_json
+def pair(data):
+    """Exchange the on-screen code for a long-lived bearer token —
+    the one sync endpoint a not-yet-paired LAN caller may hit."""
+    pairing = current_app.config.get('PHONE_PAIRING')
+    code = str(data.get('code') or '')
+    if (not pairing or pairing['expires'] < time.time()
+            or not secrets.compare_digest(code, pairing['code'])):
+        abort(401)
+    current_app.config['PHONE_PAIRING'] = None   # single use
+    token = secrets.token_urlsafe(32)
+    db = current_app.config['DB']
+    db.set_setting(SYNC_TOKEN_HASH_KEY, _token_hash(token))
+    db.set_setting(SYNC_DEVICE_KEY, str(data.get('device_name') or 'phone'))
+    return jsonify({'token': token})
+
+
+@sync_bp.route('/api/sync/unpair', methods=['POST'])
+def unpair():
+    if not is_loopback():
+        abort(403)
+    db = current_app.config['DB']
+    db.set_setting(SYNC_TOKEN_HASH_KEY, '')
+    db.set_setting(SYNC_DEVICE_KEY, '')
+    return jsonify({'ok': True})
+
+
+# ── Data endpoints ───────────────────────────────────────────
+
+# Small tables that sync as full snapshots. Each entry: SQL producing
+# exactly the columns the phone needs.
+SNAPSHOT_TABLES = {
+    'spreads': ('SELECT id, name, description, positions, deck_slots, '
+                'allowed_deck_types, archived FROM spreads'),
+    'profiles': 'SELECT id, name, hidden FROM profiles',
+    'decks': ('SELECT id, name, favorite FROM decks WHERE favorite = 1'),
+    'cards': ('SELECT c.id, c.deck_id, c.name, c.archetype, c.rank, '
+              'c.suit, c.card_order FROM cards c '
+              'JOIN decks d ON d.id = c.deck_id WHERE d.favorite = 1'),
+    'tags': 'SELECT id, name, color FROM tags',
+    'reference_sources': ('SELECT id, name, cartomancy_type '
+                          'FROM reference_sources'),
+    'source_fields': ('SELECT id, source_id, cartomancy_type, name, '
+                      'sort_order, collapsible FROM source_fields'),
+    'card_archetypes': ('SELECT id, name, cartomancy_type, rank, suit '
+                        'FROM card_archetypes'),
+}
+
+
+@sync_bp.route('/api/sync/manifest')
+def manifest():
+    _require_auth()
+    db = current_app.config['DB']
+    cursor = db.conn.cursor()
+
+    def one(sql):
+        row = cursor.execute(sql).fetchone()
+        return row[0] if row else None
+
+    tables = {}
+    for name, sql in SNAPSHOT_TABLES.items():
+        tables[name] = {'count': one(f'SELECT COUNT(*) FROM ({sql})')}
+    tables['entries'] = {
+        'count': one('SELECT COUNT(*) FROM journal_entries'),
+        'max_updated_at': one('SELECT MAX(updated_at) FROM journal_entries'),
+    }
+    tables['source_entries'] = {
+        'count': one('SELECT COUNT(*) FROM archetype_source_entries'),
+        'max_updated_at': one(
+            'SELECT MAX(updated_at) FROM archetype_source_entries'),
+    }
+    return jsonify({'app': 'tarot-journal', 'protocol': 1, 'tables': tables})
+
+
+@sync_bp.route('/api/sync/snapshot/<table>')
+def snapshot(table):
+    _require_auth()
+    sql = SNAPSHOT_TABLES.get(table)
+    if not sql:
+        return jsonify({'error': f'unknown snapshot table {table!r}'}), 404
+    cursor = current_app.config['DB'].conn.cursor()
+    rows = [row_to_dict(r) for r in cursor.execute(sql).fetchall()]
+    return jsonify({'table': table, 'rows': rows})
+
+
+def _entry_aggregate(db, entry_row) -> dict:
+    e = row_to_dict(entry_row)
+    entry_id = e['id']
+    cursor = db.conn.cursor()
+    readings = [row_to_dict(r) for r in db.get_entry_readings(entry_id)]
+    for r in readings:
+        if r.get('cards_used') and isinstance(r['cards_used'], str):
+            try:
+                r['cards_used'] = json.loads(r['cards_used'])
+            except ValueError:
+                r['cards_used'] = []
+    tag_ids = [row[0] if not isinstance(row, dict) else row['tag_id']
+               for row in cursor.execute(
+                   'SELECT tag_id FROM entry_tags WHERE entry_id = ?',
+                   (entry_id,)).fetchall()]
+    querent_ids = [row[0] if not isinstance(row, dict) else row['profile_id']
+                   for row in cursor.execute(
+                       'SELECT profile_id FROM entry_querents '
+                       'WHERE entry_id = ? ORDER BY position',
+                       (entry_id,)).fetchall()]
+    follow_ups = [row_to_dict(r) for r in db.get_follow_up_notes(entry_id)]
+    # UI-only state stays on the desktop.
+    e.pop('breakdown_settings', None)
+    return {**e, 'readings': readings, 'tag_ids': tag_ids,
+            'querent_ids': querent_ids, 'follow_up_notes': follow_ups}
+
+
+@sync_bp.route('/api/sync/entries')
+def sync_entries():
+    """Changed entry aggregates since ?since= (ISO timestamp; empty =
+    everything), plus the full ID list so the phone prunes deletions."""
+    _require_auth()
+    db = current_app.config['DB']
+    since = request.args.get('since', '')
+    cursor = db.conn.cursor()
+    ids = [r[0] for r in cursor.execute(
+        'SELECT id FROM journal_entries').fetchall()]
+    if since:
+        rows = cursor.execute(
+            'SELECT * FROM journal_entries WHERE updated_at > ? '
+            'ORDER BY updated_at', (since,)).fetchall()
+    else:
+        rows = cursor.execute(
+            'SELECT * FROM journal_entries ORDER BY updated_at').fetchall()
+    return jsonify({
+        'ids': ids,
+        'changed': [_entry_aggregate(db, r) for r in rows],
+    })
+
+
+@sync_bp.route('/api/sync/source-entries')
+def sync_source_entries():
+    _require_auth()
+    db = current_app.config['DB']
+    since = request.args.get('since', '')
+    cursor = db.conn.cursor()
+    ids = [r[0] for r in cursor.execute(
+        'SELECT id FROM archetype_source_entries').fetchall()]
+    if since:
+        rows = cursor.execute(
+            'SELECT id, archetype_id, field_id, content, updated_at '
+            'FROM archetype_source_entries WHERE updated_at > ? '
+            'ORDER BY updated_at', (since,)).fetchall()
+    else:
+        rows = cursor.execute(
+            'SELECT id, archetype_id, field_id, content, updated_at '
+            'FROM archetype_source_entries ORDER BY updated_at').fetchall()
+    return jsonify({'ids': ids, 'changed': [row_to_dict(r) for r in rows]})
+
+
+@sync_bp.route('/api/sync/card-image/<int:card_id>')
+def card_image(card_id):
+    """Phone-sized derivative for a favorited deck's card. Generated
+    lazily; the mtime-keyed cache persists it."""
+    _require_auth()
+    db = current_app.config['DB']
+    cursor = db.conn.cursor()
+    row = cursor.execute(
+        'SELECT c.image_path FROM cards c JOIN decks d ON d.id = c.deck_id '
+        'WHERE c.id = ? AND d.favorite = 1', (card_id,)).fetchone()
+    image_path = (row[0] if row and not isinstance(row, dict)
+                  else (row or {}).get('image_path'))
+    if not image_path:
+        abort(404)
+    if not is_valid_image_path(image_path):
+        abort(404)
+    cache = current_app.config['THUMB_CACHE']
+    path = cache.get_thumbnail_path(image_path, size=cache.PHONE_SIZE)
+    if not path or not is_safe_path(path, [str(cache.cache_dir)]):
+        abort(404)
+    resp = send_file(path, mimetype='image/png')
+    resp.cache_control.max_age = 86400
+    return resp

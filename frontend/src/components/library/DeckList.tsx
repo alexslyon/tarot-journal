@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getDecks, getCartomancyTypes } from '../../api/decks';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getDecks, getCartomancyTypes, updateDeck } from '../../api/decks';
 import type { Deck } from '../../types';
 import QueryError from '../common/QueryError';
 import './DeckList.css';
@@ -14,11 +14,13 @@ interface DeckListProps {
 }
 
 export default function DeckList({ selectedDeckId, onSelectDeck, onEditDeck, onImport }: DeckListProps) {
+  const queryClient = useQueryClient();
   const [filterTypeId, setFilterTypeId] = useState<number | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'type' | 'cards'>('name');
   const [sortAsc, setSortAsc] = useState(true);
   const [showTags, setShowTags] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
 
   const { data: types = [] } = useQuery({
     queryKey: ['cartomancy-types'],
@@ -30,9 +32,15 @@ export default function DeckList({ selectedDeckId, onSelectDeck, onEditDeck, onI
     queryFn: () => getDecks(filterTypeId),
   });
 
-  const filteredDecks = searchQuery.trim()
+  const toggleFavorite = async (deck: Deck) => {
+    await updateDeck(deck.id, { favorite: !deck.favorite });
+    queryClient.invalidateQueries({ queryKey: ['decks'] });
+  };
+
+  const searched = searchQuery.trim()
     ? decks.filter((d) => d.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : decks;
+  const filteredDecks = favoritesOnly ? searched.filter(d => !!d.favorite) : searched;
 
   // Strip a leading "The " when sorting names so "The Fool" sorts as "Fool".
   const nameSortKey = (name: string) => name.replace(/^the\s+/i, '');
@@ -72,6 +80,14 @@ export default function DeckList({ selectedDeckId, onSelectDeck, onEditDeck, onI
             onChange={(e) => setShowTags(e.target.checked)}
           />
           <span>Tags</span>
+        </label>
+        <label className="deck-list__toggle" title="Only decks starred for the phone companion">
+          <input
+            type="checkbox"
+            checked={favoritesOnly}
+            onChange={(e) => setFavoritesOnly(e.target.checked)}
+          />
+          <span>★ Favorites</span>
         </label>
       </div>
       <div className="deck-list__filters">
@@ -128,6 +144,17 @@ export default function DeckList({ selectedDeckId, onSelectDeck, onEditDeck, onI
               }
             }}
           >
+            <button
+              type="button"
+              className={`deck-list__fav ${deck.favorite ? 'deck-list__fav--on' : ''}`}
+              title={deck.favorite
+                ? 'Favorite — synced to the phone companion. Click to unfavorite.'
+                : 'Mark as favorite (synced to the phone companion)'}
+              aria-label={deck.favorite ? `Unfavorite ${deck.name}` : `Favorite ${deck.name}`}
+              onClick={(e) => { e.stopPropagation(); toggleFavorite(deck); }}
+            >
+              ★
+            </button>
             <div className="deck-list__row-content">
               <span className="deck-list__name">
                 {deck.name}

@@ -44,6 +44,8 @@ mobi==0.4.1
 # `.venv/bin/python3 -m pytest`).
 pytest==8.4.2
 
+zeroconf>=0.130  # Bonjour/mDNS advertisement for the phone-sync companion
+
 # NOTE: wxPython was removed from this list (2026-07). It powered the
 # deprecated legacy Python UI (main.py / mixin_*.py / ui_library/ etc.),
 # which the Electron/React frontend replaced and which was deleted from
