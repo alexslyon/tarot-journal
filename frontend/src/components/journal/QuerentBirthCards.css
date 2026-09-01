@@ -111,3 +111,46 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+
+/* ── Color coding: birth vs name systems ── */
+.querent-birth-cards {
+  --indicate-birth: #d9a54a;
+  --indicate-name: #9b7fd4;
+}
+
+.querent-birth-cards__legend {
+  display: flex;
+  gap: 14px;
+  margin: 4px 0 6px;
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+}
+
+.querent-birth-cards__legend-item {
+  position: relative;
+  padding-left: 14px;
+}
+
+.querent-birth-cards__legend-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.querent-birth-cards__legend-item--birth::before { background: var(--indicate-birth); }
+.querent-birth-cards__legend-item--name::before { background: var(--indicate-name); }
+
+.querent-birth-cards__group--birth {
+  border-left: 3px solid var(--indicate-birth);
+  padding-left: 8px;
+}
+
+.querent-birth-cards__group--name {
+  border-left: 3px solid var(--indicate-name);
+  padding-left: 8px;
+}

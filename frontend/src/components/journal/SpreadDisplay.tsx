@@ -2,22 +2,24 @@ import { useQuery } from '@tanstack/react-query';
 import { getSpread } from '../../api/spreads';
 import { cardPreviewUrl } from '../../api/images';
 import type { CardUsed, EntryReadingParsed, Spread, SpreadPosition } from '../../types';
+import type { BirthCardTag } from './QuerentBirthCards';
 import './SpreadDisplay.css';
 
 interface SpreadDisplayProps {
   reading: EntryReadingParsed;
   onCardDoubleClick?: (cardId: number) => void;
-  /** "Indicate Birth Cards": lowercase Tarot archetype name -> label
-   *  (e.g. "Soul", "Anna: Year Card 2026"). Only Tarot cards match. */
-  birthLabels?: Map<string, string>;
+  /** "Indicate Birth Cards": lowercase Tarot archetype name -> tag
+   *  (label like "Soul" / "Anna: Year Card 2026", plus which system
+   *  flagged it, for the color coding). Only Tarot cards match. */
+  birthLabels?: Map<string, BirthCardTag>;
 }
 
 /** The querent birth-card label for a card, if highlighting is on and
  *  this is a Tarot card whose archetype is one of the birth cards. */
 function birthLabelFor(
   card: CardUsed | undefined,
-  birthLabels?: Map<string, string>,
-): string | undefined {
+  birthLabels?: Map<string, BirthCardTag>,
+): BirthCardTag | undefined {
   if (!card || !birthLabels || card.cartomancy_type !== 'Tarot') return undefined;
   return birthLabels.get((card.archetype || '').toLowerCase());
 }
@@ -54,7 +56,7 @@ function PositionedLayout({
   positions: SpreadPosition[];
   spreadName: string | null;
   onCardDoubleClick?: (cardId: number) => void;
-  birthLabels?: Map<string, string>;
+  birthLabels?: Map<string, BirthCardTag>;
 }) {
   // Calculate the actual bounding box of content (trimming empty space)
   const minX = Math.min(...positions.map(p => p.x || 0));
@@ -95,7 +97,7 @@ function PositionedLayout({
             return (
               <div
                 key={idx}
-                className={`spread-display__slot ${card?.reversed ? 'spread-display__slot--reversed' : ''} ${birthTag ? 'spread-display__slot--birth' : ''}`}
+                className={`spread-display__slot ${card?.reversed ? 'spread-display__slot--reversed' : ''} ${birthTag ? `spread-display__slot--birth spread-display__sys--${birthTag.system}` : ''}`}
                 style={{
                   position: 'absolute',
                   left: `${leftPct}%`,
@@ -123,8 +125,8 @@ function PositionedLayout({
                   </div>
                 )}
                 {birthTag && (
-                  <div className="spread-display__birth-tag spread-display__birth-tag--overlay">
-                    {birthTag}
+                  <div className={`spread-display__birth-tag spread-display__birth-tag--overlay spread-display__sys--${birthTag.system}`}>
+                    {birthTag.label}
                   </div>
                 )}
               </div>
@@ -176,7 +178,11 @@ function PositionedLayout({
                 {card?.current_name || card?.name || '—'}
                 {card?.reversed && <span className="spread-display__reversed-badge"> R</span>}
               </span>
-              {birthTag && <span className="spread-display__legend-birth">{birthTag}</span>}
+              {birthTag && (
+                <span className={`spread-display__legend-birth spread-display__sys--${birthTag.system}`}>
+                  {birthTag.label}
+                </span>
+              )}
             </div>
           );
         })}
@@ -196,7 +202,7 @@ function SimpleCardRow({
   spreadName: string | null;
   deckName: string | null;
   onCardDoubleClick?: (cardId: number) => void;
-  birthLabels?: Map<string, string>;
+  birthLabels?: Map<string, BirthCardTag>;
 }) {
   return (
     <div className="spread-display">
@@ -234,7 +240,7 @@ function CardSlot({
   slotWidth?: number;
   slotHeight?: number;
   onDoubleClick?: (cardId: number) => void;
-  birthLabel?: string;
+  birthLabel?: BirthCardTag;
 }) {
   const handleDoubleClick = () => {
     if (card.card_id && onDoubleClick) {
@@ -267,7 +273,7 @@ function CardSlot({
 
   return (
     <div
-      className={`spread-display__card ${card.reversed ? 'spread-display__card--reversed' : ''} ${card.card_id && onDoubleClick ? 'spread-display__card--clickable' : ''} ${birthLabel ? 'spread-display__card--birth' : ''}`}
+      className={`spread-display__card ${card.reversed ? 'spread-display__card--reversed' : ''} ${card.card_id && onDoubleClick ? 'spread-display__card--clickable' : ''} ${birthLabel ? `spread-display__card--birth spread-display__sys--${birthLabel.system}` : ''}`}
       onDoubleClick={handleDoubleClick}
     >
       {card.card_id ? (
@@ -287,7 +293,9 @@ function CardSlot({
         </div>
       )}
       {birthLabel && (
-        <div className="spread-display__birth-tag">{birthLabel}</div>
+        <div className={`spread-display__birth-tag spread-display__sys--${birthLabel.system}`}>
+          {birthLabel.label}
+        </div>
       )}
     </div>
   );

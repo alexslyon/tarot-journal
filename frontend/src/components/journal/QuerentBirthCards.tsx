@@ -20,6 +20,15 @@ import { cardThumbnailUrl } from '../../api/images';
 import type { Profile } from '../../types';
 import './QuerentBirthCards.css';
 
+/** Which system(s) flagged a card, for the color coding: birth
+ *  cards gold, name cards violet, both when the systems overlap. */
+export type IndicationSystem = 'birth' | 'name' | 'both';
+
+export interface BirthCardTag {
+  label: string;
+  system: IndicationSystem;
+}
+
 interface QuerentCardEntry {
   label: string;
   cardName: string;
@@ -29,11 +38,12 @@ interface QuerentCardEntry {
 interface QuerentCardGroup {
   title: string;
   cards: QuerentCardEntry[];
+  system: 'birth' | 'name';
 }
 
 export interface QuerentBirthCardData {
   /** lowercase canonical archetype name → labels ("Soul", "Anna: Soul") */
-  labelsByArchetype: Map<string, string>;
+  labelsByArchetype: Map<string, BirthCardTag>;
   /** For the panel: per-querent grouped card listings. */
   perQuerent: { name: string; groups: QuerentCardGroup[] }[];
   ready: boolean;
@@ -182,13 +192,13 @@ export function useQuerentBirthCards(
 
   return useMemo(() => {
     const canonicalById = new Map(archetypes.map(a => [a.id, a.name]));
-    const labelsByArchetype = new Map<string, string>();
+    const labelsByArchetype = new Map<string, BirthCardTag>();
     const perQuerent: { name: string; groups: QuerentCardGroup[] }[] = [];
     const multi = relevant.length > 1;
 
     relevant.forEach((q, i) => {
       const groups: QuerentCardGroup[] = [];
-      const addGroup = (title: string, entries: LabeledRef[]) => {
+      const addGroup = (title: string, entries: LabeledRef[], system: 'birth' | 'name') => {
         const cards: QuerentCardEntry[] = [];
         for (const { label, ref } of entries) {
           if (!ref) continue;
@@ -198,23 +208,22 @@ export function useQuerentBirthCards(
           cards.push({ label, cardName: canonical, cardId: ref.card_id ?? null });
           const key = canonical.toLowerCase();
           const tagged = multi ? `${q.name}: ${label}` : label;
-          labelsByArchetype.set(
-            key,
-            labelsByArchetype.has(key)
-              ? `${labelsByArchetype.get(key)} · ${tagged}`
-              : tagged,
-          );
+          const prior = labelsByArchetype.get(key);
+          labelsByArchetype.set(key, {
+            label: prior ? `${prior.label} · ${tagged}` : tagged,
+            system: prior && prior.system !== system ? 'both' : (prior?.system ?? system),
+          });
         }
-        if (cards.length) groups.push({ title, cards });
+        if (cards.length) groups.push({ title, cards, system });
       };
 
       const birth = birthResults[i]?.data;
       if (birth) {
-        for (const g of collectBirthGroups(birth)) addGroup(g.title, g.entries);
+        for (const g of collectBirthGroups(birth)) addGroup(g.title, g.entries, 'birth');
       }
       const nameData = nameResults[i]?.data;
       if (nameData) {
-        for (const g of collectNameGroups(nameData)) addGroup(g.title, g.entries);
+        for (const g of collectNameGroups(nameData)) addGroup(g.title, g.entries, 'name');
       }
       if (groups.length) perQuerent.push({ name: q.name, groups });
     });
@@ -255,13 +264,19 @@ export function QuerentBirthCardsPanel({ data, onCardClick }: {
         </span>
         Birth &amp; name cards
       </button>
+      {open && (
+        <div className="querent-birth-cards__legend" aria-hidden="true">
+          <span className="querent-birth-cards__legend-item querent-birth-cards__legend-item--birth">birth cards</span>
+          <span className="querent-birth-cards__legend-item querent-birth-cards__legend-item--name">name cards</span>
+        </div>
+      )}
       {open && data.perQuerent.map(q => (
         <div key={q.name} className="querent-birth-cards__querent">
           {data.perQuerent.length > 1 && (
             <span className="querent-birth-cards__querent-name">{q.name}</span>
           )}
           {q.groups.map(group => (
-            <div key={group.title} className="querent-birth-cards__group">
+            <div key={group.title} className={`querent-birth-cards__group querent-birth-cards__group--${group.system}`}>
               <div className="querent-birth-cards__group-title">{group.title}</div>
               <div className="querent-birth-cards__tiles">
                 {group.cards.map((entry, i) => {
