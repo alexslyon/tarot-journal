@@ -378,7 +378,16 @@ How to respond — these rules are strict, the app parses your output:
       });
       const bits = [`${result.applied} applied`];
       if (result.skipped) bits.push(`${result.skipped} already present`);
-      if (result.errors.length) bits.push(`${result.errors.length} failed`);
+      if (result.errors.length) {
+        bits.push(`${result.errors.length} failed (details in the chat panel)`);
+        // Writes map 1:1 onto the checked rows, so errors name their entry.
+        const details = result.errors.map(e =>
+          `• ${rows[e.index]?.resolved ?? `write #${e.index + 1}`} — ${e.error}`);
+        setDisplay(d => [...d, {
+          role: 'note',
+          text: `${result.errors.length} write${result.errors.length === 1 ? '' : 's'} failed:\n${details.join('\n')}`,
+        }]);
+      }
       showToast(`Source texts: ${bits.join(', ')}.`, result.errors.length ? 'error' : 'success');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Apply failed', 'error');

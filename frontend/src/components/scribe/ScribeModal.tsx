@@ -775,6 +775,9 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
 
   const handleApply = async () => {
     const writes: ScribeWrite[] = [];
+    // Parallel to `writes`: a human label per write, so per-row apply
+    // failures can be reported by name instead of a bare count.
+    const writeLabels: string[] = [];
     // Everything skipped is surfaced with its actual reason — never silent.
     const unknownLabels = new Set<string>();
     const cardsWithoutDeckCard = new Set<string>();
@@ -790,6 +793,7 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
             field_id: sourceField.id,
             content,
           });
+          writeLabels.push(`${p.card} → ${label}`);
         } else if (isCardField && p.cardId) {
           writes.push({
             target: 'card',
@@ -797,6 +801,7 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
             field_name: label,
             content,
           });
+          writeLabels.push(`${p.card} → ${label} (card field)`);
         } else if (isCardField && !p.cardId) {
           cardsWithoutDeckCard.add(p.card);
         } else if (!sourceField) {
@@ -826,6 +831,9 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
         content: c.meaning,
         source_id: source?.id ?? null,
       });
+      writeLabels.push(`${c.cards
+        .map((n, j) => `${n}${c.reversed?.[j] ? ' (rev)' : ''}`)
+        .join(' + ')} (combination)`);
     }
     if (!writes.length) {
       showToast('Nothing to apply — the checked cards have no writable fields.');
@@ -846,7 +854,15 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
         ? ` (${result.skipped} duplicate combination${result.skipped === 1 ? '' : 's'} skipped)`
         : '';
       if (result.errors.length) {
-        showToast(`Applied ${result.applied} of ${writes.length} — ${result.errors.length} failed.${dupNote}`);
+        // Name every failure with its server-reported reason, in the
+        // chat log where it stays visible and copyable.
+        const details = result.errors.map(e =>
+          `• ${writeLabels[e.index] ?? `write #${e.index + 1}`} — ${e.error}`);
+        setDisplayMessages(d => [...d, {
+          role: 'note',
+          text: `${result.errors.length} write${result.errors.length === 1 ? '' : 's'} failed:\n${details.join('\n')}`,
+        }]);
+        showToast(`Applied ${result.applied} of ${writes.length} — ${result.errors.length} failed (details in the chat panel).${dupNote}`);
       } else {
         showToast(`Imported ${result.applied} entries from ${displayName}.${dupNote}`, 'success');
         onClose();
