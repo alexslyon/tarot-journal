@@ -117,6 +117,7 @@ export default function NumerologySection() {
                 kind="rank"
                 entityKey={`${rankType}::${rank.rank}`}
                 label={`the ${rank.rank} rank in ${rankType}`}
+                cartomancyType={rankType}
               />
             </div>
           ))}

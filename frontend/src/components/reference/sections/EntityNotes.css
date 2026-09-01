@@ -14,6 +14,26 @@
   margin-bottom: 4px;
 }
 
+.entity-notes__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.entity-notes__chevron {
+  display: inline-block;
+  color: var(--tj-text-faint);
+  transition: transform 0.12s;
+}
+
+.entity-notes__chevron--open {
+  transform: rotate(90deg);
+}
+
 .entity-notes__source {
   font-size: var(--tj-size-small);
   font-weight: var(--tj-ui-weight-strong);

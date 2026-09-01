@@ -91,6 +91,7 @@ export default function SuitsSection() {
                 kind="suit"
                 entityKey={`${data.type}::${suit.name}`}
                 label={`${suit.name} in ${data.type}`}
+                cartomancyType={data.type}
               />
             </div>
           )}

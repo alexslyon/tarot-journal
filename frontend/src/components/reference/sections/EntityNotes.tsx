@@ -1,8 +1,9 @@
 /**
  * Source texts on a reference entity (a sign, planet, sephira, path,
- * chakra, or number) — the entity-level counterpart of the Archetype
- * Notes page. One rich-text note per reference source; sources are
- * managed in Settings → Reference Sources.
+ * chakra, number, suit, or rank) — the entity-level counterpart of
+ * the Archetype Notes page. One rich-text note per reference source;
+ * sources are managed in Settings → Reference Sources. Notes render
+ * collapsed behind a chevron disclosure, one per source.
  */
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -24,6 +25,9 @@ interface EntityNotesProps {
   entityKey: string;
   /** What to call the entity in empty-state copy, e.g. "Leo". */
   label?: string;
+  /** When the entity is deck-type-scoped (suits, ranks), only sources
+   *  covering this cartomancy type are offered for attribution. */
+  cartomancyType?: string;
 }
 
 interface DraftState {
@@ -33,10 +37,18 @@ interface DraftState {
   noteId?: number;
 }
 
-export default function EntityNotes({ kind, entityKey, label }: EntityNotesProps) {
+export default function EntityNotes({
+  kind,
+  entityKey,
+  label,
+  cartomancyType,
+}: EntityNotesProps) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Which notes are expanded — collapsed by default so long source
+  // texts don't swallow the panel.
+  const [openNoteIds, setOpenNoteIds] = useState<Set<number>>(new Set());
 
   const { data } = useQuery({
     queryKey: ['entity-notes', kind, entityKey],
@@ -49,14 +61,23 @@ export default function EntityNotes({ kind, entityKey, label }: EntityNotesProps
     queryFn: () => getReferenceSources(),
     enabled: draft !== null,
   });
-  // One note per source per entity: offer only sources without one
-  // (except the one already being edited).
+  // Type-scoped entities only offer sources covering their deck type;
+  // one note per source per entity (except the one being edited).
   const usedSourceIds = new Set(notes.map(n => n.source_id));
-  const selectableSources = sources.filter(
-    s => !usedSourceIds.has(s.id) ||
+  const selectableSources = sources
+    .filter(s => !cartomancyType
+      || (s.cartomancy_types || []).includes(cartomancyType))
+    .filter(s => !usedSourceIds.has(s.id) ||
       (draft?.noteId !== undefined &&
-        notes.find(n => n.id === draft.noteId)?.source_id === s.id),
-  );
+        notes.find(n => n.id === draft.noteId)?.source_id === s.id));
+
+  const toggleNote = (id: number) => {
+    setOpenNoteIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ['entity-notes', kind, entityKey] });
@@ -97,11 +118,26 @@ export default function EntityNotes({ kind, entityKey, label }: EntityNotesProps
         </p>
       )}
 
-      {notes.map(note => (
-        draft?.noteId === note.id ? null : (
+      {notes.map(note => {
+        if (draft?.noteId === note.id) return null;
+        const open = openNoteIds.has(note.id);
+        return (
           <div key={note.id} className="entity-notes__note">
             <div className="entity-notes__note-head">
-              <span className="entity-notes__source">{note.source_name}</span>
+              <button
+                type="button"
+                className="entity-notes__toggle"
+                aria-expanded={open}
+                onClick={() => toggleNote(note.id)}
+              >
+                <span
+                  className={`entity-notes__chevron ${open ? 'entity-notes__chevron--open' : ''}`}
+                  aria-hidden="true"
+                >
+                  ▸
+                </span>
+                <span className="entity-notes__source">{note.source_name}</span>
+              </button>
               <span className="entity-notes__actions">
                 <button
                   type="button"
@@ -126,10 +162,10 @@ export default function EntityNotes({ kind, entityKey, label }: EntityNotesProps
                 </button>
               </span>
             </div>
-            <RichTextViewer content={note.content} />
+            {open && <RichTextViewer content={note.content} />}
           </div>
-        )
-      ))}
+        );
+      })}
 
       {draft ? (
         <div className="entity-notes__editor">
@@ -151,8 +187,9 @@ export default function EntityNotes({ kind, entityKey, label }: EntityNotesProps
           </label>
           {selectableSources.length === 0 && draft.noteId === undefined && (
             <p className="ref-detail__note">
-              Every source already has a note here — add more sources in
-              Settings → Reference Sources.
+              {cartomancyType
+                ? `No ${cartomancyType} sources available — cover the type on a source in Settings → Reference Sources.`
+                : 'Every source already has a note here — add more sources in Settings → Reference Sources.'}
             </p>
           )}
           <RichTextEditor
