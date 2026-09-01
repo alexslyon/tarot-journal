@@ -315,9 +315,12 @@ def test_suits_and_ranks_endpoints(client):
     assert [c['name'] for c in wands['courts']] == [
         'Page of Wands', 'Knight of Wands', 'Queen of Wands', 'King of Wands']
 
-    # A derived type: suits and pip/court split come from archetypes
+    # A derived type: suits and pip/court split come from archetypes;
+    # suit order mirrors the Tarot suits through their counterparts
     data = client.get('/api/reference/suits?type=Playing Cards').get_json()
     assert data['type'] == 'Playing Cards'
+    assert [s['name'] for s in data['suits']] == [
+        'Clubs', 'Hearts', 'Spades', 'Diamonds']
     by_name = {s['name']: s for s in data['suits']}
     hearts = by_name['Hearts']
     assert [p['name'] for p in hearts['pips']][:2] == [

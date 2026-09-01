@@ -384,6 +384,22 @@ def _is_court_rank(label):
     return _RANK_ORDER.get(label.lower(), 0) >= 11
 
 
+# Suit display order mirrors the Tarot suits (Wands, Cups, Swords,
+# Pentacles) through their standard counterparts — so playing-card
+# suits run Clubs, Hearts, Spades, Diamonds. Unknown suit names
+# (runic aetts, custom types) follow alphabetically.
+_SUIT_ORDER = {
+    'wands': 0, 'clubs': 0, 'bastos': 0,
+    'cups': 1, 'hearts': 1, 'copas': 1,
+    'swords': 2, 'spades': 2, 'espadas': 2,
+    'pentacles': 3, 'diamonds': 3, 'oros': 3,
+}
+
+
+def _suit_sort_key(name):
+    return (_SUIT_ORDER.get(name.lower(), 99), name)
+
+
 def _suit_types(db):
     """Deck types whose archetypes carry suits (Major Arcana excluded),
     Tarot first, the rest alphabetical. Petit Lenormand qualifies
@@ -422,7 +438,8 @@ def _suited_archetypes(db, cartomancy_type):
             'rank': _rank_label(r),
             'card_id': card_ids.get(r['name'].lower()),
         })
-    out.sort(key=lambda c: (_rank_sort_key(c['rank']), c['name']))
+    out.sort(key=lambda c: (_rank_sort_key(c['rank']),
+                            _suit_sort_key(c['suit']), c['name']))
     return out
 
 
@@ -461,7 +478,7 @@ def suits():
             out.append({**suit, 'pips': pips, 'courts': courts})
     else:
         cards = _suited_archetypes(db, ctype)
-        suit_names = sorted({c['suit'] for c in cards})
+        suit_names = sorted({c['suit'] for c in cards}, key=_suit_sort_key)
         out = []
         for suit_name in suit_names:
             of_suit = [c for c in cards if c['suit'] == suit_name]
