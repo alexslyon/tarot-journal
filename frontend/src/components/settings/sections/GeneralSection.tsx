@@ -12,6 +12,7 @@ import { getCartomancyTypes, getDecks } from '../../../api/decks';
 import type { Profile, Deck, CartomancyType } from '../../../types';
 import SearchCombobox from '../../common/SearchCombobox';
 import '../SettingsTab.css';
+import IndicationColorsSettings from './IndicationColorsSettings';
 
 const BASE_SIZES = { size_title: 22, size_heading: 14, size_body: 13, size_small: 11 };
 
@@ -214,6 +215,8 @@ export default function GeneralSection() {
       </section>
 
       {/* Astrology Section */}
+      <IndicationColorsSettings />
+
       <section className="settings-tab__section">
         <h3 className="settings-tab__section-title">Astrology Charts</h3>
         <p className="settings-tab__hint">

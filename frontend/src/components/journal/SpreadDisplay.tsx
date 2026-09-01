@@ -24,6 +24,26 @@ function birthLabelFor(
   return birthLabels.get((card.archetype || '').toLowerCase());
 }
 
+/** Inline CSS custom props carrying a tag's colors into the
+ *  highlight styles; a second distinct color drives the inner ring. */
+function indicateStyle(tag: BirthCardTag): React.CSSProperties {
+  return {
+    '--indicate': tag.colors[0],
+    '--indicate-2': tag.colors[1] ?? tag.colors[0],
+  } as React.CSSProperties;
+}
+
+/** Label text style: single color, or a gradient across all colors. */
+function indicateTextStyle(tag: BirthCardTag): React.CSSProperties {
+  if (tag.colors.length < 2) return { color: tag.colors[0] };
+  return {
+    backgroundImage: `linear-gradient(90deg, ${tag.colors.join(', ')})`,
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent',
+  };
+}
+
 export default function SpreadDisplay({ reading, onCardDoubleClick, birthLabels }: SpreadDisplayProps) {
   const { data: spread } = useQuery<Spread>({
     queryKey: ['spread', reading.spread_id],
@@ -97,8 +117,9 @@ function PositionedLayout({
             return (
               <div
                 key={idx}
-                className={`spread-display__slot ${card?.reversed ? 'spread-display__slot--reversed' : ''} ${birthTag ? `spread-display__slot--birth spread-display__sys--${birthTag.system}` : ''}`}
+                className={`spread-display__slot ${card?.reversed ? 'spread-display__slot--reversed' : ''} ${birthTag ? `spread-display__slot--birth ${birthTag.colors.length > 1 ? 'spread-display__slot--multi' : ''}` : ''}`}
                 style={{
+                  ...(birthTag ? indicateStyle(birthTag) : undefined),
                   position: 'absolute',
                   left: `${leftPct}%`,
                   top: `${topPct}%`,
@@ -125,7 +146,10 @@ function PositionedLayout({
                   </div>
                 )}
                 {birthTag && (
-                  <div className={`spread-display__birth-tag spread-display__birth-tag--overlay spread-display__sys--${birthTag.system}`}>
+                  <div
+                    className="spread-display__birth-tag spread-display__birth-tag--overlay"
+                    style={{ ...indicateStyle(birthTag), ...indicateTextStyle(birthTag) }}
+                  >
                     {birthTag.label}
                   </div>
                 )}
@@ -179,7 +203,10 @@ function PositionedLayout({
                 {card?.reversed && <span className="spread-display__reversed-badge"> R</span>}
               </span>
               {birthTag && (
-                <span className={`spread-display__legend-birth spread-display__sys--${birthTag.system}`}>
+                <span
+                  className="spread-display__legend-birth"
+                  style={indicateTextStyle(birthTag)}
+                >
                   {birthTag.label}
                 </span>
               )}
@@ -273,7 +300,8 @@ function CardSlot({
 
   return (
     <div
-      className={`spread-display__card ${card.reversed ? 'spread-display__card--reversed' : ''} ${card.card_id && onDoubleClick ? 'spread-display__card--clickable' : ''} ${birthLabel ? `spread-display__card--birth spread-display__sys--${birthLabel.system}` : ''}`}
+      className={`spread-display__card ${card.reversed ? 'spread-display__card--reversed' : ''} ${card.card_id && onDoubleClick ? 'spread-display__card--clickable' : ''} ${birthLabel ? `spread-display__card--birth ${birthLabel.colors.length > 1 ? 'spread-display__card--multi' : ''}` : ''}`}
+      style={birthLabel ? indicateStyle(birthLabel) : undefined}
       onDoubleClick={handleDoubleClick}
     >
       {card.card_id ? (
@@ -293,7 +321,7 @@ function CardSlot({
         </div>
       )}
       {birthLabel && (
-        <div className={`spread-display__birth-tag spread-display__sys--${birthLabel.system}`}>
+        <div className="spread-display__birth-tag" style={indicateTextStyle(birthLabel)}>
           {birthLabel.label}
         </div>
       )}

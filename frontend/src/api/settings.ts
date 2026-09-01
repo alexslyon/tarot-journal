@@ -109,3 +109,16 @@ export async function getCacheStats(): Promise<CacheStats> {
 export async function clearCache(): Promise<void> {
   await api.post('/api/cache/clear');
 }
+
+// === Indicate Birth & Name Cards colors ===
+
+export async function getIndicationColors(): Promise<{ colors: Record<string, string> }> {
+  const res = await api.get('/api/settings/indication-colors');
+  return res.data;
+}
+
+export async function updateIndicationColors(
+  colors: Record<string, string>,
+): Promise<void> {
+  await api.put('/api/settings/indication-colors', { colors });
+}

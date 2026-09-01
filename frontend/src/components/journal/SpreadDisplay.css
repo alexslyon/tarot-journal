@@ -252,19 +252,14 @@
 }
 
 /* ── Birth & name card highlighting ("Indicate Birth Cards") ──
-   Content-semantic colors, not theme-driven: gold marks birth cards,
-   violet marks name cards, and a card flagged by both systems wears
-   both (gold ring + violet ring, gradient text). Set per element via
-   the spread-display__sys--birth/--name/--both modifier. */
+   Per-role colors set inline as --indicate / --indicate-2 (the roles'
+   palette lives in Settings → General); a card flagged by roles with
+   two different colors gets a frame in the first plus an inner ring
+   in the second, and gradient label text (set inline). */
 .spread-display {
-  --indicate-birth: #d9a54a;
-  --indicate-name: #9b7fd4;
-  --indicate: var(--indicate-birth);
+  --indicate: #d9a54a;
+  --indicate-2: var(--indicate);
 }
-
-.spread-display .spread-display__sys--birth { --indicate: var(--indicate-birth); }
-.spread-display .spread-display__sys--name { --indicate: var(--indicate-name); }
-.spread-display .spread-display__sys--both { --indicate: var(--indicate-birth); }
 
 /* Simple rows: outline the card image directly */
 .spread-display__card--birth .spread-display__card-img {
@@ -273,8 +268,8 @@
   border-radius: 4px;
 }
 
-.spread-display__card--birth.spread-display__sys--both .spread-display__card-img {
-  box-shadow: 0 0 0 4px var(--indicate-name);
+.spread-display__card--birth.spread-display__card--multi .spread-display__card-img {
+  box-shadow: 0 0 0 4px var(--indicate-2);
 }
 
 /* Positioned slots clip everything to their bounds (overflow:
@@ -290,9 +285,9 @@
   z-index: 6;
 }
 
-/* Both systems: a second, inner violet ring inside the gold frame */
-.spread-display__slot--birth.spread-display__sys--both::after {
-  box-shadow: inset 0 0 0 2px var(--indicate-name);
+/* Multiple role colors: a second, inner ring inside the frame */
+.spread-display__slot--birth.spread-display__slot--multi::after {
+  box-shadow: inset 0 0 0 2px var(--indicate-2);
 }
 
 .spread-display__birth-tag {
@@ -319,19 +314,6 @@
   z-index: 7;
   pointer-events: none;
   margin-top: 0;
-}
-
-.spread-display__birth-tag.spread-display__sys--both,
-.spread-display__legend-birth.spread-display__sys--both {
-  background-image: linear-gradient(90deg, var(--indicate-birth), var(--indicate-name));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.spread-display__birth-tag--overlay.spread-display__sys--both {
-  background-color: var(--bg-primary);
-  border-color: var(--indicate-name);
 }
 
 .spread-display__legend-birth {

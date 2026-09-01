@@ -16,23 +16,24 @@ import {
   type NameCardsResult,
 } from '../../api/nameCards';
 import { getArchetypes, type Archetype } from '../../api/correspondences';
+import { useIndicationColors } from '../../utils/indicationColors';
 import { cardThumbnailUrl } from '../../api/images';
 import type { Profile } from '../../types';
 import './QuerentBirthCards.css';
 
-/** Which system(s) flagged a card, for the color coding: birth
- *  cards gold, name cards violet, both when the systems overlap. */
-export type IndicationSystem = 'birth' | 'name' | 'both';
-
+/** A flagged card's combined tag: the merged label plus the distinct
+ *  per-role colors that flagged it (in role order) — one color draws
+ *  the frame, a second draws the inner ring, 2+ gradient the text. */
 export interface BirthCardTag {
   label: string;
-  system: IndicationSystem;
+  colors: string[];
 }
 
 interface QuerentCardEntry {
   label: string;
   cardName: string;
   cardId: number | null;
+  color: string;
 }
 
 interface QuerentCardGroup {
@@ -60,6 +61,8 @@ type CardRefLike = {
 interface LabeledRef {
   label: string;
   ref: CardRefLike;
+  /** Role key from INDICATION_ROLES — drives the color. */
+  role: string;
 }
 
 /** Birth-card groups, mirroring the Birth Cards modal's sections. */
@@ -70,34 +73,36 @@ function collectBirthGroups(data: BirthCardProfile): {
   const hiddenLabel = data.age >= 29 ? 'Teacher' : 'Shadow';
   const core: LabeledRef[] = [];
   if (data.personality === data.soul) {
-    core.push({ label: 'Personality & Soul', ref: c.personality });
+    core.push({ label: 'Personality & Soul', ref: c.personality, role: 'personality' });
   } else {
-    core.push({ label: 'Personality', ref: c.personality });
-    core.push({ label: 'Soul', ref: c.soul });
+    core.push({ label: 'Personality', ref: c.personality, role: 'personality' });
+    core.push({ label: 'Soul', ref: c.soul, role: 'soul' });
   }
-  core.push({ label: 'Teacher', ref: c.teacher });
-  for (const card of c.hidden_factor) core.push({ label: hiddenLabel, ref: card });
+  core.push({ label: 'Teacher', ref: c.teacher, role: 'teacher' });
+  for (const card of c.hidden_factor) {
+    core.push({ label: hiddenLabel, ref: card, role: 'hidden_factor' });
+  }
 
   return [
     { title: 'Birth Cards', entries: core },
     {
       title: 'Lessons & Opportunities',
       entries: c.lessons_and_opportunities.map(card => ({
-        label: 'Lesson & Opportunity', ref: card,
+        label: 'Lesson & Opportunity', ref: card, role: 'lesson',
       })),
     },
     {
       title: 'Zodiacal',
       entries: [
-        { label: 'Zodiacal Lesson', ref: c.zodiacal },
-        { label: 'Zodiacal Ruler', ref: c.zodiacal_sign_ruler },
-        { label: 'Planetary Ruler', ref: c.zodiacal_planet_ruler },
-        { label: 'Court Ruler', ref: c.decan_court },
+        { label: 'Zodiacal Lesson', ref: c.zodiacal, role: 'zodiacal_lesson' },
+        { label: 'Zodiacal Ruler', ref: c.zodiacal_sign_ruler, role: 'zodiacal_ruler' },
+        { label: 'Planetary Ruler', ref: c.zodiacal_planet_ruler, role: 'planetary_ruler' },
+        { label: 'Court Ruler', ref: c.decan_court, role: 'court_ruler' },
       ],
     },
     {
       title: `Year Card ${data.reference_year}`,
-      entries: [{ label: `Year Card ${data.reference_year}`, ref: c.year_card }],
+      entries: [{ label: `Year Card ${data.reference_year}`, ref: c.year_card, role: 'year_card' }],
     },
   ];
 }
@@ -108,29 +113,29 @@ function collectNameGroups(data: NameCardsResult): {
 }[] {
   const c = data.cards;
   const destiny: LabeledRef[] = [
-    { label: 'Theme Note', ref: c.theme_note },
-    { label: 'Rhythm', ref: c.rhythm },
-    { label: 'Melody', ref: c.melody },
+    { label: 'Theme Note', ref: c.theme_note, role: 'theme_note' },
+    { label: 'Rhythm', ref: c.rhythm, role: 'rhythm' },
+    { label: 'Melody', ref: c.melody, role: 'melody' },
   ];
   for (const card of c.hidden_factor_name) {
-    destiny.push({ label: 'Hidden Factor (Name)', ref: card });
+    destiny.push({ label: 'Hidden Factor (Name)', ref: card, role: 'hidden_factor_name' });
   }
-  destiny.push({ label: 'Life Potential', ref: c.life_potential });
+  destiny.push({ label: 'Life Potential', ref: c.life_potential, role: 'life_potential' });
 
   return [
     {
       title: 'Theme Chord',
       entries: [
-        { label: 'First Name', ref: c.first_name },
-        { label: 'Middle Name', ref: c.middle_name },
-        { label: 'Last Name', ref: c.last_name },
+        { label: 'First Name', ref: c.first_name, role: 'first_name' },
+        { label: 'Middle Name', ref: c.middle_name, role: 'middle_name' },
+        { label: 'Last Name', ref: c.last_name, role: 'last_name' },
       ],
     },
     {
       title: 'Inner & Outer',
       entries: [
-        { label: 'Desires & Inner Motivation', ref: c.desires_inner_motivation },
-        { label: 'Outer Persona', ref: c.outer_persona },
+        { label: 'Desires & Inner Motivation', ref: c.desires_inner_motivation, role: 'desires_inner' },
+        { label: 'Outer Persona', ref: c.outer_persona, role: 'outer_persona' },
       ],
     },
     { title: 'Theme Note · Rhythm · Melody', entries: destiny },
@@ -152,6 +157,7 @@ export function useQuerentBirthCards(
     enabled: enabled && relevant.length > 0,
     staleTime: 60_000,
   });
+  const { colorFor } = useIndicationColors(enabled && relevant.length > 0);
 
   const birthResults = useQueries({
     queries: relevant.map(q => ({
@@ -200,18 +206,21 @@ export function useQuerentBirthCards(
       const groups: QuerentCardGroup[] = [];
       const addGroup = (title: string, entries: LabeledRef[], system: 'birth' | 'name') => {
         const cards: QuerentCardEntry[] = [];
-        for (const { label, ref } of entries) {
+        for (const { label, ref, role } of entries) {
           if (!ref) continue;
           const canonical = (ref.archetype_id != null
             ? canonicalById.get(ref.archetype_id)
             : undefined) ?? ref.name;
-          cards.push({ label, cardName: canonical, cardId: ref.card_id ?? null });
+          const color = colorFor(role);
+          cards.push({ label, cardName: canonical, cardId: ref.card_id ?? null, color });
           const key = canonical.toLowerCase();
           const tagged = multi ? `${q.name}: ${label}` : label;
           const prior = labelsByArchetype.get(key);
           labelsByArchetype.set(key, {
             label: prior ? `${prior.label} · ${tagged}` : tagged,
-            system: prior && prior.system !== system ? 'both' : (prior?.system ?? system),
+            colors: prior && !prior.colors.includes(color)
+              ? [...prior.colors, color]
+              : (prior?.colors ?? [color]),
           });
         }
         if (cards.length) groups.push({ title, cards, system });
@@ -237,7 +246,7 @@ export function useQuerentBirthCards(
         settled(birthResults[i], !!q.birth_date)
         && settled(nameResults[i], !!q.full_name)),
     };
-  }, [archetypes, birthResults, nameResults, relevant]);
+  }, [archetypes, birthResults, nameResults, relevant, colorFor]);
 }
 
 /** Collapsible mini-tile listing under the querent line. */
@@ -264,19 +273,17 @@ export function QuerentBirthCardsPanel({ data, onCardClick }: {
         </span>
         Birth &amp; name cards
       </button>
-      {open && (
-        <div className="querent-birth-cards__legend" aria-hidden="true">
-          <span className="querent-birth-cards__legend-item querent-birth-cards__legend-item--birth">birth cards</span>
-          <span className="querent-birth-cards__legend-item querent-birth-cards__legend-item--name">name cards</span>
-        </div>
-      )}
       {open && data.perQuerent.map(q => (
         <div key={q.name} className="querent-birth-cards__querent">
           {data.perQuerent.length > 1 && (
             <span className="querent-birth-cards__querent-name">{q.name}</span>
           )}
           {q.groups.map(group => (
-            <div key={group.title} className={`querent-birth-cards__group querent-birth-cards__group--${group.system}`}>
+            <div
+              key={group.title}
+              className="querent-birth-cards__group querent-birth-cards__group--colored"
+              style={{ borderLeftColor: group.cards[0]?.color }}
+            >
               <div className="querent-birth-cards__group-title">{group.title}</div>
               <div className="querent-birth-cards__tiles">
                 {group.cards.map((entry, i) => {
@@ -299,7 +306,10 @@ export function QuerentBirthCardsPanel({ data, onCardClick }: {
                           {entry.cardName}
                         </div>
                       )}
-                      <span className="querent-birth-cards__tile-caption">
+                      <span
+                        className="querent-birth-cards__tile-caption"
+                        style={{ color: entry.color }}
+                      >
                         {entry.label}
                       </span>
                     </button>

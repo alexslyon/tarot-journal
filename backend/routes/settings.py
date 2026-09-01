@@ -2,7 +2,9 @@
 Settings endpoints: theme, defaults, backup/restore, cache management.
 """
 
+import json
 import os
+import re
 import tempfile
 from flask import Blueprint, jsonify, request, current_app
 from theme_config import get_theme, PRESET_THEMES
@@ -208,3 +210,42 @@ def clear_cache():
     cache = get_cache()
     cache.clear_cache()
     return jsonify({'ok': True})
+
+
+# === Birth & name card indication colors ======================
+
+INDICATION_COLORS_KEY = 'indication_colors'
+_HEX_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
+
+
+@settings_bp.route('/api/settings/indication-colors')
+def get_indication_colors():
+    db = current_app.config['DB']
+    raw = db.get_setting(INDICATION_COLORS_KEY)
+    try:
+        colors = json.loads(raw) if raw else {}
+    except ValueError:
+        colors = {}
+    return jsonify({'colors': colors if isinstance(colors, dict) else {}})
+
+
+@settings_bp.route('/api/settings/indication-colors', methods=['PUT'])
+def set_indication_colors():
+    """Store per-role colors for the Indicate Birth & Name Cards
+    feature. Body: {"colors": {"<role key>": "#rrggbb", ...}} — the
+    full mapping replaces the stored one; unknown roles are allowed
+    (the frontend owns the role registry), bad hex values are not."""
+    db = current_app.config['DB']
+    data = request.get_json() or {}
+    colors = data.get('colors')
+    if not isinstance(colors, dict):
+        return jsonify({'error': 'colors must be an object'}), 400
+    cleaned = {}
+    for key, value in colors.items():
+        if not isinstance(key, str) or not key.strip():
+            return jsonify({'error': 'color keys must be strings'}), 400
+        if not isinstance(value, str) or not _HEX_RE.match(value):
+            return jsonify({'error': f'{key}: colors must be #rrggbb hex'}), 400
+        cleaned[key.strip()] = value.lower()
+    db.set_setting(INDICATION_COLORS_KEY, json.dumps(cleaned))
+    return jsonify({'colors': cleaned})

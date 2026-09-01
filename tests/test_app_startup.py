@@ -74,3 +74,23 @@ def test_existing_data_dir_db_wins_over_legacy(isolated_dirs):
         assert os.path.exists(fake_repo / "tarot_journal.db")
     finally:
         db.close()
+
+
+def test_indication_colors_roundtrip(client):
+    """Per-role indication colors: empty by default, full-replace PUT,
+    hex validation."""
+    assert client.get('/api/settings/indication-colors').get_json() == {'colors': {}}
+    r = client.put('/api/settings/indication-colors', json={
+        'colors': {'soul': '#AABB00', 'rhythm': '#123456'}})
+    assert r.status_code == 200
+    got = client.get('/api/settings/indication-colors').get_json()['colors']
+    assert got == {'soul': '#aabb00', 'rhythm': '#123456'}
+    # Full replace drops omitted keys
+    client.put('/api/settings/indication-colors', json={'colors': {'soul': '#ffffff'}})
+    assert client.get('/api/settings/indication-colors').get_json()['colors'] == {
+        'soul': '#ffffff'}
+    # Bad hex rejected, store untouched
+    assert client.put('/api/settings/indication-colors', json={
+        'colors': {'soul': 'gold'}}).status_code == 400
+    assert client.get('/api/settings/indication-colors').get_json()['colors'] == {
+        'soul': '#ffffff'}
