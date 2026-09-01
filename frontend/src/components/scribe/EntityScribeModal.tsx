@@ -13,7 +13,7 @@
  * Applied notes merge into each entity's one note per source (append,
  * never clobber — the backend's entity_note target).
  */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Modal, { ModalCancelButton } from '../common/Modal';
 import { useToast } from '../../context/ToastContext';
@@ -176,6 +176,18 @@ export default function EntityScribeModal({
     if (kind === 'number') return (numberData?.entries ?? []).map(e => e.number);
     return STATIC_ENTITIES[kind] ?? [];
   }, [kind, suitData, rankData, numberData]);
+
+  // Deck-type-scoped kinds (suits, ranks) only offer sources covering
+  // that type — mirroring the entity-notes picker.
+  const selectableSources = typed && resolvedType
+    ? sources.filter(s => (s.cartomancy_types || []).includes(resolvedType))
+    : sources;
+  // A source chosen under one kind/type may not qualify after a switch.
+  useEffect(() => {
+    if (sourceId !== '' && !selectableSources.some(s => s.id === sourceId)) {
+      setSourceId('');
+    }
+  }, [sourceId, selectableSources]);
 
   const resolveEntity = (raw: string): string => {
     const n = norm(raw);
@@ -437,8 +449,14 @@ How to respond — these rules are strict, the app parses your output:
               onChange={(e) => setSourceId(e.target.value === '' ? '' : Number(e.target.value))}
             >
               <option value="">Choose a source…</option>
-              {sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {selectableSources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
+            {typed && resolvedType && selectableSources.length === 0 && (
+              <p className="scribe__hint">
+                No {resolvedType} sources yet — cover the type on a source
+                in Settings → Reference Sources first.
+              </p>
+            )}
           </div>
 
           <ScribeMaterialsField
