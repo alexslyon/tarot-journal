@@ -7,25 +7,29 @@
  * chunking, and the chat pane.
  *
  * One entity kind per import (deliberate — a chapter on the suits, a
- * chapter on the sephiroth). Replies use an "entries" JSON key,
- * disjoint from card mode's "proposals"/"combinations", so a future
- * merged mode could emit all three in one block (option-2 door).
+ * chapter on the sephiroth); the card Scribe's merged imports handle
+ * whole books emitting "proposals"/"combinations"/"entries" together.
+ * Both render from the same user-editable Scribe prompt template.
  * Applied notes merge into each entity's one note per source (append,
  * never clobber — the backend's entity_note target).
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Modal, { ModalCancelButton } from '../common/Modal';
 import { useToast } from '../../context/ToastContext';
 import { getReferenceSources } from '../../api/referenceSources';
-import {
-  getNumerologyReference,
-  getRanksReference,
-  getSuitsReference,
-  type EntityKind,
-} from '../../api/reference';
+import type { EntityKind } from '../../api/reference';
 import { applyScribeWrites, type ScribeWrite } from '../../api/scribe';
 import { llmChat, type LlmMessage } from '../../api/llm';
+import { renderScribePrompt, useActivePrompt } from '../../utils/assistantPrompts';
+import {
+  ENTITY_KIND_LABELS,
+  TYPED_ENTITY_KINDS,
+  entityTextToHtml,
+  normEntity,
+  resolveEntityName,
+  useEntityRosters,
+} from './entityRosters';
 import type { ReferenceSource } from '../../types';
 import {
   ScribeChatPane,
@@ -47,68 +51,6 @@ interface EntityScribeModalProps {
   initialKind?: EntityKind;
   /** Preselected deck type, for suit/rank kinds. */
   initialType?: string | null;
-}
-
-export const ENTITY_KIND_LABELS: Record<EntityKind, string> = {
-  sign: 'Astrology — signs',
-  planet: 'Astrology — planets',
-  sephira: 'Kabbalah — sephiroth',
-  path: 'Kabbalah — paths (by Hebrew letter)',
-  chakra: 'Chakras',
-  number: 'Numerology numbers',
-  suit: 'Suits',
-  rank: 'Ranks',
-};
-
-const TYPED_KINDS: EntityKind[] = ['suit', 'rank'];
-
-// Static entity rosters (the dynamic kinds — numbers, suits, ranks —
-// load from the reference endpoints instead).
-const STATIC_ENTITIES: Partial<Record<EntityKind, string[]>> = {
-  sign: ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra',
-    'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'],
-  planet: ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn',
-    'Uranus', 'Neptune', 'Pluto'],
-  sephira: ['Kether', 'Chokmah', 'Binah', 'Chesed', 'Geburah', 'Tiphareth',
-    'Netzach', 'Hod', 'Yesod', 'Malkuth'],
-  path: ['Aleph', 'Beth', 'Gimel', 'Daleth', 'Heh', 'Vav', 'Zayin', 'Cheth',
-    'Teth', 'Yod', 'Kaph', 'Lamed', 'Mem', 'Nun', 'Samekh', 'Ayin', 'Peh',
-    'Tzaddi', 'Qoph', 'Resh', 'Shin', 'Tav'],
-  chakra: ['Root', 'Sacral', 'Solar Plexus', 'Heart', 'Throat', 'Third Eye',
-    'Crown'],
-};
-
-// Alternate spellings folded into matching (mirrors the backend's
-// alias tables).
-const ALIASES: Record<string, string> = {
-  alef: 'Aleph', bet: 'Beth', beit: 'Beth', gimmel: 'Gimel', dalet: 'Daleth',
-  he: 'Heh', hey: 'Heh', vau: 'Vav', waw: 'Vav', zain: 'Zayin',
-  chet: 'Cheth', het: 'Cheth', heth: 'Cheth', tet: 'Teth', yud: 'Yod',
-  caph: 'Kaph', kaf: 'Kaph', lamedh: 'Lamed', samech: 'Samekh',
-  pe: 'Peh', fe: 'Peh', tsade: 'Tzaddi', tzadi: 'Tzaddi', tsadi: 'Tzaddi',
-  qof: 'Qoph', kof: 'Qoph', tau: 'Tav', taw: 'Tav',
-  keter: 'Kether', chochmah: 'Chokmah', hokmah: 'Chokmah', chokma: 'Chokmah',
-  hesed: 'Chesed', gevurah: 'Geburah', tiphereth: 'Tiphareth',
-  tiferet: 'Tiphareth', tifereth: 'Tiphareth', netsach: 'Netzach',
-  malchut: 'Malkuth', malkut: 'Malkuth',
-  muladhara: 'Root', svadhisthana: 'Sacral', manipura: 'Solar Plexus',
-  anahata: 'Heart', vishuddha: 'Throat', visuddha: 'Throat',
-  ajna: 'Third Eye', sahasrara: 'Crown',
-};
-
-const norm = (s: string) =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
-
-/** Plain text from the model → simple HTML for the rich-text viewer. */
-function textToHtml(text: string): string {
-  const esc = (s: string) => s
-    .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-  return text
-    .split(/\n\s*\n/)
-    .map(p => p.trim())
-    .filter(Boolean)
-    .map(p => `<p>${esc(p).replaceAll('\n', '<br>')}</p>`)
-    .join('');
 }
 
 interface EntityProposal {
@@ -148,34 +90,15 @@ export default function EntityScribeModal({
     enabled: open,
   });
 
-  // Entity roster for the chosen kind
-  const typed = TYPED_KINDS.includes(kind);
-  const { data: suitData } = useQuery({
-    queryKey: ['reference-suits', typed ? deckType : null],
-    queryFn: () => getSuitsReference(deckType),
-    enabled: open && kind === 'suit',
-  });
-  const { data: rankData } = useQuery({
-    queryKey: ['reference-ranks', typed ? deckType : null],
-    queryFn: () => getRanksReference(deckType),
-    enabled: open && kind === 'rank',
-  });
-  const { data: numberData } = useQuery({
-    queryKey: ['reference-numerology'],
-    queryFn: getNumerologyReference,
-    enabled: open && kind === 'number',
-  });
+  // Entity roster for the chosen kind (shared with the card Scribe's
+  // merged imports).
+  const typed = TYPED_ENTITY_KINDS.includes(kind);
+  const { rosters, suitTypes, resolvedDeckType } = useEntityRosters(
+    [kind], typed ? deckType : null, open);
+  const resolvedType = typed ? resolvedDeckType : null;
+  const entities = rosters.get(kind) ?? [];
 
-  const suitTypes = suitData?.types ?? rankData?.types ?? [];
-  const resolvedType = kind === 'suit'
-    ? suitData?.type ?? deckType
-    : rankData?.type ?? deckType;
-  const entities = useMemo<string[]>(() => {
-    if (kind === 'suit') return (suitData?.suits ?? []).map(s => s.name);
-    if (kind === 'rank') return (rankData?.ranks ?? []).map(r => r.rank);
-    if (kind === 'number') return (numberData?.entries ?? []).map(e => e.number);
-    return STATIC_ENTITIES[kind] ?? [];
-  }, [kind, suitData, rankData, numberData]);
+  const resolveEntity = (raw: string) => resolveEntityName(raw, entities);
 
   // Deck-type-scoped kinds (suits, ranks) only offer sources covering
   // that type — mirroring the entity-notes picker.
@@ -188,17 +111,6 @@ export default function EntityScribeModal({
       setSourceId('');
     }
   }, [sourceId, selectableSources]);
-
-  const resolveEntity = (raw: string): string => {
-    const n = norm(raw);
-    const direct = entities.find(e => norm(e) === n);
-    if (direct) return direct;
-    const alias = ALIASES[n];
-    if (alias && entities.includes(alias)) return alias;
-    // 'Nine of Hearts'-style or 'the Kings' → try the leading word
-    const first = norm(raw.split(/ of |,/)[0]).replace(/^the /, '').replace(/s$/, '');
-    return entities.find(e => norm(e) === first || norm(e) === `${first}s`) ?? '';
-  };
 
   // ── Review state ──────────────────────────────────────────
   const [messages, setMessages] = useState<LlmMessage[]>([]);
@@ -232,29 +144,25 @@ export default function EntityScribeModal({
   };
 
   // ── Prompt + extraction ───────────────────────────────────
+  // Entity-only imports render from the same user-editable Scribe
+  // template as card imports; the appended entities block declares
+  // the card instructions out of scope.
+  const { prompt: scribeTemplate, ready: promptReady } = useActivePrompt('scribe', open);
+
   const buildSystemPrompt = () => {
     const sourceName = sources.find(s => s.id === sourceId)?.name ?? 'the source';
-    const kindLabel = ENTITY_KIND_LABELS[kind] + (typed && resolvedType ? ` (${resolvedType})` : '');
-    const extra = instructions.trim()
-      ? `\n\nInstructions from the user for THIS import — follow them; the JSON output format is always required:\n${instructions.trim()}`
-      : '';
-    return `You are the Scribe, an assistant inside a personal tarot/cartomancy journal app. Your job is to transcribe reference text from source material (book text or photographed pages) into per-entry notes. You transcribe and organize — you never invent content.
-
-This import covers ONE list of entries: ${kindLabel}.
-The app's entries are, exactly: ${entities.join(', ')}
-Source being imported: ${sourceName}
-
-How to respond — these rules are strict, the app parses your output:
-- Extracted content goes ONLY inside a fenced code block tagged json, one block per reply, in this exact shape:
-\`\`\`json
-{"entries": [{"entry": "<entry name>", "content": "<text>", "flags": []}]}
-\`\`\`
-- Use the app's entry names exactly as listed whenever you are confident of the match (sources use variant spellings — Keter/Kether, Tsadi/Tzaddi, Mūlādhāra/Root — map them silently). If a passage matches no listed entry, keep the source's own name and add a flag explaining.
-- The app MERGES each block into a running list keyed by entry: send only entries you are adding or changing in this reply, and always send an entry's COMPLETE text (the new block replaces the old for that entry).
-- Content must be faithful to the source — no summarizing, paraphrasing, or embellishing. Fix obvious OCR artifacts and merged hyphenation; note significant repairs in flags. Plain text; separate paragraphs with a blank line.
-- Material about other subjects (cards, spreads, other entry kinds) is out of scope for this import — mention in one sentence that you skipped it, and do not extract it.
-- The source arrives in one or more parts. Extract each part immediately, no clarifying questions. If a part has nothing relevant, say so in one sentence — no JSON block.
-- Outside the JSON block reply briefly; never put source text in prose, it is not saved.${extra}`;
+    const kindLabel = typed && resolvedType
+      ? `${resolvedType} ${ENTITY_KIND_LABELS[kind].toLowerCase()}`
+      : ENTITY_KIND_LABELS[kind];
+    return renderScribePrompt(scribeTemplate, {
+      cartomancyType: resolvedType ?? 'n/a',
+      sourceName,
+      archetypeNames: '(none — this import extracts reference entries only)',
+      targetFields: '(none — this import extracts reference entries only)',
+    }, instructions, undefined, {
+      kinds: [{ kind, label: kindLabel, roster: entities }],
+      entitiesOnly: true,
+    });
   };
 
   const parseReply = (text: string) => {
@@ -274,7 +182,7 @@ How to respond — these rules are strict, the app parses your output:
           if (!entry || !content) continue;
           const flags = Array.isArray(row.flags) ? row.flags.map(String) : [];
           const resolved = resolveEntity(entry);
-          const i = next.findIndex(p => norm(p.entry) === norm(entry));
+          const i = next.findIndex(p => normEntity(p.entry) === normEntity(entry));
           if (i >= 0) {
             next[i] = { ...next[i], content, flags, resolved: next[i].resolved || resolved };
           } else {
@@ -382,7 +290,7 @@ How to respond — these rules are strict, the app parses your output:
         kind,
         key: typed && resolvedType ? `${resolvedType}::${p.resolved}` : p.resolved,
         source_id: sourceId,
-        content: textToHtml(p.content),
+        content: entityTextToHtml(p.content),
       }));
       const result = await applyScribeWrites(writes);
       queryClient.invalidateQueries({
@@ -409,7 +317,7 @@ How to respond — these rules are strict, the app parses your output:
   };
 
   const canStart = sourceId !== '' && materials.length > 0 &&
-    entities.length > 0 && !extracting;
+    entities.length > 0 && !extracting && promptReady;
 
   return (
     <Modal

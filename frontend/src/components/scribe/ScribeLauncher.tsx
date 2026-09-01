@@ -123,7 +123,8 @@ export default function ScribeLauncher({ open, onClose, context }: ScribeLaunche
             <strong>Card archetype information</strong>
             <span>
               Card meanings into a reference source's archetype note
-              fields (shared across decks).
+              fields (shared across decks). Combinations and reference
+              entries can ride along in the same pass.
             </span>
           </button>
           <button

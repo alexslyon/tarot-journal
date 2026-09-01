@@ -71,7 +71,7 @@ export const DEFAULT_PROMPTS: Record<LlmFeature, string> = {
 export const PROMPT_EDITOR_NOTES: Record<LlmFeature, string> = {
   mirror: 'Plain system prompt — the journal entry (with reference material) is attached separately.',
   analyst: 'Plain system prompt — the journal excerpt and app-computed statistics are attached separately.',
-  scribe: 'Template — the placeholders {{cartomancy_type}}, {{source_name}}, {{archetype_names}}, and {{target_fields}} are filled in for each import. Keep the JSON output block intact: the app parses replies with it, and extraction breaks without it. A card-name alias guide (Pope→Hierophant, Coins→Pentacles, Thoth court mapping, …) is appended automatically at run time.',
+  scribe: 'Template — the placeholders {{cartomancy_type}}, {{source_name}}, {{archetype_names}}, and {{target_fields}} are filled in for each import. Keep the JSON output block intact: the app parses replies with it, and extraction breaks without it. Appended automatically at run time, per import: a card-name alias guide (Pope→Hierophant, Coins→Pentacles, Thoth court mapping, …), the combinations instructions when enabled, and the reference-entries instructions (rosters + routing rules) when entry kinds are selected — entity-only imports use this same template with the card parts declared out of scope.',
 };
 
 /** Appended to every Scribe run so books using variant card and suit
@@ -90,6 +90,15 @@ Coverage and field mapping — the two most common extraction failures, so treat
 - Target field names are DESTINATIONS, not headings to find verbatim. The book's own headings rarely match them; decide by MEANING which target field each piece of text belongs to. A passage about the card upside-down belongs to the reversed-meanings field whatever the book calls it (Shadow, Ill-Dignified, a mere dash); a run of comma-separated words is keywords even with no heading at all; advice, timing, or symbolism may be signalled only by layout (italics, indentation, a table column). Content that fits a target field must never be dropped just because the book didn't label it with that field's name — when unsure between two fields, pick the best fit and flag the choice.
 - Before replying for a part, scan it END TO END and identify every card it covers — including cards under variant names, several cards sharing one paragraph or table row, and cards mentioned out of order. Then extract each one. Never stop at the cards that are easy to spot.`;
 
+/** One entry-list block for the entities section of the prompt. */
+export interface ScribeEntityKindSpec {
+  /** The protocol kind value ('suit', 'sephira', …). */
+  kind: string;
+  /** Human label shown beside the roster ('Petit Lenormand suits'). */
+  label: string;
+  roster: string[];
+}
+
 /** Fill the Scribe template's placeholders and append any per-import
  *  user instructions. */
 export function renderScribePrompt(
@@ -102,6 +111,11 @@ export function renderScribePrompt(
   },
   userInstructions = '',
   combinations?: { reversalsEnabled: boolean },
+  entities?: {
+    kinds: ScribeEntityKindSpec[];
+    /** Entity-only import: card instructions are declared out of scope. */
+    entitiesOnly?: boolean;
+  },
 ): string {
   const filled = template
     .replaceAll('{{cartomancy_type}}', vars.cartomancyType)
@@ -120,10 +134,30 @@ export function renderScribePrompt(
 - When the source distinguishes REVERSED cards in a combination, add "reversed": [true/false, ...] parallel to the cards array.` : ''}
 - Like card proposals, each block contains only new or changed combinations — never re-send unchanged ones.`
     : '';
+  let entityBlock = '';
+  if (entities && entities.kinds.length > 0) {
+    const lists = entities.kinds
+      .map(k => `- kind "${k.kind}" (${k.label}): ${k.roster.join(', ')}`)
+      .join('\n');
+    entityBlock = `\n\nALSO extract REFERENCE ENTRIES — passages whose SUBJECT is one of the app's reference entries listed below, rather than a specific card. Emit them in the SAME json block, in an "entries" array alongside the other arrays:
+\`\`\`json
+{"proposals": [], "entries": [{"kind": "<kind>", "entry": "<entry name>", "content": "<text>", "flags": []}]}
+\`\`\`
+The entry lists this import covers (use these "kind" values and entry names exactly, character for character):
+${lists}
+Routing rules — the most important part of a mixed import, treat as strict:
+- "proposals" hold text about ONE card. "combinations" hold a meaning the source states for two or three specific cards together. "entries" hold text about a listed entry as its own subject — an essay on a suit, the meaning of a number, a chapter on a sephira.
+- A card's own section stays a card proposal even where it discusses the card's suit, number, or sign along the way — never copy fragments of a card section into "entries". An entry essay stays one entry even where it cites example cards — never split it into card proposals. When the source's own structure decides (chapter and section headings), follow the structure; if a passage genuinely serves two homes, choose by its heading and add a flag.
+- Variant entry spellings map silently (Keter → Kether, Tsadi → Tzaddi, Mūlādhāra → Root, He → Heh). If a passage's subject matches no listed entry even through these, keep the source's own name in "entry" and add a flag.
+- Entries MERGE by (kind, entry): send an entry only when adding or changing it, and always send its COMPLETE text — each new version replaces the old. Plain text; separate paragraphs with a blank line; the same faithfulness and OCR-cleanup rules as card content.${!combinations && !entities.entitiesOnly ? `
+- Card COMBINATIONS (meanings for two or three cards together) are NOT part of this import — mention them in one sentence and skip them.` : ''}${entities.entitiesOnly ? `
+
+This import extracts reference entries ONLY. Never emit "proposals" or "combinations" — the card-related instructions above do not apply, and card content in the source is out of scope (say so in one sentence and skip it).` : ''}`;
+  }
   const instructions = userInstructions.trim()
     ? `\n\nInstructions from the user for THIS import — follow them; where they conflict with the matching or content guidance above, the user's instructions win (the JSON output format is always required):\n${userInstructions.trim()}`
     : '';
-  return filled + SCRIBE_ALIAS_GUIDE + comboBlock + instructions;
+  return filled + SCRIBE_ALIAS_GUIDE + comboBlock + entityBlock + instructions;
 }
 
 /** The prompt an assistant should use right now: the active preset's

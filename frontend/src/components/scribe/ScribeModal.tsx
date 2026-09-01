@@ -27,6 +27,15 @@ import { getDecks, getDeckCustomFields, getDeckFieldCoverage, type DeckFieldCove
 import { getCards } from '../../api/cards';
 import { applyScribeWrites, type ScribeWrite } from '../../api/scribe';
 import {
+  ALL_ENTITY_KINDS,
+  ENTITY_KIND_LABELS,
+  TYPED_ENTITY_KINDS,
+  entityTextToHtml,
+  resolveEntityName,
+  useEntityRosters,
+} from './entityRosters';
+import type { EntityKind } from '../../api/reference';
+import {
   MAX_SOURCE_CHARS,
   ScribeChatPane,
   ScribeMaterialsField,
@@ -85,6 +94,24 @@ interface ComboProposal {
   flags?: string[];
   // resolved locally, parallel to cards (undefined = unmatched):
   archetypeIds: (number | undefined)[];
+  checked: boolean;
+}
+
+// ── One reference-entry row parsed from the model's JSON ─────
+interface RawEntry {
+  kind?: unknown;
+  entry?: unknown;
+  content?: unknown;
+  flags?: unknown;
+}
+
+interface EntityRow {
+  kind: EntityKind;
+  entry: string;                   // the name the model used
+  content: string;
+  flags?: string[];
+  /** Resolved roster name ('' = unmatched). */
+  resolved: string;
   checked: boolean;
 }
 
@@ -162,6 +189,18 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
   };
   const [extractCombos, setExtractCombos] = useState(false);
 
+  // Reference-entry extraction (merged imports): which entry kinds
+  // this source covers, and the rows the model proposes for them.
+  const [entityKinds, setEntityKinds] = useState<EntityKind[]>([]);
+  const [entityRows, setEntityRows] = useState<EntityRow[]>([]);
+  const entityRowsRef = useRef<EntityRow[]>([]);
+  const updateEntityRows = (fn: (current: EntityRow[]) => EntityRow[]): EntityRow[] => {
+    const next = fn(entityRowsRef.current);
+    entityRowsRef.current = next;
+    setEntityRows(next);
+    return next;
+  };
+
   // Mirrors for async code (same rationale as proposalsRef): user
   // events and worker loops need current values, not render-time ones.
   const busyRef = useRef(false);
@@ -219,6 +258,11 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
     queryFn: getReversedCombinationTypes,
     enabled: open,
   });
+  // Rosters for the entry kinds this import covers (suit/rank rosters
+  // are scoped to this import's cartomancy type).
+  const { rosters: entityRosters } = useEntityRosters(
+    entityKinds, ctype, open && entityKinds.length > 0);
+  const rosterFor = (kind: EntityKind) => entityRosters.get(kind) ?? [];
   const cardFieldFilled = (fieldName: string): number => {
     if (!deckCoverage) return 0;
     const k = fieldName.trim().toLowerCase();
@@ -254,6 +298,8 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
     setCardFieldsText('');
     setCustomInstructions('');
     setExtractCombos(!!combinationsOnly);
+    setEntityKinds([]);
+    updateEntityRows(() => []);
   }, [open, source?.id, deck?.id, availableTypes, combinationsOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Deck mode: preselect the deck's existing field definitions.
@@ -338,8 +384,8 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
   ];
 
   const canStart = materials.length > 0
-    && (targetLabels.length > 0 || extractCombos) && !extracting
-    && scribePromptReady;
+    && (targetLabels.length > 0 || extractCombos || entityKinds.length > 0)
+    && !extracting && scribePromptReady;
 
   const handleStart = async () => {
     systemPromptRef.current = renderScribePrompt(scribeTemplate, {
@@ -352,6 +398,17 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
     }, customInstructions,
     extractCombos
       ? { reversalsEnabled: reversedComboTypes.includes(ctype) }
+      : undefined,
+    entityKinds.length > 0
+      ? {
+          kinds: entityKinds.map(k => ({
+            kind: k,
+            label: TYPED_ENTITY_KINDS.includes(k)
+              ? `${ctype} ${ENTITY_KIND_LABELS[k].toLowerCase()}`
+              : ENTITY_KIND_LABELS[k],
+            roster: rosterFor(k),
+          })),
+        }
       : undefined);
 
     const totalText = materials.reduce((n, m) => n + (m.text?.length || 0), 0);
@@ -364,6 +421,7 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
     setMessagesTracked([]);
     updateProposals(() => []);
     updateCombos(() => []);
+    updateEntityRows(() => []);
     setDisplayMessages([]);
     setStage('chat');
     await runExtraction(units, []);
@@ -436,11 +494,15 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
         setDisplayMessages(prev => [...prev, { role: 'user', text: `Reading ${unit.label}…` }]);
         try {
           const { text: reply, truncated, userMsg } = await requestUnit(unit);
-          const { visible, parsed, parsedCombos } = splitReply(reply);
+          const { visible, parsed, parsedCombos, parsedEntries } = splitReply(reply);
           if (parsedCombos) {
             updateCombos(current => mergeCombos(current, parsedCombos, archetypes));
           }
-          if (parsed || parsedCombos) {
+          if (parsedEntries) {
+            updateEntityRows(current =>
+              mergeEntities(current, parsedEntries, entityKinds, rosterFor));
+          }
+          if (parsed || parsedCombos || parsedEntries) {
             const merged = parsed
               ? updateProposals(current =>
                 mergeProposals(current, parsed, archetypes, deckCards, true))
@@ -448,6 +510,7 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
             const bits = [];
             if (parsed) bits.push(`${parsed.length} card${parsed.length === 1 ? '' : 's'} (${merged.length} total): ${summarizeCards(parsed)}`);
             if (parsedCombos) bits.push(`${parsedCombos.length} combination${parsedCombos.length === 1 ? '' : 's'} (${combosRef.current.length} total)`);
+            if (parsedEntries) bits.push(`${parsedEntries.length} reference entr${parsedEntries.length === 1 ? 'y' : 'ies'} (${entityRowsRef.current.length} total)`);
             const summary = bits.join('; ');
             setDisplayMessages(prev => [...prev, {
               role: 'assistant',
@@ -668,13 +731,17 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
         max_tokens: 64000,
         thinking: opts?.thinking,
       });
-      const { visible, parsed, parsedCombos } = splitReply(reply);
+      const { visible, parsed, parsedCombos, parsedEntries } = splitReply(reply);
+      if (parsedEntries) {
+        updateEntityRows(current =>
+          mergeEntities(current, parsedEntries, entityKinds, rosterFor));
+      }
       const newHistory: LlmMessage[] = [...history, { role: 'assistant', content: reply }];
       setMessagesTracked(newHistory);
       if (parsedCombos) {
         updateCombos(current => mergeCombos(current, parsedCombos, archetypes));
       }
-      if (parsed || parsedCombos) {
+      if (parsed || parsedCombos || parsedEntries) {
         const merged = parsed
           ? updateProposals(current =>
             mergeProposals(current, parsed, archetypes, deckCards))
@@ -682,6 +749,7 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
         const bits = [];
         if (parsed) bits.push(`Updated ${parsed.length} card${parsed.length === 1 ? '' : 's'} (${merged.length} total): ${summarizeCards(parsed)}`);
         if (parsedCombos) bits.push(`${parsedCombos.length} combination${parsedCombos.length === 1 ? '' : 's'} (${combosRef.current.length} total)`);
+        if (parsedEntries) bits.push(`${parsedEntries.length} reference entr${parsedEntries.length === 1 ? 'y' : 'ies'} (${entityRowsRef.current.length} total)`);
         const summary = bits.join('; ');
         setDisplayMessages(prev => [...prev, {
           role: 'assistant',
@@ -765,6 +833,7 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
   }, [combos, archOrder]);
 
   const checkedProposals = proposals.filter(p => p.checked && isWritable(p));
+  const checkedEntities = entityRows.filter(r => r.checked && r.resolved !== '');
   const checkedCombos = combos.filter(c =>
     c.checked && c.archetypeIds.every(id => id != null));
   const fieldByName = useMemo(() => {
@@ -835,6 +904,18 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
         .map((n, j) => `${n}${c.reversed?.[j] ? ' (rev)' : ''}`)
         .join(' + ')} (combination)`);
     }
+    for (const r of checkedEntities) {
+      writes.push({
+        target: 'entity_note',
+        kind: r.kind,
+        key: TYPED_ENTITY_KINDS.includes(r.kind)
+          ? `${ctype}::${r.resolved}`
+          : r.resolved,
+        source_id: source!.id,
+        content: entityTextToHtml(r.content),
+      });
+      writeLabels.push(`${r.resolved} (${r.kind} entry)`);
+    }
     if (!writes.length) {
       showToast('Nothing to apply — the checked cards have no writable fields.');
       return;
@@ -849,6 +930,11 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
       if (checkedCombos.length) {
         queryClient.invalidateQueries({ queryKey: ['combination-meanings'] });
         queryClient.invalidateQueries({ queryKey: ['populated-combinations'] });
+      }
+      if (checkedEntities.length) {
+        queryClient.invalidateQueries({
+          predicate: q => q.queryKey[0] === 'entity-notes',
+        });
       }
       const dupNote = result.skipped
         ? ` (${result.skipped} duplicate combination${result.skipped === 1 ? '' : 's'} skipped)`
@@ -874,7 +960,8 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
     }
   };
 
-  const dirty = stage === 'chat' && (proposals.length > 0 || combos.length > 0);
+  const dirty = stage === 'chat'
+    && (proposals.length > 0 || combos.length > 0 || entityRows.length > 0);
 
   return (
     <Modal
@@ -1044,6 +1131,35 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
             </label>
           </div>
 
+          {source && (
+            <div className="scribe__field">
+              <label>Also extract reference entries (optional)</label>
+              <p className="scribe__hint">
+                For sources with chapters about the suits, numbers,
+                sephiroth, signs… — check what this source covers.
+                Texts land in the Reference sections, attributed
+                to {source.name}.
+              </p>
+              <div className="scribe__entity-kinds">
+                {ALL_ENTITY_KINDS.map(k => (
+                  <label key={k} className="scribe__check">
+                    <input
+                      type="checkbox"
+                      checked={entityKinds.includes(k)}
+                      onChange={e => setEntityKinds(prev =>
+                        e.target.checked ? [...prev, k] : prev.filter(x => x !== k))}
+                      disabled={extracting}
+                    />
+                    {ENTITY_KIND_LABELS[k]}
+                    {TYPED_ENTITY_KINDS.includes(k) && (
+                      <span className="scribe__coverage">({ctype})</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="scribe__field">
             <label>Instructions for this import (optional)</label>
             <textarea
@@ -1095,7 +1211,8 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
               )}
             </div>
             <div className="scribe__review-list">
-              {proposals.length === 0 && combos.length === 0 && !busy && (
+              {proposals.length === 0 && combos.length === 0
+                && entityRows.length === 0 && !busy && (
                 <p className="scribe__hint">
                   Proposals will appear here once the model has read the material.
                 </p>
@@ -1169,16 +1286,45 @@ export default function ScribeModal({ source, deck, open, onClose, combinationsO
                   ))}
                 </>
               )}
+
+              {entityRows.length > 0 && (
+                <>
+                  <div className="scribe__review-head scribe__review-head--combos">
+                    <strong>{entityRows.length} reference entr{entityRows.length === 1 ? 'y' : 'ies'}</strong>
+                    <span className="scribe__review-bulk">
+                      <button onClick={() => updateEntityRows(p => p.map(x =>
+                        ({ ...x, checked: x.resolved !== '' })))}>All</button>
+                      <button onClick={() => updateEntityRows(p => p.map(x => ({ ...x, checked: false })))}>None</button>
+                    </span>
+                  </div>
+                  {entityRows.map((r, i) => (
+                    <EntityRowView
+                      key={`entity-${r.kind}-${i}`}
+                      row={r}
+                      roster={rosterFor(r.kind)}
+                      typedLabel={TYPED_ENTITY_KINDS.includes(r.kind) ? ctype : null}
+                      onToggle={() => updateEntityRows(prev =>
+                        prev.map(x => x === r ? { ...x, checked: !x.checked } : x))}
+                      onResolve={(name) => updateEntityRows(prev =>
+                        prev.map(x => x === r ? { ...x, resolved: name } : x))}
+                      onEditContent={(text) => updateEntityRows(prev =>
+                        prev.map(x => x === r ? { ...x, content: text } : x))}
+                    />
+                  ))}
+                </>
+              )}
             </div>
             <div className="scribe__actions">
               <button
                 className="primary"
                 onClick={handleApply}
-                disabled={applying || (checkedProposals.length === 0 && checkedCombos.length === 0)}
+                disabled={applying || (checkedProposals.length === 0
+                  && checkedCombos.length === 0 && checkedEntities.length === 0)}
               >
                 {applying ? 'Applying…' : `Apply ${[
                   checkedProposals.length > 0 && `${checkedProposals.length} card${checkedProposals.length === 1 ? '' : 's'}`,
                   checkedCombos.length > 0 && `${checkedCombos.length} combination${checkedCombos.length === 1 ? '' : 's'}`,
+                  checkedEntities.length > 0 && `${checkedEntities.length} entr${checkedEntities.length === 1 ? 'y' : 'ies'}`,
                 ].filter(Boolean).join(' + ') || 'selection'}`}
               </button>
               <button onClick={() => setStage('setup')} disabled={busy}>Back to setup</button>
@@ -1311,6 +1457,79 @@ function ProposalRow({
   );
 }
 
+function EntityRowView({ row: r, roster, typedLabel, onToggle, onResolve, onEditContent }: {
+  row: EntityRow;
+  roster: string[];
+  /** Deck type for suit/rank rows (shown beside the kind). */
+  typedLabel: string | null;
+  onToggle: () => void;
+  onResolve: (name: string) => void;
+  onEditContent: (text: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  return (
+    <div className="scribe__combo-row">
+      <label className="scribe__combo-row-main">
+        <input
+          type="checkbox"
+          checked={r.checked}
+          disabled={r.resolved === ''}
+          onChange={onToggle}
+        />
+        <span className="scribe__entity-kind">
+          {r.kind}{typedLabel ? ` · ${typedLabel}` : ''}
+        </span>
+        <select
+          className="scribe__entity-select"
+          value={r.resolved}
+          onClick={e => e.preventDefault()}
+          onChange={e => onResolve(e.target.value)}
+        >
+          <option value="">— pick an entry —</option>
+          {roster.map(name => <option key={name} value={name}>{name}</option>)}
+        </select>
+        {r.resolved === '' && (
+          <span className="scribe__entity-unmatched">“{r.entry}”</span>
+        )}
+        {!editing && (
+          <button
+            type="button"
+            className="scribe__field-edit-btn"
+            onClick={(e) => { e.preventDefault(); setEditing(true); setDraft(r.content); }}
+          >
+            Edit
+          </button>
+        )}
+      </label>
+      {r.flags && r.flags.length > 0 && (
+        <div className="scribe__entity-flags">⚑ {r.flags.join(' · ')}</div>
+      )}
+      {editing ? (
+        <div className="scribe__field-edit">
+          <textarea
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            rows={Math.min(12, Math.max(4, draft.split('\n').length + 1))}
+            autoFocus
+          />
+          <div className="scribe__field-edit-actions">
+            <button
+              className="primary"
+              onClick={() => { onEditContent(draft); setEditing(false); }}
+            >
+              Save
+            </button>
+            <button onClick={() => setEditing(false)}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <div className="scribe__proposal-field-text">{r.content}</div>
+      )}
+    </div>
+  );
+}
+
 function ComboRow({ combo: c, onToggle, onEditMeaning }: {
   combo: ComboProposal;
   onToggle: () => void;
@@ -1410,36 +1629,95 @@ function splitReply(reply: string): {
   visible: string;
   parsed: RawProposal[] | null;
   parsedCombos: RawCombo[] | null;
+  parsedEntries: RawEntry[] | null;
 } {
+  const KEY_RE = /"(proposals|combinations|entries)"/;
   const candidates: string[] = [];
   // Closed fences, any tag casing, last one wins
   for (const m of reply.matchAll(/```[a-zA-Z]*\s*([\s\S]*?)```/g)) {
-    if (m[1].includes('"proposals"') || m[1].includes('"combinations"')) candidates.push(m[1]);
+    if (KEY_RE.test(m[1])) candidates.push(m[1]);
   }
   // Unterminated final fence (typical of a truncated reply)
   if (!candidates.length) {
     const open = reply.match(/```[a-zA-Z]*\s*([\s\S]*)$/);
-    if (open && (open[1].includes('"proposals"') || open[1].includes('"combinations"'))) candidates.push(open[1]);
+    if (open && KEY_RE.test(open[1])) candidates.push(open[1]);
   }
   // No fence at all — bare JSON object somewhere in the reply
   if (!candidates.length) {
-    const idx = reply.search(/\{\s*"(proposals|combinations)"/);
+    const idx = reply.search(/\{\s*"(proposals|combinations|entries)"/);
     if (idx !== -1) candidates.push(reply.slice(idx));
   }
 
   let parsed: RawProposal[] | null = null;
   let parsedCombos: RawCombo[] | null = null;
-  for (let i = candidates.length - 1; i >= 0 && !parsed && !parsedCombos; i--) {
+  let parsedEntries: RawEntry[] | null = null;
+  for (let i = candidates.length - 1;
+       i >= 0 && !parsed && !parsedCombos && !parsedEntries; i--) {
     parsed = parseProposals(candidates[i]);
     parsedCombos = parseCombinations(candidates[i]);
+    parsedEntries = parseEntries(candidates[i]);
   }
 
   // Prose = the reply minus fenced blocks (terminated or not) and any
   // bare proposals JSON we managed to parse.
   let visible = reply.replace(/```[\s\S]*?(```|$)/g, '');
-  if (parsed || parsedCombos) visible = visible.replace(/\{\s*"(proposals|combinations)"[\s\S]*$/, '');
+  if (parsed || parsedCombos || parsedEntries) {
+    visible = visible.replace(/\{\s*"(proposals|combinations|entries)"[\s\S]*$/, '');
+  }
   visible = visible.replace(/\n{3,}/g, '\n\n').trim();
-  return { visible, parsed, parsedCombos };
+  return { visible, parsed, parsedCombos, parsedEntries };
+}
+
+/** Parse the "entries" array from a JSON block; null when missing or
+ *  unparseable. */
+function parseEntries(jsonText: string): RawEntry[] | null {
+  try {
+    const obj = JSON.parse(jsonText);
+    return Array.isArray(obj?.entries) ? (obj.entries as RawEntry[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Merge model-emitted entries into the running rows, keyed by
+ *  (kind, entry). Only enabled kinds are accepted; a re-sent entry's
+ *  content replaces the previous version (per the prompt contract). */
+function mergeEntities(
+  previous: EntityRow[],
+  incoming: RawEntry[],
+  enabledKinds: EntityKind[],
+  rosterFor: (kind: EntityKind) => string[],
+): EntityRow[] {
+  const result = [...previous];
+  for (const raw of incoming) {
+    const kind = String(raw?.kind ?? '') as EntityKind;
+    const entry = String(raw?.entry ?? '').trim();
+    const content = String(raw?.content ?? '').trim();
+    if (!enabledKinds.includes(kind) || !entry || !content) continue;
+    const flags = Array.isArray(raw.flags)
+      ? (raw.flags as unknown[]).filter((f): f is string => typeof f === 'string')
+      : undefined;
+    const resolved = resolveEntityName(entry, rosterFor(kind));
+    const i = result.findIndex(r =>
+      r.kind === kind && r.entry.toLowerCase() === entry.toLowerCase());
+    if (i >= 0) {
+      result[i] = {
+        ...result[i], content, flags,
+        resolved: result[i].resolved || resolved,
+      };
+    } else {
+      result.push({ kind, entry, content, flags, resolved, checked: true });
+    }
+  }
+  // Kind order first, then roster order, unmatched rows at the end.
+  return result.sort((a, b) => {
+    const ka = enabledKinds.indexOf(a.kind);
+    const kb = enabledKinds.indexOf(b.kind);
+    if (ka !== kb) return ka - kb;
+    const ra = a.resolved ? rosterFor(a.kind).indexOf(a.resolved) : 999;
+    const rb = b.resolved ? rosterFor(b.kind).indexOf(b.resolved) : 999;
+    return ra - rb || a.entry.localeCompare(b.entry);
+  });
 }
 
 /** Parse the "combinations" array from a JSON block; null when

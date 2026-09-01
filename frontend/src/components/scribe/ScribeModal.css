@@ -429,3 +429,31 @@
   color: var(--warning);
   font-size: var(--font-size-small);
 }
+
+/* Reference-entry rows in merged imports */
+.scribe__entity-kinds {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scribe__entity-kind {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.scribe__entity-select {
+  max-width: 220px;
+}
+
+.scribe__entity-unmatched {
+  font-size: var(--font-size-small);
+  color: var(--danger);
+}
+
+.scribe__entity-flags {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  margin: 2px 0 0 26px;
+}
