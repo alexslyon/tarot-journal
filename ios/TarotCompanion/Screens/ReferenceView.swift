@@ -14,7 +14,7 @@ struct ReferenceView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            NocturneScreen {
                 if hits.isEmpty && searchText.isEmpty {
                     ContentUnavailableView(
                         "Search card meanings",
@@ -23,11 +23,16 @@ struct ReferenceView: View {
                 } else {
                     List(hits) { hit in
                         VStack(alignment: .leading) {
-                            Text(hit.name).font(.headline)
+                            Text(hit.name)
+                                .font(.headline)
+                                .fontDesign(.serif)
+                                .fontWeight(.regular)
+                                .foregroundStyle(TJ.text)
                             if let type = hit.cartomancyType {
-                                Text(type).font(.caption).foregroundStyle(.secondary)
+                                Text(type).font(.caption).foregroundStyle(TJ.textFaint)
                             }
                         }
+                        .listRowBackground(TJ.panel)
                     }
                 }
             }

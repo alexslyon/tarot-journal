@@ -13,7 +13,7 @@ struct DecksView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            NocturneScreen {
                 if decks.isEmpty {
                     ContentUnavailableView(
                         "No favorite decks",
@@ -23,11 +23,14 @@ struct DecksView: View {
                     List(decks) { deck in
                         HStack {
                             Text(deck.name)
+                                .fontDesign(.serif)
+                                .foregroundStyle(TJ.text)
                             Spacer()
                             Text("\(deck.cardCount) cards")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(TJ.textFaint)
                         }
+                        .listRowBackground(TJ.panel)
                     }
                 }
             }

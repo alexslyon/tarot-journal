@@ -24,7 +24,7 @@ struct JournalListView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            NocturneScreen {
                 if entries.isEmpty {
                     ContentUnavailableView(
                         "No entries yet",
@@ -35,12 +35,16 @@ struct JournalListView: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(entry.title ?? "Untitled reading")
                                 .font(.headline)
+                                .fontDesign(.serif)
+                                .fontWeight(.regular)
+                                .foregroundStyle(TJ.text)
                             if let date = entry.readingDatetime {
                                 Text(Self.displayDate(date))
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(TJ.textFaint)
                             }
                         }
+                        .listRowBackground(TJ.panel)
                     }
                     .searchable(text: $searchText)
                 }

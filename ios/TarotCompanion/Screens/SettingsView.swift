@@ -14,11 +14,16 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                if paired {
-                    pairedSection
-                } else {
-                    pairingSection
+            NocturneScreen {
+                Form {
+                    Group {
+                        if paired {
+                            pairedSection
+                        } else {
+                            pairingSection
+                        }
+                    }
+                    .listRowBackground(TJ.panel)
                 }
             }
             .navigationTitle("Settings")

@@ -5,10 +5,16 @@ struct TarotCompanionApp: App {
     // One shared database and sync engine for the whole app.
     @StateObject private var appModel = AppModel()
 
+    init() {
+        TJ.applyAppearance()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(appModel)
+                .preferredColorScheme(.dark)
+                .tint(TJ.accent)
         }
     }
 }
