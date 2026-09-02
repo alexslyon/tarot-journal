@@ -33,7 +33,7 @@ export const TOURS: Record<Tour['id'], Tour> = {
       },
       {
         target: 'import-preset',
-        text: "A preset matching the deck type names cards properly (h01 → Ace of Hearts). “None” keeps the raw filenames.",
+        text: "A preset matching the deck type names cards properly (c01 → Ace of Cups). “None” keeps the raw filenames.",
       },
       {
         target: 'import-scan',
