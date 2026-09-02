@@ -191,24 +191,26 @@
   color: var(--text-dim);
 }
 
-/* Favorite star (phone-companion sync subset) */
-.deck-list__row {
-  position: relative;
-}
-
+/* Favorite star (phone-companion sync subset) — sits inline beside
+   the edit pencil at the row's right edge */
 .deck-list__fav {
-  position: absolute;
-  top: 6px;
-  right: 8px;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
   border: none;
   background: none;
-  padding: 2px 4px;
+  padding: 0;
   font-size: 14px;
   line-height: 1;
   color: var(--text-dim);
+  border-radius: var(--tj-radius-row);
   opacity: 0;
   cursor: pointer;
-  z-index: 2;
+  transition: opacity 0.1s;
+}
+
+.deck-list__fav:hover {
+  color: #d9a54a;
 }
 
 .deck-list__row:hover .deck-list__fav,

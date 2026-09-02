@@ -144,17 +144,6 @@ export default function DeckList({ selectedDeckId, onSelectDeck, onEditDeck, onI
               }
             }}
           >
-            <button
-              type="button"
-              className={`deck-list__fav ${deck.favorite ? 'deck-list__fav--on' : ''}`}
-              title={deck.favorite
-                ? 'Favorite — synced to the phone companion. Click to unfavorite.'
-                : 'Mark as favorite (synced to the phone companion)'}
-              aria-label={deck.favorite ? `Unfavorite ${deck.name}` : `Favorite ${deck.name}`}
-              onClick={(e) => { e.stopPropagation(); toggleFavorite(deck); }}
-            >
-              ★
-            </button>
             <div className="deck-list__row-content">
               <span className="deck-list__name">
                 {deck.name}
@@ -176,6 +165,17 @@ export default function DeckList({ selectedDeckId, onSelectDeck, onEditDeck, onI
                 {deck.card_count != null && ` \u00B7 ${deck.card_count} cards`}
               </span>
             </div>
+            <button
+              type="button"
+              className={`deck-list__fav ${deck.favorite ? 'deck-list__fav--on' : ''}`}
+              title={deck.favorite
+                ? 'Favorite — synced to the phone companion. Click to unfavorite.'
+                : 'Mark as favorite (synced to the phone companion)'}
+              aria-label={deck.favorite ? `Unfavorite ${deck.name}` : `Favorite ${deck.name}`}
+              onClick={(e) => { e.stopPropagation(); toggleFavorite(deck); }}
+            >
+              ★
+            </button>
             {onEditDeck && (
               <button
                 className="deck-list__edit-btn"
