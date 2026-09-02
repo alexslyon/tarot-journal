@@ -1,0 +1,283 @@
+import Foundation
+import GRDB
+
+/// Talks to the desktop app's /api/sync/ endpoints and mirrors the
+/// results into the local database.
+///
+/// Protocol (Phase 0, desktop side):
+///   GET  /api/sync/manifest          — counts + max timestamps
+///   GET  /api/sync/snapshot/<table>  — full rows for small tables
+///   GET  /api/sync/entries?since=    — changed aggregates + full ID list
+///   GET  /api/sync/source-entries?since=
+///   GET  /api/sync/card-image/<id>   — phone-sized image
+///   POST /api/sync/pair              — pairing code -> bearer token
+final class SyncEngine: ObservableObject {
+    private let database: AppDatabase
+
+    @Published var isSyncing = false
+    @Published var lastSyncDate: Date?
+    @Published var statusMessage: String?
+
+    /// The tables mirrored wholesale each sync, in dependency-free order.
+    static let snapshotTables = [
+        "decks", "cards", "spreads", "profiles", "tags",
+        "reference_sources", "source_fields", "card_archetypes",
+    ]
+
+    init(database: AppDatabase) {
+        self.database = database
+    }
+
+    // MARK: - Connection details
+
+    var serverURL: URL? {
+        guard let raw = try? database.syncState("server_url") else { return nil }
+        return URL(string: raw)
+    }
+
+    func setServer(url: URL) throws {
+        try database.setSyncState("server_url", url.absoluteString)
+    }
+
+    var isPaired: Bool { Keychain.token != nil }
+
+    // MARK: - Pairing
+
+    struct PairResponse: Decodable { let token: String }
+
+    func pair(host: URL, code: String, deviceName: String) async throws {
+        var req = URLRequest(url: host.appendingPathComponent("api/sync/pair"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONEncoder().encode(
+            ["code": code, "device_name": deviceName])
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw SyncError.pairingRejected
+        }
+        let decoded = try JSONDecoder().decode(PairResponse.self, from: data)
+        Keychain.token = decoded.token
+        try setServer(url: host)
+    }
+
+    func unpair() {
+        Keychain.token = nil
+    }
+
+    // MARK: - Requests
+
+    private func get(_ path: String, query: [String: String] = [:]) async throws -> Data {
+        guard let base = serverURL else { throw SyncError.notConfigured }
+        var comps = URLComponents(
+            url: base.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
+        if !query.isEmpty {
+            comps.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
+        }
+        var req = URLRequest(url: comps.url!)
+        if let token = Keychain.token {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw SyncError.network }
+        switch http.statusCode {
+        case 200: return data
+        case 401: throw SyncError.unauthorized
+        default: throw SyncError.serverError(http.statusCode)
+        }
+    }
+
+    // MARK: - The pull
+
+    @MainActor
+    func syncNow() async {
+        guard !isSyncing else { return }
+        isSyncing = true
+        statusMessage = "Syncing…"
+        defer { isSyncing = false }
+        do {
+            try await pullSnapshots()
+            try await pullEntries()
+            try await pullSourceEntries()
+            lastSyncDate = Date()
+            statusMessage = nil
+        } catch {
+            statusMessage = "Sync failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func pullSnapshots() async throws {
+        for table in Self.snapshotTables {
+            let data = try await get("api/sync/snapshot/\(table)")
+            guard let body = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let rows = body["rows"] as? [[String: Any]] else {
+                throw SyncError.badPayload(table)
+            }
+            try await database.writer.write { db in
+                try db.execute(sql: "DELETE FROM \(table)")
+                for row in rows {
+                    try Self.insert(db, table: table, row: row)
+                }
+            }
+        }
+    }
+
+    private func pullEntries() async throws {
+        let since = (try? database.syncState("entries_since")) ?? nil
+        let data = try await get("api/sync/entries",
+                                 query: since.map { ["since": $0] } ?? [:])
+        guard let body = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let ids = body["ids"] as? [Int64],
+              let changed = body["changed"] as? [[String: Any]] else {
+            throw SyncError.badPayload("entries")
+        }
+        let maxUpdated: String? = try await database.writer.write { db in
+            var newest = since
+            // Prune local entries deleted on the desktop.
+            if ids.isEmpty {
+                try db.execute(sql: "DELETE FROM entries")
+            } else {
+                let marks = ids.map { _ in "?" }.joined(separator: ",")
+                try db.execute(
+                    sql: "DELETE FROM entries WHERE id NOT IN (\(marks))",
+                    arguments: StatementArguments(ids))
+            }
+            for e in changed {
+                try Self.upsertEntry(db, aggregate: e)
+                if let u = e["updated_at"] as? String, u > (newest ?? "") {
+                    newest = u
+                }
+            }
+            return newest
+        }
+        if let maxUpdated { try database.setSyncState("entries_since", maxUpdated) }
+    }
+
+    private func pullSourceEntries() async throws {
+        let since = (try? database.syncState("source_entries_since")) ?? nil
+        let data = try await get("api/sync/source-entries",
+                                 query: since.map { ["since": $0] } ?? [:])
+        guard let body = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let ids = body["ids"] as? [Int64],
+              let changed = body["changed"] as? [[String: Any]] else {
+            throw SyncError.badPayload("source-entries")
+        }
+        let maxUpdated: String? = try await database.writer.write { db in
+            var newest = since
+            if ids.isEmpty {
+                try db.execute(sql: "DELETE FROM source_entries")
+            } else {
+                let marks = ids.map { _ in "?" }.joined(separator: ",")
+                try db.execute(
+                    sql: "DELETE FROM source_entries WHERE id NOT IN (\(marks))",
+                    arguments: StatementArguments(ids))
+            }
+            for row in changed {
+                try db.execute(
+                    sql: """
+                        INSERT OR REPLACE INTO source_entries
+                        (id, archetype_id, field_id, content, updated_at)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                    arguments: [
+                        row["id"] as? Int64,
+                        row["archetype_id"] as? Int64,
+                        row["field_id"] as? Int64,
+                        row["content"] as? String,
+                        row["updated_at"] as? String,
+                    ])
+                if let u = row["updated_at"] as? String, u > (newest ?? "") {
+                    newest = u
+                }
+            }
+            return newest
+        }
+        if let maxUpdated { try database.setSyncState("source_entries_since", maxUpdated) }
+    }
+
+    // MARK: - Row plumbing
+
+    /// Insert a snapshot row using only the columns the local table has.
+    private static func insert(_ db: Database, table: String, row: [String: Any]) throws {
+        let localColumns = try db.columns(in: table).map(\.name)
+        let present = localColumns.filter { row[$0] != nil && !($0.isEmpty) }
+        guard !present.isEmpty else { return }
+        let marks = present.map { _ in "?" }.joined(separator: ",")
+        let sql = "INSERT OR REPLACE INTO \(table) (\(present.joined(separator: ","))) VALUES (\(marks))"
+        let values = present.map { toDatabaseValue(row[$0]) }
+        try db.execute(sql: sql, arguments: StatementArguments(values))
+    }
+
+    private static func upsertEntry(_ db: Database, aggregate: [String: Any]) throws {
+        func json(_ key: String) -> String? {
+            guard let value = aggregate[key],
+                  JSONSerialization.isValidJSONObject(value),
+                  let data = try? JSONSerialization.data(withJSONObject: value)
+            else { return nil }
+            return String(data: data, encoding: .utf8)
+        }
+        try db.execute(
+            sql: """
+                INSERT OR REPLACE INTO entries
+                (id, title, content, created_at, updated_at, reading_datetime,
+                 location_name, querent_id, reader_id, sync_uuid,
+                 readings_json, tag_ids_json, querent_ids_json, follow_ups_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+            arguments: [
+                aggregate["id"] as? Int64,
+                aggregate["title"] as? String,
+                aggregate["content"] as? String,
+                aggregate["created_at"] as? String,
+                aggregate["updated_at"] as? String,
+                aggregate["reading_datetime"] as? String,
+                aggregate["location_name"] as? String,
+                aggregate["querent_id"] as? Int64,
+                aggregate["reader_id"] as? Int64,
+                aggregate["sync_uuid"] as? String,
+                json("readings"),
+                json("tag_ids"),
+                json("querent_ids"),
+                json("follow_up_notes"),
+            ])
+    }
+
+    private static func toDatabaseValue(_ value: Any?) -> DatabaseValueConvertible? {
+        switch value {
+        case let v as Int64: return v
+        case let v as Int: return v
+        case let v as Double: return v
+        case let v as String: return v
+        case let v as Bool: return v
+        case is NSNull, nil: return nil
+        default:
+            // Nested JSON (e.g. spread positions arrive as parsed
+            // objects if the server ever inlines them) — store as text.
+            if let value,
+               JSONSerialization.isValidJSONObject(value),
+               let data = try? JSONSerialization.data(withJSONObject: value) {
+                return String(data: data, encoding: .utf8)
+            }
+            return nil
+        }
+    }
+}
+
+enum SyncError: LocalizedError {
+    case notConfigured
+    case pairingRejected
+    case unauthorized
+    case network
+    case badPayload(String)
+    case serverError(Int)
+
+    var errorDescription: String? {
+        switch self {
+        case .notConfigured: return "No Mac has been paired yet."
+        case .pairingRejected: return "The pairing code was not accepted. Codes expire after 5 minutes — show a fresh one on the Mac and try again."
+        case .unauthorized: return "The Mac no longer accepts this phone's pairing. Re-pair from the Mac's Settings."
+        case .network: return "Could not reach the Mac. Make sure both devices are on the same Wi-Fi and the desktop app is open."
+        case .badPayload(let what): return "Unexpected response from the Mac (\(what))."
+        case .serverError(let code): return "The Mac returned an error (HTTP \(code))."
+        }
+    }
+}

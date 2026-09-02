@@ -1,0 +1,64 @@
+# XcodeGen project definition for the iPhone companion app.
+# Regenerate the .xcodeproj any time with:  cd ios && xcodegen
+# (The .xcodeproj itself is generated output and stays out of git.)
+name: TarotCompanion
+options:
+  bundleIdPrefix: com.aslyon
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    from: 7.0.0
+targets:
+  TarotCompanion:
+    type: application
+    platform: iOS
+    sources: [TarotCompanion]
+    info:
+      path: TarotCompanion/Info.plist
+      properties:
+        UILaunchScreen: {}
+        NSLocalNetworkUsageDescription: >-
+          Tarot Companion connects to the Tarot Journal app on your Mac
+          over your home Wi-Fi to sync your journal and decks.
+        NSBonjourServices:
+          - _tarotjournal._tcp
+        # The Mac's Flask backend speaks plain http on the LAN; Apple's
+        # sanctioned exception for local-network services.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    dependencies:
+      - package: GRDB
+        product: GRDB
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.aslyon.TarotCompanion
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1"
+  TarotCompanionTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [TarotCompanionTests]
+    dependencies:
+      - target: TarotCompanion
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/TarotCompanion.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TarotCompanion"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+schemes:
+  TarotCompanion:
+    build:
+      targets:
+        TarotCompanion: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - TarotCompanionTests

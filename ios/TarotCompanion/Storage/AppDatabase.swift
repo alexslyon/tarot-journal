@@ -1,0 +1,148 @@
+import Foundation
+import GRDB
+
+/// The phone's local mirror of the synced subset of the desktop
+/// database. Schema names match the desktop tables so the sync code
+/// can write snapshot rows straight in.
+struct AppDatabase {
+    let writer: DatabaseWriter
+
+    static func open() throws -> AppDatabase {
+        let folder = try FileManager.default.url(
+            for: .applicationSupportDirectory, in: .userDomainMask,
+            appropriateFor: nil, create: true)
+        let dbURL = folder.appendingPathComponent("companion.sqlite")
+        let writer = try DatabasePool(path: dbURL.path)
+        let db = AppDatabase(writer: writer)
+        try db.migrate()
+        return db
+    }
+
+    /// In-memory database for previews and tests.
+    static func empty() throws -> AppDatabase {
+        let db = AppDatabase(writer: try DatabaseQueue())
+        try db.migrate()
+        return db
+    }
+
+    private func migrate() throws {
+        var migrator = DatabaseMigrator()
+
+        migrator.registerMigration("v1") { db in
+            // ── Snapshot tables (mirrored wholesale each sync) ──
+            try db.create(table: "decks") { t in
+                t.primaryKey("id", .integer)
+                t.column("name", .text).notNull()
+                t.column("favorite", .integer).notNull().defaults(to: 0)
+            }
+            try db.create(table: "cards") { t in
+                t.primaryKey("id", .integer)
+                t.column("deck_id", .integer).notNull().indexed()
+                t.column("name", .text).notNull()
+                t.column("archetype", .text)
+                t.column("rank", .text)
+                t.column("suit", .text)
+                t.column("card_order", .integer)
+            }
+            try db.create(table: "spreads") { t in
+                t.primaryKey("id", .integer)
+                t.column("name", .text).notNull()
+                t.column("description", .text)
+                t.column("positions", .text)          // JSON, as on desktop
+                t.column("deck_slots", .text)
+                t.column("allowed_deck_types", .text)
+                t.column("archived", .integer)
+            }
+            try db.create(table: "profiles") { t in
+                t.primaryKey("id", .integer)
+                t.column("name", .text).notNull()
+                t.column("hidden", .integer)
+            }
+            try db.create(table: "tags") { t in
+                t.primaryKey("id", .integer)
+                t.column("name", .text).notNull()
+                t.column("color", .text)
+            }
+            try db.create(table: "reference_sources") { t in
+                t.primaryKey("id", .integer)
+                t.column("name", .text).notNull()
+                t.column("cartomancy_type", .text)
+            }
+            try db.create(table: "source_fields") { t in
+                t.primaryKey("id", .integer)
+                t.column("source_id", .integer).indexed()
+                t.column("cartomancy_type", .text)
+                t.column("name", .text)
+                t.column("sort_order", .integer)
+                t.column("collapsible", .integer)
+            }
+            try db.create(table: "card_archetypes") { t in
+                t.primaryKey("id", .integer)
+                t.column("name", .text).notNull()
+                t.column("cartomancy_type", .text)
+                t.column("rank", .text)
+                t.column("suit", .text)
+            }
+
+            // ── Delta tables (entry aggregates, source texts) ──
+            try db.create(table: "entries") { t in
+                t.primaryKey("id", .integer)
+                t.column("title", .text)
+                t.column("content", .text)
+                t.column("created_at", .text)
+                t.column("updated_at", .text).indexed()
+                t.column("reading_datetime", .text)
+                t.column("location_name", .text)
+                t.column("querent_id", .integer)
+                t.column("reader_id", .integer)
+                t.column("sync_uuid", .text)
+                // Children of the aggregate, stored as JSON blobs —
+                // the phone only reads them, so relational child
+                // tables would be complexity without payoff.
+                t.column("readings_json", .text)
+                t.column("tag_ids_json", .text)
+                t.column("querent_ids_json", .text)
+                t.column("follow_ups_json", .text)
+            }
+            try db.create(table: "source_entries") { t in
+                t.primaryKey("id", .integer)
+                t.column("archetype_id", .integer).indexed()
+                t.column("field_id", .integer).indexed()
+                t.column("content", .text)
+                t.column("updated_at", .text)
+            }
+
+            // ── Sync bookkeeping ──
+            try db.create(table: "sync_state") { t in
+                t.primaryKey("key", .text)
+                t.column("value", .text)
+            }
+        }
+
+        try migrator.migrate(writer)
+    }
+
+    // MARK: - Sync-state helpers
+
+    func syncState(_ key: String) throws -> String? {
+        try writer.read { db in
+            try String.fetchOne(
+                db, sql: "SELECT value FROM sync_state WHERE key = ?",
+                arguments: [key])
+        }
+    }
+
+    func setSyncState(_ key: String, _ value: String?) throws {
+        try writer.write { db in
+            if let value {
+                try db.execute(
+                    sql: "INSERT OR REPLACE INTO sync_state (key, value) VALUES (?, ?)",
+                    arguments: [key, value])
+            } else {
+                try db.execute(
+                    sql: "DELETE FROM sync_state WHERE key = ?",
+                    arguments: [key])
+            }
+        }
+    }
+}
