@@ -85,7 +85,10 @@ struct SettingsView: View {
                         selectedURL = url
                         selectedName = server.name
                         if url == nil {
-                            errorMessage = "Couldn't resolve \(server.name)'s address."
+                            errorMessage = "Couldn't resolve \(server.name)'s address. "
+                                + "Check that Local Network access is allowed "
+                                + "(Settings → Apps → Tarot Companion), or enter "
+                                + "the Mac's address below."
                         }
                     }
                 } label: {
