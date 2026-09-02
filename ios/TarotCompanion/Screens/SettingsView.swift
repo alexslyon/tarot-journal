@@ -11,6 +11,8 @@ struct SettingsView: View {
     @State private var isPairing = false
     @State private var errorMessage: String?
     @State private var paired = false
+    @State private var testing = false
+    @State private var testResult: String?
 
     var body: some View {
         NavigationStack {
@@ -121,6 +123,13 @@ struct SettingsView: View {
                 .keyboardType(.numbersAndPunctuation)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
+            Button("Test connection") {
+                Task { await testConnection() }
+            }
+            .disabled(pairingHost == nil || testing)
+            if let testResult {
+                Text(testResult).font(.caption).foregroundStyle(TJ.text3)
+            }
         }
 
         Section("Pairing code") {
@@ -146,15 +155,21 @@ struct SettingsView: View {
         }
     }
 
+    /// A typed address always wins over an earlier tap in the
+    /// discovery list — the manual field is the escape hatch, so it
+    /// must never be silently ignored.
+    private var pairingHost: URL? {
+        let trimmed = manualAddress.trimmingCharacters(in: .whitespaces)
+        if !trimmed.isEmpty {
+            let raw = trimmed.contains("://") ? trimmed : "http://\(trimmed):5678"
+            return URL(string: raw)
+        }
+        return selectedURL
+    }
+
     private func doPair() async {
         errorMessage = nil
-        var host = selectedURL
-        if host == nil, !manualAddress.isEmpty {
-            let raw = manualAddress.contains("://")
-                ? manualAddress : "http://\(manualAddress):5678"
-            host = URL(string: raw)
-        }
-        guard let host else {
+        guard let host = pairingHost else {
             errorMessage = "Pick your Mac from the list or enter its address."
             return
         }
@@ -167,8 +182,40 @@ struct SettingsView: View {
             paired = true
             discovery.stop()
             await appModel.sync.syncNow()
+        } catch let error as URLError {
+            errorMessage = "\(error.localizedDescription) (network code \(error.code.rawValue), trying \(host.absoluteString))"
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Plain reachability check against the sync API — answers
+    /// "can this phone see the Mac at that address?" with specifics,
+    /// separate from any pairing-code concerns.
+    private func testConnection() async {
+        guard let host = pairingHost else { return }
+        testing = true
+        testResult = "Testing \(host.absoluteString)…"
+        defer { testing = false }
+        var req = URLRequest(url: host.appendingPathComponent("api/sync/manifest"))
+        req.timeoutInterval = 6
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if code == 200 || code == 401 {
+                testResult = "✓ The Mac answered at \(host.absoluteString). Pairing should work."
+            } else {
+                testResult = "Reached \(host.absoluteString) but got HTTP \(code) — is the desktop app running with phone sync enabled?"
+            }
+        } catch let error as URLError {
+            switch error.code {
+            case .cannotConnectToHost, .timedOut, .cannotFindHost:
+                testResult = "✗ Nothing answered at \(host.absoluteString) — wrong address, or the Mac isn't on this network. (code \(error.code.rawValue))"
+            default:
+                testResult = "✗ \(error.localizedDescription) (code \(error.code.rawValue)). If this happens on every network, check Local Network permission for this app in the phone's Settings."
+            }
+        } catch {
+            testResult = "✗ \(error.localizedDescription)"
         }
     }
 }
