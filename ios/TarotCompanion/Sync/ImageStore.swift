@@ -22,6 +22,10 @@ actor ImageStore {
         cacheDir.appendingPathComponent("card_\(cardId).png")
     }
 
+    func isCached(_ cardId: Int64) -> Bool {
+        FileManager.default.fileExists(atPath: localURL(for: cardId).path)
+    }
+
     func image(for cardId: Int64) async -> UIImage? {
         if let cached = UIImage(contentsOfFile: localURL(for: cardId).path) {
             return cached

@@ -18,6 +18,17 @@ final class SyncEngine: ObservableObject {
     @Published var lastSyncDate: Date?
     @Published var statusMessage: String?
 
+    /// Progress of the image pre-download that follows each data sync.
+    struct ImageProgress: Equatable {
+        var done: Int
+        var total: Int
+    }
+    @Published var imageProgress: ImageProgress?
+
+    /// Set by AppModel after construction; used to pre-download all
+    /// favorite-deck card images so the phone works fully offline.
+    weak var imageStore: ImageStore?
+
     /// The tables mirrored wholesale each sync, in dependency-free order.
     static let snapshotTables = [
         "decks", "cards", "spreads", "profiles", "tags",
@@ -102,6 +113,53 @@ final class SyncEngine: ObservableObject {
             statusMessage = nil
         } catch {
             statusMessage = "Sync failed: \(error.localizedDescription)"
+            return
+        }
+        // Data is safely home; now pre-download any card images we
+        // don't have yet, so every favorite deck works offline. This
+        // is interruption-friendly: whatever fails or gets cut off
+        // (Mac asleep, app backgrounded) is simply retried next sync.
+        await prefetchImages()
+    }
+
+    @MainActor
+    private func prefetchImages() async {
+        guard let store = imageStore else { return }
+        let ids: [Int64] = (try? await database.writer.read { db in
+            try Int64.fetchAll(db, sql: "SELECT id FROM cards ORDER BY deck_id, card_order")
+        }) ?? []
+        var missing: [Int64] = []
+        for id in ids where !(await store.isCached(id)) {
+            missing.append(id)
+        }
+        guard !missing.isEmpty else { imageProgress = nil; return }
+
+        var progress = ImageProgress(done: 0, total: missing.count)
+        imageProgress = progress
+        var failures = 0
+
+        // A few at a time: fast on Wi-Fi without hammering the Mac,
+        // which may be generating each derivative on first request.
+        for batch in stride(from: 0, to: missing.count, by: 4).map({
+            Array(missing[$0..<min($0 + 4, missing.count)])
+        }) {
+            await withTaskGroup(of: Bool.self) { group in
+                for id in batch {
+                    group.addTask { await store.image(for: id) != nil }
+                }
+                for await ok in group {
+                    progress.done += 1
+                    if !ok { failures += 1 }
+                }
+            }
+            imageProgress = progress
+            // The Mac has stopped answering (asleep, app closed) —
+            // give up quietly; the next sync resumes from here.
+            if failures >= 8 && failures == progress.done { break }
+        }
+        imageProgress = nil
+        if failures > 0 {
+            statusMessage = "\(failures) images couldn't be fetched — they'll retry on the next sync."
         }
     }
 

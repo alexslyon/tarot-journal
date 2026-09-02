@@ -49,6 +49,7 @@ final class AppModel: ObservableObject {
         sync = SyncEngine(database: database)
         let engine = sync
         images = ImageStore(serverURL: { engine.serverURL })
+        sync.imageStore = images
 
         #if DEBUG && targetEnvironment(simulator)
         // Development convenience: in the simulator, talk to the

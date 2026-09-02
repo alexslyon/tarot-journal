@@ -47,6 +47,19 @@ struct SettingsView: View {
             if let status = appModel.sync.statusMessage {
                 Text(status).font(.caption).foregroundStyle(.secondary)
             }
+            if let progress = appModel.sync.imageProgress {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Downloading card images — \(progress.done) of \(progress.total)")
+                        .font(.caption)
+                        .foregroundStyle(TJ.text3)
+                    ProgressView(value: Double(progress.done),
+                                 total: Double(max(progress.total, 1)))
+                        .tint(TJ.accent)
+                    Text("Keep the Mac awake with the desktop app open. If this is interrupted, the next sync picks up where it left off.")
+                        .font(.caption2)
+                        .foregroundStyle(TJ.textFaint)
+                }
+            }
             Button {
                 Task { await appModel.sync.syncNow() }
             } label: {
