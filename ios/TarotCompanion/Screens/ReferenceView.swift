@@ -22,17 +22,23 @@ struct ReferenceView: View {
                         description: Text("Look up any card archetype across your reference sources."))
                 } else {
                     List(hits) { hit in
-                        VStack(alignment: .leading) {
-                            Text(hit.name)
-                                .font(.headline)
-                                .fontDesign(.serif)
-                                .fontWeight(.regular)
-                                .foregroundStyle(TJ.text)
-                            if let type = hit.cartomancyType {
-                                Text(type).font(.caption).foregroundStyle(TJ.textFaint)
+                        NavigationLink(value: hit) {
+                            VStack(alignment: .leading) {
+                                Text(hit.name)
+                                    .font(.headline)
+                                    .fontDesign(.serif)
+                                    .fontWeight(.regular)
+                                    .foregroundStyle(TJ.text)
+                                if let type = hit.cartomancyType {
+                                    Text(type).font(.caption).foregroundStyle(TJ.textFaint)
+                                }
                             }
                         }
                         .listRowBackground(TJ.panel)
+                    }
+                    .navigationDestination(for: ArchetypeHit.self) { hit in
+                        ReferenceDetailView(archetypeId: hit.id,
+                                            archetypeName: hit.name)
                     }
                 }
             }

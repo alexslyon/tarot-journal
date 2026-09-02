@@ -25,6 +25,7 @@ struct TarotCompanionApp: App {
 final class AppModel: ObservableObject {
     let database: AppDatabase
     let sync: SyncEngine
+    let images: ImageStore
 
     @Published var lastSyncError: String?
 
@@ -37,5 +38,20 @@ final class AppModel: ObservableObject {
             fatalError("Could not open the local database: \(error)")
         }
         sync = SyncEngine(database: database)
+        let engine = sync
+        images = ImageStore(serverURL: { engine.serverURL })
+
+        #if DEBUG && targetEnvironment(simulator)
+        // Development convenience: in the simulator, talk to the
+        // desktop app on this Mac without pairing (loopback is
+        // trusted by the desktop), and pull on every launch so the
+        // simulator always shows live data. Never compiled into
+        // device builds.
+        if engine.serverURL == nil {
+            try? database.setSyncState(
+                "server_url", "http://127.0.0.1:5678")
+        }
+        Task { await engine.syncNow() }
+        #endif
     }
 }

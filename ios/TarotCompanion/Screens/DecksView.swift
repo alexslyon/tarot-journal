@@ -21,16 +21,21 @@ struct DecksView: View {
                         description: Text("Star decks in the Mac app's Library, then sync."))
                 } else {
                     List(decks) { deck in
-                        HStack {
-                            Text(deck.name)
-                                .fontDesign(.serif)
-                                .foregroundStyle(TJ.text)
-                            Spacer()
-                            Text("\(deck.cardCount) cards")
-                                .font(.caption)
-                                .foregroundStyle(TJ.textFaint)
+                        NavigationLink(value: deck) {
+                            HStack {
+                                Text(deck.name)
+                                    .fontDesign(.serif)
+                                    .foregroundStyle(TJ.text)
+                                Spacer()
+                                Text("\(deck.cardCount) cards")
+                                    .font(.caption)
+                                    .foregroundStyle(TJ.textFaint)
+                            }
                         }
                         .listRowBackground(TJ.panel)
+                    }
+                    .navigationDestination(for: DeckRow.self) { deck in
+                        DeckDetailView(deckId: deck.id, deckName: deck.name)
                     }
                 }
             }

@@ -32,21 +32,26 @@ struct JournalListView: View {
                         description: Text("Pair with your Mac in Settings, then sync."))
                 } else {
                     List(filtered) { entry in
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(entry.title ?? "Untitled reading")
-                                .font(.headline)
-                                .fontDesign(.serif)
-                                .fontWeight(.regular)
-                                .foregroundStyle(TJ.text)
-                            if let date = entry.readingDatetime {
-                                Text(Self.displayDate(date))
-                                    .font(.caption)
-                                    .foregroundStyle(TJ.textFaint)
+                        NavigationLink(value: entry.id) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(entry.title ?? "Untitled reading")
+                                    .font(.headline)
+                                    .fontDesign(.serif)
+                                    .fontWeight(.regular)
+                                    .foregroundStyle(TJ.text)
+                                if let date = entry.readingDatetime {
+                                    Text(Self.displayDate(date))
+                                        .font(.caption)
+                                        .foregroundStyle(TJ.textFaint)
+                                }
                             }
                         }
                         .listRowBackground(TJ.panel)
                     }
                     .searchable(text: $searchText)
+                    .navigationDestination(for: Int64.self) { entryId in
+                        EntryDetailView(entryId: entryId)
+                    }
                 }
             }
             .navigationTitle("Journal")
@@ -68,12 +73,23 @@ struct JournalListView: View {
         }) ?? []
     }
 
+    /// The desktop stores naive local timestamps (no timezone), e.g.
+    /// "2026-09-01T00:45:12.345" — try its variants oldest-first.
     static func displayDate(_ iso: String) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let plain = ISO8601DateFormatter()
-        let date = formatter.date(from: iso) ?? plain.date(from: iso)
-        guard let date else { return iso }
-        return date.formatted(date: .abbreviated, time: .shortened)
+        let patterns = [
+            "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
+            "yyyy-MM-dd'T'HH:mm:ss",
+            "yyyy-MM-dd'T'HH:mm",
+            "yyyy-MM-dd",
+        ]
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        for pattern in patterns {
+            formatter.dateFormat = pattern
+            if let date = formatter.date(from: iso) {
+                return date.formatted(date: .abbreviated, time: .shortened)
+            }
+        }
+        return iso
     }
 }
