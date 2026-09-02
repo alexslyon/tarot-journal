@@ -47,9 +47,7 @@ struct JournalListView: View {
                         NavigationLink(value: entry.id) {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(entry.title ?? "Untitled reading")
-                                    .font(.headline)
-                                    .fontDesign(.serif)
-                                    .fontWeight(.regular)
+                                    .font(TJ.serifFont(17))
                                     .foregroundStyle(TJ.text)
                                 if let subtitle = entry.subtitle {
                                     Text(subtitle)

@@ -31,6 +31,9 @@ targets:
           NSAllowsLocalNetworking: true
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        UIAppFonts:
+          - NewsreaderDisplay-Light.ttf
+          - NewsreaderText-Regular.ttf
     dependencies:
       - package: GRDB
         product: GRDB

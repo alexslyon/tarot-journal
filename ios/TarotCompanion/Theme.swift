@@ -40,15 +40,30 @@ enum TJ {
             .background(canvas.ignoresSafeArea())
     }
 
+    // The desktop's Newsreader, bundled (OFL): a light display cut
+    // for titles, a text cut for names and headings. System serif
+    // stays the fallback if the bundle ever loses the files.
+    static let displayFontName = "NewsreaderDisplay-Light"
+    static let textSerifName = "NewsreaderText-Regular"
+
+    static func displayFont(_ size: CGFloat) -> Font {
+        .custom(displayFontName, size: size)
+    }
+
+    static func serifFont(_ size: CGFloat) -> Font {
+        .custom(textSerifName, size: size)
+    }
+
     /// Configure UIKit chrome (nav bars, tab bar) once at launch —
     /// SwiftUI still routes these through UIKit appearance proxies.
-    /// Titles get a serif face, echoing the desktop's Newsreader.
+    /// Titles get the desktop's Newsreader.
     static func applyAppearance() {
         let canvasUI = UIColor(red: 22 / 255, green: 24 / 255, blue: 38 / 255, alpha: 1)
         let textUI = UIColor(red: 233 / 255, green: 233 / 255, blue: 237 / 255, alpha: 1)
         let text2UI = UIColor(red: 207 / 255, green: 211 / 255, blue: 229 / 255, alpha: 1)
 
-        func serif(size: CGFloat, weight: UIFont.Weight) -> UIFont {
+        func serif(name: String, size: CGFloat, weight: UIFont.Weight) -> UIFont {
+            if let custom = UIFont(name: name, size: size) { return custom }
             let base = UIFont.systemFont(ofSize: size, weight: weight)
             guard let descriptor = base.fontDescriptor.withDesign(.serif) else { return base }
             return UIFont(descriptor: descriptor, size: size)
@@ -58,11 +73,11 @@ enum TJ {
         nav.configureWithTransparentBackground()
         nav.largeTitleTextAttributes = [
             .foregroundColor: text2UI,
-            .font: serif(size: 34, weight: .light),
+            .font: serif(name: displayFontName, size: 34, weight: .light),
         ]
         nav.titleTextAttributes = [
             .foregroundColor: textUI,
-            .font: serif(size: 17, weight: .regular),
+            .font: serif(name: textSerifName, size: 17, weight: .regular),
         ]
         UINavigationBar.appearance().standardAppearance = nav
         UINavigationBar.appearance().scrollEdgeAppearance = nav

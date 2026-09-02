@@ -57,9 +57,7 @@ struct ReferenceDetailView: View {
             } label: {
                 HStack {
                     Text(section.sourceName)
-                        .font(.headline)
-                        .fontDesign(.serif)
-                        .fontWeight(.regular)
+                        .font(TJ.serifFont(17))
                         .foregroundStyle(TJ.text2)
                     Spacer()
                     Image(systemName: expandedSources.contains(section.id)

@@ -13,6 +13,7 @@ struct DeckDetailView: View {
     @EnvironmentObject private var appModel: AppModel
     @State private var cards: [DeckCard] = []
     @State private var searchText = ""
+    @State private var viewingCard: DeckCard?
 
     var filtered: [DeckCard] {
         guard !searchText.isEmpty else { return cards }
@@ -36,6 +37,7 @@ struct DeckDetailView: View {
                                 .foregroundStyle(TJ.text3)
                                 .lineLimit(1)
                         }
+                        .onTapGesture { viewingCard = card }
                     }
                 }
                 .padding()
@@ -45,6 +47,9 @@ struct DeckDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText)
         .task { load() }
+        .sheet(item: $viewingCard) { card in
+            CardViewerView(cardId: card.id, name: card.name)
+        }
     }
 
     private func load() {

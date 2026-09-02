@@ -72,9 +72,7 @@ struct InsightsView: View {
     private func summaryTile(_ value: String, _ label: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.title2)
-                .fontDesign(.serif)
-                .fontWeight(.light)
+                .font(TJ.displayFont(24))
                 .foregroundStyle(TJ.textAccent)
             Text(label)
                 .font(.caption2)
@@ -89,9 +87,7 @@ struct InsightsView: View {
                             @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.headline)
-                .fontDesign(.serif)
-                .fontWeight(.regular)
+                .font(TJ.serifFont(17))
                 .foregroundStyle(TJ.text2)
             content()
         }

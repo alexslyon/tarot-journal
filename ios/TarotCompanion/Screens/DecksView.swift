@@ -24,7 +24,7 @@ struct DecksView: View {
                         NavigationLink(value: deck) {
                             HStack {
                                 Text(deck.name)
-                                    .fontDesign(.serif)
+                                    .font(TJ.serifFont(17))
                                     .foregroundStyle(TJ.text)
                                 Spacer()
                                 Text("\(deck.cardCount) cards")

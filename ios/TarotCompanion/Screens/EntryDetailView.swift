@@ -81,6 +81,8 @@ struct EntryDetailView: View {
     @State private var readerName: String?
     @State private var tags: [(name: String, color: String?)] = []
     @State private var positionsBySpread: [Int64: [SpreadPosition]] = [:]
+    @State private var viewingCard: ReadingCard?
+    @State private var zoomedReading: Reading?
 
     var body: some View {
         NocturneScreen {
@@ -105,15 +107,39 @@ struct EntryDetailView: View {
         .navigationTitle(title ?? "Reading")
         .navigationBarTitleDisplayMode(.inline)
         .task { load() }
+        .sheet(item: $viewingCard) { card in
+            CardViewerView(cardId: card.cardId, name: card.name,
+                           reversed: card.reversed ?? false)
+        }
+        .sheet(item: $zoomedReading) { reading in
+            NavigationStack {
+                ZStack {
+                    TJ.canvas.ignoresSafeArea()
+                    ZoomableScrollView {
+                        SpreadLayoutView(
+                            cards: reading.cardsUsed ?? [],
+                            positions: reading.spreadId.flatMap { positionsBySpread[$0] },
+                            onTapCard: { viewingCard = $0 })
+                            .padding(10)
+                    }
+                }
+                .navigationTitle(reading.spreadName ?? "Spread")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { zoomedReading = nil }
+                    }
+                }
+            }
+            .preferredColorScheme(.dark)
+        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let title {
                 Text(title)
-                    .font(.title2)
-                    .fontDesign(.serif)
-                    .fontWeight(.light)
+                    .font(TJ.displayFont(24))
                     .foregroundStyle(TJ.text2)
             }
             if let readingDatetime {
@@ -155,9 +181,7 @@ struct EntryDetailView: View {
             HStack {
                 if let spreadName = reading.spreadName {
                     Text(spreadName)
-                        .font(.headline)
-                        .fontDesign(.serif)
-                        .fontWeight(.regular)
+                        .font(TJ.serifFont(17))
                         .foregroundStyle(TJ.text2)
                 }
                 Spacer()
@@ -166,11 +190,21 @@ struct EntryDetailView: View {
                         .font(.caption)
                         .foregroundStyle(TJ.textFaint)
                 }
+                if reading.cardsUsed?.isEmpty == false {
+                    Button {
+                        zoomedReading = reading
+                    } label: {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.caption)
+                    }
+                    .accessibilityLabel("View spread full screen")
+                }
             }
             if let cards = reading.cardsUsed, !cards.isEmpty {
                 SpreadLayoutView(
                     cards: cards,
-                    positions: reading.spreadId.flatMap { positionsBySpread[$0] })
+                    positions: reading.spreadId.flatMap { positionsBySpread[$0] },
+                    onTapCard: { viewingCard = $0 })
             }
             if let notes = reading.notes, !notes.isEmpty {
                 notesPanel("Reading notes", html: notes)
@@ -268,6 +302,7 @@ struct EntryDetailView: View {
 struct SpreadLayoutView: View {
     let cards: [ReadingCard]
     let positions: [SpreadPosition]?
+    var onTapCard: ((ReadingCard) -> Void)?
 
     var body: some View {
         if let positions, !positions.isEmpty {
@@ -321,6 +356,7 @@ struct SpreadLayoutView: View {
                 if let card {
                     CardImageView(cardId: card.cardId,
                                   reversed: card.reversed ?? false)
+                        .onTapGesture { onTapCard?(card) }
                 } else {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(TJ.well)
@@ -351,6 +387,7 @@ struct SpreadLayoutView: View {
         let w = pos.width * scale * 0.6
         let h = pos.height * scale * 0.6
         return CardImageView(cardId: card.cardId, reversed: card.reversed ?? false)
+            .onTapGesture { onTapCard?(card) }
             .frame(width: w, height: h)
             .shadow(radius: 3)
             .offset(x: (pos.x - minX + pos.width * 0.55) * scale,
@@ -366,6 +403,7 @@ struct SpreadLayoutView: View {
                     CardImageView(cardId: card.cardId,
                                   reversed: card.reversed ?? false)
                         .frame(height: 110)
+                        .onTapGesture { onTapCard?(card) }
                     Text(card.name ?? "")
                         .font(.system(size: 9))
                         .foregroundStyle(TJ.textFaint)

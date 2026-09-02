@@ -25,9 +25,7 @@ struct ReferenceView: View {
                         NavigationLink(value: hit) {
                             VStack(alignment: .leading) {
                                 Text(hit.name)
-                                    .font(.headline)
-                                    .fontDesign(.serif)
-                                    .fontWeight(.regular)
+                                    .font(TJ.serifFont(17))
                                     .foregroundStyle(TJ.text)
                                 if let type = hit.cartomancyType {
                                     Text(type).font(.caption).foregroundStyle(TJ.textFaint)

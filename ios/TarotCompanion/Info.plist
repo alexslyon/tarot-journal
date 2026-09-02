@@ -29,6 +29,11 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Tarot Companion connects to the Tarot Journal app on your Mac over your home Wi-Fi to sync your journal and decks.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>NewsreaderDisplay-Light.ttf</string>
+		<string>NewsreaderText-Regular.ttf</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
