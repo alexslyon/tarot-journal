@@ -56,6 +56,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;          /* long rows (Add a spread + its button)
+                               wrap instead of spilling past the panel */
+}
+
+.getting-started__list li .getting-started__starter {
+  margin-left: 28px;        /* aligns under the label when wrapped */
+  margin-bottom: 4px;
 }
 
 .getting-started__item {
@@ -92,6 +99,5 @@
 .getting-started__starter {
   font-size: var(--font-size-small);
   padding: 3px 8px;
-  margin-right: 4px;
   white-space: nowrap;
 }

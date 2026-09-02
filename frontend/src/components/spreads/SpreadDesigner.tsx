@@ -631,9 +631,9 @@ export default function SpreadDesigner({
     <div className={`designer ${readOnly ? 'designer--readonly' : ''}`}>
       {!readOnly && (
         <div className="designer__toolbar">
-          <button onClick={handleAddPosition}>+ Add Position</button>
+          <button onClick={handleAddPosition} data-guide="add-position">+ Add Position</button>
           <button onClick={handleClearAll} disabled={positions.length === 0}>Clear All</button>
-          <label className="designer__grid-toggle">
+          <label className="designer__grid-toggle" data-guide="snap-grid">
             <input
               type="checkbox"
               checked={gridEnabled}

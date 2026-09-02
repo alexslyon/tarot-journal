@@ -71,7 +71,7 @@ export default function DeckList({ selectedDeckId, onSelectDeck, onEditDeck, onI
       <div className="deck-list__header">
         <h2 className="deck-list__title">Decks</h2>
         {onImport && (
-          <button className="deck-list__import-btn" onClick={onImport}>Import</button>
+          <button className="deck-list__import-btn" data-guide="import-deck" onClick={onImport}>Import</button>
         )}
         <label className="deck-list__tag-toggle">
           <input

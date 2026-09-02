@@ -10,6 +10,8 @@ import CommandPalette, { type PaletteAction } from './components/common/CommandP
 import ScribeLauncher from './components/scribe/ScribeLauncher';
 import WelcomeModal from './components/onboarding/WelcomeModal';
 import GettingStartedPanel from './components/onboarding/GettingStartedPanel';
+import GuideOverlay from './components/onboarding/GuideOverlay';
+import { TOURS, type Tour } from './components/onboarding/tours';
 import { getOnboardingFlags } from './api/onboarding';
 import { getProfiles } from './api/profiles';
 import { getDecks } from './api/decks';
@@ -438,6 +440,7 @@ function OnboardingHost({ onGoTo }: { onGoTo: (tab: TabId) => void }) {
   const { data: decks } = useQuery({ queryKey: ['decks'], queryFn: () => getDecks() });
   const [welcomeClosed, setWelcomeClosed] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [tour, setTour] = useState<Tour | null>(null);
 
   if (!flags || !profiles || !decks) return null;
 
@@ -451,11 +454,19 @@ function OnboardingHost({ onGoTo }: { onGoTo: (tab: TabId) => void }) {
       <WelcomeModal
         open={welcomeOpen}
         onClose={() => setWelcomeClosed(true)}
-        onGoTo={onGoTo}
+        onGoTo={(tab) => {
+          onGoTo(tab);
+          if (tab === 'library') setTour(TOURS.deck);
+        }}
       />
       {showChecklist && (
-        <GettingStartedPanel onGoTo={onGoTo} onDismissed={() => setDismissed(true)} />
+        <GettingStartedPanel
+          onGoTo={onGoTo}
+          onDismissed={() => setDismissed(true)}
+          onStartTour={(id) => setTour(TOURS[id])}
+        />
       )}
+      {tour && <GuideOverlay key={tour.id} tour={tour} onDone={() => setTour(null)} />}
     </>
   );
 }

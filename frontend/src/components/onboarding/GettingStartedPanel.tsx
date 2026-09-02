@@ -6,11 +6,13 @@ import { getSpreads } from '../../api/spreads';
 import { getEntries } from '../../api/entries';
 import { addStarterSpreads, setOnboardingFlags } from '../../api/onboarding';
 import type { TabId } from '../layout/TabNav';
+import type { Tour } from './tours';
 import './GettingStartedPanel.css';
 
 interface GettingStartedPanelProps {
   onGoTo: (tab: TabId) => void;
   onDismissed: () => void;
+  onStartTour: (id: Tour['id']) => void;
 }
 
 /**
@@ -18,7 +20,7 @@ interface GettingStartedPanelProps {
  * real state (profiles/decks/spreads/entries) and deep-links each
  * step. It retires itself when everything's done, or when dismissed.
  */
-export default function GettingStartedPanel({ onGoTo, onDismissed }: GettingStartedPanelProps) {
+export default function GettingStartedPanel({ onGoTo, onDismissed, onStartTour }: GettingStartedPanelProps) {
   const queryClient = useQueryClient();
   const [collapsed, setCollapsed] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -38,17 +40,20 @@ export default function GettingStartedPanel({ onGoTo, onDismissed }: GettingStar
       label: 'Import your first deck',
       done: decks.length > 0,
       tab: 'library' as TabId,
+      tour: 'deck' as Tour['id'],
     },
     {
       label: 'Add a spread',
       done: spreads.length > 0,
       tab: 'spreads' as TabId,
       starter: true,
+      tour: 'spread' as Tour['id'],
     },
     {
       label: 'Record your first reading',
       done: entries.length > 0,
       tab: 'journal' as TabId,
+      tour: 'entry' as Tour['id'],
     },
   ];
 
@@ -103,7 +108,10 @@ export default function GettingStartedPanel({ onGoTo, onDismissed }: GettingStar
             <li key={item.label}>
               <button
                 className={`getting-started__item ${item.done ? 'getting-started__item--done' : ''}`}
-                onClick={() => onGoTo(item.tab)}
+                onClick={() => {
+                  onGoTo(item.tab);
+                  if ('tour' in item && item.tour) onStartTour(item.tour);
+                }}
                 disabled={item.done}
               >
                 <span className="getting-started__mark">

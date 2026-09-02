@@ -1,0 +1,63 @@
+.guide-card {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  width: min(460px, calc(100vw - 40px));
+  background: var(--bg-secondary);
+  border: 1px solid var(--tj-edge-accent);
+  border-radius: 10px;
+  box-shadow: var(--tj-glow-soft), var(--tj-shadow-modal);
+  padding: 12px 14px;
+  /* Above modals (1000/1001): the guide walks through modal
+     contents, so it must stay clickable while one is open. */
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.guide-card__text {
+  color: var(--text-primary);
+  font-size: var(--font-size-body);
+  line-height: 1.45;
+}
+
+.guide-card__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.guide-card__progress {
+  font-size: var(--font-size-small);
+  color: var(--text-dim);
+  margin-right: auto;
+}
+
+.guide-card__skip {
+  font-size: var(--font-size-small);
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.guide-card__skip:hover {
+  color: var(--text-secondary);
+}
+
+.guide-card__next {
+  padding: 4px 14px;
+  font-size: var(--font-size-small);
+}
+
+/* The highlight ring applied to the current step's target */
+.guide-ring {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 3px;
+  border-radius: 6px;
+  box-shadow: var(--tj-glow) !important;
+  transition: outline-color 0.2s;
+}

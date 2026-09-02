@@ -153,7 +153,7 @@ export default function EntryList({
     <div className="entry-list">
       <div className="entry-list__header">
         <h2 className="entry-list__title">Journal</h2>
-        <button className="entry-list__btn" onClick={onNewEntry}>+ New</button>
+        <button className="entry-list__btn" data-guide="new-entry" onClick={onNewEntry}>+ New</button>
       </div>
 
       <div className="entry-list__search">

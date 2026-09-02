@@ -162,7 +162,7 @@ export default function SpreadList({
       <div className="spread-list__header">
         <h2 className="spread-list__title">Spreads</h2>
         <div className="spread-list__actions">
-          <button onClick={onNew} title="New spread">New</button>
+          <button onClick={onNew} title="New spread" data-guide="new-spread">New</button>
           <button onClick={onClone} disabled={!selectedSpreadId} title="Clone selected">Clone</button>
           <button
             onClick={handleArchiveToggle}

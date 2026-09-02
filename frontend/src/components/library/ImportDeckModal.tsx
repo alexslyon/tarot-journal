@@ -281,6 +281,7 @@ export default function ImportDeckModal({ onClose, onImported }: ImportDeckModal
                     value={folder}
                     onChange={(e) => setFolder(e.target.value)}
                     placeholder="/path/to/card/images"
+                    data-guide="import-folder"
                     className="import-deck__folder-input"
                   />
                   {isElectron && (
@@ -324,7 +325,7 @@ export default function ImportDeckModal({ onClose, onImported }: ImportDeckModal
 
               <div className="import-deck__field">
                 <label className="import-deck__label">Import Preset</label>
-                <select value={preset} onChange={(e) => setPreset(e.target.value)}>
+                <select value={preset} data-guide="import-preset" onChange={(e) => setPreset(e.target.value)}>
                   <option value="">None (use filenames)</option>
                   {presets.map((p) => (
                     <option key={p} value={p}>
@@ -415,6 +416,7 @@ export default function ImportDeckModal({ onClose, onImported }: ImportDeckModal
               <ModalCancelButton>Cancel</ModalCancelButton>
               <button
                 className="import-deck__primary-btn"
+                data-guide="import-scan"
                 onClick={handleScan}
                 disabled={scanning || !folder.trim()}
               >
