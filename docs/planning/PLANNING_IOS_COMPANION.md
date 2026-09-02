@@ -1,8 +1,27 @@
 # Planning: iOS Companion App
 
-*Drafted 2026-09-01. Status: proposal — not yet started.*
+*Drafted 2026-09-01. Status: **Phases 0 and 1 shipped 2026-09-02** —
+the app is installed on the phone, paired over Wi-Fi, and syncing.
+Phase 2 (quick entry on the phone) is the next milestone.*
 *2026-09-02: worked into a concrete build plan (see "Build plan"
 below) after auditing the codebase; corrections noted inline.*
+
+Build notes from Phase 1 (2026-09-02):
+
+- The iOS app lives in `ios/` (SwiftUI + GRDB; `.xcodeproj` generated
+  by `xcodegen` from `ios/project.yml`, signing team baked in there).
+- Screens shipped: journal list (querent filter, search,
+  pull-to-refresh) → entry detail with the 2D spread-layout renderer
+  (reversals, sideways cards, clarifiers), reference search → source
+  texts per archetype, favorite-deck galleries, Insights charts,
+  Settings with Bonjour pairing.
+- Sync: pull on app-foreground + pull-to-refresh; images cached on
+  the phone permanently after first fetch.
+- Gotcha: resolving a Bonjour service to an IP had to use Foundation's
+  NetService — NWConnection.currentPath doesn't reliably expose the
+  resolved address.
+- The 7-day free-account reinstall ritual applies: plug in, ⌘R from
+  Xcode when the app stops launching.
 
 ## Concept
 
