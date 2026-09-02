@@ -10,7 +10,8 @@
     "test:backend": ".venv/bin/python3 -m pytest",
     "start": "npm run build:frontend && electron .",
     "package": "npm run build:frontend && electron-forge package",
-    "make": "npm run build:frontend && electron-forge make"
+    "make": "npm run build:frontend && electron-forge make",
+    "make:app": "npm run package && bash scripts/bundle-python.sh"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.6.0",
