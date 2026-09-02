@@ -48,7 +48,7 @@ struct DeckDetailView: View {
         .searchable(text: $searchText)
         .task { load() }
         .sheet(item: $viewingCard) { card in
-            CardViewerView(cardId: card.id, name: card.name)
+            CardInfoView(cardId: card.id, fallbackName: card.name)
         }
     }
 

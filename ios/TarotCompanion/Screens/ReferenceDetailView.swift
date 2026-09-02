@@ -15,34 +15,29 @@ struct SourceSection: Identifiable {
     }
 }
 
-struct ReferenceDetailView: View {
+/// An archetype's source texts as collapsible per-source panels.
+/// Shared between the Reference tab and the card-info screen.
+struct ArchetypeSourceTexts: View {
     let archetypeId: Int64
-    let archetypeName: String
 
     @EnvironmentObject private var appModel: AppModel
     @State private var sections: [SourceSection] = []
     @State private var expandedSources: Set<Int64> = []
+    @State private var loaded = false
 
     var body: some View {
-        NocturneScreen {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    if sections.isEmpty {
-                        ContentUnavailableView(
-                            "No reference text",
-                            systemImage: "text.book.closed",
-                            description: Text("No source has an entry for this card yet."))
-                            .padding(.top, 60)
-                    }
-                    ForEach(sections) { section in
-                        sourcePanel(section)
-                    }
-                }
-                .padding()
+        VStack(alignment: .leading, spacing: 14) {
+            if loaded && sections.isEmpty {
+                ContentUnavailableView(
+                    "No reference text",
+                    systemImage: "text.book.closed",
+                    description: Text("No source has an entry for this card yet."))
+                    .padding(.top, 40)
+            }
+            ForEach(sections) { section in
+                sourcePanel(section)
             }
         }
-        .navigationTitle(archetypeName)
-        .navigationBarTitleDisplayMode(.inline)
         .task { load() }
     }
 
@@ -120,5 +115,22 @@ struct ReferenceDetailView: View {
         if sections.count == 1, let only = sections.first {
             expandedSources = [only.id]
         }
+        loaded = true
+    }
+}
+
+struct ReferenceDetailView: View {
+    let archetypeId: Int64
+    let archetypeName: String
+
+    var body: some View {
+        NocturneScreen {
+            ScrollView {
+                ArchetypeSourceTexts(archetypeId: archetypeId)
+                    .padding()
+            }
+        }
+        .navigationTitle(archetypeName)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

@@ -157,6 +157,8 @@ def test_snapshot_decks_and_cards_favorites_only(client, db):
     cards = client.get('/api/sync/snapshot/cards').get_json()['rows']
     deck_ids = {c['deck_id'] for c in cards}
     assert fav_id in deck_ids and other_id not in deck_ids
+    # Card-info fields ride along for the phone's card page
+    assert 'notes' in cards[0] and 'custom_fields' in cards[0]
 
 
 def test_snapshot_unknown_table_404(client):

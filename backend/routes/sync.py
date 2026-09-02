@@ -166,7 +166,8 @@ SNAPSHOT_TABLES = {
     'profiles': 'SELECT id, name, hidden FROM profiles',
     'decks': ('SELECT id, name, favorite FROM decks WHERE favorite = 1'),
     'cards': ('SELECT c.id, c.deck_id, c.name, c.archetype, c.rank, '
-              'c.suit, c.card_order FROM cards c '
+              'c.suit, c.card_order, c.notes, c.custom_fields '
+              'FROM cards c '
               'JOIN decks d ON d.id = c.deck_id WHERE d.favorite = 1'),
     'tags': 'SELECT id, name, color FROM tags',
     'reference_sources': ('SELECT id, name, cartomancy_type '

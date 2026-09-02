@@ -109,8 +109,8 @@ struct EntryDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { load() }
         .sheet(item: $viewingCard) { card in
-            CardViewerView(cardId: card.cardId, name: card.name,
-                           reversed: card.reversed ?? false)
+            CardInfoView(cardId: card.cardId, fallbackName: card.name,
+                         reversed: card.reversed ?? false)
         }
         .sheet(item: $zoomedReading) { reading in
             NavigationStack {

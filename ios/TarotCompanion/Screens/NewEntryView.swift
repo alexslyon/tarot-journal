@@ -36,7 +36,7 @@ struct NewEntryView: View {
 
     @State private var title = ""
     @State private var notes = ""
-    @State private var querentId: Int64?
+    @State private var querentIds: [Int64] = []
     @State private var deckId: Int64?
     @State private var spread: SpreadOption?
     @State private var readingDate = Date()
@@ -98,14 +98,21 @@ struct NewEntryView: View {
         .task { load() }
     }
 
+    private var querentSummary: String {
+        let names = querentIds.compactMap { id in
+            profiles.first { $0.id == id }?.name
+        }
+        return names.isEmpty ? "None" : names.joined(separator: ", ")
+    }
+
     @ViewBuilder
     private func optionPicker(for picker: ActivePicker) -> some View {
         switch picker {
         case .querent:
-            OptionPickerSheet(
-                title: "Querent",
+            MultiPickerSheet(
+                title: "Querents",
                 options: profiles.map { ($0.id, $0.name) },
-                noneLabel: "None") { querentId = $0 }
+                selection: $querentIds)
         case .deck:
             OptionPickerSheet(
                 title: "Deck",
@@ -142,8 +149,7 @@ struct NewEntryView: View {
         Section("Reading") {
             TextField("Title (optional)", text: $title)
 
-            pickerRow("Querent",
-                      value: profiles.first { $0.id == querentId }?.name ?? "None") {
+            pickerRow("Querents", value: querentSummary) {
                 activePicker = .querent
             }
             pickerRow("Deck",
@@ -330,7 +336,7 @@ struct NewEntryView: View {
         var payload: [String: Any] = [
             "sync_uuid": UUID().uuidString,
             "reading_datetime": formatter.string(from: readingDate),
-            "querent_ids": querentId.map { [$0] } ?? [],
+            "querent_ids": querentIds,
             "reading": [
                 "deck_id": deckId,
                 "spread_id": spread?.id as Any,
@@ -369,6 +375,62 @@ struct NewEntryView: View {
                 return "<p>\(escaped)</p>"
             }
             .joined()
+    }
+}
+
+// MARK: - Multi-select picker (querents)
+
+/// Searchable multi-select: tap to toggle, Done to finish. Selection
+/// order is preserved — the first-tapped querent is the primary one,
+/// matching the desktop's ordered querent list.
+struct MultiPickerSheet: View {
+    let title: String
+    let options: [(id: Int64, label: String)]
+    @Binding var selection: [Int64]
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var searchText = ""
+
+    var filtered: [(id: Int64, label: String)] {
+        guard !searchText.isEmpty else { return options }
+        return options.filter {
+            $0.label.lowercased().contains(searchText.lowercased())
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            NocturneScreen {
+                List(filtered, id: \.id) { option in
+                    Button {
+                        if let index = selection.firstIndex(of: option.id) {
+                            selection.remove(at: index)
+                        } else {
+                            selection.append(option.id)
+                        }
+                    } label: {
+                        HStack {
+                            Text(option.label).foregroundStyle(TJ.text)
+                            Spacer()
+                            if selection.contains(option.id) {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(TJ.accent)
+                            }
+                        }
+                    }
+                    .listRowBackground(TJ.panel)
+                }
+                .searchable(text: $searchText)
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
     }
 }
 

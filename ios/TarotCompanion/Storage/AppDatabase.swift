@@ -129,6 +129,17 @@ struct AppDatabase {
             }
         }
 
+        migrator.registerMigration("v3-card-info") { db in
+            // Card notes + per-deck custom fields now sync so the
+            // card-info screen can show them. Registered after
+            // v2-outbox: phones in the field have already applied it,
+            // and migrations must only ever be appended.
+            try db.alter(table: "cards") { t in
+                t.add(column: "notes", .text)
+                t.add(column: "custom_fields", .text)
+            }
+        }
+
         try migrator.migrate(writer)
     }
 
