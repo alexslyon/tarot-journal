@@ -36,6 +36,7 @@ def register_blueprints(app):
     from backend.routes.profile_pdf import profile_pdf_bp
     from backend.routes.reference_content import reference_content_bp
     from backend.routes.sync import sync_bp
+    from backend.routes.onboarding import onboarding_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(prompts_bp)
@@ -67,3 +68,4 @@ def register_blueprints(app):
     app.register_blueprint(profile_pdf_bp)
     app.register_blueprint(reference_content_bp)
     app.register_blueprint(sync_bp)
+    app.register_blueprint(onboarding_bp)

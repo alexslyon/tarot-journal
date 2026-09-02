@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { ConfirmDialogHost } from './components/common/ConfirmDialog';
@@ -8,6 +8,11 @@ import { confirmDialog } from './components/common/ConfirmDialog';
 import TabNav, { type TabId } from './components/layout/TabNav';
 import CommandPalette, { type PaletteAction } from './components/common/CommandPalette';
 import ScribeLauncher from './components/scribe/ScribeLauncher';
+import WelcomeModal from './components/onboarding/WelcomeModal';
+import GettingStartedPanel from './components/onboarding/GettingStartedPanel';
+import { getOnboardingFlags } from './api/onboarding';
+import { getProfiles } from './api/profiles';
+import { getDecks } from './api/decks';
 import ShortcutsOverlay from './components/common/ShortcutsOverlay';
 import LibraryTab from './components/library/LibraryTab';
 import JournalTab from './components/journal/JournalTab';
@@ -412,9 +417,45 @@ export default function App() {
           {scribeOpen && (
             <ScribeLauncher open onClose={() => setScribeOpen(false)} />
           )}
+          <OnboardingHost onGoTo={(tab) => { void navigate({ tab }); }} />
           <ConfirmDialogHost />
         </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>
+  );
+}
+
+/** Mounts first-run onboarding: the welcome modal (empty database,
+ *  never seen before) and the Getting Started checklist (until its
+ *  items are done or it's dismissed). Established databases satisfy
+ *  every item, so existing users never see either. */
+function OnboardingHost({ onGoTo }: { onGoTo: (tab: TabId) => void }) {
+  const { data: flags } = useQuery({
+    queryKey: ['onboarding-flags'],
+    queryFn: getOnboardingFlags,
+  });
+  const { data: profiles } = useQuery({ queryKey: ['profiles'], queryFn: getProfiles });
+  const { data: decks } = useQuery({ queryKey: ['decks'], queryFn: () => getDecks() });
+  const [welcomeClosed, setWelcomeClosed] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  if (!flags || !profiles || !decks) return null;
+
+  const welcomeOpen =
+    !flags.welcome_done && !welcomeClosed
+    && profiles.length === 0 && decks.length === 0;
+  const showChecklist = !flags.checklist_dismissed && !dismissed && !welcomeOpen;
+
+  return (
+    <>
+      <WelcomeModal
+        open={welcomeOpen}
+        onClose={() => setWelcomeClosed(true)}
+        onGoTo={onGoTo}
+      />
+      {showChecklist && (
+        <GettingStartedPanel onGoTo={onGoTo} onDismissed={() => setDismissed(true)} />
+      )}
+    </>
   );
 }
