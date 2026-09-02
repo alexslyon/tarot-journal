@@ -1,16 +1,41 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var selectedTab = ContentView.initialTab()
+
+    static func initialTab() -> Int {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if let index = args.firstIndex(of: "-openTab"), index + 1 < args.count {
+            switch args[index + 1] {
+            case "reference": return 1
+            case "decks": return 2
+            case "insights": return 3
+            case "settings": return 4
+            default: return 0
+            }
+        }
+        #endif
+        return 0
+    }
+
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             JournalListView()
                 .tabItem { Label("Journal", systemImage: "book.closed") }
+                .tag(0)
             ReferenceView()
                 .tabItem { Label("Reference", systemImage: "text.magnifyingglass") }
+                .tag(1)
             DecksView()
                 .tabItem { Label("Decks", systemImage: "rectangle.portrait.on.rectangle.portrait") }
+                .tag(2)
+            InsightsView()
+                .tabItem { Label("Insights", systemImage: "chart.bar") }
+                .tag(3)
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tag(4)
         }
         #if DEBUG
         .sheet(item: .constant(DebugRoute.fromLaunchArguments())) { route in

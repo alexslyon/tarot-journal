@@ -6,20 +6,31 @@ struct EntryRow: Identifiable, Hashable {
     let title: String?
     let readingDatetime: String?
     let content: String?
+    let subtitle: String?        // spread · deck summary
+    let querentIds: Set<Int64>
 }
 
 struct JournalListView: View {
     @EnvironmentObject private var appModel: AppModel
     @State private var entries: [EntryRow] = []
     @State private var searchText = ""
+    @State private var querents: [(id: Int64, name: String)] = []
+    @State private var querentFilter: Int64?
 
     var filtered: [EntryRow] {
-        guard !searchText.isEmpty else { return entries }
-        let q = searchText.lowercased()
-        return entries.filter {
-            ($0.title ?? "").lowercased().contains(q)
-                || ($0.content ?? "").lowercased().contains(q)
+        var result = entries
+        if let querentFilter {
+            result = result.filter { $0.querentIds.contains(querentFilter) }
         }
+        if !searchText.isEmpty {
+            let q = searchText.lowercased()
+            result = result.filter {
+                ($0.title ?? "").lowercased().contains(q)
+                    || ($0.content ?? "").lowercased().contains(q)
+                    || ($0.subtitle ?? "").lowercased().contains(q)
+            }
+        }
+        return result
     }
 
     var body: some View {
@@ -39,9 +50,15 @@ struct JournalListView: View {
                                     .fontDesign(.serif)
                                     .fontWeight(.regular)
                                     .foregroundStyle(TJ.text)
+                                if let subtitle = entry.subtitle {
+                                    Text(subtitle)
+                                        .font(.caption)
+                                        .foregroundStyle(TJ.text3)
+                                        .lineLimit(1)
+                                }
                                 if let date = entry.readingDatetime {
                                     Text(Self.displayDate(date))
-                                        .font(.caption)
+                                        .font(.caption2)
                                         .foregroundStyle(TJ.textFaint)
                                 }
                             }
@@ -49,28 +66,92 @@ struct JournalListView: View {
                         .listRowBackground(TJ.panel)
                     }
                     .searchable(text: $searchText)
+                    .refreshable { await appModel.sync.syncNow() }
                     .navigationDestination(for: Int64.self) { entryId in
                         EntryDetailView(entryId: entryId)
                     }
                 }
             }
             .navigationTitle("Journal")
+            .toolbar {
+                if !querents.isEmpty {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        querentMenu
+                    }
+                }
+            }
         }
         .task { load() }
         .onReceive(appModel.sync.$lastSyncDate) { _ in load() }
     }
 
+    private var querentMenu: some View {
+        Menu {
+            Button("All querents") { querentFilter = nil }
+            Divider()
+            ForEach(querents, id: \.id) { querent in
+                Button {
+                    querentFilter = querent.id
+                } label: {
+                    if querentFilter == querent.id {
+                        Label(querent.name, systemImage: "checkmark")
+                    } else {
+                        Text(querent.name)
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: querentFilter == nil
+                  ? "person.crop.circle" : "person.crop.circle.fill")
+        }
+    }
+
     private func load() {
+        let decoder = JSONDecoder()
         entries = (try? appModel.database.writer.read { db in
             try Row.fetchAll(db, sql: """
-                SELECT id, title, reading_datetime, content
+                SELECT id, title, reading_datetime, content,
+                       readings_json, querent_ids_json
                 FROM entries ORDER BY reading_datetime DESC
-                """).map {
-                EntryRow(id: $0["id"], title: $0["title"],
-                         readingDatetime: $0["reading_datetime"],
-                         content: $0["content"])
+                """).map { row -> EntryRow in
+                var subtitle: String?
+                if let raw: String = row["readings_json"],
+                   let data = raw.data(using: .utf8),
+                   let readings = try? decoder.decode([Reading].self, from: data),
+                   !readings.isEmpty {
+                    let spreads = readings.compactMap(\.spreadName)
+                    let decks = readings.compactMap(\.deckName)
+                    let parts = [
+                        Set(spreads).sorted().joined(separator: ", "),
+                        Set(decks).sorted().joined(separator: ", "),
+                    ].filter { !$0.isEmpty }
+                    subtitle = parts.joined(separator: " · ")
+                }
+                var querentIds: Set<Int64> = []
+                if let raw: String = row["querent_ids_json"],
+                   let data = raw.data(using: .utf8),
+                   let ids = try? decoder.decode([Int64].self, from: data) {
+                    querentIds = Set(ids)
+                }
+                return EntryRow(id: row["id"], title: row["title"],
+                                readingDatetime: row["reading_datetime"],
+                                content: row["content"],
+                                subtitle: subtitle,
+                                querentIds: querentIds)
             }
         }) ?? []
+
+        // Filter menu lists only querents who actually have entries.
+        let used = entries.reduce(into: Set<Int64>()) { $0.formUnion($1.querentIds) }
+        if !used.isEmpty {
+            let marks = used.map { _ in "?" }.joined(separator: ",")
+            querents = (try? appModel.database.writer.read { db in
+                try Row.fetchAll(
+                    db, sql: "SELECT id, name FROM profiles WHERE id IN (\(marks)) ORDER BY name",
+                    arguments: StatementArguments(Array(used)))
+                    .map { ($0["id"], $0["name"]) }
+            }) ?? []
+        }
     }
 
     /// The desktop stores naive local timestamps (no timezone), e.g.

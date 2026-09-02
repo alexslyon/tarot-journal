@@ -9,12 +9,21 @@ struct TarotCompanionApp: App {
         TJ.applyAppearance()
     }
 
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(appModel)
                 .preferredColorScheme(.dark)
                 .tint(TJ.accent)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Opening the app on home Wi-Fi is the sync moment: pull
+            // quietly whenever we come to the foreground while paired.
+            if phase == .active && appModel.sync.isPaired {
+                Task { await appModel.sync.syncNow() }
+            }
         }
     }
 }
