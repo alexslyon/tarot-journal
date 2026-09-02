@@ -395,7 +395,8 @@ def test_reference_entity_catalog(client, db):
 
 def test_combinations_and_entity_notes_snapshots(client, db):
     for table in ('archetype_combinations', 'combination_meanings',
-                  'entity_source_notes'):
+                  'entity_source_notes', 'correspondence_systems',
+                  'correspondence_assignments'):
         res = client.get(f'/api/sync/snapshot/{table}')
         assert res.status_code == 200, table
         assert 'rows' in res.get_json()

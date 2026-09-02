@@ -181,6 +181,11 @@ SNAPSHOT_TABLES = {
                              'source_id, sort_order FROM combination_meanings'),
     'entity_source_notes': ('SELECT id, entity_kind, entity_key, '
                             'source_id, content FROM entity_source_notes'),
+    'correspondence_systems': ('SELECT id, name, cartomancy_type '
+                               'FROM correspondence_systems'),
+    'correspondence_assignments': ('SELECT id, system_id, archetype_id, '
+                                   'field_name, field_value '
+                                   'FROM correspondence_assignments'),
 }
 
 

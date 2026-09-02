@@ -179,6 +179,21 @@ struct AppDatabase {
             }
         }
 
+        migrator.registerMigration("v5-correspondences") { db in
+            try db.create(table: "correspondence_systems") { t in
+                t.primaryKey("id", .integer)
+                t.column("name", .text)
+                t.column("cartomancy_type", .text)
+            }
+            try db.create(table: "correspondence_assignments") { t in
+                t.primaryKey("id", .integer)
+                t.column("system_id", .integer).indexed()
+                t.column("archetype_id", .integer).indexed()
+                t.column("field_name", .text)
+                t.column("field_value", .text)
+            }
+        }
+
         try migrator.migrate(writer)
     }
 
