@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 @main
@@ -37,6 +38,7 @@ final class AppModel: ObservableObject {
     let images: ImageStore
 
     @Published var lastSyncError: String?
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
         do {
@@ -50,6 +52,15 @@ final class AppModel: ObservableObject {
         let engine = sync
         images = ImageStore(serverURL: { engine.serverURL })
         sync.imageStore = images
+
+        // Views observe AppModel (the environment object); the sync
+        // engine's own published changes (progress, status, pending
+        // count) must flow through it or the UI silently goes stale —
+        // which is exactly what happened to the first progress bar.
+        sync.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
 
         #if DEBUG && targetEnvironment(simulator)
         // Development convenience: in the simulator, talk to the
