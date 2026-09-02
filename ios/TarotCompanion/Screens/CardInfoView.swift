@@ -140,7 +140,7 @@ struct CardInfoView: View {
     @ViewBuilder
     private var correspondencesTab: some View {
         if systems.isEmpty {
-            emptyNote("No correspondence system covers this card yet. Systems are managed on the Mac in Settings → Correspondences.")
+            emptyNote("No correspondences for this card — choose a correspondence system for the deck in the Mac's deck editor.")
         }
         ForEach(systems) { system in
             titledPanel(system.name) {
@@ -216,13 +216,16 @@ struct CardInfoView: View {
     private func load() {
         try? appModel.database.writer.read { db in
             var archetypeName: String? = fallbackName
+            var deckSystemId: Int64?
             if let cardId,
                let row = try Row.fetchOne(db, sql: """
                    SELECT c.name, c.archetype, c.rank, c.suit, c.notes,
-                          c.custom_fields, d.name AS deck_name
+                          c.custom_fields, d.name AS deck_name,
+                          d.correspondence_system_id AS system_id
                    FROM cards c LEFT JOIN decks d ON d.id = c.deck_id
                    WHERE c.id = ?
                    """, arguments: [cardId]) {
+                deckSystemId = row["system_id"]
                 name = row["name"]
                 archetype = row["archetype"]
                 rank = row["rank"]
@@ -255,33 +258,45 @@ struct CardInfoView: View {
                     cardType = row["cartomancy_type"]
                 }
             }
-            if let archetypeId {
-                let rows = try Row.fetchAll(db, sql: """
-                    SELECT s.id AS system_id, s.name AS system_name,
-                           a.field_name, a.field_value
-                    FROM correspondence_assignments a
-                    JOIN correspondence_systems s ON s.id = a.system_id
-                    WHERE a.archetype_id = ?
-                      AND a.field_value IS NOT NULL AND a.field_value != ''
-                    ORDER BY s.name, a.field_name
-                    """, arguments: [archetypeId])
-                var bySystem: [Int64: SystemAssignments] = [:]
-                var order: [Int64] = []
-                for row in rows {
-                    let systemId: Int64 = row["system_id"]
-                    if bySystem[systemId] == nil {
-                        bySystem[systemId] = SystemAssignments(
-                            id: systemId, name: row["system_name"] ?? "System",
-                            values: [])
-                        order.append(systemId)
+            // Only the deck's chosen system, resolved the desktop's
+            // way: per-card overrides win over system values.
+            if let deckSystemId {
+                var values: [String: String] = [:]
+                var order: [String] = []
+                if let archetypeId {
+                    let rows = try Row.fetchAll(db, sql: """
+                        SELECT field_name, field_value
+                        FROM correspondence_assignments
+                        WHERE system_id = ? AND archetype_id = ?
+                          AND field_value IS NOT NULL AND field_value != ''
+                        ORDER BY field_name
+                        """, arguments: [deckSystemId, archetypeId])
+                    for row in rows {
+                        let field: String = row["field_name"] ?? ""
+                        if values[field] == nil { order.append(field) }
+                        values[field] = row["field_value"]
                     }
-                    bySystem[systemId] = SystemAssignments(
-                        id: systemId,
-                        name: bySystem[systemId]!.name,
-                        values: bySystem[systemId]!.values
-                            + [(row["field_name"] ?? "", row["field_value"] ?? "")])
                 }
-                systems = order.compactMap { bySystem[$0] }
+                if let cardId {
+                    let overrides = try Row.fetchAll(db, sql: """
+                        SELECT field_name, field_value
+                        FROM card_correspondence_overrides
+                        WHERE card_id = ? AND field_value != ''
+                        """, arguments: [cardId])
+                    for row in overrides {
+                        let field: String = row["field_name"] ?? ""
+                        if values[field] == nil { order.append(field) }
+                        values[field] = row["field_value"]
+                    }
+                }
+                let systemName = try String.fetchOne(
+                    db, sql: "SELECT name FROM correspondence_systems WHERE id = ?",
+                    arguments: [deckSystemId]) ?? "Correspondences"
+                if !order.isEmpty {
+                    systems = [SystemAssignments(
+                        id: deckSystemId, name: systemName,
+                        values: order.map { ($0, values[$0] ?? "") })]
+                }
             }
         }
     }

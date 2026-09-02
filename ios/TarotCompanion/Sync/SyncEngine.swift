@@ -39,6 +39,7 @@ final class SyncEngine: ObservableObject {
         "archetype_combinations", "combination_meanings",
         "entity_source_notes", "reference_entities",
         "correspondence_systems", "correspondence_assignments",
+        "card_correspondence_overrides",
     ]
 
     init(database: AppDatabase) {

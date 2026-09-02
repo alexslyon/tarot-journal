@@ -194,6 +194,21 @@ struct AppDatabase {
             }
         }
 
+        migrator.registerMigration("v6-deck-system") { db in
+            // The card page shows only the deck's chosen system
+            // (plus per-card overrides), matching the desktop's
+            // resolution: override → deck's system → nothing.
+            try db.alter(table: "decks") { t in
+                t.add(column: "correspondence_system_id", .integer)
+            }
+            try db.create(table: "card_correspondence_overrides") { t in
+                t.primaryKey("id", .integer)
+                t.column("card_id", .integer).indexed()
+                t.column("field_name", .text)
+                t.column("field_value", .text)
+            }
+        }
+
         try migrator.migrate(writer)
     }
 

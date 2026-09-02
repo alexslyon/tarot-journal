@@ -164,7 +164,8 @@ SNAPSHOT_TABLES = {
     'spreads': ('SELECT id, name, description, positions, deck_slots, '
                 'allowed_deck_types, archived FROM spreads'),
     'profiles': 'SELECT id, name, hidden FROM profiles',
-    'decks': ('SELECT id, name, favorite FROM decks WHERE favorite = 1'),
+    'decks': ('SELECT id, name, favorite, correspondence_system_id '
+              'FROM decks WHERE favorite = 1'),
     'cards': ('SELECT c.id, c.deck_id, c.name, c.archetype, c.rank, '
               'c.suit, c.card_order, c.notes, c.custom_fields '
               'FROM cards c '
@@ -186,6 +187,11 @@ SNAPSHOT_TABLES = {
     'correspondence_assignments': ('SELECT id, system_id, archetype_id, '
                                    'field_name, field_value '
                                    'FROM correspondence_assignments'),
+    'card_correspondence_overrides': (
+        'SELECT o.id, o.card_id, o.field_name, o.field_value '
+        'FROM card_correspondence_overrides o '
+        'JOIN cards c ON c.id = o.card_id '
+        'JOIN decks d ON d.id = c.deck_id WHERE d.favorite = 1'),
 }
 
 
