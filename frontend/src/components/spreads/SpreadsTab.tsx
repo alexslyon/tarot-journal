@@ -212,6 +212,22 @@ export default function SpreadsTab({
     if (!name.trim()) return;
     setSaving(true);
     setError('');
+    // Editing may leave coordinates negative (the designer's canvas
+    // grows freely in every direction); shift the layout to
+    // non-negative once, at save time. Grid-step shifts keep
+    // everything aligned, and consumers offset by the bounding box
+    // anyway, so nothing moves visually.
+    const savedPositions = (() => {
+      if (positions.length === 0) return positions;
+      const minX = Math.min(...positions.map(p => p.x || 0));
+      const minY = Math.min(...positions.map(p => p.y || 0));
+      if (minX >= 0 && minY >= 0) return positions;
+      const shiftX = minX < 0 ? Math.ceil(-minX / 20) * 20 : 0;
+      const shiftY = minY < 0 ? Math.ceil(-minY / 20) * 20 : 0;
+      return positions.map(p => ({
+        ...p, x: (p.x || 0) + shiftX, y: (p.y || 0) + shiftY,
+      }));
+    })();
     // Tag objects matching the current selection, for the locally
     // rebuilt spread below (the server stores only the ids).
     const savedTags = allSpreadTags.filter(t => tagIds.includes(t.id));
@@ -219,7 +235,7 @@ export default function SpreadsTab({
       if (isNew) {
         const result = await createSpread({
           name: name.trim(),
-          positions,
+          positions: savedPositions,
           description: description || undefined,
           allowed_deck_types: allowedDeckTypes.length > 0 ? allowedDeckTypes : undefined,
           default_deck_id: defaultDeckId,
@@ -233,7 +249,7 @@ export default function SpreadsTab({
           id: result.id,
           name: name.trim(),
           description,
-          positions,
+          positions: savedPositions,
           cartomancy_type: null,
           allowed_deck_types: allowedDeckTypes,
           default_deck_id: defaultDeckId,
@@ -246,7 +262,7 @@ export default function SpreadsTab({
       } else if (selectedSpread) {
         await updateSpread(selectedSpread.id, {
           name: name.trim(),
-          positions,
+          positions: savedPositions,
           description: description || undefined,
           allowed_deck_types: allowedDeckTypes.length > 0 ? allowedDeckTypes : null,
           default_deck_id: defaultDeckId,
@@ -259,7 +275,7 @@ export default function SpreadsTab({
           ...selectedSpread,
           name: name.trim(),
           description,
-          positions,
+          positions: savedPositions,
           allowed_deck_types: allowedDeckTypes,
           default_deck_id: defaultDeckId,
           deck_slots: deckSlots,
@@ -267,6 +283,7 @@ export default function SpreadsTab({
           tags: savedTags,
         });
       }
+      setPositions(savedPositions);
       queryClient.invalidateQueries({ queryKey: ['spreads'] });
       setEditing(false);
     } catch (err) {
@@ -362,6 +379,7 @@ export default function SpreadsTab({
               <span>Show Labels</span>
             </label>
             <SpreadDesigner
+              key={`view-${selectedSpread?.id ?? 'new'}`}
               positions={positions}
               onChange={setPositions}
               selectedIndex={null}
@@ -416,6 +434,7 @@ export default function SpreadsTab({
         <div className="spreads-tab__designer-section">
           <h3 className="spreads-tab__section-title">Designer</h3>
           <SpreadDesigner
+            key={`edit-${selectedSpread?.id ?? 'new'}`}
             positions={positions}
             onChange={setPositions}
             selectedIndex={selectedIndex}

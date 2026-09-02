@@ -75,14 +75,10 @@ export default function SpreadDesigner({
   // User-adjustable minimum canvas size (session-level working area).
   const [minCanvas, setMinCanvas] = useState({ w: MIN_CANVAS_W, h: MIN_CANVAS_H });
 
-  // Canvas viewport: the spread's bounding box plus a working margin
-  // on ALL four sides (origin can go negative — SVG viewBox handles
-  // that), never smaller than the user's minimum size. Content is
-  // never clipped: the box always grows to fit.
-  const computedBox = useMemo(() => {
-    if (positions.length === 0) {
-      return { x: 0, y: 0, width: minCanvas.w, height: minCanvas.h };
-    }
+  // The spread's bounding box plus the working margin — what the
+  // viewport must at least contain.
+  const contentBox = useMemo(() => {
+    if (positions.length === 0) return null;
     const minX = Math.min(...positions.map(p => p.x || 0));
     const minY = Math.min(...positions.map(p => p.y || 0));
     const maxX = Math.max(...positions.map(p => (p.x || 0) + (p.width || DEFAULT_W)));
@@ -90,31 +86,58 @@ export default function SpreadDesigner({
     return {
       x: minX - WORK_MARGIN,
       y: minY - WORK_MARGIN,
-      width: Math.max(maxX - minX + 2 * WORK_MARGIN, minCanvas.w),
-      height: Math.max(maxY - minY + 2 * WORK_MARGIN, minCanvas.h),
+      w: maxX - minX + 2 * WORK_MARGIN,
+      h: maxY - minY + 2 * WORK_MARGIN,
     };
-  }, [positions, minCanvas]);
+  }, [positions]);
 
-  // Freeze the viewport during drag/resize gestures. Recomputing it
-  // mid-drag rescales the view under the cursor — a feedback loop that
-  // made cards shoot toward the edge. The frozen box is captured at
-  // gesture start and released on mouse-up.
-  const frozenBoxRef = useRef<typeof computedBox | null>(null);
-  const canvasBox = frozenBoxRef.current ?? computedBox;
+  // A box that hugs the content (centered inside the minimum size).
+  const fitBox = useCallback((min: { w: number; h: number }) => {
+    if (!contentBox) return { x: 0, y: 0, width: min.w, height: min.h };
+    const width = Math.max(contentBox.w, min.w);
+    const height = Math.max(contentBox.h, min.h);
+    return {
+      x: contentBox.x - (width - contentBox.w) / 2,
+      y: contentBox.y - (height - contentBox.h) / 2,
+      width,
+      height,
+    };
+  }, [contentBox]);
 
-  // After a gesture (or nudge) that pushed cards into negative
-  // coordinates, shift the whole layout back to non-negative — other
-  // views (journal, PDF) offset by the bounding box, so the shift is
-  // invisible, but stored data stays tidy. Shift by whole grid steps
-  // so everything stays grid-aligned.
-  const normalizePositions = useCallback((list: SpreadPosition[]): SpreadPosition[] => {
-    const minX = Math.min(...list.map(p => p.x || 0));
-    const minY = Math.min(...list.map(p => p.y || 0));
-    if (minX >= 0 && minY >= 0) return list;
-    const shiftX = minX < 0 ? Math.ceil(-minX / GRID_SIZE) * GRID_SIZE : 0;
-    const shiftY = minY < 0 ? Math.ceil(-minY / GRID_SIZE) * GRID_SIZE : 0;
-    return list.map(p => ({ ...p, x: (p.x || 0) + shiftX, y: (p.y || 0) + shiftY }));
-  }, []);
+  // Canvas viewport. Crucially it is GROW-ONLY during a session:
+  // re-fitting it after every gesture made the whole view lurch by
+  // the drag distance on release (the origin tracks the leftmost
+  // card when the spread is smaller than the minimum canvas), which
+  // read as "I moved a card and everything snapped back". The box
+  // only expands when content needs more room; the Fit button
+  // re-hugs on demand.
+  const [canvasBox, setCanvasBox] = useState(() => fitBox(minCanvas));
+  useEffect(() => {
+    setCanvasBox(prev => {
+      let x = prev.x;
+      let y = prev.y;
+      let right = prev.x + prev.width;
+      let bottom = prev.y + prev.height;
+      if (contentBox) {
+        x = Math.min(x, contentBox.x);
+        y = Math.min(y, contentBox.y);
+        right = Math.max(right, contentBox.x + contentBox.w);
+        bottom = Math.max(bottom, contentBox.y + contentBox.h);
+      }
+      if (right - x < minCanvas.w) {
+        const extra = (minCanvas.w - (right - x)) / 2;
+        x -= extra; right += extra;
+      }
+      if (bottom - y < minCanvas.h) {
+        const extra = (minCanvas.h - (bottom - y)) / 2;
+        y -= extra; bottom += extra;
+      }
+      const next = { x, y, width: right - x, height: bottom - y };
+      return (next.x === prev.x && next.y === prev.y
+        && next.width === prev.width && next.height === prev.height)
+        ? prev : next;
+    });
+  }, [contentBox, minCanvas]);
 
   const snap = useCallback(
     (val: number) => (gridEnabled ? Math.round(val / GRID_SIZE) * GRID_SIZE : Math.round(val)),
@@ -122,9 +145,10 @@ export default function SpreadDesigner({
   );
 
   // Convert screen coordinates to viewBox (logical) coordinates.
-  // Uses the gesture-frozen box so the mapping stays stable mid-drag.
+  // The canvas box is gesture-stable (grow-only), so the mapping
+  // can't drift mid-drag.
   const getSVGPoint = useCallback(
-    (e: React.MouseEvent) => {
+    (e: { clientX: number; clientY: number }) => {
       const svg = svgRef.current;
       if (!svg) return { x: 0, y: 0 };
       const rect = svg.getBoundingClientRect();
@@ -264,11 +288,11 @@ export default function SpreadDesigner({
       if (!pos) return;
       const updated = [...positions];
       updated[selectedIndex] = { ...pos, x: pos.x + dx, y: pos.y + dy };
-      onChange(normalizePositions(updated));
+      onChange(updated);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [readOnly, selectedIndex, positions, onChange, duplicatePosition, normalizePositions]);
+  }, [readOnly, selectedIndex, positions, onChange, duplicatePosition]);
 
   // ── Mouse handlers ──
 
@@ -277,7 +301,6 @@ export default function SpreadDesigner({
     e.stopPropagation();
     const pt = getSVGPoint(e);
     const pos = positions[index];
-    frozenBoxRef.current = computedBox;
     setDragging({
       index,
       startMouseX: pt.x,
@@ -297,22 +320,20 @@ export default function SpreadDesigner({
     const svg = svgRef.current;
     if (!svg) return;
     const rect = svg.getBoundingClientRect();
-    // Store screen coordinates and lock scale factors at start of resize
-    // This prevents jumpy behavior when canvas dimensions change during drag
-    frozenBoxRef.current = computedBox;
+    // Lock scale factors at gesture start.
     setResizing({
       index,
       startClientX: e.clientX,
       startClientY: e.clientY,
       startW: pos.width,
       startH: pos.height,
-      scaleX: computedBox.width / rect.width,
-      scaleY: computedBox.height / rect.height,
+      scaleX: canvasBox.width / rect.width,
+      scaleY: canvasBox.height / rect.height,
     });
   };
 
   const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
+    (e: { clientX: number; clientY: number }) => {
       if (dragging) {
         const pt = getSVGPoint(e);
         const dx = pt.x - dragging.startMouseX;
@@ -361,13 +382,25 @@ export default function SpreadDesigner({
           height: Math.max(40, snap(p.height)),
         };
       }
-      next = normalizePositions(next);
       onChange(next);
     }
-    frozenBoxRef.current = null;
     setDragging(null);
     setResizing(null);
-  }, [dragging, resizing, positions, onChange, normalizePositions, snap]);
+  }, [dragging, resizing, positions, onChange, snap]);
+
+  // Gestures listen on the window so a fast drag that momentarily
+  // leaves the canvas doesn't drop the card mid-flight.
+  useEffect(() => {
+    if (!dragging && !resizing) return;
+    const move = (e: MouseEvent) => handleMouseMove(e);
+    const up = () => handleMouseUp();
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+  }, [dragging, resizing, handleMouseMove, handleMouseUp]);
 
   const handleCanvasClick = () => {
     onSelectIndex(null);
@@ -573,8 +606,11 @@ export default function SpreadDesigner({
               }}
             />
             <button
-              onClick={() => setMinCanvas({ w: MIN_CANVAS_W, h: MIN_CANVAS_H })}
-              title="Reset to the default working area (canvas hugs the spread + margin)"
+              onClick={() => {
+                setMinCanvas({ w: MIN_CANVAS_W, h: MIN_CANVAS_H });
+                setCanvasBox(fitBox({ w: MIN_CANVAS_W, h: MIN_CANVAS_H }));
+              }}
+              title="Re-hug the canvas around the spread (plus margin)"
             >
               Fit
             </button>
@@ -622,9 +658,6 @@ export default function SpreadDesigner({
           className="designer__canvas"
           viewBox={`${canvasBox.x} ${canvasBox.y} ${canvasBox.width} ${canvasBox.height}`}
           style={{ aspectRatio: `${canvasBox.width} / ${canvasBox.height}` }}
-          onMouseMove={readOnly ? undefined : handleMouseMove}
-          onMouseUp={readOnly ? undefined : handleMouseUp}
-          onMouseLeave={readOnly ? undefined : handleMouseUp}
           onClick={readOnly ? undefined : handleCanvasClick}
         >
           {/* Background */}
