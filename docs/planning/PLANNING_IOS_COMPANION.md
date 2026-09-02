@@ -1,8 +1,12 @@
 # Planning: iOS Companion App
 
-*Drafted 2026-09-01. Status: **Phases 0–2 shipped 2026-09-03** — the
-app is installed on the phone, paired, syncing both ways: browsing
-plus quick entry with an offline outbox. Remaining: Phase 3 polish.*
+*Drafted 2026-09-01. Status: **Phases 0–3 shipped 2026-09-03.**
+Browsing, quick entry with offline outbox, bundled Newsreader,
+pinch-zoom spreads and card viewer. Remaining ideas (unscheduled):
+home-screen widget (skipped — 7-day install expiry makes widgets die
+weekly on a free account), editing phone-created entries' notes,
+iCloud transport (needs the paid developer account), headless sync
+daemon on the Mac.*
 *2026-09-02: worked into a concrete build plan (see "Build plan"
 below) after auditing the codebase; corrections noted inline.*
 
