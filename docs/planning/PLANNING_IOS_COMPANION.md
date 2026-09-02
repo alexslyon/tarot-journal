@@ -1,8 +1,8 @@
 # Planning: iOS Companion App
 
-*Drafted 2026-09-01. Status: **Phases 0 and 1 shipped 2026-09-02** —
-the app is installed on the phone, paired over Wi-Fi, and syncing.
-Phase 2 (quick entry on the phone) is the next milestone.*
+*Drafted 2026-09-01. Status: **Phases 0–2 shipped 2026-09-03** — the
+app is installed on the phone, paired, syncing both ways: browsing
+plus quick entry with an offline outbox. Remaining: Phase 3 polish.*
 *2026-09-02: worked into a concrete build plan (see "Build plan"
 below) after auditing the codebase; corrections noted inline.*
 
