@@ -115,7 +115,9 @@ final class SyncEngine: ObservableObject {
                 arguments: [jsonString, now])
         }
         await refreshPendingCount()
-        await syncNow()
+        // Quick pass: deliver the entry and refresh the journal, but
+        // never make a save wait behind the image pre-download.
+        await syncNow(includeImages: false)
     }
 
     @MainActor
@@ -171,7 +173,7 @@ final class SyncEngine: ObservableObject {
     // MARK: - The pull
 
     @MainActor
-    func syncNow() async {
+    func syncNow(includeImages: Bool = true) async {
         guard !isSyncing else { return }
         isSyncing = true
         statusMessage = "Syncing…"
@@ -193,7 +195,11 @@ final class SyncEngine: ObservableObject {
         // don't have yet, so every favorite deck works offline. This
         // is interruption-friendly: whatever fails or gets cut off
         // (Mac asleep, app backgrounded) is simply retried next sync.
-        await prefetchImages()
+        // Skipped for quick passes (saving an entry) so the save
+        // never waits behind a long image download.
+        if includeImages {
+            await prefetchImages()
+        }
     }
 
     @MainActor

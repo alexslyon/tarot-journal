@@ -89,15 +89,7 @@ struct JournalListView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                if appModel.sync.pendingCount > 0 {
-                    Text("\(appModel.sync.pendingCount) entr\(appModel.sync.pendingCount == 1 ? "y" : "ies") waiting to sync to the Mac")
-                        .font(.caption)
-                        .foregroundStyle(TJ.textOnTint)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Capsule().fill(TJ.tintStrong))
-                        .padding(.bottom, 4)
-                }
+                statusStrip
             }
         }
         .sheet(isPresented: $composing) {
@@ -108,6 +100,37 @@ struct JournalListView: View {
             await appModel.sync.refreshPendingCount()
         }
         .onReceive(appModel.sync.$lastSyncDate) { _ in load() }
+    }
+
+    /// Sync activity where the user actually is — pending pushes,
+    /// active sync, image downloads, and failures all announce
+    /// themselves here rather than only deep in Settings.
+    @ViewBuilder
+    private var statusStrip: some View {
+        VStack(spacing: 4) {
+            if appModel.sync.pendingCount > 0 {
+                stripCapsule(
+                    "\(appModel.sync.pendingCount) entr\(appModel.sync.pendingCount == 1 ? "y" : "ies") waiting to reach the Mac")
+            }
+            if let progress = appModel.sync.imageProgress {
+                stripCapsule("Downloading card images — \(progress.done) of \(progress.total)")
+            } else if appModel.sync.isSyncing {
+                stripCapsule("Syncing…")
+            }
+            if let message = appModel.sync.statusMessage, !appModel.sync.isSyncing {
+                stripCapsule(message)
+            }
+        }
+        .padding(.bottom, 4)
+    }
+
+    private func stripCapsule(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(TJ.textOnTint)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(TJ.tintStrong))
     }
 
     private var querentMenu: some View {
