@@ -1656,8 +1656,8 @@ class CoreMixin:
         # Seed correspondence systems if table is empty
         cursor.execute('SELECT COUNT(*) FROM correspondence_systems')
         if cursor.fetchone()[0] == 0:
-            from database.correspondence_seed import seed_rws_correspondences
-            seed_rws_correspondences(cursor)
+            from database.correspondence_seed import seed_default_correspondences
+            seed_default_correspondences(cursor)
 
         # One-time seed: built-in "I Ching Default" system mapping each
         # archetype to its hexagram. Guard with a setting so we don't
