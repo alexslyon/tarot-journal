@@ -351,3 +351,19 @@ def test_push_entry_requires_auth_and_uuid(client, db):
     res = client.post('/api/sync/push-entry', json=bad,
                       headers=_auth(token), environ_overrides=LAN)
     assert res.status_code == 400
+
+
+def test_push_entry_with_location(client, db):
+    deck_id, card_id = make_deck_with_card(db)
+    token = _pair(client)
+    payload = _push_payload(db, deck_id, card_id, uuid='zz-loc-uuid')
+    payload['location_name'] = 'ZZ Hotel'
+    payload['location_lat'] = 40.7
+    payload['location_lon'] = -74.0
+    res = client.post('/api/sync/push-entry', json=payload,
+                      headers=_auth(token), environ_overrides=LAN)
+    assert res.status_code == 201
+    entry = db.get_entry(res.get_json()['id'])
+    assert entry['location_name'] == 'ZZ Hotel'
+    assert entry['location_lat'] == 40.7
+    assert entry['location_lon'] == -74.0

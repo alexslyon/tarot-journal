@@ -311,10 +311,29 @@ def push_entry(data):
     if existing:
         return jsonify({'id': existing[0], 'deduped': True})
 
+    location_name = (str(data.get('location_name') or '')).strip() or None
+    location_lat = data.get('location_lat')
+    location_lon = data.get('location_lon')
+    if location_name and location_lat is None:
+        # The phone sends only a typed place name; resolve coordinates
+        # here so event charts can be cast later. Best-effort — a name
+        # the gazetteer doesn't know still saves fine without them.
+        try:
+            from geocoder import lookup
+            matches = lookup(location_name, limit=1)
+            if matches:
+                location_lat = matches[0]['latitude']
+                location_lon = matches[0]['longitude']
+        except Exception:
+            pass
+
     entry_id = db.add_entry(
         title=data.get('title'),
         content=data.get('content'),
         reading_datetime=data.get('reading_datetime'),
+        location_name=location_name,
+        location_lat=location_lat,
+        location_lon=location_lon,
     )
     cursor = db.conn.cursor()
     cursor.execute(

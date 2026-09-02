@@ -75,6 +75,7 @@ struct EntryDetailView: View {
     @State private var title: String?
     @State private var content: String?
     @State private var readingDatetime: String?
+    @State private var locationName: String?
     @State private var readings: [Reading] = []
     @State private var followUps: [FollowUpNote] = []
     @State private var querentNames: [String] = []
@@ -146,6 +147,11 @@ struct EntryDetailView: View {
                 Text(JournalListView.displayDate(readingDatetime))
                     .font(.subheadline)
                     .foregroundStyle(TJ.textMuted)
+            }
+            if let locationName, !locationName.isEmpty {
+                Label(locationName, systemImage: "mappin.and.ellipse")
+                    .font(.caption)
+                    .foregroundStyle(TJ.text3)
             }
             if !querentNames.isEmpty || readerName != nil {
                 HStack(spacing: 12) {
@@ -240,6 +246,7 @@ struct EntryDetailView: View {
             title = row["title"]
             content = row["content"]
             readingDatetime = row["reading_datetime"]
+            locationName = row["location_name"]
 
             let decoder = JSONDecoder()
             if let raw: String = row["readings_json"],
@@ -303,6 +310,7 @@ struct SpreadLayoutView: View {
     let cards: [ReadingCard]
     let positions: [SpreadPosition]?
     var onTapCard: ((ReadingCard) -> Void)?
+    var onTapEmptySlot: ((Int) -> Void)?
 
     var body: some View {
         if let positions, !positions.isEmpty {
@@ -362,6 +370,8 @@ struct SpreadLayoutView: View {
                         .fill(TJ.well)
                         .overlay(RoundedRectangle(cornerRadius: 4)
                             .strokeBorder(TJ.hairline, style: .init(dash: [4])))
+                        .contentShape(Rectangle())
+                        .onTapGesture { onTapEmptySlot?(index) }
                 }
             }
             .frame(width: w, height: h)

@@ -19,7 +19,19 @@ struct NewEntryView: View {
     struct SpreadOption: Identifiable, Hashable {
         let id: Int64
         let name: String
-        let positionLabels: [String]
+        let positions: [SpreadPosition]
+
+        var positionLabels: [String] { positions.map { $0.label ?? "" } }
+
+        static func == (lhs: SpreadOption, rhs: SpreadOption) -> Bool {
+            lhs.id == rhs.id
+        }
+        func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    }
+
+    enum ActivePicker: String, Identifiable {
+        case querent, deck, spread
+        var id: String { rawValue }
     }
 
     @State private var title = ""
@@ -27,12 +39,15 @@ struct NewEntryView: View {
     @State private var querentId: Int64?
     @State private var deckId: Int64?
     @State private var spread: SpreadOption?
+    @State private var readingDate = Date()
+    @State private var locationName = ""
     @State private var cards: [PickedCard?] = []     // one slot per position
     @State private var freeformCards: [PickedCard] = []
 
     @State private var profiles: [(id: Int64, name: String)] = []
     @State private var decks: [(id: Int64, name: String)] = []
     @State private var spreads: [SpreadOption] = []
+    @State private var activePicker: ActivePicker?
     @State private var pickingSlot: Int?          // which slot the card picker fills
     @State private var pickingFreeform = false
     @State private var saving = false
@@ -76,8 +91,49 @@ struct NewEntryView: View {
                     }
                 }
             }
+            .sheet(item: $activePicker) { picker in
+                optionPicker(for: picker)
+            }
         }
         .task { load() }
+    }
+
+    @ViewBuilder
+    private func optionPicker(for picker: ActivePicker) -> some View {
+        switch picker {
+        case .querent:
+            OptionPickerSheet(
+                title: "Querent",
+                options: profiles.map { ($0.id, $0.name) },
+                noneLabel: "None") { querentId = $0 }
+        case .deck:
+            OptionPickerSheet(
+                title: "Deck",
+                options: decks.map { ($0.id, $0.name) },
+                noneLabel: nil) { picked in
+                if let picked { deckId = picked }
+            }
+        case .spread:
+            OptionPickerSheet(
+                title: "Spread",
+                options: spreads.map { ($0.id, $0.name) },
+                noneLabel: "No spread") { picked in
+                spread = spreads.first { $0.id == picked }
+                cards = Array(repeating: nil,
+                              count: spread?.positions.count ?? 0)
+            }
+        }
+    }
+
+    /// The picked cards shaped for the live spread preview.
+    private var previewCards: [ReadingCard] {
+        cards.enumerated().compactMap { index, slot in
+            guard let card = slot else { return nil }
+            return ReadingCard(
+                name: card.name, reversed: card.reversed, deckId: deckId,
+                deckName: nil, positionIndex: index, cardId: card.cardId,
+                clarifies: nil)
+        }
     }
 
     // MARK: - Sections
@@ -86,29 +142,38 @@ struct NewEntryView: View {
         Section("Reading") {
             TextField("Title (optional)", text: $title)
 
-            Picker("Querent", selection: $querentId) {
-                Text("None").tag(Int64?.none)
-                ForEach(profiles, id: \.id) { profile in
-                    Text(profile.name).tag(Int64?.some(profile.id))
-                }
+            pickerRow("Querent",
+                      value: profiles.first { $0.id == querentId }?.name ?? "None") {
+                activePicker = .querent
+            }
+            pickerRow("Deck",
+                      value: decks.first { $0.id == deckId }?.name ?? "Choose…") {
+                activePicker = .deck
+            }
+            pickerRow("Spread", value: spread?.name ?? "No spread") {
+                activePicker = .spread
             }
 
-            Picker("Deck", selection: $deckId) {
-                Text("Choose…").tag(Int64?.none)
-                ForEach(decks, id: \.id) { deck in
-                    Text(deck.name).tag(Int64?.some(deck.id))
-                }
-            }
+            DatePicker("Date & time", selection: $readingDate)
+                .tint(TJ.accent)
 
-            Picker("Spread", selection: $spread) {
-                Text("No spread").tag(SpreadOption?.none)
-                ForEach(spreads) { option in
-                    Text(option.name).tag(SpreadOption?.some(option))
-                }
-            }
-            .onChange(of: spread) { _, newValue in
-                cards = Array(repeating: nil,
-                              count: newValue?.positionLabels.count ?? 0)
+            TextField("Location (optional)", text: $locationName)
+                .autocorrectionDisabled()
+        }
+    }
+
+    private func pickerRow(_ label: String, value: String,
+                           action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(label).foregroundStyle(TJ.text)
+                Spacer()
+                Text(value)
+                    .foregroundStyle(TJ.accent)
+                    .lineLimit(1)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption2)
+                    .foregroundStyle(TJ.textFaint)
             }
         }
     }
@@ -121,6 +186,18 @@ struct NewEntryView: View {
                     .font(.caption)
                     .foregroundStyle(TJ.textFaint)
             } else if usingSpread {
+                // Live spread preview: tap a slot to fill it, tap a
+                // placed card to re-pick it.
+                if let spread, !spread.positions.isEmpty {
+                    SpreadLayoutView(
+                        cards: previewCards,
+                        positions: spread.positions,
+                        onTapCard: { card in
+                            if let index = card.positionIndex { pickingSlot = index }
+                        },
+                        onTapEmptySlot: { pickingSlot = $0 })
+                        .padding(.vertical, 6)
+                }
                 ForEach(Array((spread?.positionLabels ?? []).enumerated()),
                         id: \.offset) { index, label in
                     slotRow(label: label.isEmpty ? "Position \(index + 1)" : label,
@@ -216,14 +293,14 @@ struct NewEntryView: View {
                     WHERE archived IS NOT 1 ORDER BY name
                     """)
                 .map { row in
-                    var labels: [String] = []
+                    var positions: [SpreadPosition] = []
                     if let raw: String = row["positions"],
                        let data = raw.data(using: .utf8),
-                       let positions = try? decoder.decode([SpreadPosition].self, from: data) {
-                        labels = positions.map { $0.label ?? "" }
+                       let decoded = try? decoder.decode([SpreadPosition].self, from: data) {
+                        positions = decoded
                     }
                     return SpreadOption(id: row["id"], name: row["name"],
-                                        positionLabels: labels)
+                                        positions: positions)
                 }
         }
     }
@@ -252,7 +329,7 @@ struct NewEntryView: View {
 
         var payload: [String: Any] = [
             "sync_uuid": UUID().uuidString,
-            "reading_datetime": formatter.string(from: Date()),
+            "reading_datetime": formatter.string(from: readingDate),
             "querent_ids": querentId.map { [$0] } ?? [],
             "reading": [
                 "deck_id": deckId,
@@ -264,6 +341,11 @@ struct NewEntryView: View {
         ]
         if !title.trimmingCharacters(in: .whitespaces).isEmpty {
             payload["title"] = title
+        }
+        let trimmedLocation = locationName.trimmingCharacters(in: .whitespaces)
+        if !trimmedLocation.isEmpty {
+            // Name only — the Mac geocodes it into coordinates on arrival.
+            payload["location_name"] = trimmedLocation
         }
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedNotes.isEmpty {
@@ -287,6 +369,63 @@ struct NewEntryView: View {
                 return "<p>\(escaped)</p>"
             }
             .joined()
+    }
+}
+
+// MARK: - Searchable option picker
+
+/// A searchable list sheet standing in for a dropdown — with dozens
+/// of decks and spreads, scrolling a wheel picker doesn't scale.
+struct OptionPickerSheet: View {
+    let title: String
+    let options: [(id: Int64, label: String)]
+    let noneLabel: String?
+    let onPick: (Int64?) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var searchText = ""
+
+    var filtered: [(id: Int64, label: String)] {
+        guard !searchText.isEmpty else { return options }
+        return options.filter {
+            $0.label.lowercased().contains(searchText.lowercased())
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            NocturneScreen {
+                List {
+                    if let noneLabel, searchText.isEmpty {
+                        Button {
+                            onPick(nil)
+                            dismiss()
+                        } label: {
+                            Text(noneLabel).foregroundStyle(TJ.text3)
+                        }
+                        .listRowBackground(TJ.panel)
+                    }
+                    ForEach(filtered, id: \.id) { option in
+                        Button {
+                            onPick(option.id)
+                            dismiss()
+                        } label: {
+                            Text(option.label).foregroundStyle(TJ.text)
+                        }
+                        .listRowBackground(TJ.panel)
+                    }
+                }
+                .searchable(text: $searchText)
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
     }
 }
 
