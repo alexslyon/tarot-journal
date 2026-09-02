@@ -83,3 +83,6 @@ PlayingCards/
 Rider-Waite-Smith/
 TdM/
 Thoth/
+
+# Rotated log files (tarot_journal.log.1, .2, ...)
+*.log.*
