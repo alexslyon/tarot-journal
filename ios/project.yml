@@ -38,6 +38,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.aslyon.TarotCompanion
         CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: VLJJ5QWND9   # the user's personal Apple ID team
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1"
   TarotCompanionTests:
