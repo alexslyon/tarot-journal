@@ -48,6 +48,7 @@ struct ContentView: View {
                 case .deck(let id): DeckDetailView(deckId: id, deckName: "Deck")
                 case .archetype(let id):
                     ReferenceDetailView(archetypeId: id, archetypeName: "Archetype")
+                case .compose: NewEntryView()
                 }
             }
             .preferredColorScheme(.dark)
@@ -61,12 +62,14 @@ enum DebugRoute: Identifiable {
     case entry(Int64)
     case deck(Int64)
     case archetype(Int64)
+    case compose
 
     var id: String {
         switch self {
         case .entry(let id): return "entry-\(id)"
         case .deck(let id): return "deck-\(id)"
         case .archetype(let id): return "archetype-\(id)"
+        case .compose: return "compose"
         }
     }
 
@@ -80,6 +83,7 @@ enum DebugRoute: Identifiable {
         if let id = value(after: "-openEntry") { return .entry(id) }
         if let id = value(after: "-openDeck") { return .deck(id) }
         if let id = value(after: "-openArchetype") { return .archetype(id) }
+        if args.contains("-compose") { return .compose }
         return nil
     }
 }

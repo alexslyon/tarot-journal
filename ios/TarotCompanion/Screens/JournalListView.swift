@@ -16,6 +16,7 @@ struct JournalListView: View {
     @State private var searchText = ""
     @State private var querents: [(id: Int64, name: String)] = []
     @State private var querentFilter: Int64?
+    @State private var composing = false
 
     var filtered: [EntryRow] {
         var result = entries
@@ -74,14 +75,38 @@ struct JournalListView: View {
             }
             .navigationTitle("Journal")
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        composing = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
                 if !querents.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
                         querentMenu
                     }
                 }
             }
+            .safeAreaInset(edge: .bottom) {
+                if appModel.sync.pendingCount > 0 {
+                    Text("\(appModel.sync.pendingCount) entr\(appModel.sync.pendingCount == 1 ? "y" : "ies") waiting to sync to the Mac")
+                        .font(.caption)
+                        .foregroundStyle(TJ.textOnTint)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(TJ.tintStrong))
+                        .padding(.bottom, 4)
+                }
+            }
         }
-        .task { load() }
+        .sheet(isPresented: $composing) {
+            NewEntryView()
+        }
+        .task {
+            load()
+            await appModel.sync.refreshPendingCount()
+        }
         .onReceive(appModel.sync.$lastSyncDate) { _ in load() }
     }
 

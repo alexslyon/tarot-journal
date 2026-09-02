@@ -284,6 +284,72 @@ def sync_source_entries():
     return jsonify({'ids': ids, 'changed': [row_to_dict(r) for r in rows]})
 
 
+PHONE_TAG_NAME = 'logged on phone'
+
+
+@sync_bp.route('/api/sync/push-entry', methods=['POST'])
+@require_json
+def push_entry(data):
+    """Create a journal entry logged on the phone.
+
+    Idempotent on sync_uuid: the phone may retry a push after a
+    dropped connection without creating duplicates. The entry gets
+    the 'logged on phone' tag so it's easy to find and polish on the
+    desktop.
+    """
+    _require_auth()
+    db = current_app.config['DB']
+
+    sync_uuid = str(data.get('sync_uuid') or '').strip()
+    if not sync_uuid:
+        return jsonify({'error': 'sync_uuid is required'}), 400
+
+    cursor = db.conn.cursor()
+    existing = cursor.execute(
+        'SELECT id FROM journal_entries WHERE sync_uuid = ?',
+        (sync_uuid,)).fetchone()
+    if existing:
+        return jsonify({'id': existing[0], 'deduped': True})
+
+    entry_id = db.add_entry(
+        title=data.get('title'),
+        content=data.get('content'),
+        reading_datetime=data.get('reading_datetime'),
+    )
+    cursor = db.conn.cursor()
+    cursor.execute(
+        'UPDATE journal_entries SET sync_uuid = ? WHERE id = ?',
+        (sync_uuid, entry_id))
+    db.conn.commit()
+
+    reading = data.get('reading') or {}
+    if reading:
+        deck_id = reading.get('deck_id')
+        deck = db.get_deck(deck_id) if deck_id else None
+        db.add_entry_reading(
+            entry_id,
+            spread_id=reading.get('spread_id'),
+            spread_name=reading.get('spread_name'),
+            deck_id=deck_id,
+            deck_name=(deck or {}).get('name') or reading.get('deck_name'),
+            cartomancy_type=(deck or {}).get('cartomancy_type_name'),
+            cards_used=reading.get('cards_used') or [],
+            notes=reading.get('notes'),
+        )
+
+    querent_ids = [int(q) for q in (data.get('querent_ids') or [])]
+    if querent_ids:
+        db.set_entry_querents(entry_id, querent_ids)
+
+    phone_tag = next(
+        (t for t in db.get_tags()
+         if t['name'].lower() == PHONE_TAG_NAME), None)
+    tag_id = phone_tag['id'] if phone_tag else db.add_tag(PHONE_TAG_NAME)
+    db.add_entry_tag(entry_id, tag_id)
+
+    return jsonify({'id': entry_id}), 201
+
+
 @sync_bp.route('/api/sync/card-image/<int:card_id>')
 def card_image(card_id):
     """Phone-sized derivative for a favorited deck's card. Generated

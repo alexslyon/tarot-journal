@@ -119,6 +119,16 @@ struct AppDatabase {
             }
         }
 
+        migrator.registerMigration("v2-outbox") { db in
+            // Entries composed on the phone wait here until the Mac
+            // is reachable; each row is one push-entry payload.
+            try db.create(table: "pending_entries") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("payload_json", .text).notNull()
+                t.column("created_at", .text)
+            }
+        }
+
         try migrator.migrate(writer)
     }
 

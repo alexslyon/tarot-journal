@@ -25,6 +25,9 @@ final class SyncEngine: ObservableObject {
     }
     @Published var imageProgress: ImageProgress?
 
+    /// Entries composed on the phone, waiting to reach the Mac.
+    @Published var pendingCount = 0
+
     /// Set by AppModel after construction; used to pre-download all
     /// favorite-deck card images so the phone works fully offline.
     weak var imageStore: ImageStore?
@@ -97,6 +100,74 @@ final class SyncEngine: ObservableObject {
         }
     }
 
+    // MARK: - The outbox (phone-composed entries)
+
+    /// Queue a composed entry for delivery, then try to deliver
+    /// immediately. Safe offline: the payload waits in the outbox.
+    @MainActor
+    func submitEntry(_ payload: [String: Any]) async {
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let jsonString = String(data: data, encoding: .utf8) else { return }
+        let now = ISO8601DateFormatter().string(from: Date())
+        try? await database.writer.write { db in
+            try db.execute(
+                sql: "INSERT INTO pending_entries (payload_json, created_at) VALUES (?, ?)",
+                arguments: [jsonString, now])
+        }
+        await refreshPendingCount()
+        await syncNow()
+    }
+
+    @MainActor
+    func refreshPendingCount() async {
+        pendingCount = (try? await database.writer.read { db in
+            try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM pending_entries") ?? 0
+        }) ?? 0
+    }
+
+    @MainActor
+    private func pushPending() async throws {
+        let rows: [(Int64, String)] = try await database.writer.read { db in
+            try Row.fetchAll(
+                db, sql: "SELECT id, payload_json FROM pending_entries ORDER BY id")
+                .map { ($0["id"], $0["payload_json"]) }
+        }
+        defer { Task { await refreshPendingCount() } }
+        guard !rows.isEmpty else { return }
+        guard let base = serverURL else { throw SyncError.notConfigured }
+        for (rowId, payload) in rows {
+            var req = URLRequest(url: base.appendingPathComponent("api/sync/push-entry"))
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            if let token = Keychain.token {
+                req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+            req.httpBody = payload.data(using: .utf8)
+            let (_, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse else { throw SyncError.network }
+            switch http.statusCode {
+            case 200, 201:
+                try await database.writer.write { db in
+                    try db.execute(sql: "DELETE FROM pending_entries WHERE id = ?",
+                                   arguments: [rowId])
+                }
+            case 401:
+                throw SyncError.unauthorized
+            case 400:
+                // The Mac rejected this payload outright — retrying
+                // forever would wedge the queue behind it. Drop it and
+                // surface the loss instead of failing silently.
+                try await database.writer.write { db in
+                    try db.execute(sql: "DELETE FROM pending_entries WHERE id = ?",
+                                   arguments: [rowId])
+                }
+                statusMessage = "One phone entry was rejected by the Mac and could not be delivered."
+            default:
+                throw SyncError.serverError(http.statusCode)
+            }
+        }
+    }
+
     // MARK: - The pull
 
     @MainActor
@@ -106,6 +177,9 @@ final class SyncEngine: ObservableObject {
         statusMessage = "Syncing…"
         defer { isSyncing = false }
         do {
+            // Push first, so an entry logged at the table shows up in
+            // the pulled journal below in the same pass.
+            try await pushPending()
             try await pullSnapshots()
             try await pullEntries()
             try await pullSourceEntries()

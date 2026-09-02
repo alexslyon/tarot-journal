@@ -8,6 +8,8 @@ and the updated_at touch guarantees the delta sync relies on.
 LAN callers are simulated with environ_overrides={'REMOTE_ADDR': ...}.
 """
 
+import json
+
 from backend.routes.sync import install_lan_guard
 from tests.conftest import make_deck_with_card
 
@@ -273,3 +275,79 @@ def test_sync_uuid_column_exists(db):
     assert 'sync_uuid' in cols
     assert 'favorite' in [r[1] for r in cur.execute(
         'PRAGMA table_info(decks)').fetchall()]
+
+
+# ── Phase 2: pushing phone-logged entries ────────────────────
+
+def _push_payload(db, deck_id, card_id, uuid='zz-phone-uuid-1'):
+    return {
+        'sync_uuid': uuid,
+        'title': 'ZZ Phone Entry',
+        'content': '<p>logged at the table</p>',
+        'reading_datetime': '2026-09-03T21:15:00',
+        'querent_ids': [],
+        'reading': {
+            'deck_id': deck_id,
+            'spread_name': 'Daily Draw',
+            'cards_used': [{'card_id': card_id, 'name': 'The Fool',
+                            'reversed': True, 'position_index': 0,
+                            'deck_id': deck_id}],
+            'notes': 'quick note',
+        },
+    }
+
+
+def test_push_entry_creates_full_entry(client, db):
+    deck_id, card_id = make_deck_with_card(db)
+    token = _pair(client)
+    res = client.post('/api/sync/push-entry',
+                      json=_push_payload(db, deck_id, card_id),
+                      headers=_auth(token), environ_overrides=LAN)
+    assert res.status_code == 201
+    entry_id = res.get_json()['id']
+
+    entry = db.get_entry(entry_id)
+    assert entry['title'] == 'ZZ Phone Entry'
+    readings = db.get_entry_readings(entry_id)
+    assert len(readings) == 1
+    reading = dict(readings[0])
+    assert reading['deck_name'] == 'Test Deck'
+    assert reading['cartomancy_type'] == 'Tarot'
+    cards = json.loads(reading['cards_used'])
+    assert cards[0]['reversed'] is True
+
+    tag_names = [t['name'] for t in db.get_entry_tags(entry_id)]
+    assert 'logged on phone' in tag_names
+
+
+def test_push_entry_is_idempotent(client, db):
+    deck_id, card_id = make_deck_with_card(db)
+    token = _pair(client)
+    payload = _push_payload(db, deck_id, card_id, uuid='zz-same-uuid')
+    first = client.post('/api/sync/push-entry', json=payload,
+                        headers=_auth(token), environ_overrides=LAN)
+    again = client.post('/api/sync/push-entry', json=payload,
+                        headers=_auth(token), environ_overrides=LAN)
+    assert again.status_code == 200
+    assert again.get_json()['deduped'] is True
+    assert again.get_json()['id'] == first.get_json()['id']
+    cur = db.conn.cursor()
+    count = cur.execute(
+        "SELECT COUNT(*) FROM journal_entries WHERE sync_uuid = 'zz-same-uuid'"
+    ).fetchone()[0]
+    assert count == 1
+
+
+def test_push_entry_requires_auth_and_uuid(client, db):
+    deck_id, card_id = make_deck_with_card(db)
+    res = client.post('/api/sync/push-entry',
+                      json=_push_payload(db, deck_id, card_id),
+                      environ_overrides=LAN)
+    assert res.status_code == 401
+
+    token = _pair(client)
+    bad = _push_payload(db, deck_id, card_id)
+    bad['sync_uuid'] = ''
+    res = client.post('/api/sync/push-entry', json=bad,
+                      headers=_auth(token), environ_overrides=LAN)
+    assert res.status_code == 400
