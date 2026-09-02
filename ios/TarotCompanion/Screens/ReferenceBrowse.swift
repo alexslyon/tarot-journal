@@ -41,6 +41,83 @@ enum ReferenceCategory: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
+/// Top-level rows on the Reference front page. Groups bundle
+/// related categories behind one row with a segmented switcher.
+enum ReferenceGroup: String, CaseIterable, Identifiable, Hashable {
+    case combinations
+    case astrology
+    case kabbalah
+    case numbersAndSuits
+    case chakras
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .combinations: return "Combinations"
+        case .astrology: return "Astrology"
+        case .kabbalah: return "Kabbalah"
+        case .numbersAndSuits: return "Numbers and Suits"
+        case .chakras: return "Chakras"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .combinations: return "rectangle.on.rectangle"
+        case .astrology: return "sparkles"
+        case .kabbalah: return "point.3.connected.trianglepath.dotted"
+        case .numbersAndSuits: return "number"
+        case .chakras: return "circle.grid.3x3"
+        }
+    }
+
+    /// The entity categories inside this group (empty for
+    /// combinations, which has its own screen).
+    var categories: [ReferenceCategory] {
+        switch self {
+        case .combinations: return []
+        case .astrology: return [.sign, .planet]
+        case .kabbalah: return [.sephira, .path]
+        case .numbersAndSuits: return [.number, .suit, .rank]
+        case .chakras: return [.chakra]
+        }
+    }
+}
+
+/// A group's page: one category shows plainly; several get a
+/// segmented switcher.
+struct ReferenceGroupView: View {
+    let group: ReferenceGroup
+    @State private var selected: ReferenceCategory
+
+    init(group: ReferenceGroup) {
+        self.group = group
+        _selected = State(initialValue: group.categories.first ?? .chakra)
+    }
+
+    var body: some View {
+        NocturneScreen {
+            VStack(spacing: 0) {
+                if group.categories.count > 1 {
+                    Picker("Section", selection: $selected) {
+                        ForEach(group.categories) { category in
+                            Text(category.label).tag(category)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                }
+                EntityListView(category: selected)
+                    .id(selected)
+            }
+        }
+        .navigationTitle(group.label)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 struct ReferenceEntity: Identifiable, Hashable {
     let id: Int64
     let kind: String
@@ -69,29 +146,23 @@ struct EntityListView: View {
     }
 
     var body: some View {
-        NocturneScreen {
-            List(filtered) { entity in
-                NavigationLink(value: entity) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(entity.name)
-                            .font(TJ.serifFont(17))
-                            .foregroundStyle(TJ.text)
-                        if let subtitle = entity.subtitle, !subtitle.isEmpty {
-                            Text(subtitle)
-                                .font(.caption)
-                                .foregroundStyle(TJ.textFaint)
-                        }
+        List(filtered) { entity in
+            NavigationLink(value: entity) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entity.name)
+                        .font(TJ.serifFont(17))
+                        .foregroundStyle(TJ.text)
+                    if let subtitle = entity.subtitle, !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(TJ.textFaint)
                     }
                 }
-                .listRowBackground(TJ.panel)
             }
-            .searchable(text: $searchText)
+            .listRowBackground(TJ.panel)
         }
-        .navigationTitle(category.label)
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(for: ReferenceEntity.self) { entity in
-            EntityDetailView(entity: entity)
-        }
+        .scrollContentBackground(.hidden)
+        .searchable(text: $searchText)
         .task { load() }
     }
 

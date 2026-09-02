@@ -18,14 +18,14 @@ struct ReferenceView: View {
                 if searchText.isEmpty {
                     // The browsing front door: every desktop Reference
                     // tab, phone-shaped. Card lookup is the search bar.
-                    List(ReferenceCategory.allCases) { category in
-                        NavigationLink(value: category) {
+                    List(ReferenceGroup.allCases) { group in
+                        NavigationLink(value: group) {
                             Label {
-                                Text(category.label)
+                                Text(group.label)
                                     .font(TJ.serifFont(17))
                                     .foregroundStyle(TJ.text)
                             } icon: {
-                                Image(systemName: category.icon)
+                                Image(systemName: group.icon)
                                     .foregroundStyle(TJ.accent)
                             }
                         }
@@ -54,12 +54,15 @@ struct ReferenceView: View {
             .navigationTitle("Reference")
             .searchable(text: $searchText, prompt: "Card name…")
             .onChange(of: searchText) { _, _ in search() }
-            .navigationDestination(for: ReferenceCategory.self) { category in
-                if category == .combinations {
+            .navigationDestination(for: ReferenceGroup.self) { group in
+                if group == .combinations {
                     CombinationsView()
                 } else {
-                    EntityListView(category: category)
+                    ReferenceGroupView(group: group)
                 }
+            }
+            .navigationDestination(for: ReferenceEntity.self) { entity in
+                EntityDetailView(entity: entity)
             }
         }
     }
