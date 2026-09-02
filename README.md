@@ -88,7 +88,42 @@ key, and everything else never leaves your machine.
    npm run dev        # development mode (hot reload)
    ```
 
-   To package a distributable app: `npm run package` or `npm run make`.
+### Make a double-clickable app (macOS)
+
+Once the install steps above work (both `npm install`s done and the
+Python environment set up — the packager borrows this machine's
+`python3` to build the app's own), you can build a normal Mac app so
+you never touch a terminal again:
+
+```bash
+npm run make:app
+```
+
+This packages the app and installs a self-contained Python
+environment inside the bundle. The result lands at:
+
+```
+out/Tarot Journal-darwin-arm64/Tarot Journal.app
+```
+
+Drag it into `/Applications` (or anywhere) and double-click. Notes:
+
+- It uses the same data as the dev version (`~/Library/Application
+  Support/TarotJournal`) — it *is* the app, just launchable normally.
+  Don't run it and `npm run dev` at the same time; they share a port.
+- It's a snapshot of the code at build time: after pulling updates,
+  rerun `npm run make:app` and replace the old copy.
+- The bundled Python environment is tied to the machine that built
+  it — build the app on the machine that will run it, rather than
+  copying the .app to another computer.
+
+### Other useful launch modes
+
+- `npm run scratch` — launch against a **throwaway database** (fresh
+  every run, own port, real data untouchable). Ideal for trying
+  things risk-free or seeing the first-run experience;
+  `KEEP_SCRATCH=1 npm run scratch` keeps the scratch data between
+  runs.
 
 ### Optional setup
 
