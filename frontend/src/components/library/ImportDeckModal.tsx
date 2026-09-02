@@ -263,7 +263,7 @@ export default function ImportDeckModal({ onClose, onImported }: ImportDeckModal
   }, [step, folder, deckName]);
 
   return (
-    <Modal open={true} onClose={onClose} width={650} isDirty={isDirty}>
+    <Modal open={true} onClose={onClose} width={700} isDirty={isDirty}>
       <div className="import-deck">
         <h2 className="import-deck__title">Import Deck from Folder</h2>
 
@@ -306,10 +306,10 @@ export default function ImportDeckModal({ onClose, onImported }: ImportDeckModal
                 />
               </div>
 
-              {/* Type and preset row */}
-              <div className="import-deck__row">
-                <div className="import-deck__field" style={{ flex: 1 }}>
-                  <label className="import-deck__label">Cartomancy Type</label>
+              {/* Type and preset — stacked full-width so long names
+                  (Vera Sibilla Italiana / Sibilla della Zingara…) fit */}
+              <div className="import-deck__field">
+                <label className="import-deck__label">Cartomancy Type</label>
                   <select
                     value={typeId}
                     onChange={(e) => setTypeId(parseInt(e.target.value))}
@@ -320,19 +320,18 @@ export default function ImportDeckModal({ onClose, onImported }: ImportDeckModal
                       </option>
                     ))}
                   </select>
-                </div>
+              </div>
 
-                <div className="import-deck__field" style={{ flex: 1 }}>
-                  <label className="import-deck__label">Import Preset</label>
-                  <select value={preset} onChange={(e) => setPreset(e.target.value)}>
-                    <option value="">None (use filenames)</option>
-                    {presets.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="import-deck__field">
+                <label className="import-deck__label">Import Preset</label>
+                <select value={preset} onChange={(e) => setPreset(e.target.value)}>
+                  <option value="">None (use filenames)</option>
+                  {presets.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Suit Names Section */}
