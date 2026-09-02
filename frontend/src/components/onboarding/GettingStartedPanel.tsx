@@ -125,7 +125,7 @@ export default function GettingStartedPanel({ onGoTo, onDismissed, onStartTour }
                   onClick={handleStarterSpreads}
                   disabled={seeding}
                 >
-                  {seeding ? 'Adding…' : 'Add 5 classics'}
+                  {seeding ? 'Adding…' : 'Add starter spreads'}
                 </button>
               )}
             </li>

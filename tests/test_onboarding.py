@@ -23,10 +23,11 @@ def test_starter_spreads_seed_and_idempotency(client, db):
     assert res.status_code == 200
     body = res.get_json()
     assert 'Celtic Cross' in body['added']
-    assert len(body['added']) == 5 and body['skipped'] == []
+    assert 'Grand Tableau (8x4+4)' in body['added']
+    assert len(body['added']) == 10 and body['skipped'] == []
 
     spreads = {s['name']: s for s in db.get_spreads()}
-    assert len(spreads) == 5
+    assert len(spreads) == 10
     # Positions land in the designer's format
     celtic = spreads['Celtic Cross']
     positions = celtic['positions']
@@ -38,8 +39,8 @@ def test_starter_spreads_seed_and_idempotency(client, db):
 
     # Second click: everything skipped, nothing duplicated
     again = client.post('/api/onboarding/starter-spreads').get_json()
-    assert again['added'] == [] and len(again['skipped']) == 5
-    assert len(db.get_spreads()) == 5
+    assert again['added'] == [] and len(again['skipped']) == 10
+    assert len(db.get_spreads()) == 10
 
 
 def test_starter_spreads_respect_existing_names(client, db):
