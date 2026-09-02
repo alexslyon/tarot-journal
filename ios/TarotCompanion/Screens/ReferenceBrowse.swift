@@ -44,7 +44,7 @@ enum ReferenceCategory: String, CaseIterable, Identifiable, Hashable {
 /// Top-level rows on the Reference front page. Groups bundle
 /// related categories behind one row with a segmented switcher.
 enum ReferenceGroup: String, CaseIterable, Identifiable, Hashable {
-    case combinations
+    case cards
     case astrology
     case kabbalah
     case numbersAndSuits
@@ -54,7 +54,7 @@ enum ReferenceGroup: String, CaseIterable, Identifiable, Hashable {
 
     var label: String {
         switch self {
-        case .combinations: return "Combinations"
+        case .cards: return "Cards"
         case .astrology: return "Astrology"
         case .kabbalah: return "Kabbalah"
         case .numbersAndSuits: return "Numbers and Suits"
@@ -64,7 +64,7 @@ enum ReferenceGroup: String, CaseIterable, Identifiable, Hashable {
 
     var icon: String {
         switch self {
-        case .combinations: return "rectangle.on.rectangle"
+        case .cards: return "rectangle.portrait.on.rectangle.portrait"
         case .astrology: return "sparkles"
         case .kabbalah: return "point.3.connected.trianglepath.dotted"
         case .numbersAndSuits: return "number"
@@ -72,11 +72,11 @@ enum ReferenceGroup: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
-    /// The entity categories inside this group (empty for
-    /// combinations, which has its own screen).
+    /// The entity categories inside this group (empty for cards,
+    /// which has its own screen).
     var categories: [ReferenceCategory] {
         switch self {
-        case .combinations: return []
+        case .cards: return []
         case .astrology: return [.sign, .planet]
         case .kabbalah: return [.sephira, .path]
         case .numbersAndSuits: return [.number, .suit, .rank]
@@ -242,82 +242,319 @@ struct EntityDetailView: View {
     }
 }
 
+// MARK: - The Cards group
+
+enum CardsRoute: Hashable {
+    case byDeckType
+    case combinations
+}
+
+/// The Cards page: archetype search up top, plus structured browsing
+/// (by deck type, like the desktop's Archetypes tab) and the
+/// combinations lookup.
+struct CardsGroupView: View {
+    @EnvironmentObject private var appModel: AppModel
+    @State private var searchText = ""
+    @State private var hits: [ArchetypeHit] = []
+
+    var body: some View {
+        List {
+            if searchText.isEmpty {
+                NavigationLink(value: CardsRoute.byDeckType) {
+                    Label {
+                        Text("View by deck type")
+                            .font(TJ.serifFont(17))
+                            .foregroundStyle(TJ.text)
+                    } icon: {
+                        Image(systemName: "square.stack.3d.up")
+                            .foregroundStyle(TJ.accent)
+                    }
+                }
+                .listRowBackground(TJ.panel)
+                NavigationLink(value: CardsRoute.combinations) {
+                    Label {
+                        Text("Combinations")
+                            .font(TJ.serifFont(17))
+                            .foregroundStyle(TJ.text)
+                    } icon: {
+                        Image(systemName: "rectangle.on.rectangle")
+                            .foregroundStyle(TJ.accent)
+                    }
+                }
+                .listRowBackground(TJ.panel)
+            } else {
+                ForEach(hits) { hit in
+                    NavigationLink(value: hit) {
+                        VStack(alignment: .leading) {
+                            Text(hit.name)
+                                .font(TJ.serifFont(17))
+                                .foregroundStyle(TJ.text)
+                            if let type = hit.cartomancyType {
+                                Text(type).font(.caption).foregroundStyle(TJ.textFaint)
+                            }
+                        }
+                    }
+                    .listRowBackground(TJ.panel)
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .searchable(text: $searchText, prompt: "Card name…")
+        .onChange(of: searchText) { _, _ in search() }
+        .navigationTitle("Cards")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func search() {
+        guard !searchText.isEmpty else { hits = []; return }
+        hits = (try? appModel.database.writer.read { db in
+            try Row.fetchAll(db, sql: """
+                SELECT id, name, cartomancy_type FROM card_archetypes
+                WHERE name LIKE ? ORDER BY name LIMIT 50
+                """, arguments: ["%\(searchText)%"]).map {
+                ArchetypeHit(id: $0["id"], name: $0["name"],
+                             cartomancyType: $0["cartomancy_type"])
+            }
+        }) ?? []
+    }
+}
+
+/// Deck types with the preferred builtins first, like the desktop.
+func orderedDeckTypes(_ types: [String]) -> [String] {
+    let preferred = ["Tarot", "Petit Lenormand", "Playing Cards",
+                     "Playing Cards (Spanish)", "Oracle"]
+    let head = preferred.filter { types.contains($0) }
+    let tail = types.filter { !preferred.contains($0) }.sorted()
+    return head + tail
+}
+
+struct DeckTypeSelection: Hashable {
+    let type: String
+}
+
+/// Step one of by-type browsing: pick the deck type.
+struct DeckTypeListView: View {
+    @EnvironmentObject private var appModel: AppModel
+    @State private var types: [String] = []
+
+    var body: some View {
+        List(types, id: \.self) { type in
+            NavigationLink(value: DeckTypeSelection(type: type)) {
+                Text(type)
+                    .font(TJ.serifFont(17))
+                    .foregroundStyle(TJ.text)
+            }
+            .listRowBackground(TJ.panel)
+        }
+        .scrollContentBackground(.hidden)
+        .navigationTitle("Deck Types")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            let raw = (try? appModel.database.writer.read { db in
+                try String.fetchAll(db, sql: """
+                    SELECT DISTINCT cartomancy_type FROM card_archetypes
+                    WHERE cartomancy_type IS NOT NULL AND cartomancy_type != ''
+                    """)
+            }) ?? []
+            types = orderedDeckTypes(raw)
+        }
+    }
+}
+
+/// Step two: the type's archetypes, in canonical (seed) order.
+struct TypeArchetypesView: View {
+    let type: String
+
+    @EnvironmentObject private var appModel: AppModel
+    @State private var archetypes: [ArchetypeHit] = []
+    @State private var searchText = ""
+
+    var filtered: [ArchetypeHit] {
+        guard !searchText.isEmpty else { return archetypes }
+        return archetypes.filter {
+            $0.name.lowercased().contains(searchText.lowercased())
+        }
+    }
+
+    var body: some View {
+        List(filtered) { hit in
+            NavigationLink(value: hit) {
+                Text(hit.name)
+                    .font(TJ.serifFont(17))
+                    .foregroundStyle(TJ.text)
+            }
+            .listRowBackground(TJ.panel)
+        }
+        .scrollContentBackground(.hidden)
+        .searchable(text: $searchText)
+        .navigationTitle(type)
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            archetypes = (try? appModel.database.writer.read { db in
+                try Row.fetchAll(db, sql: """
+                    SELECT id, name, cartomancy_type FROM card_archetypes
+                    WHERE cartomancy_type = ? ORDER BY id
+                    """, arguments: [type]).map {
+                    ArchetypeHit(id: $0["id"], name: $0["name"],
+                                 cartomancyType: $0["cartomancy_type"])
+                }
+            }) ?? []
+        }
+    }
+}
+
 // MARK: - Combinations
 
 struct CombinationRow: Identifiable {
     let id: Int64
-    let title: String            // "Il Bambino + La Lettera (rev)"
-    let cartomancyType: String?
+    let title: String
     let meanings: [(id: Int64, sourceName: String, text: String)]
 }
 
+/// Structured combination lookup, like the desktop: deck type →
+/// two or three cards → the cards themselves → every stored
+/// combination of exactly those cards (any order, any reversals),
+/// with meanings grouped by source.
 struct CombinationsView: View {
     @EnvironmentObject private var appModel: AppModel
-    @State private var searchText = ""
+
+    @State private var types: [String] = []
+    @State private var type: String?
+    @State private var cardCount = 2
+    @State private var picks: [(id: Int64, name: String)?] = [nil, nil, nil]
+    @State private var pickingSlot: Int?
     @State private var combos: [CombinationRow] = []
+    @State private var searched = false
+
+    private var ready: Bool {
+        type != nil && (0..<cardCount).allSatisfy { picks[$0] != nil }
+    }
 
     var body: some View {
-        NocturneScreen {
-            Group {
-                if searchText.isEmpty {
-                    ContentUnavailableView(
-                        "Search combinations",
-                        systemImage: "rectangle.on.rectangle",
-                        description: Text("Type a card name to find its combination meanings."))
-                } else {
-                    List(combos) { combo in
-                        VStack(alignment: .leading, spacing: 6) {
+        List {
+            Section {
+                Picker("Deck type", selection: $type) {
+                    Text("Choose…").tag(String?.none)
+                    ForEach(types, id: \.self) { t in
+                        Text(t).tag(String?.some(t))
+                    }
+                }
+                .onChange(of: type) { _, _ in resetPicks() }
+
+                Picker("Cards", selection: $cardCount) {
+                    Text("Two cards").tag(2)
+                    Text("Three cards").tag(3)
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: cardCount) { _, _ in refresh() }
+            }
+            .listRowBackground(TJ.panel)
+
+            if type != nil {
+                Section {
+                    ForEach(0..<cardCount, id: \.self) { slot in
+                        Button {
+                            pickingSlot = slot
+                        } label: {
                             HStack {
-                                Text(combo.title)
-                                    .font(TJ.serifFont(17))
-                                    .foregroundStyle(TJ.text)
+                                Text("Card \(slot + 1)")
+                                    .foregroundStyle(TJ.textMuted)
                                 Spacer()
-                                if let type = combo.cartomancyType {
-                                    Text(type)
-                                        .font(.caption2)
-                                        .foregroundStyle(TJ.textFaint)
-                                }
-                            }
-                            ForEach(combo.meanings, id: \.id) { meaning in
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(meaning.sourceName)
-                                        .font(.caption)
-                                        .textCase(.uppercase)
-                                        .foregroundStyle(TJ.textMuted)
-                                    HTMLText(html: meaning.text)
-                                }
+                                Text(picks[slot]?.name ?? "Choose…")
+                                    .foregroundStyle(picks[slot] == nil ? TJ.accent : TJ.text)
                             }
                         }
-                        .padding(.vertical, 4)
-                        .listRowBackground(TJ.panel)
                     }
+                }
+                .listRowBackground(TJ.panel)
+            }
+
+            if searched {
+                if combos.isEmpty {
+                    Text("No stored combination for these cards.")
+                        .font(.caption)
+                        .foregroundStyle(TJ.textFaint)
+                        .listRowBackground(TJ.panel)
+                }
+                ForEach(combos) { combo in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(combo.title)
+                            .font(TJ.serifFont(17))
+                            .foregroundStyle(TJ.text)
+                        ForEach(combo.meanings, id: \.id) { meaning in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(meaning.sourceName)
+                                    .font(.caption)
+                                    .textCase(.uppercase)
+                                    .foregroundStyle(TJ.textMuted)
+                                HTMLText(html: meaning.text)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    .listRowBackground(TJ.panel)
                 }
             }
         }
+        .scrollContentBackground(.hidden)
         .navigationTitle("Combinations")
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $searchText, prompt: "Card name…")
-        .onChange(of: searchText) { _, _ in search() }
+        .task {
+            types = (try? appModel.database.writer.read { db in
+                orderedDeckTypes(try String.fetchAll(db, sql: """
+                    SELECT DISTINCT cartomancy_type FROM archetype_combinations
+                    WHERE cartomancy_type IS NOT NULL
+                    """))
+            }) ?? []
+            if types.count == 1 { type = types.first }
+        }
+        .sheet(isPresented: Binding(
+            get: { pickingSlot != nil },
+            set: { if !$0 { pickingSlot = nil } }
+        )) {
+            if let type {
+                ArchetypePickerSheet(type: type) { picked in
+                    if let slot = pickingSlot { picks[slot] = picked }
+                    pickingSlot = nil
+                    refresh()
+                }
+            }
+        }
     }
 
-    private func search() {
-        guard !searchText.isEmpty else { combos = []; return }
+    private func resetPicks() {
+        picks = [nil, nil, nil]
+        combos = []
+        searched = false
+    }
+
+    private func refresh() {
+        guard ready, let type else { combos = []; searched = false; return }
+        let wanted = (0..<cardCount).compactMap { picks[$0]?.id }
         combos = (try? appModel.database.writer.read { db in
+            let marks = wanted.map { _ in "?" }.joined(separator: ",")
             let rows = try Row.fetchAll(db, sql: """
-                SELECT c.id, c.cartomancy_type,
+                SELECT c.id,
                        a1.name AS n1, c.archetype_1_reversed AS r1,
                        a2.name AS n2, c.archetype_2_reversed AS r2,
-                       a3.name AS n3, c.archetype_3_reversed AS r3
+                       a3.name AS n3, c.archetype_3_reversed AS r3,
+                       c.archetype_1_id AS i1, c.archetype_2_id AS i2,
+                       c.archetype_3_id AS i3
                 FROM archetype_combinations c
                 JOIN card_archetypes a1 ON a1.id = c.archetype_1_id
                 JOIN card_archetypes a2 ON a2.id = c.archetype_2_id
                 LEFT JOIN card_archetypes a3 ON a3.id = c.archetype_3_id
-                WHERE a1.name LIKE ? OR a2.name LIKE ? OR a3.name LIKE ?
-                ORDER BY a1.name, a2.name LIMIT 100
-                """, arguments: StatementArguments(
-                    Array(repeating: "%\(searchText)%", count: 3)))
-            return try rows.map { row -> CombinationRow in
-                let comboId: Int64 = row["id"]
+                WHERE c.cartomancy_type = ?
+                  AND c.archetype_1_id IN (\(marks))
+                  AND c.archetype_2_id IN (\(marks))
+                ORDER BY c.id
+                """, arguments: StatementArguments([type] + wanted + wanted))
+            return try rows.compactMap { row -> CombinationRow? in
+                // Exact multiset match on the chosen cards
+                var ids: [Int64] = [row["i1"], row["i2"]]
+                if let i3: Int64 = row["i3"] { ids.append(i3) }
+                guard ids.count == wanted.count,
+                      ids.sorted() == wanted.sorted() else { return nil }
                 func part(_ name: String?, _ reversed: Int?) -> String? {
                     guard let name else { return nil }
                     return reversed == 1 ? "\(name) (rev)" : name
@@ -327,21 +564,73 @@ struct CombinationsView: View {
                              part(row["n3"], row["r3"])]
                     .compactMap { $0 }
                     .joined(separator: " + ")
+                let comboId: Int64 = row["id"]
                 let meanings = try Row.fetchAll(db, sql: """
                     SELECT m.id, m.meaning, rs.name AS source_name
                     FROM combination_meanings m
                     LEFT JOIN reference_sources rs ON rs.id = m.source_id
                     WHERE m.combination_id = ? ORDER BY m.sort_order
-                    """, arguments: [comboId]).map { row ->
+                    """, arguments: [comboId]).map { mrow ->
                         (id: Int64, sourceName: String, text: String) in
-                    (id: row["id"],
-                     sourceName: row["source_name"] ?? "Source",
-                     text: row["meaning"] ?? "")
+                    (id: mrow["id"],
+                     sourceName: mrow["source_name"] ?? "Source",
+                     text: mrow["meaning"] ?? "")
                 }
-                return CombinationRow(id: comboId, title: title,
-                                      cartomancyType: row["cartomancy_type"],
-                                      meanings: meanings)
+                return CombinationRow(id: comboId, title: title, meanings: meanings)
             }
         }) ?? []
+        searched = true
+    }
+}
+
+/// Searchable archetype picker for one combination slot.
+struct ArchetypePickerSheet: View {
+    let type: String
+    let onPick: ((id: Int64, name: String)) -> Void
+
+    @EnvironmentObject private var appModel: AppModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var searchText = ""
+    @State private var archetypes: [(id: Int64, name: String)] = []
+
+    var filtered: [(id: Int64, name: String)] {
+        guard !searchText.isEmpty else { return archetypes }
+        return archetypes.filter {
+            $0.name.lowercased().contains(searchText.lowercased())
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            NocturneScreen {
+                List(filtered, id: \.id) { archetype in
+                    Button {
+                        onPick(archetype)
+                        dismiss()
+                    } label: {
+                        Text(archetype.name).foregroundStyle(TJ.text)
+                    }
+                    .listRowBackground(TJ.panel)
+                }
+                .scrollContentBackground(.hidden)
+                .searchable(text: $searchText)
+            }
+            .navigationTitle("Choose a card")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .task {
+            archetypes = (try? appModel.database.writer.read { db in
+                try Row.fetchAll(db, sql: """
+                    SELECT id, name FROM card_archetypes
+                    WHERE cartomancy_type = ? ORDER BY id
+                    """, arguments: [type]).map { ($0["id"], $0["name"]) }
+            }) ?? []
+        }
     }
 }

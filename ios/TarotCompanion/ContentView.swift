@@ -49,6 +49,8 @@ struct ContentView: View {
                 case .archetype(let id):
                     ReferenceDetailView(archetypeId: id, archetypeName: "Archetype")
                 case .compose: NewEntryView()
+                case .refCombos: CombinationsView()
+                case .refByType: DeckTypeListView()
                 case .card(let id): CardInfoView(cardId: id, fallbackName: nil)
                 }
             }
@@ -65,6 +67,8 @@ enum DebugRoute: Identifiable {
     case archetype(Int64)
     case card(Int64)
     case compose
+    case refCombos
+    case refByType
 
     var id: String {
         switch self {
@@ -73,6 +77,8 @@ enum DebugRoute: Identifiable {
         case .archetype(let id): return "archetype-\(id)"
         case .card(let id): return "card-\(id)"
         case .compose: return "compose"
+        case .refCombos: return "refCombos"
+        case .refByType: return "refByType"
         }
     }
 
@@ -88,6 +94,8 @@ enum DebugRoute: Identifiable {
         if let id = value(after: "-openArchetype") { return .archetype(id) }
         if let id = value(after: "-openCard") { return .card(id) }
         if args.contains("-compose") { return .compose }
+        if args.contains("-refCombos") { return .refCombos }
+        if args.contains("-refByType") { return .refByType }
         return nil
     }
 }
