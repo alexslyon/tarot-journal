@@ -15,11 +15,22 @@ struct ReferenceView: View {
     var body: some View {
         NavigationStack {
             NocturneScreen {
-                if hits.isEmpty && searchText.isEmpty {
-                    ContentUnavailableView(
-                        "Search card meanings",
-                        systemImage: "text.magnifyingglass",
-                        description: Text("Look up any card archetype across your reference sources."))
+                if searchText.isEmpty {
+                    // The browsing front door: every desktop Reference
+                    // tab, phone-shaped. Card lookup is the search bar.
+                    List(ReferenceCategory.allCases) { category in
+                        NavigationLink(value: category) {
+                            Label {
+                                Text(category.label)
+                                    .font(TJ.serifFont(17))
+                                    .foregroundStyle(TJ.text)
+                            } icon: {
+                                Image(systemName: category.icon)
+                                    .foregroundStyle(TJ.accent)
+                            }
+                        }
+                        .listRowBackground(TJ.panel)
+                    }
                 } else {
                     List(hits) { hit in
                         NavigationLink(value: hit) {
@@ -43,6 +54,13 @@ struct ReferenceView: View {
             .navigationTitle("Reference")
             .searchable(text: $searchText, prompt: "Card name…")
             .onChange(of: searchText) { _, _ in search() }
+            .navigationDestination(for: ReferenceCategory.self) { category in
+                if category == .combinations {
+                    CombinationsView()
+                } else {
+                    EntityListView(category: category)
+                }
+            }
         }
     }
 

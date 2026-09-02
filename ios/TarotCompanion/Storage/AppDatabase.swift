@@ -140,6 +140,45 @@ struct AppDatabase {
             }
         }
 
+        migrator.registerMigration("v4-whole-reference") { db in
+            // The rest of the desktop's Reference section: card
+            // combinations, entity notes (signs, sephiroth, suits…),
+            // and the server-built entity catalog for browsing.
+            try db.create(table: "archetype_combinations") { t in
+                t.primaryKey("id", .integer)
+                t.column("cartomancy_type", .text)
+                t.column("archetype_1_id", .integer).indexed()
+                t.column("archetype_1_reversed", .integer)
+                t.column("archetype_2_id", .integer).indexed()
+                t.column("archetype_2_reversed", .integer)
+                t.column("archetype_3_id", .integer)
+                t.column("archetype_3_reversed", .integer)
+            }
+            try db.create(table: "combination_meanings") { t in
+                t.primaryKey("id", .integer)
+                t.column("combination_id", .integer).indexed()
+                t.column("meaning", .text)
+                t.column("source_id", .integer)
+                t.column("sort_order", .integer)
+            }
+            try db.create(table: "entity_source_notes") { t in
+                t.primaryKey("id", .integer)
+                t.column("entity_kind", .text).indexed()
+                t.column("entity_key", .text)
+                t.column("source_id", .integer)
+                t.column("content", .text)
+            }
+            try db.create(table: "reference_entities") { t in
+                t.primaryKey("id", .integer)
+                t.column("kind", .text).indexed()
+                t.column("key", .text)
+                t.column("name", .text)
+                t.column("subtitle", .text)
+                t.column("cartomancy_type", .text)
+                t.column("sort", .integer)
+            }
+        }
+
         try migrator.migrate(writer)
     }
 

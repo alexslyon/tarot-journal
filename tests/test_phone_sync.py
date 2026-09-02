@@ -369,3 +369,33 @@ def test_push_entry_with_location(client, db):
     assert entry['location_name'] == 'ZZ Hotel'
     assert entry['location_lat'] == 40.7
     assert entry['location_lon'] == -74.0
+
+
+# ── Whole-reference sync (combinations, entities, entity notes) ──
+
+def test_reference_entity_catalog(client, db):
+    res = client.get('/api/sync/snapshot/reference_entities')
+    assert res.status_code == 200
+    rows = res.get_json()['rows']
+    kinds = {r['kind'] for r in rows}
+    assert {'sign', 'planet', 'sephira', 'path', 'chakra',
+            'number'} <= kinds
+    signs = [r for r in rows if r['kind'] == 'sign']
+    assert len(signs) == 12
+    paths = [r for r in rows if r['kind'] == 'path']
+    assert len(paths) == 22
+    # Suit/rank keys follow the desktop's Type::Name convention
+    for r in rows:
+        if r['kind'] in ('suit', 'rank'):
+            assert '::' in r['key']
+    # And the manifest counts it so the phone pulls it
+    m = client.get('/api/sync/manifest').get_json()
+    assert m['tables']['reference_entities']['count'] == len(rows)
+
+
+def test_combinations_and_entity_notes_snapshots(client, db):
+    for table in ('archetype_combinations', 'combination_meanings',
+                  'entity_source_notes'):
+        res = client.get(f'/api/sync/snapshot/{table}')
+        assert res.status_code == 200, table
+        assert 'rows' in res.get_json()

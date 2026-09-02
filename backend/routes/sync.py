@@ -176,7 +176,59 @@ SNAPSHOT_TABLES = {
                       'sort_order, collapsible FROM source_fields'),
     'card_archetypes': ('SELECT id, name, cartomancy_type, rank, suit '
                         'FROM card_archetypes'),
+    'archetype_combinations': 'SELECT * FROM archetype_combinations',
+    'combination_meanings': ('SELECT id, combination_id, meaning, '
+                             'source_id, sort_order FROM combination_meanings'),
+    'entity_source_notes': ('SELECT id, entity_kind, entity_key, '
+                            'source_id, content FROM entity_source_notes'),
 }
+
+
+def _reference_entity_catalog(db):
+    """The Reference section's entity lists (signs, planets, sephiroth,
+    paths, chakras, numbers, per-type suits and ranks), flattened for
+    the phone. Keys match what the desktop stores entity notes under.
+    Served as a pseudo snapshot table ('reference_entities')."""
+    import reference_content as rc
+    from backend.routes.reference_content import (
+        _suit_types, _suited_archetypes, _suit_sort_key, _rank_sort_key)
+
+    rows = []
+
+    def add(kind, key, name, subtitle=None, ctype=None):
+        rows.append({'id': len(rows) + 1, 'kind': kind, 'key': str(key),
+                     'name': str(name), 'subtitle': subtitle,
+                     'cartomancy_type': ctype, 'sort': len(rows)})
+
+    for s in rc.SIGNS:
+        add('sign', s['name'], f"{s.get('glyph', '')} {s['name']}".strip(),
+            ' · '.join(x for x in (s.get('element'), s.get('modality')) if x))
+    for p in rc.PLANETS:
+        add('planet', p['name'], f"{p.get('glyph', '')} {p['name']}".strip(),
+            p.get('rules'))
+    for s in rc.SEPHIROTH:
+        add('sephira', s['name'], f"{s['number']}. {s['name']}",
+            s.get('translation'))
+    for p in rc.TREE_PATHS:
+        add('path', p['letter'],
+            f"Path {p['path']} — {p['letter']} {p.get('glyph', '')}".strip(),
+            f"{p['from']} → {p['to']}")
+    for c in rc.CHAKRAS:
+        add('chakra', c['name'], c['name'],
+            ' · '.join(x for x in (c.get('sanskrit'), c.get('location')) if x))
+    for n in rc.NUMBERS:
+        add('number', n['number'], f"Number {n['number']}", n.get('system'))
+    for ctype in _suit_types(db):
+        cards = _suited_archetypes(db, ctype)
+        suit_names = sorted({c['suit'] for c in cards if c['suit']},
+                            key=_suit_sort_key)
+        rank_names = sorted({c['rank'] for c in cards if c['rank']},
+                            key=_rank_sort_key)
+        for name in suit_names:
+            add('suit', f'{ctype}::{name}', name, ctype, ctype)
+        for name in rank_names:
+            add('rank', f'{ctype}::{name}', name, ctype, ctype)
+    return rows
 
 
 @sync_bp.route('/api/sync/manifest')
@@ -192,6 +244,8 @@ def manifest():
     tables = {}
     for name, sql in SNAPSHOT_TABLES.items():
         tables[name] = {'count': one(f'SELECT COUNT(*) FROM ({sql})')}
+    tables['reference_entities'] = {
+        'count': len(_reference_entity_catalog(db))}
     tables['entries'] = {
         'count': one('SELECT COUNT(*) FROM journal_entries'),
         'max_updated_at': one('SELECT MAX(updated_at) FROM journal_entries'),
@@ -207,6 +261,9 @@ def manifest():
 @sync_bp.route('/api/sync/snapshot/<table>')
 def snapshot(table):
     _require_auth()
+    if table == 'reference_entities':
+        rows = _reference_entity_catalog(current_app.config['DB'])
+        return jsonify({'table': table, 'rows': rows})
     sql = SNAPSHOT_TABLES.get(table)
     if not sql:
         return jsonify({'error': f'unknown snapshot table {table!r}'}), 404

@@ -36,6 +36,8 @@ final class SyncEngine: ObservableObject {
     static let snapshotTables = [
         "decks", "cards", "spreads", "profiles", "tags",
         "reference_sources", "source_fields", "card_archetypes",
+        "archetype_combinations", "combination_meanings",
+        "entity_source_notes", "reference_entities",
     ]
 
     init(database: AppDatabase) {
@@ -245,7 +247,14 @@ final class SyncEngine: ObservableObject {
 
     private func pullSnapshots() async throws {
         for table in Self.snapshotTables {
-            let data = try await get("api/sync/snapshot/\(table)")
+            let data: Data
+            do {
+                data = try await get("api/sync/snapshot/\(table)")
+            } catch SyncError.serverError(404) {
+                // The Mac is running an older app version that doesn't
+                // know this table yet — skip it, keep syncing the rest.
+                continue
+            }
             guard let body = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let rows = body["rows"] as? [[String: Any]] else {
                 throw SyncError.badPayload(table)
