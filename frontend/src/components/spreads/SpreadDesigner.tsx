@@ -109,35 +109,93 @@ export default function SpreadDesigner({
   // the drag distance on release (the origin tracks the leftmost
   // card when the spread is smaller than the minimum canvas), which
   // read as "I moved a card and everything snapped back". The box
-  // only expands when content needs more room; the Fit button
-  // re-hugs on demand.
+  // only expands when content needs more room; Fit & Center re-hugs
+  // on demand.
+  //
+  // Expansion is deliberately reluctant during a drag: it happens
+  // only after a card has sat at (or past) the very edge for a
+  // moment, then grows in one chunk — not continuously under the
+  // cursor.
   const [canvasBox, setCanvasBox] = useState(() => fitBox(minCanvas));
+  const growTimerRef = useRef<number | null>(null);
+  const gestureActive = !!(dragging || resizing);
+
+  // The hard bounding box of the cards themselves (no framing margin)
+  const hardBox = useMemo(() => {
+    if (positions.length === 0) return null;
+    const minX = Math.min(...positions.map(p => p.x || 0));
+    const minY = Math.min(...positions.map(p => p.y || 0));
+    const maxX = Math.max(...positions.map(p => (p.x || 0) + (p.width || DEFAULT_W)));
+    const maxY = Math.max(...positions.map(p => (p.y || 0) + (p.height || DEFAULT_H)));
+    return { x: minX, y: minY, right: maxX, bottom: maxY };
+  }, [positions]);
+
   useEffect(() => {
-    setCanvasBox(prev => {
-      let x = prev.x;
-      let y = prev.y;
-      let right = prev.x + prev.width;
-      let bottom = prev.y + prev.height;
-      if (contentBox) {
-        x = Math.min(x, contentBox.x);
-        y = Math.min(y, contentBox.y);
-        right = Math.max(right, contentBox.x + contentBox.w);
-        bottom = Math.max(bottom, contentBox.y + contentBox.h);
+    const EDGE_GRACE = 6;      // "at the very edge" tolerance, px
+    const GROW_DELAY = 500;    // dwell before expanding, ms
+    const GROW_CHUNK = 120;    // room added per expansion, px
+
+    const clearTimer = () => {
+      if (growTimerRef.current !== null) {
+        window.clearTimeout(growTimerRef.current);
+        growTimerRef.current = null;
       }
-      if (right - x < minCanvas.w) {
-        const extra = (minCanvas.w - (right - x)) / 2;
-        x -= extra; right += extra;
-      }
-      if (bottom - y < minCanvas.h) {
-        const extra = (minCanvas.h - (bottom - y)) / 2;
-        y -= extra; bottom += extra;
-      }
-      const next = { x, y, width: right - x, height: bottom - y };
-      return (next.x === prev.x && next.y === prev.y
-        && next.width === prev.width && next.height === prev.height)
-        ? prev : next;
-    });
-  }, [contentBox, minCanvas]);
+    };
+
+    const contain = (pad: number, chunk = 0) => {
+      setCanvasBox(prev => {
+        let x = prev.x;
+        let y = prev.y;
+        let right = prev.x + prev.width;
+        let bottom = prev.y + prev.height;
+        if (hardBox) {
+          if (hardBox.x - pad < x) x = hardBox.x - pad - chunk;
+          if (hardBox.y - pad < y) y = hardBox.y - pad - chunk;
+          if (hardBox.right + pad > right) right = hardBox.right + pad + chunk;
+          if (hardBox.bottom + pad > bottom) bottom = hardBox.bottom + pad + chunk;
+        }
+        if (right - x < minCanvas.w) {
+          const extra = (minCanvas.w - (right - x)) / 2;
+          x -= extra; right += extra;
+        }
+        if (bottom - y < minCanvas.h) {
+          const extra = (minCanvas.h - (bottom - y)) / 2;
+          y -= extra; bottom += extra;
+        }
+        const next = { x, y, width: right - x, height: bottom - y };
+        return (next.x === prev.x && next.y === prev.y
+          && next.width === prev.width && next.height === prev.height)
+          ? prev : next;
+      });
+    };
+
+    if (!gestureActive) {
+      // Outside a gesture (loading, nudges, inspector edits, release):
+      // contain immediately with a light pad — no dwell needed.
+      clearTimer();
+      contain(GRID_SIZE);
+      return;
+    }
+
+    // Mid-gesture: expand only after the card dwells at the edge.
+    const overflowing = !!hardBox && (
+      hardBox.x - EDGE_GRACE < canvasBox.x
+      || hardBox.y - EDGE_GRACE < canvasBox.y
+      || hardBox.right + EDGE_GRACE > canvasBox.x + canvasBox.width
+      || hardBox.bottom + EDGE_GRACE > canvasBox.y + canvasBox.height
+    );
+    if (!overflowing) {
+      clearTimer();
+      return;
+    }
+    if (growTimerRef.current === null) {
+      growTimerRef.current = window.setTimeout(() => {
+        growTimerRef.current = null;
+        contain(0, GROW_CHUNK);
+      }, GROW_DELAY);
+    }
+    return clearTimer;
+  }, [hardBox, minCanvas, gestureActive, canvasBox]);
 
   const snap = useCallback(
     (val: number) => (gridEnabled ? Math.round(val / GRID_SIZE) * GRID_SIZE : Math.round(val)),
@@ -367,8 +425,11 @@ export default function SpreadDesigner({
     [dragging, resizing, positions, onChange, getSVGPoint, snap],
   );
 
+  const justGesturedRef = useRef(false);
+
   const handleMouseUp = useCallback(() => {
     const gestureIndex = dragging?.index ?? resizing?.index ?? null;
+    if (gestureIndex !== null) justGesturedRef.current = true;
     if (gestureIndex !== null && positions[gestureIndex]) {
       // Apply the grid snap once, at the end of the gesture.
       let next = [...positions];
@@ -403,6 +464,12 @@ export default function SpreadDesigner({
   }, [dragging, resizing, handleMouseMove, handleMouseUp]);
 
   const handleCanvasClick = () => {
+    // The click that ends a drag can land on empty canvas (fast drags
+    // outrun the card) — that click must not clear the selection.
+    if (justGesturedRef.current) {
+      justGesturedRef.current = false;
+      return;
+    }
     onSelectIndex(null);
     setContextMenu(null);
   };
@@ -610,9 +677,9 @@ export default function SpreadDesigner({
                 setMinCanvas({ w: MIN_CANVAS_W, h: MIN_CANVAS_H });
                 setCanvasBox(fitBox({ w: MIN_CANVAS_W, h: MIN_CANVAS_H }));
               }}
-              title="Re-hug the canvas around the spread (plus margin)"
+              title="Contract the canvas and center the spread in it"
             >
-              Fit
+              Fit &amp; Center
             </button>
           </span>
         </div>
@@ -679,6 +746,7 @@ export default function SpreadDesigner({
                   height={pos.height}
                   className={`designer__position ${isSelected ? 'designer__position--selected' : ''}`}
                   onMouseDown={readOnly ? undefined : (e) => handlePositionMouseDown(e, idx)}
+                  onClick={readOnly ? undefined : (e) => e.stopPropagation()}
                   onContextMenu={readOnly ? undefined : (e) => handleContextMenu(e, idx)}
                   style={{ cursor: readOnly ? 'default' : dragging ? 'grabbing' : 'grab' }}
                 />
@@ -740,6 +808,7 @@ export default function SpreadDesigner({
                     height={HANDLE_SIZE}
                     className={`designer__resize-handle ${isSelected ? 'designer__resize-handle--visible' : ''}`}
                     onMouseDown={(e) => handleResizeMouseDown(e, idx)}
+                    onClick={(e) => e.stopPropagation()}
                   />
                 )}
               </g>
