@@ -410,8 +410,12 @@ def push_entry(data):
         (sync_uuid, entry_id))
     db.conn.commit()
 
-    reading = data.get('reading') or {}
-    if reading:
+    # Entries may carry several readings (like the desktop editor);
+    # older phone builds send a single 'reading' — accept both.
+    readings = data.get('readings')
+    if not readings and data.get('reading'):
+        readings = [data['reading']]
+    for order, reading in enumerate(readings or []):
         deck_id = reading.get('deck_id')
         deck = db.get_deck(deck_id) if deck_id else None
         db.add_entry_reading(
@@ -422,6 +426,7 @@ def push_entry(data):
             deck_name=(deck or {}).get('name') or reading.get('deck_name'),
             cartomancy_type=(deck or {}).get('cartomancy_type_name'),
             cards_used=reading.get('cards_used') or [],
+            position_order=order,
             notes=reading.get('notes'),
         )
 

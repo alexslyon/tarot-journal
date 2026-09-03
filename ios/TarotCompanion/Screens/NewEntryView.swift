@@ -1,7 +1,8 @@
 import SwiftUI
 import GRDB
 
-/// The quick-entry composer: querent → deck → spread → cards → notes.
+/// The quick-entry composer: querents → one or more readings (each
+/// with its own deck, spread, and cards, like the desktop) → notes.
 /// Optimized for speed at the reading table; the entry pushes to the
 /// Mac (or waits in the outbox when it's unreachable) and gets the
 /// "logged on phone" tag there.
@@ -29,33 +30,55 @@ struct NewEntryView: View {
         func hash(into hasher: inout Hasher) { hasher.combine(id) }
     }
 
-    enum ActivePicker: String, Identifiable {
-        case querent, deck, spread
-        var id: String { rawValue }
+    /// One reading being composed: its deck, optional spread, and
+    /// cards (per-position slots, or a freeform list without one).
+    struct ComposedReading: Identifiable {
+        let id = UUID()
+        var deckId: Int64?
+        var spread: SpreadOption?
+        var cards: [PickedCard?] = []
+        var freeformCards: [PickedCard] = []
+
+        var chosenCards: [PickedCard?] {
+            spread != nil ? cards : freeformCards
+        }
+        var isValid: Bool {
+            deckId != nil && chosenCards.contains { $0 != nil }
+        }
+    }
+
+    enum ActivePicker: Identifiable {
+        case querent
+        case deck(Int)
+        case spread(Int)
+
+        var id: String {
+            switch self {
+            case .querent: return "querent"
+            case .deck(let i): return "deck-\(i)"
+            case .spread(let i): return "spread-\(i)"
+            }
+        }
     }
 
     @State private var title = ""
     @State private var notes = ""
     @State private var querentIds: [Int64] = []
-    @State private var deckId: Int64?
-    @State private var spread: SpreadOption?
     @State private var readingDate = Date()
     @State private var locationName = ""
-    @State private var cards: [PickedCard?] = []     // one slot per position
-    @State private var freeformCards: [PickedCard] = []
+    @State private var readings: [ComposedReading] = [ComposedReading()]
 
     @State private var profiles: [(id: Int64, name: String)] = []
     @State private var decks: [(id: Int64, name: String)] = []
     @State private var spreads: [SpreadOption] = []
     @State private var activePicker: ActivePicker?
-    @State private var pickingSlot: Int?          // which slot the card picker fills
-    @State private var pickingFreeform = false
+    /// The slot the card picker is filling: (reading index, position
+    /// index) — position nil means "append freeform".
+    @State private var pickingCard: (reading: Int, slot: Int?)?
     @State private var saving = false
 
-    private var usingSpread: Bool { spread != nil }
-    private var chosenCards: [PickedCard?] { usingSpread ? cards : freeformCards }
     private var canSave: Bool {
-        deckId != nil && chosenCards.contains { $0 != nil } && !saving
+        readings.contains { $0.isValid } && !saving
     }
 
     var body: some View {
@@ -64,13 +87,23 @@ struct NewEntryView: View {
                 Form {
                     Group {
                         detailsSection
-                        cardsSection
+                        ForEach(readings.indices, id: \.self) { index in
+                            readingSection(index)
+                        }
+                        Section {
+                            Button {
+                                readings.append(ComposedReading())
+                            } label: {
+                                Label("Add another reading", systemImage: "plus")
+                                    .foregroundStyle(TJ.accent)
+                            }
+                        }
                         notesSection
                     }
                     .listRowBackground(TJ.panel)
                 }
             }
-            .navigationTitle("New Reading")
+            .navigationTitle("New Entry")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -82,10 +115,12 @@ struct NewEntryView: View {
                 }
             }
             .sheet(isPresented: Binding(
-                get: { pickingSlot != nil || pickingFreeform },
-                set: { if !$0 { pickingSlot = nil; pickingFreeform = false } }
+                get: { pickingCard != nil },
+                set: { if !$0 { pickingCard = nil } }
             )) {
-                if let deckId {
+                if let picking = pickingCard,
+                   readings.indices.contains(picking.reading),
+                   let deckId = readings[picking.reading].deckId {
                     CardPickerView(deckId: deckId) { picked in
                         place(picked)
                     }
@@ -113,51 +148,48 @@ struct NewEntryView: View {
                 title: "Querents",
                 options: profiles.map { ($0.id, $0.name) },
                 selection: $querentIds)
-        case .deck:
+        case .deck(let index):
             OptionPickerSheet(
                 title: "Deck",
                 options: decks.map { ($0.id, $0.name) },
                 noneLabel: nil) { picked in
-                if let picked { deckId = picked }
+                if let picked, readings.indices.contains(index) {
+                    readings[index].deckId = picked
+                }
             }
-        case .spread:
+        case .spread(let index):
             OptionPickerSheet(
                 title: "Spread",
                 options: spreads.map { ($0.id, $0.name) },
                 noneLabel: "No spread") { picked in
-                spread = spreads.first { $0.id == picked }
-                cards = Array(repeating: nil,
-                              count: spread?.positions.count ?? 0)
+                guard readings.indices.contains(index) else { return }
+                let spread = spreads.first { $0.id == picked }
+                readings[index].spread = spread
+                readings[index].cards = Array(
+                    repeating: nil, count: spread?.positions.count ?? 0)
             }
         }
     }
 
-    /// The picked cards shaped for the live spread preview.
-    private var previewCards: [ReadingCard] {
-        cards.enumerated().compactMap { index, slot in
+    /// A reading's picked cards shaped for the live spread preview.
+    private func previewCards(_ reading: ComposedReading) -> [ReadingCard] {
+        reading.cards.enumerated().compactMap { index, slot in
             guard let card = slot else { return nil }
             return ReadingCard(
-                name: card.name, reversed: card.reversed, deckId: deckId,
-                deckName: nil, positionIndex: index, cardId: card.cardId,
-                clarifies: nil)
+                name: card.name, reversed: card.reversed,
+                deckId: reading.deckId, deckName: nil,
+                positionIndex: index, cardId: card.cardId, clarifies: nil)
         }
     }
 
     // MARK: - Sections
 
     private var detailsSection: some View {
-        Section("Reading") {
+        Section("Entry") {
             TextField("Title (optional)", text: $title)
 
             pickerRow("Querents", value: querentSummary) {
                 activePicker = .querent
-            }
-            pickerRow("Deck",
-                      value: decks.first { $0.id == deckId }?.name ?? "Choose…") {
-                activePicker = .deck
-            }
-            pickerRow("Spread", value: spread?.name ?? "No spread") {
-                activePicker = .spread
             }
 
             DatePicker("Date & time", selection: $readingDate)
@@ -165,6 +197,84 @@ struct NewEntryView: View {
 
             TextField("Location (optional)", text: $locationName)
                 .autocorrectionDisabled()
+        }
+    }
+
+    @ViewBuilder
+    private func readingSection(_ index: Int) -> some View {
+        let reading = readings[index]
+        Section {
+            pickerRow("Deck",
+                      value: decks.first { $0.id == reading.deckId }?.name ?? "Choose…") {
+                activePicker = .deck(index)
+            }
+            pickerRow("Spread", value: reading.spread?.name ?? "No spread") {
+                activePicker = .spread(index)
+            }
+
+            if reading.deckId == nil {
+                Text("Choose a deck first.")
+                    .font(.caption)
+                    .foregroundStyle(TJ.textFaint)
+            } else if let spread = reading.spread {
+                if !spread.positions.isEmpty {
+                    SpreadLayoutView(
+                        cards: previewCards(reading),
+                        positions: spread.positions,
+                        onTapCard: { card in
+                            if let slot = card.positionIndex {
+                                pickingCard = (index, slot)
+                            }
+                        },
+                        onTapEmptySlot: { pickingCard = (index, $0) })
+                        .padding(.vertical, 6)
+                }
+                ForEach(Array(spread.positionLabels.enumerated()),
+                        id: \.offset) { slot, label in
+                    slotRow(label: label.isEmpty ? "Position \(slot + 1)" : label,
+                            card: reading.cards.indices.contains(slot)
+                                ? reading.cards[slot] : nil) {
+                        pickingCard = (index, slot)
+                    } clear: {
+                        if readings[index].cards.indices.contains(slot) {
+                            readings[index].cards[slot] = nil
+                        }
+                    } toggleReversed: {
+                        if readings[index].cards.indices.contains(slot) {
+                            readings[index].cards[slot]?.reversed.toggle()
+                        }
+                    }
+                }
+            } else {
+                ForEach(Array(reading.freeformCards.enumerated()),
+                        id: \.element.id) { cardIndex, card in
+                    slotRow(label: "Card \(cardIndex + 1)", card: card) {
+                    } clear: {
+                        readings[index].freeformCards.remove(at: cardIndex)
+                    } toggleReversed: {
+                        readings[index].freeformCards[cardIndex].reversed.toggle()
+                    }
+                }
+                Button {
+                    pickingCard = (index, nil)
+                } label: {
+                    Label("Add card", systemImage: "plus")
+                }
+            }
+        } header: {
+            HStack {
+                Text(readings.count > 1 ? "Reading \(index + 1)" : "Reading")
+                Spacer()
+                if readings.count > 1 {
+                    Button {
+                        readings.remove(at: index)
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.caption)
+                            .foregroundStyle(TJ.textFaint)
+                    }
+                }
+            }
         }
     }
 
@@ -180,56 +290,6 @@ struct NewEntryView: View {
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.caption2)
                     .foregroundStyle(TJ.textFaint)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var cardsSection: some View {
-        Section("Cards") {
-            if deckId == nil {
-                Text("Choose a deck first.")
-                    .font(.caption)
-                    .foregroundStyle(TJ.textFaint)
-            } else if usingSpread {
-                // Live spread preview: tap a slot to fill it, tap a
-                // placed card to re-pick it.
-                if let spread, !spread.positions.isEmpty {
-                    SpreadLayoutView(
-                        cards: previewCards,
-                        positions: spread.positions,
-                        onTapCard: { card in
-                            if let index = card.positionIndex { pickingSlot = index }
-                        },
-                        onTapEmptySlot: { pickingSlot = $0 })
-                        .padding(.vertical, 6)
-                }
-                ForEach(Array((spread?.positionLabels ?? []).enumerated()),
-                        id: \.offset) { index, label in
-                    slotRow(label: label.isEmpty ? "Position \(index + 1)" : label,
-                            card: cards.indices.contains(index) ? cards[index] : nil) {
-                        pickingSlot = index
-                    } clear: {
-                        if cards.indices.contains(index) { cards[index] = nil }
-                    } toggleReversed: {
-                        if cards.indices.contains(index) { cards[index]?.reversed.toggle() }
-                    }
-                }
-            } else {
-                ForEach(Array(freeformCards.enumerated()), id: \.element.id) { index, card in
-                    slotRow(label: "Card \(index + 1)", card: card) {
-                        // tapping re-picks this slot? keep simple: no-op
-                    } clear: {
-                        freeformCards.remove(at: index)
-                    } toggleReversed: {
-                        freeformCards[index].reversed.toggle()
-                    }
-                }
-                Button {
-                    pickingFreeform = true
-                } label: {
-                    Label("Add card", systemImage: "plus")
-                }
             }
         }
     }
@@ -275,13 +335,16 @@ struct NewEntryView: View {
     // MARK: - Behavior
 
     private func place(_ picked: PickedCard) {
-        if let slot = pickingSlot {
-            if cards.indices.contains(slot) { cards[slot] = picked }
-            pickingSlot = nil
-        } else if pickingFreeform {
-            freeformCards.append(picked)
-            pickingFreeform = false
+        guard let picking = pickingCard,
+              readings.indices.contains(picking.reading) else { return }
+        if let slot = picking.slot {
+            if readings[picking.reading].cards.indices.contains(slot) {
+                readings[picking.reading].cards[slot] = picked
+            }
+        } else {
+            readings[picking.reading].freeformCards.append(picked)
         }
+        pickingCard = nil
     }
 
     private func load() {
@@ -312,20 +375,30 @@ struct NewEntryView: View {
     }
 
     private func save() async {
-        guard let deckId else { return }
         saving = true
-        let deckName = decks.first { $0.id == deckId }?.name
 
-        var cardsUsed: [[String: Any]] = []
-        for (index, slot) in chosenCards.enumerated() {
-            guard let card = slot else { continue }
-            cardsUsed.append([
-                "card_id": card.cardId,
-                "name": card.name,
-                "reversed": card.reversed,
-                "position_index": index,
+        var readingPayloads: [[String: Any]] = []
+        for reading in readings where reading.isValid {
+            guard let deckId = reading.deckId else { continue }
+            let deckName = decks.first { $0.id == deckId }?.name
+            var cardsUsed: [[String: Any]] = []
+            for (index, slot) in reading.chosenCards.enumerated() {
+                guard let card = slot else { continue }
+                cardsUsed.append([
+                    "card_id": card.cardId,
+                    "name": card.name,
+                    "reversed": card.reversed,
+                    "position_index": index,
+                    "deck_id": deckId,
+                    "deck_name": deckName ?? "",
+                ])
+            }
+            readingPayloads.append([
                 "deck_id": deckId,
+                "spread_id": reading.spread?.id as Any,
+                "spread_name": reading.spread?.name as Any,
                 "deck_name": deckName ?? "",
+                "cards_used": cardsUsed,
             ])
         }
 
@@ -337,13 +410,7 @@ struct NewEntryView: View {
             "sync_uuid": UUID().uuidString,
             "reading_datetime": formatter.string(from: readingDate),
             "querent_ids": querentIds,
-            "reading": [
-                "deck_id": deckId,
-                "spread_id": spread?.id as Any,
-                "spread_name": spread?.name as Any,
-                "deck_name": deckName ?? "",
-                "cards_used": cardsUsed,
-            ] as [String: Any],
+            "readings": readingPayloads,
         ]
         if !title.trimmingCharacters(in: .whitespaces).isEmpty {
             payload["title"] = title

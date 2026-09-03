@@ -401,3 +401,28 @@ def test_combinations_and_entity_notes_snapshots(client, db):
         res = client.get(f'/api/sync/snapshot/{table}')
         assert res.status_code == 200, table
         assert 'rows' in res.get_json()
+
+
+def test_push_entry_with_multiple_readings(client, db):
+    deck_id, card_id = make_deck_with_card(db)
+    deck2_id, card2_id = make_deck_with_card(db, deck_name='ZZ Second Deck',
+                                             card_name='The Magician')
+    token = _pair(client)
+    payload = _push_payload(db, deck_id, card_id, uuid='zz-multi-uuid')
+    del payload['reading']
+    payload['readings'] = [
+        {'deck_id': deck_id, 'spread_name': 'Daily Draw',
+         'cards_used': [{'card_id': card_id, 'name': 'The Fool',
+                         'reversed': False, 'position_index': 0}]},
+        {'deck_id': deck2_id, 'spread_name': 'Clarifier',
+         'cards_used': [{'card_id': card2_id, 'name': 'The Magician',
+                         'reversed': True, 'position_index': 0}]},
+    ]
+    res = client.post('/api/sync/push-entry', json=payload,
+                      headers=_auth(token), environ_overrides=LAN)
+    assert res.status_code == 201
+    readings = [dict(r) for r in db.get_entry_readings(res.get_json()['id'])]
+    assert len(readings) == 2
+    assert [r['spread_name'] for r in readings] == ['Daily Draw', 'Clarifier']
+    assert [r['position_order'] for r in readings] == [0, 1]
+    assert readings[1]['deck_name'] == 'ZZ Second Deck'
