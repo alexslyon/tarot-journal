@@ -2,6 +2,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;          /* controls wrap under the title at
+                               narrow widths instead of overflowing */
+  gap: 8px;
   margin-bottom: 16px;
 }
 

@@ -18,6 +18,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex: 1;
+  min-width: 0;
+  white-space: normal;   /* override the button base's nowrap */
+  text-align: left;
   border: none;
   background: none;
   padding: 0;
@@ -35,6 +39,8 @@
 }
 
 .entity-notes__source {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: var(--tj-size-small);
   font-weight: var(--tj-ui-weight-strong);
   color: var(--tj-text-accent-2);

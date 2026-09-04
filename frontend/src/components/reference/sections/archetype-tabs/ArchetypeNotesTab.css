@@ -64,6 +64,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  /* The global button base sets nowrap (right for pills, wrong
+     here): long source titles must wrap, not push off the page. */
+  white-space: normal;
   width: 100%;
   padding: 0;
   background: transparent;
@@ -88,6 +91,8 @@
 
 .archetype-notes__source-name {
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--accent);
 }
 
